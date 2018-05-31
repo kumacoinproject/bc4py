@@ -5,8 +5,13 @@ from bc4py.user import CoinObject
 from bc4py.contract.exe import auto_emulate
 from bc4py.database.create import closing, create_db
 from bc4py.database.chain.read import read_contract_tx, read_contract_storage, read_contract_utxo
+from fasteners import InterProcessLock
 import bjson
 import logging
+import os
+import tempfile
+
+finish_tx_cashe_lock = InterProcessLock(os.path.join(tempfile.gettempdir(), 'f.lock'))
 
 
 def create_finish_tx_for_mining(unconfirmed, height):
@@ -17,14 +22,18 @@ def create_finish_tx_for_mining(unconfirmed, height):
                 unconfirmed.remove(tx)
             elif tx.type == C.TX_START_CONTRACT:
                 try:
-                    start_idx = unconfirmed.index(tx)
-                    tx.height = height
-                    finish_tx, estimate_gas = create_finish_tx(start_tx=tx, cur=cur)
-                    if tx.gas_amount < tx.getsize() + estimate_gas:
-                        raise BlockChainError('exceed need gas amount. [{}<{}+{}]'
-                                              .format(tx.gas_amount, tx.getsize(), estimate_gas))
-                    print(finish_tx.getinfo())
-                    unconfirmed.insert(start_idx+1, finish_tx)
+                    with finish_tx_cashe_lock:
+                        finish_tx = get_finish_tx_cashe(start_hash=tx.hash, height=height)
+                        if not finish_tx:
+                            tx.height = height
+                            finish_tx, estimate_gas = create_finish_tx(start_tx=tx, cur=cur)
+                            if tx.gas_amount < tx.getsize() + estimate_gas:
+                                raise BlockChainError('exceed need gas amount. [{}<{}+{}]'
+                                                      .format(tx.gas_amount, tx.getsize(), estimate_gas))
+                            put_finish_tx_cashe(start_hash=tx.hash, height=height, finish_tx=finish_tx)
+                            print("create!", finish_tx.getinfo())
+                        start_idx = unconfirmed.index(tx)
+                        unconfirmed.insert(start_idx+1, finish_tx)
                 except BlockChainError as e:
                     import traceback
                     traceback.print_exc()
@@ -120,3 +129,29 @@ def check_output_format(outputs):
             raise BlockChainError('output coin_id is 0< int. {}'.format(coin_id))
         elif not isinstance(amount, int) or not(amount > 0):
             raise BlockChainError('output amount is 0<= int. {}'.format(amount))
+
+
+# あくまで採掘時のキャッシュ代わりにするだけ
+# get_finish_tx_cashe, put_finish_tx_cashe
+
+
+def get_finish_tx_cashe(start_hash, height):
+    with closing(create_db(V.DB_CASHE_PATH)) as db:
+        cur = db.cursor()
+        d = cur.execute("""
+            SELECT `bin` FROM `finish_tx` WHERE `hash`=? AND `height`=?
+            """, (start_hash, height)).fetchone()
+        if d is None:
+            return None
+        finish_tx = TX(binary=d[0])
+        finish_tx.height = height
+        return finish_tx
+
+
+def put_finish_tx_cashe(start_hash, height, finish_tx):
+    with closing(create_db(V.DB_CASHE_PATH)) as db:
+        cur = db.cursor()
+        cur.execute("""
+            INSERT OR REPLACE INTO `finish_tx` VALUES (?,?,?)
+            """, (start_hash, height, finish_tx.b))
+        db.commit()

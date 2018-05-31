@@ -27,6 +27,7 @@ def set_database_path(sub_dir=None):
             os.makedirs(V.DB_HOME_DIR)
     V.DB_BLOCKCHAIN_PATH = os.path.join(V.DB_HOME_DIR, 'blockchain.dat')
     V.DB_ACCOUNT_PATH = os.path.join(V.DB_HOME_DIR, 'account.dat')
+    V.DB_CASHE_PATH = 'file:cashe.{}.dat?mode=memory'.format(sub_dir)
 
 
 def set_blockchain_params():

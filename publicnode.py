@@ -9,7 +9,7 @@ from bc4py.user.staking import Staking
 from bc4py.user.boot import *
 from bc4py.user.network import broadcast_check, mined_newblock, DirectCmd
 from bc4py.user.api import create_rest_server
-from bc4py.database.create import make_account_db, make_blockchain_db
+from bc4py.database.create import make_account_db, make_blockchain_db, make_cashe_db
 from p2p_python.utils import setup_p2p_params
 from p2p_python.client import PeerClient
 from bc4py.for_debug import set_logger
@@ -36,6 +36,7 @@ def work(port, sub_dir=None):
     set_database_path(sub_dir=sub_dir)
     make_account_db()
     make_blockchain_db()
+    make_cashe_db()
     load_boot_file()
     set_blockchain_params()
     auto_save_boot_file()

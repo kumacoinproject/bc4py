@@ -82,6 +82,7 @@ class V:  # 起動時に設定される変数
     DB_HOME_DIR = None
     DB_BLOCKCHAIN_PATH = None
     DB_ACCOUNT_PATH = None
+    DB_CASHE_PATH = None
 
     # encryption key
     ENCRYPT_KEY = None
