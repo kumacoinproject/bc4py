@@ -54,8 +54,8 @@ def insert_to_chain(new_block, chain_cur, account_cur, f_check_time=True):
         new_block.target2diff()
         new_block.f_orphan = False
         # Websocket apiに通知
-        if V.NEW_CHAIN_INFO_QUE:
-            V.NEW_CHAIN_INFO_QUE.put_nowait(new_block.getinfo())
+        if P.NEW_CHAIN_INFO_QUE:
+            P.NEW_CHAIN_INFO_QUE.put_nowait(new_block.getinfo())
         return True
     except BlockChainError as e:
         logging.warning("Failed insert new block. '{}'".format(e), exc_info=V.F_DEBUG)

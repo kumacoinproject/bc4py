@@ -54,7 +54,8 @@ def fill_inputs_outputs(tx, unspents, chain_cur, fee_coin_id=0, additional_fee=0
         random.shuffle(tx.inputs)
         return input_address
     else:
-        logging.debug("Retry calculate tx fee. [{}=>{}]".format(tx.gas_amount, need_gas_amount))
+        logging.debug("Retry calculate tx fee. [{}=>{}+{}={}]".format(
+            tx.gas_amount, tx.getsize()+len(input_address) * 96, additional_fee, need_gas_amount))
         tx.gas_amount = need_gas_amount
         return fill_inputs_outputs(tx=tx, unspents=unspents,
                                    chain_cur=chain_cur, fee_coin_id=fee_coin_id, additional_fee=additional_fee)

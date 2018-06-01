@@ -37,6 +37,8 @@ class BroadcastCmd:
 
     @staticmethod
     def new_tx(data):
+        if P.F_NOW_BOOTING:
+            return False
         with closing(create_db(V.DB_BLOCKCHAIN_PATH)) as chain_db:
             chain_cur = chain_db.cursor()
             try:

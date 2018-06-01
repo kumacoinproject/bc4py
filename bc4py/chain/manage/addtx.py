@@ -51,5 +51,5 @@ def add_tx_as_new(new_tx, chain_cur, account_cur):
         logging.debug("Add new tx to chain {}".format(hexlify(new_tx.hash).decode()))
 
     # Websocket APIに送信
-    if V.NEW_CHAIN_INFO_QUE:
-        V.NEW_CHAIN_INFO_QUE.put_nowait(new_tx.getinfo())
+    if P.NEW_CHAIN_INFO_QUE:
+        P.NEW_CHAIN_INFO_QUE.put_nowait(new_tx.getinfo())

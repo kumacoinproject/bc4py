@@ -10,13 +10,20 @@ Function
 * Python interpreter based smart contract (PyContract)
 * block containing result smart contract　(differ from Ethereum)
 
+Requirement
+----------
+* Windows/Linux
+* Python3 (3.5, 3.6~)
+* [nem-ed25519](https://github.com/namuyan/nem-ed25519)
+* [p2p-python](https://github.com/namuyan/p2p-python)
+
 Install
 -------
-`python setup.py install`
-or
-`pip install git+https://github.com/namuyan/bc4py`
-and
-`pip3 install git+https://github.com/namuyan/yescryptR16-python.git`
+`python setup.py install`  
+or  
+`pip install git+https://github.com/namuyan/bc4py`  
+and  
+`pip install git+https://github.com/namuyan/yescryptR16-python.git`
 
 Create genesis block
 --------------------
