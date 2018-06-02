@@ -227,12 +227,15 @@ def sync_chain_loop():
         try:
             if P.F_NOW_BOOTING:
                 with global_chain_lock:
+                    P.F_SYNC_DIRECT_IMPORT = True
                     if sync_chain_data():
                         P.F_NOW_BOOTING = False
                         update_mining_staking_all_info()
+                    P.F_SYNC_DIRECT_IMPORT = False
                     reset_good_node()
             time.sleep(5)
         except BlockChainError as e:
+            P.F_SYNC_DIRECT_IMPORT = False
             reset_good_node()
             logging.warning('Update chain failed "{}"'.format(e), exc_info=True)
             time.sleep(10)

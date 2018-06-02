@@ -1,4 +1,4 @@
-from bc4py.config import C, V, BlockChainError
+from bc4py.config import C, V, P, BlockChainError
 from .others import amount_check, inputs_origin_check, signature_check
 from .tx_pos_reward import check_tx_pos_reward
 from .tx_pow_rewad import check_tx_pow_reward
@@ -79,7 +79,14 @@ def check_tx(tx, include_block, cur):
         check_tx_create_contract(tx=tx)
 
     elif tx.type == C.TX_START_CONTRACT:
-        check_tx_start_contract(start_tx=tx, include_block=include_block, cur=cur)
+        if P.F_SYNC_DIRECT_IMPORT:
+            try:
+                check_tx_start_contract_with_sync(start_tx=tx, include_block=include_block, cur=cur)
+            except:
+                # include_blockが無い時
+                check_tx_start_contract(start_tx=tx, include_block=include_block, cur=cur)
+        else:
+            check_tx_start_contract(start_tx=tx, include_block=include_block, cur=cur)
 
     elif tx.type == C.TX_FINISH_CONTRACT:
         if include_block:

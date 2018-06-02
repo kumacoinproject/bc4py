@@ -45,7 +45,8 @@ def mining_process(pipe, params):
             if mining_block and unconfirmed:
                 try:
                     create_finish_tx_for_mining(unconfirmed, mining_block.height)
-                except BaseException:
+                except BaseException as e:
+                    logging.debug("Skip {}".format(e))
                     import traceback
                     traceback.print_exc()
 

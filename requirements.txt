@@ -1,3 +1,4 @@
+fasteners
 aiohttp>=2.3.10
 aiohttp_cors
 pycryptodomex

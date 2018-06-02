@@ -82,6 +82,7 @@ class V:  # 起動時に設定される変数
     DB_HOME_DIR = None
     DB_BLOCKCHAIN_PATH = None
     DB_ACCOUNT_PATH = None
+    DB_CASHE_PATH = None
 
     # encryption key
     ENCRYPT_KEY = None
@@ -97,15 +98,13 @@ class V:  # 起動時に設定される変数
     F_MINING_POWER_SAVE = 0.0
     F_DEBUG = None
 
-    # API streaming
-    NEW_CHAIN_INFO_QUE = None
 
-
-class P:
-    # 0Blockより1000Block毎にCheckPointを作成する
-    CHECK_POINTS = dict()  # { height: blockhash,..}
+class P:  # 起動中もダイナミックに変化
+    CHECK_POINTS = dict()  # { height: blockhash,..} 0Blockより1000Block毎にCheckPointを作成する
     UNCONFIRMED_TX = set()  # {txhash,..}
     F_NOW_BOOTING = True  # 起動中
+    F_SYNC_DIRECT_IMPORT = False
+    NEW_CHAIN_INFO_QUE = None  # API streaming
 
 
 class Debug:

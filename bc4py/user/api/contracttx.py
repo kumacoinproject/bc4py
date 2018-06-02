@@ -4,7 +4,7 @@ from bc4py.contract.utils import *
 from bc4py.contract.finishtx import create_finish_tx
 from bc4py.user import CoinObject
 from bc4py.user.txcreation import *
-from bc4py.database.chain.read import read_contract_list, read_contract_tx, read_contract_history
+from bc4py.database.chain.read import read_contract_list, read_contract_tx, read_contract_history, read_contract_storage
 from bc4py.database.create import closing, create_db
 from bc4py.user.network.sendnew import send_newtx
 from bc4py.chain.tx import TX
@@ -43,6 +43,9 @@ async def contract_detail(request):
         try:
             c_address = request.query['address']
             c_tx = read_contract_tx(c_address=c_address, cur=cur)
+            c_cs = read_contract_storage(address=c_address, cur=cur)
+            c_cs_data = {k.decode(errors='ignore'): v.decode(errors='ignore')
+                         for k, v in c_cs.key_value.items()}
             c_address, c_bin = bjson.loads(c_tx.message)
             pickle_dis = binary2dis(c_bin)
             c_obj = binary2contract(c_bin)
@@ -50,6 +53,8 @@ async def contract_detail(request):
             data = c_tx.getinfo()
             data.update({
                 'address': c_address,
+                'cs_data': c_cs_data,
+                'cs_ver': c_cs.version,
                 'pickle_dis': pickle_dis,
                 'contract_dis': contract_dis
             })
@@ -64,9 +69,11 @@ async def contract_history(request):
         try:
             c_address = request.query['address']
             d = read_contract_history(address=c_address, cur=cur)
-            return web_base.json_res([
-                (hexlify(start_hash).decode(), hexlify(finish_hash).decode())
-                for start_hash, finish_hash in d if start_hash and finish_hash])
+            return web_base.json_res([{
+                'height': height,
+                'start_hash': hexlify(start_hash).decode(),
+                'finish_hash': hexlify(finish_hash).decode()}
+                for start_hash, finish_hash, height in d if start_hash and finish_hash])
         except BaseException:
             return web_base.error_res()
 
@@ -131,14 +138,14 @@ async def contract_start(request):
                 c_data = post.get('data', None)
                 outputs = post.get('outputs', list())
                 from_group = post.get('group', C.ANT_UNKNOWN)
-                f_broadcast = bool(post.get('send', False))
+                f_send = bool(post.get('send', False))
                 # TX作成
                 outputs = [(address, coin_id, amount) for address, coin_id, amount in outputs]
                 start_tx = start_contract_tx(
                     c_address=c_address, c_data=c_data, chain_cur=chain_cur, account_cur=account_cur,
                     outputs=outputs, from_group=from_group)
                 # 送信
-                if f_broadcast:
+                if f_send:
                     if not send_newtx(start_tx, chain_cur, account_cur):
                         raise BaseException('Failed to send new tx.')
                     chain_db.commit()
@@ -147,7 +154,8 @@ async def contract_start(request):
                         'txhash': hexlify(start_tx.hash).decode(),
                         'address': c_address,
                         'fee': start_tx.gas_price * start_tx.gas_amount,
-                        'data': c_data})
+                        'data': c_data,
+                        'send': f_send})
                 else:
                     chain_db.rollback()
                     account_db.rollback()
@@ -155,7 +163,8 @@ async def contract_start(request):
                         'txhash': hexlify(start_tx.hash).decode(),
                         'address': c_address,
                         'fee': start_tx.gas_price * start_tx.gas_amount,
-                        'data': c_data})
+                        'data': c_data,
+                        'send': f_send})
             except BaseException:
                 return web_base.error_res()
 

@@ -132,3 +132,15 @@ def make_account_db():
             if len(sql_) > 10:
                 db.execute(sql_)
         db.commit()
+
+
+def make_cashe_db():
+    with closing(create_db(V.DB_CASHE_PATH)) as db:
+        # 毎回FinishTXをEmulateするのも無駄なのでCashe
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS `finish_tx` (
+            `hash` BINARY PRIMARY KEY NOT NULL,
+            `height` INTEGER NOT NULL,
+            `bin` BINARY
+            )""")
+        db.commit()

@@ -77,7 +77,7 @@ async def websocket_protocol_check(request):
 
 async def event_wait_blockchain(app):
     que = queue.LifoQueue()
-    V.NEW_CHAIN_INFO_QUE = que
+    P.NEW_CHAIN_INFO_QUE = que
     logging.debug("start blockchain event loop.")
     while True:
         await asyncio.sleep(0.1)

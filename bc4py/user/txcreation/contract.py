@@ -72,10 +72,11 @@ def start_contract_tx(c_address, c_data, chain_cur, account_cur, outputs=None,
     unspents = full_unspents(unspent_pairs, chain_cur)
     # Emulateし、finish txにかかるGasを計算
     start_tx.height = max_block_height(chain_cur) + 1
-    finish_tx, estimate_gas = create_finish_tx(start_tx=start_tx, cur=chain_cur)
+    finish_tx, estimate_gas = create_finish_tx(start_tx=start_tx, cur=chain_cur, set_limit=False)
     start_tx.height = None
     # input/outputを補充
-    additional_fee = estimate_gas + finish_tx.getsize()
+    # additional_fee = estimate_gas + finish_tx.getsize()
+    additional_fee = int(1.5*estimate_gas + finish_tx.getsize())
     input_address = fill_inputs_outputs(start_tx, unspents, chain_cur, additional_fee=additional_fee)
     # RedeemDummyAddressを入れ替え
     new_redeem_address = replace_redeem_dummy_address(start_tx, account_cur)
