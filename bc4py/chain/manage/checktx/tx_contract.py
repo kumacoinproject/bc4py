@@ -1,8 +1,7 @@
-from bc4py.config import C, V, BlockChainError
+from bc4py.config import C, V, P, BlockChainError
 from bc4py.contract.finishtx import create_finish_tx
-from bc4py.contract.exe import auto_emulate
 from bc4py.contract.utils import binary2contract
-from bc4py.database.chain.read import read_tx_output, read_contract_tx, read_contract_storage, max_block_height
+from bc4py.database.chain.read import read_tx_output, max_block_height
 from nem_ed25519.key import is_address
 import bjson
 import logging
@@ -51,6 +50,7 @@ def check_tx_start_contract(start_tx, include_block, cur):
         elif include_status:
             # contract 成功
             if include_diff != estimate_finish_diff:
+                # versionは確認せず
                 raise BlockChainError('Do not match diff [{}!={}]'.format(include_diff, estimate_finish_diff))
             # ここでOutputの検査をする
             c_address, c_data = bjson.loads(start_tx.message)
@@ -68,6 +68,22 @@ def check_tx_start_contract(start_tx, include_block, cur):
     # Emulateの為に加えたHeightを戻す
     if not include_block:
         start_tx.height = old_height
+
+
+def check_tx_start_contract_with_sync(start_tx, include_block, cur):
+    assert P.F_SYNC_DIRECT_IMPORT, 'Not enabled mode "check_tx_start_contract_with_sync".'
+    assert include_block, 'Not block input.'
+    include_finish_tx, include_status, include_diff = find_finish_tx(include_block, start_tx)
+    if include_status:
+        # contract 成功
+        # ここでOutputの検査をする=>amount checkは既に行っているので何もしなくてOK?
+        pass
+    else:
+        # contract 失敗
+        if len(include_finish_tx.inputs) != 0:
+            raise BlockChainError('Failed contract so inputs is zero. {}'.format(include_finish_tx.inputs))
+        elif len(include_finish_tx.outputs) != 0:
+            raise BlockChainError('Failed contract so outputs is zero. {}'.format(include_finish_tx.outputs))
 
 
 def check_tx_finish_contract(finish_tx, include_block):
@@ -161,5 +177,6 @@ def compare_include2estimate_tx(include_tx, estimate_tx, c_address, cur):
 __all__ = [
     "check_tx_create_contract",
     "check_tx_start_contract",
+    "check_tx_start_contract_with_sync",
     "check_tx_finish_contract"
 ]

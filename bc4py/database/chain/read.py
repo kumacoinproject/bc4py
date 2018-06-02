@@ -397,18 +397,37 @@ def read_contract_utxo(c_address, cur):
 
 
 def read_contract_history(address, cur):
+    # [(start_hash, finish_hash, height),...]
     d = cur.execute("""
-        SELECT `start_hash`,`finish_hash` FROM `contract_history` WHERE `address`=?
+        SELECT `start_hash`,`finish_hash`,`height` FROM
+            (SELECT `start_hash`,`finish_hash` FROM `contract_history` WHERE `address`=?) AS `history`
+        INNER JOIN `tx` ON `history`.`start_hash`=`tx`.`hash`
+        ORDER BY `height`
         """, (address,)).fetchall()
     return d
 
 
-def read_contract_storage(address, cur, stop_hash=None):
+def read_contract_storage_old(address, cur, stop_hash=None):
     finish_hash_list = cur.execute("""
-        SELECT `finish_hash` FROM `contract_history` WHERE `address`=?
-        """, (address,)).fetchall()
+            SELECT `finish_hash` FROM `contract_history` WHERE `address`=?
+            """, (address,)).fetchall()
+    txs = [__tx_header(txhash=finish_hash, cur=cur) for (finish_hash,) in finish_hash_list if finish_hash]
+    txs = sorted(txs, key=lambda x: x.height)
     cs = ContractStorage()
-    for (finish_hash,) in finish_hash_list:
+    for tx in txs:
+        status, start_hash, cs_diff = bjson.loads(tx.message)
+        if start_hash == stop_hash:
+            return cs
+        elif not status:
+            continue
+        elif isinstance(cs_diff, tuple):
+            cs.marge(cs_diff)
+    return cs
+
+
+def read_contract_storage(address, cur, stop_hash=None):
+    cs = ContractStorage()
+    for start_hash, finish_hash, height in read_contract_history(address, cur):
         if finish_hash is None:
             continue
         finish_tx = __tx_header(txhash=finish_hash, cur=cur)
