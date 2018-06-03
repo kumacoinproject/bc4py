@@ -85,7 +85,7 @@ def create_rest_server(f_local, port):
             ('contractdetail', 'GET', '[address]', 'Get contract detail by address.'),
             ('sourcecompile', 'POST', '[source OR path] [name=None]', 'Python code to hexstr.'),
             ('contractcreate', 'POST', '[hex] [group=Unknown]', 'register contract to blockchain.'),
-            ('contractstart', 'POST', '[address] [data] [gas_limit=100000000] [outputs=list()] <BR>\n'
+            ('contractstart', 'POST', '[address] [data=None] [gas_limit=100000000] [outputs=list()] <BR>\n'
                                       '[group=Unknown] [send=false]', 'create and send start contract.'),
 
             ('getblockbyheight', 'GET', '[height]', 'Get blockinfo by height.'),

@@ -141,7 +141,7 @@ async def contract_start(request):
                 f_send = bool(post.get('send', False))
                 # TX作成
                 outputs = [(address, coin_id, amount) for address, coin_id, amount in outputs]
-                start_tx = start_contract_tx(
+                start_tx, finish_tx = start_contract_tx(
                     c_address=c_address, c_data=c_data, chain_cur=chain_cur, account_cur=account_cur,
                     outputs=outputs, from_group=from_group)
                 # 送信
@@ -159,11 +159,25 @@ async def contract_start(request):
                 else:
                     chain_db.rollback()
                     account_db.rollback()
+                    status, dummy, cs_diff = bjson.loads(finish_tx.message)
+                    if cs_diff:
+                        updates, del_key, version = cs_diff
+                        updates = {k.decode(errors='ignore'): v.decode(errors='ignore') for k, v in updates.items()}
+                        del_key = [k.decode(errors='ignore') for k in del_key]
+                    else:
+                        updates, del_key, version = None, None, None
                     return web_base.json_res({
                         'txhash': hexlify(start_tx.hash).decode(),
                         'address': c_address,
                         'fee': start_tx.gas_price * start_tx.gas_amount,
-                        'data': c_data,
+                        'input_data': c_data,
+                        'result': {
+                            'status': status,
+                            'outputs': finish_tx.outputs,
+                            'cs_updates': updates,
+                            'cs_del_key': del_key,
+                            'version': version,
+                        },
                         'send': f_send})
             except BaseException:
                 return web_base.error_res()
