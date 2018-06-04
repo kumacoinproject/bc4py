@@ -17,7 +17,11 @@ def get_unspent(chain_cur, account_cur):
     now = int(time.time()) - V.BLOCK_GENESIS_TIME
     top_height = max_block_height(cur=chain_cur)
     for txhash, txindex in read_all_utxo(cur=account_cur):
-        tx = read_tx_object(txhash=txhash, cur=chain_cur)
+        try:
+            tx = read_tx_object(txhash=txhash, cur=chain_cur)
+        except BlockChainError as e:
+            logging.warning('ignore error "{}"'.format(e))
+            continue
         if tx.b is None:
             logging.warning("Need fix chan data. Not found tx {}".format(hexlify(txhash).decode()))
             continue
