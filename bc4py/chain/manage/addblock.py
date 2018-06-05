@@ -15,7 +15,8 @@ def add_block(new_block, chain_cur, account_cur):
     for tx in new_block.txs:
         if not is_include_txhash(txhash=tx.hash, cur=chain_cur):
             add_tx_as_new(new_tx=tx, chain_cur=chain_cur, account_cur=account_cur)
-            add_utxo_user(tx=tx, chain_cur=chain_cur, account_cur=account_cur)
+            f_raise = False if P.F_SYNC_DIRECT_IMPORT else True
+            add_utxo_user(tx=tx, chain_cur=chain_cur, account_cur=account_cur, f_raise=f_raise)
         update_tx_height(txhash=tx.hash, height=new_block.height, cur=chain_cur)
 
         # ProofTXでないなら必ず除くが、Folk時に既にConfirmedになってる可能性に注意

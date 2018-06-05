@@ -52,12 +52,12 @@ def update_unconfirmed_tx(chain_cur, account_cur):
             # 一度に大量に削除せず
             logging.debug("Update unconfirmed tx {}".format(len(removed)))
             break
-        elif not (unconfirmed_tx.time < now < unconfirmed_tx.deadline + 3600):
-            # 時間切れによる完全削除
-            removed += remove_unconfirmed_tx(tx=unconfirmed_tx, chain_cur=chain_cur, account_cur=account_cur)
         elif unconfirmed_tx.height is not None:
             # 取り込まれたので一部削除
             P.UNCONFIRMED_TX.remove(unconfirmed_hash)
+        elif not (unconfirmed_tx.time < now < unconfirmed_tx.deadline + 1000):
+            # 時間切れによる完全削除
+            removed += remove_unconfirmed_tx(tx=unconfirmed_tx, chain_cur=chain_cur, account_cur=account_cur)
     return removed
 
 

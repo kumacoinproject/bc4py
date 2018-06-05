@@ -85,4 +85,4 @@ def start_contract_tx(c_address, c_data, chain_cur, account_cur, outputs=None,
     recode_account_movement(start_tx, new_redeem_address, from_group, chain_cur, account_cur)
     # 署名をする
     setup_signature(start_tx, input_address)
-    return start_tx
+    return start_tx, finish_tx

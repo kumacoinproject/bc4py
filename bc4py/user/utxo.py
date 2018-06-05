@@ -17,12 +17,13 @@ def get_unspent(chain_cur, account_cur):
     now = int(time.time()) - V.BLOCK_GENESIS_TIME
     top_height = max_block_height(cur=chain_cur)
     for txhash, txindex in read_all_utxo(cur=account_cur):
-        tx = read_tx_object(txhash=txhash, cur=chain_cur)
-        if tx.b is None:
-            logging.warning("Need fix chan data. Not found tx {}".format(hexlify(txhash).decode()))
+        try:
+            tx = read_tx_object(txhash=txhash, cur=chain_cur)
+        except BlockChainError as e:
+            logging.warning('ignore error, need fix chan data. "{}" {}'.format(e, hexlify(txhash).decode()))
             continue
 
-        elif tx.type in (C.TX_POW_REWARD, C.TX_POS_REWARD):
+        if tx.type in (C.TX_POW_REWARD, C.TX_POS_REWARD):
             # ProofTXはMainChainに含まれ、かつ採掘してからMATURE_HEIGHT Block経過する事
             if tx.height is None:
                 continue

@@ -1,9 +1,10 @@
 
 
 class ContractStorage:
-    def __init__(self, key_value=None):
+    def __init__(self, key_value=None, default_value=None):
         self.version = 0
         self.key_value = key_value if key_value else dict()
+        self.default_value = default_value
         self.check()
 
     def __repr__(self):
@@ -19,7 +20,12 @@ class ContractStorage:
         if item in self.key_value:
             return self.key_value[item]
         else:
-            return None
+            return self.default_value
+
+    def get(self, key, default):
+        if key in self.key_value:
+            return self.key_value[key]
+        return default
 
     def __delitem__(self, key):
         if key in self.key_value:
@@ -30,6 +36,9 @@ class ContractStorage:
 
     def __copy__(self):
         return self.key_value.copy()
+
+    def __eq__(self, other):
+        return self.key_value == other.key_value
 
     def marge(self, diff):
         self.check()

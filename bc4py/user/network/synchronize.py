@@ -16,6 +16,7 @@ from binascii import hexlify
 
 
 good_node = list()
+bad_node = list()
 best_hash_on_network = None
 best_height_on_network = None
 
@@ -39,14 +40,20 @@ def set_good_node():
     best_hash_on_network, num0 = blockhash.most_common()[0]
     best_height_on_network, num1 = blockheight.most_common()[0]
     good_node.clear()
-    if num0 == num1 == 1:
-        good_node.extend([_user for _user, _hash, _height, _booting in _node if not _booting])
-    elif num0 == 1:
-        good_node.extend([_user for _user, _hash, _height, _booting in _node if _height == best_height_on_network])
-    else:
-        good_node.extend([_user for _user, _hash, _height, _booting in _node if _hash == best_hash_on_network])
-    if len(good_node) <= 1:
-        good_node.extend([_user for _user, _hash, _height, _booting in _node])
+    bad_node.clear()
+    for _user, _hash, _height, _booting in _node:
+        if num0 == num1 == 1:
+            if _booting:
+                good_node.append(_user)
+            else:
+                bad_node.append(_user)
+        elif num0 == 1:
+            if _height == best_height_on_network:
+                good_node.append(_user)
+            else:
+                bad_node.append(_user)
+        else:
+            good_node.append(_user)
 
 
 def reset_good_node():
@@ -58,10 +65,13 @@ def reset_good_node():
 def ask_node(cmd, data=None, f_continue_asking=False):
     count = 10
     pc = V.PC_OBJ
-    while True:
+    while 0 < count:
         try:
             user = random.choice(pc.p2p.user)
-            if user not in good_node:
+            if user in bad_node:
+                count -= 1
+                continue
+            elif user not in good_node:
                 set_good_node()
                 if len(good_node) == 0:
                     raise BlockChainError('No good node found.')
@@ -80,6 +90,7 @@ def ask_node(cmd, data=None, f_continue_asking=False):
         except IndexError:
             raise BlockChainError('No node found.')
         return r
+    raise BlockChainError('Too many retry ask_node.')
 
 
 def fill_newblock(new_block, txs, next_height, next_hash, chain_cur):

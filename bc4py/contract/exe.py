@@ -34,7 +34,6 @@ def work_field(params, contract_tx, start_tx, que):
         que.put((CMD_PORT, virtual_machine.port))
         virtual_machine.server_start()
         c_address, c_bin = bjson.loads(contract_tx.message)
-        # import_lack_modules(binary2opcode(c_bin))
         c_obj = binary2contract(c_bin)
         filepath = c_obj.__code__.co_filename
         module_name = os.path.split(filepath)[1]

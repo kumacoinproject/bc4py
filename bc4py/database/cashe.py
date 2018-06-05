@@ -88,14 +88,10 @@ class WeakrefCashe:
             self.hash2data[block.hash] = block
             for tx in block.txs:
                 self.hash2data[tx.hash] = tx
-            if len(self.hash2data) > self.limit:
-                self.__refresh()
 
     def put_tx(self, tx):
         with self.lock:
             self.hash2data[tx.hash] = tx
-            if len(self.hash2data) > self.limit:
-                self.__refresh()
 
     def __getitem__(self, item):
         if item in self.hash2data:
@@ -105,16 +101,6 @@ class WeakrefCashe:
 
     def __contains__(self, item):
         return item in self.hash2data
-
-    def __refresh(self):
-        print("weak before", len(self.hash2data))
-        limit = self.limit * 3 // 4
-        for hash_, obj_ in sorted(self.hash2data.items(), key=lambda a: a[1][0]):
-            if hash_ in self.hash2data:
-                del self.hash2data[hash_]
-            if len(self.hash2data) < limit:
-                break
-        print("weak after", len(self.hash2data))
 
     def getsize(self):
         size = 0
