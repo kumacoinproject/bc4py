@@ -11,3 +11,4 @@ pysha3
 git+https://github.com/namuyan/yescryptR16-python@master
 xmltodict
 requests
+leveldb
