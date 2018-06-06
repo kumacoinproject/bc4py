@@ -54,60 +54,56 @@ class TX:
             self.type = tx['type']
             self.time = tx['time']
             self.deadline = tx['deadline']
-            self.inputs = tx['inputs']
-            self.outputs = tx['outputs']
-            self.gas_price = tx['gas_price']
+            self.inputs = tx.get('inputs', list())
+            self.outputs = tx.get('outputs', list())
+            self.gas_price = tx.get('gas_price', V.COIN_MINIMUM_PRICE)
             self.gas_amount = tx['gas_amount']
-            self.message_type = tx['message_type']
-            self.message = tx['message']
+            self.message_type = tx.get('message_type', C.MSG_NONE)
+            self.message = tx.get('message', b'')
             self.serialize()
         self.signature = list()
         self.used_index = b''
 
     def serialize(self):
-        self.b = struct.pack('>4I', self.version, self.type, self.time, self.deadline)
+        # 構造
+        # [version I]-[type I]-[time I]-[deadline I]-[gas_price Q]-[gas_amount q]-[msg_type B]-
+        # -[input_len B]-[output_len B]-[msg_len I]-[inputs]-[outputs]-[msg]
+        self.b = struct.pack(
+            '>IIIIQqBBBI', self.version, self.type, self.time, self.deadline, self.gas_price, self.gas_amount,
+            self.message_type, len(self.inputs), len(self.outputs), len(self.message))
         # inputs
-        self.b += len(self.inputs).to_bytes(1, 'big')
         for txhash, txindex in self.inputs:
             self.b += struct.pack('>32sB', txhash, txindex)
         # outputs
-        self.b += len(self.outputs).to_bytes(1, 'big')
         for address, coin_id, amount in self.outputs:
             self.b += struct.pack('>40sIQ', address.encode(), coin_id, amount)
-        # fee, message
-        self.b += struct.pack('>QQHI', self.gas_price, self.gas_amount, self.message_type, len(self.message))
+        # message
         self.b += self.message
         # txhash
         self.hash = sha256(self.b).digest()
 
     def deserialize(self):
-        self.version, self.type, self.time, self.deadline = struct.unpack_from('>4I', self.b, 0)
+        self.version, self.type, self.time, self.deadline, self.gas_price, self.gas_amount,\
+            self.message_type, input_len, outputs_len, msg_len = struct.unpack_from('>IIIIQqBBBI', self.b)
         # inputs
-        pos = 16
-        inputs_num = int.from_bytes(self.b[pos:pos+1], 'big')
-        pos += 1
+        pos = struct.calcsize('>IIIIQqBBBI')
         self.inputs = list()
         add_pos = struct.calcsize('>32sB')
-        for i in range(inputs_num):
+        for i in range(input_len):
             self.inputs.append(struct.unpack_from('>32sB', self.b, pos))
             pos += add_pos
         # outputs
-        outputs_num = int.from_bytes(self.b[pos:pos+1], 'big')
-        pos += 1
-        self.outputs = list()
         add_pos = struct.calcsize('>40sIQ')
-        for i in range(outputs_num):
+        self.outputs = list()
+        for i in range(outputs_len):
             address, coin_id, amount = struct.unpack_from('>40sIQ', self.b, pos)
             self.outputs.append((address.decode(), coin_id, amount))
             pos += add_pos
-        # fee, message
-        self.gas_price, self.gas_amount, self.message_type, message_len = \
-            struct.unpack_from('>QQHI', self.b, pos)
-        pos += struct.calcsize('>QQHI')
-        self.message = self.b[pos:pos+message_len]
-        pos += message_len
+        # msg
+        self.message = self.b[pos:pos+msg_len]
+        pos += msg_len
         if len(self.b) != pos:
-            raise BlockChainError('Do not match len %d!=%d' % (len(self.b), pos))
+            raise BlockChainError('Do not match len [{}!={}'.format(len(self.b), pos))
         self.hash = sha256(self.b).digest()
 
     def getinfo(self):
@@ -123,7 +119,7 @@ class TX:
         r['outputs'] = self.outputs
         r['gas_price'] = self.gas_price
         r['gas_amount'] = self.gas_amount
-        r['message_type'] = C.msgtype2name[self.message_type] if self.message_type in C.msgtype2name else self.message_type
+        r['message_type'] = C.msgtype2name.get(self.message_type) or self.message_type
         r['message'] = self.message.decode() if self.message_type == C.MSG_PLAIN else hexlify(self.message).decode()
         r['signature'] = [(pubkey, hexlify(signature).decode()) for pubkey, signature in self.signature]
         r['meta'] = self.meta
