@@ -15,8 +15,11 @@ class TX:
         "b", "hash", "height", "pos_amount",
         "version", "type", "time", "deadline", "inputs", "outputs",
         "gas_price", "gas_amount", "message_type", "message",
-        "signature", "used_index", "meta",
+        "signature", "used_index", "meta", "inner_params", "f_on_memory",
         "__weakref__")
+
+    def __eq__(self, other):
+        return self.hash == other.hash
 
     def __repr__(self):
         return "<TX {} {} {} >"\
@@ -45,6 +48,8 @@ class TX:
         self.used_index = None
         # 処理には使わないが有用なデータ
         self.meta = dict()
+        self.inner_params = dict()
+        self.f_on_memory = None
 
         if binary:
             self.b = binary
@@ -123,6 +128,7 @@ class TX:
         r['message'] = self.message.decode() if self.message_type == C.MSG_PLAIN else hexlify(self.message).decode()
         r['signature'] = [(pubkey, hexlify(signature).decode()) for pubkey, signature in self.signature]
         r['meta'] = self.meta
+        r['f_on_memory'] = self.f_on_memory
         return r
 
     def getsize(self):

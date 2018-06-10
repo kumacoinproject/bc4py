@@ -2,8 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from bc4py.config import C, V
-from bc4py.database.create import create_db, closing
-from bc4py.database.chain.read import read_block_header
+from bc4py.database.builder import builder
 from bc4py.chain.utils import bits2target, target2bits
 from math import log2
 import time
@@ -69,29 +68,27 @@ def get_bits_by_hash(previous_hash, consensus):
     block_span = pow_target if consensus == C.BLOCK_POW else pos_target
 
     # Block読み込み
+    check_previous_hash = previous_hash
+    block = builder.get_block(check_previous_hash)
+    new_block_time = block.time
+    new_block_bits = None
     count = 0
-    with closing(create_db(V.DB_BLOCKCHAIN_PATH)) as db:
-        cur = db.cursor()
-        check_previous_hash = previous_hash
-        block = read_block_header(blockhash=check_previous_hash, cur=cur)
-        new_block_time = block.time
-        new_block_bits = None
-        while True:
-            block = read_block_header(blockhash=check_previous_hash, cur=cur)
-            check_previous_hash = block.previous_hash
-            if block.flag == C.BLOCK_GENESIS:
-                cashe[(previous_hash, consensus)] = (MAX_BITS, MAX_TARGET)
-                return MAX_BITS, MAX_TARGET
-            elif block.flag != consensus:
-                continue
-            else:
-                count += 1
-            # set block
-            if count == 1:
-                new_block_bits = block.bits  # new
-            if count == C.DIFF_RETARGET:
-                old_block_time = block.time  # old
-                break
+    while True:
+        block = builder.get_block(check_previous_hash)
+        check_previous_hash = block.previous_hash
+        if block.flag == C.BLOCK_GENESIS:
+            cashe[(previous_hash, consensus)] = (MAX_BITS, MAX_TARGET)
+            return MAX_BITS, MAX_TARGET
+        elif block.flag != consensus:
+            continue
+        else:
+            count += 1
+        # set block
+        if count == 1:
+            new_block_bits = block.bits  # new
+        if count == C.DIFF_RETARGET:
+            old_block_time = block.time  # old
+            break
 
     # bits to target
     target = bits2target(bits=new_block_bits)
@@ -132,10 +129,8 @@ def get_pos_bias_by_hash(previous_hash):
     pow_target = get_bits_by_hash(previous_hash=previous_hash, consensus=C.BLOCK_POW)[1]
     pos_target = get_bits_by_hash(previous_hash=previous_hash, consensus=C.BLOCK_POS)[1]
 
-    with closing(create_db(V.DB_BLOCKCHAIN_PATH)) as db:
-        cur = db.cursor()
-        previous_block = read_block_header(blockhash=previous_hash, cur=cur)
-        bias_target = bits2target(bits=previous_block.pos_bias)
+    previous_block = builder.get_block(previous_hash)
+    bias_target = bits2target(bits=previous_block.pos_bias)
 
     # POSのDiffが大きすぎるとBiasが1より大きくになる
     # new_target が大きくなりCoinの評価が小さくなる

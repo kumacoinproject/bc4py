@@ -1,7 +1,7 @@
 #!/user/env python3
 # -*- coding: utf-8 -*-
 
-from bc4py.config import V
+from bc4py.config import C, V
 import sqlite3
 from contextlib import closing
 import re
@@ -34,113 +34,49 @@ def sql_info(data):
     logging.debug("SQL: {} {}".format(round(time.time()-V.BLOCK_GENESIS_TIME, 4), re.sub(r"\s+", " ", data)))
 
 
-def make_blockchain_db():
-    with closing(create_db(V.DB_BLOCKCHAIN_PATH)) as db:
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS `block` (
-            `hash` BINARY PRIMARY KEY NOT NULL,
-            `height` INTEGER,
-            `work` BINARY,
-            `bin` BINARY,
-            `flag` INTEGER,
-            `time` INTEGER,
-            `txs` BINARY
-            )""")
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS `tx` (
-            `hash` BINARY PRIMARY KEY NOT NULL,
-            `height` INTEGER,
-            `bin` BINARY,
-            `sign` BINARY,
-            `time` INTEGER,
-            `used_index` BINARY
-            )""")
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS `coins` (
-            `id` INTEGER PRIMARY KEY,
-            `hash` BINARY,
-            `coin_id` INTEGER,
-            `bin` BINARY
-            )""")
-        # C.TX_CREATE_CONTRACT Contractの新規登録
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS `contract_info` (
-            `address` TEXT PRIMARY KEY,
-            `hash` BINARY
-            )""")
-        # storageはDictで差分Updateしてゆく
-        # utxoはused_indexより計算、Storageは
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS `contract_history` (
-            `start_hash` BINARY PRIMARY KEY,
-            `finish_hash` BINARY,
-            `address` TEXT
-            )""")
-        # CREATE INDEX IF NOT EXISTS 'null_idx' ON `tx` (`height`) WHERE `height` IS NULL
-        sql = """
-            CREATE INDEX IF NOT EXISTS 'height_idx' ON `block` (`height`)
-            CREATE INDEX IF NOT EXISTS 'coins_idx' ON `coins` (`coin_id`)
-            CREATE INDEX IF NOT EXISTS 'hash_idx' ON `contract_info` (`hash`)
-            CREATE INDEX IF NOT EXISTS 'address_idx' ON `contract_history` (`address`)
-            """.split("\n")
-        for sql_ in sql:
-            if len(sql_) > 10:
-                db.execute(sql_)
-        db.commit()
-
-
 def make_account_db():
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         db.execute("""
-            CREATE TABLE IF NOT EXISTS `pool` (
-            `id` INTEGER PRIMARY KEY NOT NULL,
-            `group` TEXT,
-            `sk` BINARY,
-            `pk` BINARY,
-            `ck` TEXT )""")
-        db.execute("""
             CREATE TABLE IF NOT EXISTS `log` (
-            `id` INTEGER PRIMARY KEY NOT NULL,
             `hash` BINARY,
-            `direction` INTEGER,
             `index` INTEGER,
-            `from_group` TEXT,
-            `to_group` TEXT,
-            `coin_id` INTEGER,
-            `amount` INTEGER,
-            `time` INTEGER
-            )""")
+            `type` INTEGER NOT NULL,
+            `from` INTEGER NOT NULL,
+            `to` INTEGER NOT NULL,
+            `coin_id` INTEGER NOT NULL,
+            `amount` INTEGER NOT NULL,
+            `time` INTEGER NOT NULL,
+            PRIMARY KEY (`hash`,`index`)
+        )""")
         db.execute("""
-            CREATE TABLE IF NOT EXISTS `utxo` (
-            `used` INTEGER,
-            `hash` BINARY,
-            `index` INTEGER
-            )""")
+            CREATE TABLE IF NOT EXISTS `account` (
+            `id` INTEGER PRIMARY KEY,
+            `name` TEXT UNIQUE NOT NULL,
+            `description` TEXT NOT NULL,
+            `time` INTEGER NOT NULL
+        )""")
         db.execute("""
-            CREATE TABLE IF NOT EXISTS `balance` (
-            `group` TEXT,
-            `coin_id` INTEGER,
-            `amount` INTEGER )""")
-        sql = """
-            CREATE INDEX IF NOT EXISTS 'ck_idx' ON `pool` (`ck`)
-            CREATE INDEX IF NOT EXISTS 'hash_idx' ON `log` (`hash`)
-            CREATE UNIQUE INDEX IF NOT EXISTS 'utxo_idx' ON `utxo` (`hash`,`index`)
-            CREATE INDEX IF NOT EXISTS 'used_idx' ON `utxo` (`used`)
-            CREATE UNIQUE INDEX IF NOT EXISTS 'pair_idx' ON `balance` (`group`,`coin_id`)
-        """.split("\n")
+            CREATE TABLE IF NOT EXISTS `pool` (
+            `id` INTEGER PRIMARY KEY,
+            `sk` BINARY NOT NULL,
+            `pk` BINARY NOT NULL,
+            `ck` TEXT NOT NULL,
+            `user` INTEGER NOT NULL,
+            `time` INTEGER NOT NULL
+        )""")
+        # index
+        sql = [
+            "CREATE INDEX IF NOT EXISTS 'type_idx' ON `log` (`type`)",
+            "CREATE INDEX IF NOT EXISTS 'name_idx' ON `account` (`name`)",
+            "CREATE INDEX IF NOT EXISTS 'ck_idx' ON `pool` (`ck`)",
+            "CREATE INDEX IF NOT EXISTS 'user_idx' ON `pool` (`user`)"]
         for sql_ in sql:
-            if len(sql_) > 10:
-                db.execute(sql_)
-        db.commit()
-
-
-def make_cashe_db():
-    with closing(create_db(V.DB_CASHE_PATH)) as db:
-        # 毎回FinishTXをEmulateするのも無駄なのでCashe
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS `finish_tx` (
-            `hash` BINARY PRIMARY KEY NOT NULL,
-            `height` INTEGER NOT NULL,
-            `bin` BINARY
-            )""")
+            db.execute(sql_)
+        # default account
+        accounts = [
+            (C.ANT_RESERVED, C.ANT_NAME_RESERVED, "Reserved and update to other accounts.", 0),
+            (C.ANT_UNKNOWN, C.ANT_NAME_UNKNOWN, "Not user binding address, for change.", 0),
+            (C.ANT_OUTSIDE, C.ANT_NAME_OUTSIDE, "Address used for movement with outside.", 0),
+            (C.ANT_CONTRACT, C.ANT_NAME_CONTRACT, "Contract bind address.", 0)]
+        db.executemany("INSERT OR IGNORE INTO `account` VALUES (?,?,?,?)", accounts)
         db.commit()

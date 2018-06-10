@@ -1,7 +1,7 @@
-import bjson
-from binascii import hexlify
 from bc4py.config import C, V
 from nem_ed25519.signature import verify, sign
+import bjson
+from binascii import hexlify
 
 
 class MintCoinObject:

@@ -69,9 +69,12 @@ class Block:
     __slots__ = (
         "b", "hash", "next_hash", "target_hash", "work_hash",
         "height", "difficulty", "work_difficulty", "create_time", "delete_time",
-        "flag", "f_orphan",
+        "flag", "f_orphan", "f_on_memory",
         "merkleroot", "time", "previous_hash", "bits", "pos_bias", "nonce", "txs",
         "__weakref__")
+
+    def __eq__(self, other):
+        return self.hash == other.hash
 
     def __repr__(self):
         name = 'DeleteBlock' if self.delete_time else 'Block'
@@ -94,6 +97,7 @@ class Block:
         self.delete_time = None  # Objectの削除日時
         self.flag = None  # mined consensus number
         self.f_orphan = None
+        self.f_on_memory = None
         # block header
         self.merkleroot = None  # txs root hash 32bytes bin
         self.time = None  # time 4bytes int
@@ -159,6 +163,7 @@ class Block:
         r['previous_hash'] = hexlify(self.previous_hash).decode() if self.previous_hash else None
         r['next_hash'] = hexlify(self.next_hash).decode() if self.next_hash else None
         r['f_orphan'] = self.f_orphan
+        r['f_on_memory'] = self.f_on_memory
         r['height'] = self.height
         r['difficulty'] = self.difficulty if self.difficulty else None
         r['flag'] = C.consensus2name[self.flag]

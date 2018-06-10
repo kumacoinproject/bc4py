@@ -51,7 +51,7 @@ def send_newtx(new_tx, chain_cur, account_cur):
     add_tx_as_new(new_tx=new_tx, chain_cur=chain_cur, account_cur=account_cur)
     add_utxo_user(tx=new_tx, chain_cur=chain_cur, account_cur=account_cur)
     # P.UNCONFIRMED_TX同じスレッドでマニュアル的に加える必要がある
-    P.UNCONFIRMED_TX.add(new_tx.hash)
+    P.UNCONFIRMED_TX.add_coins(new_tx.hash)
     data = {
         'cmd': BroadcastCmd.NEW_TX,
         'data': {

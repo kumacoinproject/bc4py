@@ -204,7 +204,7 @@ def sync_chain_data():
             r = ask_node(cmd=DirectCmd.UNCONFIRMED_TX, f_continue_asking=True)
             for txhash in r['txs']:
                 if is_include_txhash(txhash=txhash, cur=chain_cur):
-                    P.UNCONFIRMED_TX.add(txhash)
+                    P.UNCONFIRMED_TX.add_coins(txhash)
                     continue
                 else:
                     r2 = ask_node(cmd=DirectCmd.TX_BY_HASH, data={'txhash': txhash}, f_continue_asking=True)

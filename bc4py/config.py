@@ -43,13 +43,21 @@ class C:  # 起動中に変更してはいけない
     CHECKPOINT_SPAN = 200  # checkpointの作成間隔
 
     # account
-    ANT_RESERVED = '@0'  # 未使用
-    ANT_UNKNOWN = '@1'  # 使用済みだがTag無し
-    ANT_OUTSIDE = '@2'  # 外部への入出金
-    ANT_CONTRACT = '@3'  # コントラクトアドレス
-    account2name = {
-        ANT_RESERVED: '@Reserved', ANT_UNKNOWN: '@Unknown',
-        ANT_OUTSIDE: '@Outside', ANT_CONTRACT: '@Contract'}
+    ANT_RESERVED = 0  # 未使用
+    ANT_UNKNOWN = 1  # 使用済みだがTag無し
+    ANT_OUTSIDE = 2  # 外部への入出金
+    ANT_CONTRACT = 3  # コントラクトアドレス
+    # name
+    ANT_NAME_RESERVED = '@Reserved'
+    ANT_NAME_UNKNOWN = '@Unknown'
+    ANT_NAME_OUTSIDE = '@Outside'
+    ANT_NAME_CONTRACT = '@Contract'
+
+    # log
+    LOG_MOVEMENT = 0  # 単一ユーザー間の内部移動
+    LOG_TRANSACTION = 1  # 単一ユーザー間の外部移動
+    LOG_COMPLEX_MOVEMENT = 3  # 複数ユーザー間の内部移動
+    LOG_COMPLEX_TRANSACTION = 2  # 複数ユーザー間の外部移動
 
     # Block/TX/Fee limit
     ACCEPT_MARGIN_TIME = 30  # 新規データ受け入れ時間マージンSec
@@ -76,13 +84,13 @@ class V:  # 起動時に設定される変数
     # base coin
     COIN_DIGIT = None
     COIN_MINIMUM_PRICE = None  # Gasの最小Price
+    CONTRACT_MINIMUM_AMOUNT = None
+    CONTRACT_VALIDATOR_ADDRESS = None
 
     # database path
     SUB_DIR = None
     DB_HOME_DIR = None
-    DB_BLOCKCHAIN_PATH = None
     DB_ACCOUNT_PATH = None
-    DB_CASHE_PATH = None
 
     # encryption key
     ENCRYPT_KEY = None
@@ -100,10 +108,8 @@ class V:  # 起動時に設定される変数
 
 
 class P:  # 起動中もダイナミックに変化
-    CHECK_POINTS = dict()  # { height: blockhash,..} 0Blockより1000Block毎にCheckPointを作成する
-    UNCONFIRMED_TX = set()  # {txhash,..}
+    F_VALIDATOR = False  # コントラクト検証者
     F_NOW_BOOTING = True  # 起動中
-    F_SYNC_DIRECT_IMPORT = False
     NEW_CHAIN_INFO_QUE = None  # API streaming
 
 
