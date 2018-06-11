@@ -15,7 +15,7 @@ class TX:
         "b", "hash", "height", "pos_amount",
         "version", "type", "time", "deadline", "inputs", "outputs",
         "gas_price", "gas_amount", "message_type", "message",
-        "signature", "used_index", "meta", "inner_params", "f_on_memory",
+        "signature", "meta", "inner_params", "f_on_memory",
         "__weakref__")
 
     def __eq__(self, other):
@@ -45,7 +45,6 @@ class TX:
         self.message = None  # 0~256**4 bytes bin
         # proof
         self.signature = None  # [(pubkey, signature),.. ]
-        self.used_index = None
         # 処理には使わないが有用なデータ
         self.meta = dict()
         self.inner_params = dict()
@@ -67,7 +66,6 @@ class TX:
             self.message = tx.get('message', b'')
             self.serialize()
         self.signature = list()
-        self.used_index = b''
 
     def serialize(self):
         # 構造

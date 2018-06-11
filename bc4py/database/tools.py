@@ -27,7 +27,7 @@ def get_mintcoin(mint_id, best_block=None):
         return setup_base_currency_mint()
     mint_coin_old = None
     # DataBaseより
-    for dummy, index, txhash in builder.db.get_coins_iter(mint_id):
+    for dummy, index, txhash in builder.db.read_coins_iter(mint_id):
         binary = tx_box.get_tx(txhash).message
         mint_coin_new = MintCoinObject(txhash=txhash, binary=binary)
         mint_coin_new.marge(mint_coin_old)
@@ -61,7 +61,7 @@ def get_mintcoin(mint_id, best_block=None):
 def get_contract_storage(c_address, best_block=None):
     # DataBaseより
     cs = ContractStorage()
-    for dummy, index, start_hash, finish_hash in builder.db.get_contract_iter(c_address):
+    for dummy, index, start_hash, finish_hash in builder.db.read_contract_iter(c_address):
         if index == 0:
             start_tx = tx_box.get_tx(start_hash)
             dummy, c_bin, c_cs = bjson.loads(start_tx.message)
@@ -102,7 +102,7 @@ def get_contract_storage(c_address, best_block=None):
 
 def get_tx_with_usedindex(txhash, best_block=None):
     # DataBaseより
-    used = set(builder.db.get_tx(txhash).used_index)
+    used = set(builder.db.read_tx(txhash).used_index)
     # Memoryより
     best_chain = _get_best_chain_all(best_block)
     for block in reversed(best_chain):
@@ -127,7 +127,7 @@ def get_utxo_iter(target_address, best_block=None):
     allow_mined_height = best_block_tmp.height - C.MATURE_HEIGHT
     # DataBaseより
     for address in target_address:
-        for dummy, txhash, txindex, coin_id, amount, f_used in builder.db.get_address_iter(address):
+        for dummy, txhash, txindex, coin_id, amount, f_used in builder.db.read_address_idx_iter(address):
             if f_used is False:
                 tx = get_tx_with_usedindex(txhash, best_block)
                 if txindex in tx.used_index:

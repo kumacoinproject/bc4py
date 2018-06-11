@@ -19,53 +19,62 @@ from copy import deepcopy
 # http://blog.livedoor.jp/wolf200x/archives/53052954.html
 # https://github.com/happynear/py-leveldb-windows
 
+struct_block = struct.Struct('>II32s80sBI')
+struct_tx = struct.Struct('>4I')
+struct_address = struct.Struct('>40s32sB')
+struct_address_idx = struct.Struct('>IQ?')
 
-TXINDEX_LEN = 1
+
 ADDRESS_INDEX = True
 ZERO_FILLED_HASH = b'\x00' * 32
 
 
 class DataBase:
-    # thread safeのはず
+    # 直接読み出さない
     def __init__(self, dirs, sync=True, timeout=None):
         self.dirs = dirs
         self.sync = sync
         self.timeout = timeout
         self.event = threading.Event()
         # already used => LevelDBError
-        self._block = leveldb.LevelDB(os.path.join(dirs, 'BLOCK'))
-        self._tx = leveldb.LevelDB(os.path.join(dirs, 'TX'))
-        self._block_index = leveldb.LevelDB(os.path.join(dirs, 'BLOCK-INDEX'))
-        self._address_index = leveldb.LevelDB(os.path.join(dirs, 'ADDRESS-INDEX'))
-        self._coins = leveldb.LevelDB(os.path.join(dirs, 'COINS'))
-        self._contract = leveldb.LevelDB(os.path.join(dirs, 'CONTRACT'))
+        self._block = leveldb.LevelDB(os.path.join(dirs, 'block'))
+        self._tx = leveldb.LevelDB(os.path.join(dirs, 'tx'))
+        self._used_index = leveldb.LevelDB(os.path.join(dirs, 'used-index'))
+        self._block_index = leveldb.LevelDB(os.path.join(dirs, 'block-index'))
+        self._address_index = leveldb.LevelDB(os.path.join(dirs, 'address-index'))
+        self._coins = leveldb.LevelDB(os.path.join(dirs, 'coins'))
+        self._contract = leveldb.LevelDB(os.path.join(dirs, 'contract'))
         self.batch = None
         self.batch_thread = None
         logging.debug('Create database connection. {}'.format(dirs))
 
     def __del__(self):
-        del self._block, self._tx, self._block_index, self._address_index, self._coins, \
-            self._contract, self.batch, self.batch_thread
+        del self._block, self._tx, self._used_index, self._block_index, self._address_index,\
+            self._coins, self._contract, self.batch, self.batch_thread
         logging.info("Close database connection.")
 
     def batch_create(self):
-        assert self.batch is None, 'batch is already setup.'
+        assert self.batch is None, 'batch is already start.'
         self.event.wait(timeout=self.timeout)
         self.event.clear()
         self.batch = {
-            '_block': (leveldb.WriteBatch(), dict()),
-            '_tx': (leveldb.WriteBatch(), dict()),
-            '_block_index': (leveldb.WriteBatch(), dict()),
-            '_address_index': (leveldb.WriteBatch(), dict()),
-            '_coins': (leveldb.WriteBatch(), dict()),
-            '_contract': (leveldb.WriteBatch(), dict())}
+            '_block': dict(),
+            '_tx': dict(),
+            '_used_index': dict(),
+            '_block_index': dict(),
+            '_address_index': dict(),
+            '_coins': dict(),
+            '_contract': dict()}
         self.batch_thread = threading.current_thread()
         logging.debug("Create database batch.")
 
     def batch_commit(self):
         assert self.batch, 'Not created batch.'
-        for name, (batch, memory) in self.batch.items():
-            getattr(self, name).Write(batch, sync=self.sync)
+        for name, memory in self.batch.items():
+            new_data = leveldb.WriteBatch()
+            for k, v in memory.items():
+                new_data.Put(k, v)
+            getattr(self, name).Write(new_data, sync=self.sync)
         self.batch = None
         self.batch_thread = None
         self.event.set()
@@ -78,16 +87,15 @@ class DataBase:
         logging.debug("Rollback database.")
 
     def is_batch_thread(self):
-        return self.batch_thread is threading.current_thread()
+        return self.batch and self.batch_thread is threading.current_thread()
 
-    def get_block(self, blockhash):
-        if self.batch and self.is_batch_thread():
-            memory = self.batch['_block'][1]
-            if blockhash in memory:
-                return memory[blockhash]
-        b = self._block.Get(blockhash)
-        height, _time, work, b_block, flag, tx_len = struct.unpack_from('>I I 32s 80s B I', b)
-        idx = struct.calcsize('>I I 32s 80s B I')
+    def read_block(self, blockhash):
+        if self.is_batch_thread() and blockhash in self.batch['_block']:
+            b = self.batch['_block'][blockhash]
+        else:
+            b = self._block.Get(blockhash)
+        height, _time, work, b_block, flag, tx_len = struct_block.unpack_from(b)
+        idx = struct_block.size
         assert len(b) == idx+tx_len, 'Not correct size. [{}={}]'.format(len(b), idx+tx_len)
         block = Block(binary=b_block)
         block.height = height
@@ -95,147 +103,412 @@ class DataBase:
         block.flag = flag
         for i in range(tx_len//32):
             txhash = b[idx+32*i:idx+32*i+32]
-            block.txs = self.get_tx(txhash)
+            block.txs = self.read_tx(txhash)
         return block
 
-    def get_block_hash(self, height):
-        if self.batch and self.is_batch_thread():
-            memory = self.batch['_block_index'][1]
-            if height in memory:
-                return memory[height]
-        return self._block_index.Get(height.to_bytes(4, 'big'))
+    def read_block_hash(self, height):
+        if self.is_batch_thread() and height in self.batch['_block_index']:
+            return self.batch['_block_index'][height.to_bytes(4, 'big')]
+        else:
+            return self._block_index.Get(height.to_bytes(4, 'big'))
 
-    def get_block_hash_iter(self, start_height=0):
-        batch_thread = self.batch_thread
-        for k, v in self._block_index.RangeIter(key_from=start_height.to_bytes(4, 'big')):
+    def read_block_hash_iter(self, start_height=0):
+        f_batch = self.is_batch_thread()
+        batch_copy = self.batch['_block_index'].copy() if self.batch else dict()
+        for b_height, blockhash in self._block_index.RangeIter(key_from=start_height.to_bytes(4, 'big')):
             # height, blockhash
-            yield int.from_bytes(k, 'big'), v
-        if self.batch and batch_thread is threading.current_thread():
-            memory = self.batch['_block_index'][1]
-            for k, v in sorted(memory.items(), key=lambda x: x[0]):
-                yield k, v
+            if f_batch and b_height in batch_copy:
+                yield int.from_bytes(b_height, 'big'), batch_copy[b_height]
+                del batch_copy[b_height]
+            else:
+                yield int.from_bytes(b_height, 'big'), blockhash
+        if f_batch:
+            for b_height, blockhash in sorted(batch_copy.items(), key=lambda x: x[0]):
+                yield int.from_bytes(b_height, 'big'), blockhash
 
-    def insert_block(self, block):
-        assert self.batch, 'Not created batch.'
-        b_tx = b''.join(tx.hash for tx in block.txs)
-        tx_len = len(b_tx)
-        b = struct.pack('>I I 32s 80s B I', block.height, block.time, block.work_hash, block.b, block.flag, tx_len)
-        b += b_tx
-        batch, memory = self.batch['_block']
-        batch.Put(block.hash, b)
-        memory[block.hash] = block
-        batch, memory = self.batch['_block_index']
-        b_height = block.height.to_bytes(4, 'big')
-        batch.Put(b_height, block.hash)
-        memory[block.height] = block.hash
-        logging.debug("Insert new block {}".format(block))
-
-    def get_tx(self, txhash):
-        if self.batch and self.is_batch_thread():
-            memory = self.batch['_tx'][1]
-            if txhash in memory:
-                return memory[txhash]
-        b = self._tx.Get(txhash)
-        height, _time, bin_len, sign_len, used_len = struct.unpack_from('>5I', b, 0)
+    def read_tx(self, txhash):
+        if self.is_batch_thread() and txhash in self.batch['_tx']:
+            b = self.batch['_tx'][txhash]
+        else:
+            b = self._tx.Get(txhash)
+        height, _time, bin_len, sign_len = struct_tx.unpack_from(b)
         b_tx = b[20:20+bin_len]
         b_sign = b[20+bin_len:20+bin_len+sign_len]
-        b_used = b[20+bin_len+sign_len:20+bin_len+sign_len+used_len]
-        assert len(b) == 20+bin_len+sign_len+used_len, 'Wrong len [{}={}]'\
-            .format(len(b), 20+bin_len+sign_len+used_len)
+        assert len(b) == 20+bin_len+sign_len, 'Wrong len [{}={}]'\
+            .format(len(b), 20+bin_len+sign_len)
         tx = TX(binary=b_tx)
         tx.height = height
-        tx.used_index = b_used
         tx.signature = bin2signature(b_sign)
         return tx
 
-    def insert_tx(self, tx):
-        assert self.batch, 'Not created batch.'
+    def read_usedindex(self, txhash):
+        if self.is_batch_thread() and txhash in self.batch['_used_index']:
+            b = self.batch['_used_index'][txhash]
+        else:
+            b = self._used_index.Get(txhash)
+        return set(b)
+
+    def read_address_idx(self, address, txhash, index):
+        k = address.encode() + txhash + index.to_bytes(1, 'big')
+        if self.is_batch_thread() and k in self.batch['_address_index']:
+            b = self.batch['_address_index'][k]
+        else:
+            b = self._address_index.Get(k)
+        # coin_id, amount, f_used
+        return struct_address_idx.unpack(b)
+
+    def read_address_idx_iter(self, address):
+        f_batch = self.is_batch_thread()
+        batch_copy = self.batch['_address_index'].copy() if self.batch else dict()
+        b_address = address.encode()
+        for k, v in self._address_index.RangeIter(
+                key_from=b_address+b'\x00'*(32+1),
+                key_to=b_address+b'\xff'*(32+1)):
+            # address, txhash, index, coin_id, amount, f_used
+            if f_batch and k in batch_copy:
+                yield struct_address.unpack(k) + struct_address_idx.unpack(batch_copy[k])
+                del batch_copy[k]
+            else:
+                yield struct_address.unpack(k) + struct_address_idx.unpack(v)
+        if f_batch:
+            for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
+                if k.startswith(b_address):
+                    yield struct_address.unpack(k) + struct_address_idx.unpack(v)
+
+    def read_coins_iter(self, coin_id):
+        f_batch = self.is_batch_thread()
+        batch_copy = self.batch['_coins'].copy() if self.batch else dict()
+        b_coin_id = coin_id.to_bytes(4, 'big')
+        struct_coins = struct.Struct('>II')
+        for k, v in self._coins.RangeIter(
+                key_from=b_coin_id+b'\x00'*4,
+                key_to=b_coin_id+b'\xff'*4):
+            # coin_id, index, txhash
+            if f_batch and k in batch_copy:
+                yield struct_coins.unpack(k) + (batch_copy[k],)
+                del batch_copy[k]
+            else:
+                yield struct_coins.unpack(k) + (v,)
+        if f_batch:
+            for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
+                if k.startswith(b_coin_id):
+                    yield struct_coins.unpack(k) + (v,)
+
+    def read_contract_iter(self, c_address):
+        f_batch = self.is_batch_thread()
+        batch_copy = self.batch['_contract'].copy() if self.batch else dict()
+        b_c_address = c_address.encode()
+        struct_construct_key = struct.Struct('>40sI')
+        struct_construct_value = struct.Struct('>32s32s')
+        for k, v in self._contract.RangeIter(
+                key_from=b_c_address+b'\x00'*4,
+                key_to=b_c_address+b'\xff'*4):
+            # c_address, index, start_hash, finish_hash
+            if f_batch and k in batch_copy:
+                yield struct_construct_key.unpack(k) + struct_construct_value.unpack(batch_copy[k])
+                del batch_copy[k]
+            else:
+                yield struct_construct_key.unpack(k) + struct_construct_value.unpack(v)
+        if f_batch:
+            for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
+                if k.startswith(b_c_address):
+                    yield struct_construct_key.unpack(k) + struct_construct_value.unpack(v)
+
+    def write_block(self, block):
+        assert self.is_batch_thread(), 'Not created batch.'
+        b_tx = b''.join(tx.hash for tx in block.txs)
+        tx_len = len(b_tx)
+        b = struct_block.pack(block.height, block.time, block.work_hash, block.b, block.flag, tx_len)
+        b += b_tx
+        self.batch['_block'][block.hash] = b
+        b_height = block.height.to_bytes(4, 'big')
+        self.batch['_block_index'][b_height] = block.hash
+        logging.debug("Insert new block {}".format(block))
+
+    def write_tx(self, tx):
+        assert self.is_batch_thread(), 'Not created batch.'
         bin_len = len(tx.b)
         b_sign = signature2bin(tx.signature)
         sign_len = len(b_sign)
-        b_used = tx.used_index
-        used_len = len(b_used)
-        b = struct.pack('>5I', tx.height, tx.time, bin_len, sign_len, used_len)
-        b += tx.b + b_sign + b_used
-        batch, memory = self.batch['_tx']
-        batch.Put(tx.hash, b)
-        memory[tx.hash] = tx
+        b = struct_tx.pack(tx.height, tx.time, bin_len, sign_len)
+        b += tx.b + b_sign
+        self.batch['_tx'][tx.hash] = b
         logging.debug("Insert new tx {}".format(tx))
 
-    def get_address(self, address, txhash, index):
-        if self.batch and self.is_batch_thread():
-            memory = self.batch['_address_index'][1]
-            if (address, txhash, index) in memory:
-                return memory[(address, txhash, index)]
-        k = address.encode() + txhash + index.to_bytes(TXINDEX_LEN, 'big')
-        b = self._address_index.Get(k)
-        # coin_id, amount, f_used
-        return struct.unpack('>IQ?', b)
+    def write_usedindex(self, txhash, usedindex):
+        assert self.is_batch_thread(), 'Not created batch.'
+        self.batch['_used_index'][txhash] = bytes(sorted(usedindex))
 
-    def get_address_iter(self, address):
-        batch_thread = self.batch_thread
-        for k, v in self._address_index.RangeIter(
-                key_from=address.encode()+b'\x00'*(32+TXINDEX_LEN),
-                key_to=address.encode()+b'\xff'*(32+TXINDEX_LEN)):
-            # address, txhash, index, coin_id, amount, f_used
-            yield struct.unpack('>40s 32s B', k) + struct.unpack('>IQ?', v)
-        if self.batch and batch_thread is threading.current_thread():
-            memory = self.batch['_address_index'][1]
-            for k, v in sorted(memory.items(), key=lambda x: x[0][2]):
-                if k[0] == address:
-                    yield v
-
-    def insert_address(self, address, txhash, index, coin_id, amount, f_used):
-        assert self.batch, 'Not created batch.'
-        k = address.encode() + txhash + index.to_bytes(TXINDEX_LEN, 'big')
-        v = struct.pack('>IQ?', coin_id, amount, f_used)
-        batch, memory = self.batch['_address_index']
-        batch.Put(k, v)
-        memory[(address, txhash, index)] = (address, txhash, index, coin_id, amount, f_used)
+    def write_address_idx(self, address, txhash, index, coin_id, amount, f_used):
+        assert self.is_batch_thread(), 'Not created batch.'
+        k = address.encode() + txhash + index.to_bytes(1, 'big')
+        v = struct_address_idx.pack(coin_id, amount, f_used)
+        self.batch['_address_index'][k] = v
         logging.debug("Insert new address idx {}".format(address))
 
-    def get_coins_iter(self, coin_id):
-        batch_thread = self.batch_thread
-        for k, v in self._coins.RangeIter(
-                key_from=coin_id.to_bytes(4, 'big')+b'\x00'*4,
-                key_to=coin_id.to_bytes(4, 'big')+b'\xff'*4):
-            # coin_id, index, txhash
-            yield struct.unpack('>II', k) + v
-        if self.batch and batch_thread is threading.current_thread():
-            memory = self.batch['_coins'][1]
-            for k, v in sorted(memory.items(), key=lambda x: x[0][1]):
-                if k[0] == coin_id:
-                    yield v
-
-    def insert_coins(self, coin_id, index, txhash):
-        assert self.batch, 'Not created batch.'
+    def write_coins(self, coin_id, index, txhash):
+        assert self.is_batch_thread(), 'Not created batch.'
         k = coin_id.to_bytes(4, 'big') + index.to_bytes(4, 'big')
-        batch, memory = self.batch['_coins']
-        batch.Put(k, txhash)
-        memory[(coin_id, index)] = (coin_id, index, txhash)
+        self.batch['_coins'][k] = txhash
         logging.debug("Insert new coins id={}".format(coin_id))
 
-    def get_contract_iter(self, c_address):
-        batch_thread = self.batch_thread
-        for k, v in self._contract.RangeIter(
-                key_from=c_address.encode() + b'\x00'*4,
-                key_to=c_address.encode() + b'\xff'*4):
-            # c_address, index, start_hash, finish_hash
-            yield struct.unpack('>40sI', k) + struct.unpack('>32s32s', v)
-        if self.batch and batch_thread is threading.current_thread():
-            memory = self.batch['_contract'][1]
-            for k, v in sorted(memory.items(), key=lambda x: x[0][1]):
-                if k[0] == c_address:
-                    yield v
-
-    def insert_contract(self, c_address, index, start_hash, finish_hash):
-        assert self.batch, 'Not created batch.'
+    def write_contract(self, c_address, index, start_hash, finish_hash):
+        assert self.is_batch_thread(), 'Not created batch.'
         k = c_address.encode() + index.to_bytes(4, 'big')
         v = start_hash + finish_hash
-        batch, memory = self.batch['_contract']
-        batch.Put(k, v)
-        memory[(c_address, index)] = (c_address, index, start_hash, finish_hash)
+        self.batch['_contract'][k] = v
         logging.debug("Insert new contract {} {}".format(c_address, index))
+
+
+class ChainBuilder:
+    def __init__(self, cashe_limit=100, batch_size=20):
+        assert cashe_limit > batch_size, 'cashe_limit > batch_size.'
+        self.chain = dict()
+        self.root_block = None  # 最後に挿入されたBlock
+        self.cashe_limit = cashe_limit
+        self.batch_size = batch_size
+        self.best_chain_cashe = None
+        self.get_chained_txs_cashe = None
+        self.db = None
+        try:
+            self.db = DataBase(os.path.join(V.DB_HOME_DIR, 'db'))
+        except leveldb.LevelDBError:
+            logging.warning("Already connect database.")
+        except BaseException:
+            pass
+
+    def init(self, genesis_block: Block):
+        # GenesisBlockか確認
+        t = time.time()
+        try:
+            if genesis_block.hash != self.db.read_block_hash(0):
+                raise BlockBuilderError("Don't match genesis hash [{}!={}]".format(
+                    hexlify(genesis_block.hash), hexlify(self.db.read_block_hash(0))))
+            elif genesis_block != self.db.read_block(genesis_block.hash):
+                raise BlockBuilderError("Don't match genesis binary [{}!={}]".format(
+                    hexlify(genesis_block.b), hexlify(self.db.read_block(genesis_block.hash).b)))
+        except KeyError:
+            # GenesisBlockしか無いのでDummyBlockを入れる処理
+            self.root_block = Block()
+            self.root_block.hash = b'\xff' * 32
+            self.chain[genesis_block.hash] = genesis_block
+            logging.info("Set dummy block. GenesisBlock={}".format(genesis_block))
+            return
+
+        # 0HeightよりBlockを取得して確認
+        before_block = genesis_block
+        batch_blocks = list()
+        for height, blockhash in self.db.read_block_hash_iter():
+            block = self.db.read_block(blockhash)
+            if block.previous_hash != before_block.hash:
+                raise BlockBuilderError("PreviousHash != BlockHash [{}!={}]".format(block, before_block))
+            elif block.height != height:
+                raise BlockBuilderError("BlockHeight != DBHeight [{}!={}]".format(block.height, height))
+            elif height != before_block.height+1:
+                raise BlockBuilderError("DBHeight != BeforeHeight+1 [{}!={}+1]".format(height, before_block.height))
+            for tx in block.txs:
+                if tx.height != height:
+                    raise BlockBuilderError("TXHeight != BlockHeight [{}!{}]".format(tx.height, height))
+                # inputs
+                for txhash, txindex in tx.inputs:
+                    input_tx = self.db.read_tx(txhash)
+                    address, coin_id, amount = input_tx.outputs[txindex]
+                    _coin_id, _amount, f_used = self.db.read_address_idx(address, txhash, txindex)
+                    if coin_id != _coin_id or amount != _amount:
+                        raise BlockBuilderError("Inputs, coin_id != _coin_id or amount != _amount [{}!{}] [{}!={}]"
+                                                .format(coin_id, _coin_id, amount, _amount))
+                    elif txindex not in input_tx.used_index:
+                        raise BlockBuilderError("TXIndex in InputIndex [{} not in {}]"
+                                                .format(txindex, input_tx.used_index))
+                    elif not f_used:
+                        raise BlockBuilderError("Already used but unused flag. [{}:{}]".format(input_tx, txindex))
+                # outputs
+                for index, (address, coin_id, amount) in enumerate(tx.outputs):
+                    _coin_id, _amount, f_used = self.db.read_address_idx(address, tx.hash, index)
+                    if coin_id != _coin_id or amount != _amount:
+                        raise BlockBuilderError("Outputs, coin_id != _coin_id or amount != _amount [{}!{}] [{}!={}]"
+                                                .format(coin_id, _coin_id, amount, _amount))
+            # Block確認終了
+            before_block = block
+            batch_blocks.append(block)
+            if block.height % 100 == 1:
+                user_account.update(batch_blocks)
+                batch_blocks.clear()
+                logging.debug("UserAccount batched at {} height.".format(block.height))
+        # UserAccount update
+        user_account.update(batch_blocks)
+        batch_blocks.clear()
+        self.root_block = before_block
+        # ここまでにErrorがあったらFixしてみる
+        # それでもダメなら削除して再同期すること
+        logging.info("Init finished, last block is {} {}Sec"
+                     .format(before_block, round(time.time()-t, 3)))
+
+    def get_best_chain(self):
+        assert self.root_block, 'Do not init.'
+        if self.best_chain_cashe:
+            return self.best_chain_cashe
+        best_diff = 0.0
+        best_block = None
+        best_chain = list()
+        for blockhash, block in self.chain.items():
+            if block in best_chain:
+                continue
+            tmp_best_diff = block.difficulty
+            tmp_best_block = block
+            tmp_best_chain = [block]
+            while block.previous_hash in self.chain:
+                block = self.chain[block.previous_hash]
+                tmp_best_diff += block.difficulty
+                tmp_best_chain.append(block)
+            else:
+                if self.root_block.hash != block.previous_hash:
+                    continue
+            if best_diff > tmp_best_diff:
+                continue
+            best_diff = tmp_best_diff
+            best_block = tmp_best_block
+            best_chain = tmp_best_chain
+        # txのheightを揃える
+        for block in best_chain:
+            for tx in block:
+                tx.height = block.height
+        # best_chain = [<height=n>, <height=n-1>, ...]
+        self.best_chain_cashe = (best_block, best_chain)
+        return best_block, best_chain
+
+    def get_chained_txs(self):
+        if self.get_chained_txs_cashe:
+            return self.get_chained_txs_cashe
+        chained_txs = set()
+        best_chain = self.get_best_chain()[1]
+        for block in best_chain:
+            chained_txs.difference_update(tx for tx in block.txs)
+        self.get_chained_txs_cashe = chained_txs
+        return chained_txs
+
+    def batch_apply(self, force=False):
+        # 無チェックで挿入するから要注意
+        if not force and self.cashe_limit > len(self.chain):
+            return
+        # cashe許容量を上回っているので記録
+        self.db.batch_create()
+        logging.debug("Start batch apply. chain={} force={}".format(len(self.chain), force))
+        best_block, best_chain = self.get_best_chain()
+        batch_count = self.batch_size
+        batched_blocks = list()
+        try:
+            block = None
+            while batch_count > 0 and len(best_chain) > 0:
+                batch_count -= 1
+                block = best_chain.pop()  # 古いものから順に
+                batched_blocks.append(block)
+                self.db.write_block(block)  # Block
+                for tx in block.txs:
+                    tx.height = block.height
+                    self.db.write_tx(tx)  # TX
+                    # inputs
+                    for index, (txhash, txindex) in enumerate(tx.inputs):
+                        # DataBase内でのみのUsedIndexｗｐ取得
+                        input_tx_tmp = self.db.read_tx(txhash)
+                        used = set(input_tx_tmp.used_index)
+                        if txindex in used:
+                            raise BlockBuilderError('Already used index? {}:{}'
+                                                    .format(hexlify(txhash).decode(), txindex))
+                        used.add(txindex)
+                        input_tx = tx_box.get_tx(txhash)
+                        input_tx.used_index = bytes(sorted(used))
+                        self.db.write_tx(input_tx)  # UsedIndex update
+                        address, coin_id, amount = input_tx.outputs[txindex]
+                        # TODO: 必要なAddressだけにしたい
+                        self.db.write_address_idx(address, txhash, txindex, coin_id, amount, True)  # address
+                    # outputs
+                    for index, (address, coin_id, amount) in enumerate(tx.outputs):
+                        # TODO: 必要なAddressだけにしたい
+                        self.db.write_address_idx(address, tx.hash, index, coin_id, amount, False)  # Address
+                    # TXの種類による追加操作
+                    if tx.type == C.TX_GENESIS:
+                        pass
+                    elif tx.type == C.TX_TRANSFER:
+                        pass
+                    elif tx.type == C.TX_POW_REWARD:
+                        pass
+                    elif tx.type == C.TX_POS_REWARD:
+                        pass
+                    elif tx.type == C.TX_MINT_COIN:
+                        address, mint_id, amount = tx.outputs[0]
+                        assert mint_id != 0, 'Mint_id is not 0. {}'.format(mint_id)
+                        next_index = 0
+                        for dummy in self.db.read_coins_iter(mint_id):
+                            next_index += 1
+                        self.db.write_coins(mint_id, next_index, tx.hash)
+                    elif tx.type == C.TX_CREATE_CONTRACT:
+                        c_address, c_bin, c_cs = bjson.loads(tx.message)
+                        start_hash, finish_hash = tx.hash, ZERO_FILLED_HASH
+                        self.db.write_contract(c_address, 0, start_hash, finish_hash)
+                    elif tx.type == C.TX_START_CONTRACT:
+                        c_address, c_data = bjson.loads(tx.message)
+                        next_index = 0
+                        for dummy in self.db.read_contract_iter(c_address):
+                            next_index += 1
+                        assert next_index > 0, 'Not created contract.'
+                        start_hash, finish_hash = tx.hash, ZERO_FILLED_HASH
+                        self.db.write_contract(c_address, next_index, start_hash, finish_hash)
+                    elif tx.type == C.TX_FINISH_CONTRACT:
+                        c_status, start_hash, cs_diff = bjson.loads(tx.message)
+                        # 同一BlockからStartTXを探し..
+                        for start_tx in block.txs:
+                            if start_tx.hash == start_hash:
+                                break
+                        else:
+                            raise BlockBuilderError('Not found start tx. {}'.format(tx))
+                        c_address, c_data, c_redeem = bjson.loads(start_tx.message)
+                        # 次のIndexを取得する
+                        for c_address, index, _start_hash, finish_hash in self.db.read_contract_iter(c_address):
+                            if start_hash == _start_hash and finish_hash == ZERO_FILLED_HASH:
+                                break  # STARTで既に挿入されているはず
+                        else:
+                            raise BlockBuilderError('Not found start tx on db. {}'.format(tx))
+                        self.db.write_contract(c_address, index, start_hash, tx.hash)
+            # block挿入終了
+            self.root_block = block
+            self.db.batch_commit()
+            # root_blockよりHeightの小さいBlockを消す
+            for blockhash, block in self.chain.items():
+                if self.root_block.height >= block.height:
+                    del self.chain[blockhash]
+            logging.debug("Success batch {} blocks, root={}."
+                          .format(len(batched_blocks), self.root_block))
+            # アカウントへ反映↓
+            user_account.update(batched_blocks)
+            return batched_blocks  # [<height=n>, <height=n+1>, .., <height=n+m>]
+        except BaseException as e:
+            self.db.batch_rollback()
+            import traceback
+            traceback.print_exc()
+            logging.warning("Failed batch block builder. '{}'".format(e))
+            return None
+
+    def new_block(self, block):
+        self.chain[block.hash] = block
+        self.best_chain_cashe = None
+        self.get_chained_txs_cashe = None
+        for tx in block.txs:
+            tx.height = block.height
+        tx_box.affect_new_block(block)
+
+    def get_block(self, blockhash):
+        # memoryに無いか調べる
+        if blockhash in self.chain:
+            best_block, best_chain = self.get_best_chain()
+            block = self.chain[blockhash]
+            block.f_on_memory = True
+            block.f_orphan = False if block in best_chain else True
+        else:
+            block = self.db.read_block(blockhash)
+            block.f_on_memory = False
+            block.f_orphan = False
+        return block
 
 
 class UserCoins:
@@ -390,7 +663,7 @@ class TransactionBox:
             tx.f_on_memory = True
             return tx
         try:
-            tx = builder.db.get_tx(txhash)
+            tx = builder.db.read_tx(txhash)
             tx.f_on_memory = False
             return tx
         except KeyError:
@@ -428,257 +701,6 @@ class TransactionBox:
             if tx.hash in self.temporary:
                 del self.temporary[tx.hash]
                 self.unconfirmed_cashe = None
-
-
-class ChainBuilder:
-    def __init__(self, cashe_limit=100, batch_size=20):
-        assert cashe_limit > batch_size, 'cashe_limit > batch_size.'
-        self.chain = dict()
-        self.root_block = None  # 最後に挿入されたBlock
-        self.cashe_limit = cashe_limit
-        self.batch_size = batch_size
-        self.best_chain_cashe = None
-        self.get_chained_txs_cashe = None
-        self.db = None
-        try:
-            self.db = DataBase(os.path.join(V.DB_HOME_DIR, 'db'))
-        except leveldb.LevelDBError:
-            logging.warning("Already connect database.")
-        except BaseException:
-            pass
-
-    def init(self, genesis_block: Block):
-        # GenesisBlockか確認
-        t = time.time()
-        try:
-            if genesis_block.hash != self.db.get_block_hash(0):
-                raise BlockBuilderError("Don't match genesis hash [{}!={}]".format(
-                    hexlify(genesis_block.hash), hexlify(self.db.get_block_hash(0))))
-            elif genesis_block != self.db.get_block(genesis_block.hash):
-                raise BlockBuilderError("Don't match genesis binary [{}!={}]".format(
-                    hexlify(genesis_block.b), hexlify(self.db.get_block(genesis_block.hash).b)))
-        except KeyError:
-            # GenesisBlockしか無いのでDummyBlockを入れる処理
-            self.root_block = Block()
-            self.root_block.hash = b'\xff' * 32
-            self.chain[genesis_block.hash] = genesis_block
-            logging.info("Set dummy block. GenesisBlock={}".format(genesis_block))
-            return
-
-        # 0HeightよりBlockを取得して確認
-        before_block = genesis_block
-        batch_blocks = list()
-        for height, blockhash in self.db.get_block_hash_iter():
-            block = self.db.get_block(blockhash)
-            if block.previous_hash != before_block.hash:
-                raise BlockBuilderError("PreviousHash != BlockHash [{}!={}]".format(block, before_block))
-            elif block.height != height:
-                raise BlockBuilderError("BlockHeight != DBHeight [{}!={}]".format(block.height, height))
-            elif height != before_block.height+1:
-                raise BlockBuilderError("DBHeight != BeforeHeight+1 [{}!={}+1]".format(height, before_block.height))
-            for tx in block.txs:
-                if tx.height != height:
-                    raise BlockBuilderError("TXHeight != BlockHeight [{}!{}]".format(tx.height, height))
-                # inputs
-                for txhash, txindex in tx.inputs:
-                    input_tx = self.db.get_tx(txhash)
-                    address, coin_id, amount = input_tx.outputs[txindex]
-                    _coin_id, _amount, f_used = self.db.get_address(address, txhash, txindex)
-                    if coin_id != _coin_id or amount != _amount:
-                        raise BlockBuilderError("Inputs, coin_id != _coin_id or amount != _amount [{}!{}] [{}!={}]"
-                                                .format(coin_id, _coin_id, amount, _amount))
-                    elif txindex not in input_tx.used_index:
-                        raise BlockBuilderError("TXIndex in InputIndex [{} not in {}]"
-                                                .format(txindex, input_tx.used_index))
-                    elif not f_used:
-                        raise BlockBuilderError("Already used but unused flag. [{}:{}]".format(input_tx, txindex))
-                # outputs
-                for index, (address, coin_id, amount) in enumerate(tx.outputs):
-                    _coin_id, _amount, f_used = self.db.get_address(address, tx.hash, index)
-                    if coin_id != _coin_id or amount != _amount:
-                        raise BlockBuilderError("Outputs, coin_id != _coin_id or amount != _amount [{}!{}] [{}!={}]"
-                                                .format(coin_id, _coin_id, amount, _amount))
-            # Block確認終了
-            before_block = block
-            batch_blocks.append(block)
-            if block.height % 100 == 1:
-                user_account.update(batch_blocks)
-                batch_blocks.clear()
-                logging.debug("UserAccount batched at {} height.".format(block.height))
-        # UserAccount update
-        user_account.update(batch_blocks)
-        batch_blocks.clear()
-        self.root_block = before_block
-        # ここまでにErrorがあったらFixしてみる
-        # それでもダメなら削除して再同期すること
-        logging.info("Init finished, last block is {} {}Sec"
-                     .format(before_block, round(time.time()-t, 3)))
-
-    def get_best_chain(self):
-        assert self.root_block, 'Do not init.'
-        if self.best_chain_cashe:
-            return self.best_chain_cashe
-        best_diff = 0.0
-        best_block = None
-        best_chain = list()
-        for blockhash, block in self.chain.items():
-            if block in best_chain:
-                continue
-            tmp_best_diff = block.difficulty
-            tmp_best_block = block
-            tmp_best_chain = [block]
-            while block.previous_hash in self.chain:
-                block = self.chain[block.previous_hash]
-                tmp_best_diff += block.difficulty
-                tmp_best_chain.append(block)
-            else:
-                if self.root_block.hash != block.previous_hash:
-                    continue
-            if best_diff > tmp_best_diff:
-                continue
-            best_diff = tmp_best_diff
-            best_block = tmp_best_block
-            best_chain = tmp_best_chain
-        # txのheightを揃える
-        for block in best_chain:
-            for tx in block:
-                tx.height = block.height
-        # best_chain = [<height=n>, <height=n-1>, ...]
-        self.best_chain_cashe = (best_block, best_chain)
-        return best_block, best_chain
-
-    def get_chained_txs(self):
-        if self.get_chained_txs_cashe:
-            return self.get_chained_txs_cashe
-        chained_txs = set()
-        best_chain = self.get_best_chain()[1]
-        for block in best_chain:
-            chained_txs.difference_update(tx for tx in block.txs)
-        self.get_chained_txs_cashe = chained_txs
-        return chained_txs
-
-    def batch_apply(self, force=False):
-        # 無チェックで挿入するから要注意
-        if not force and self.cashe_limit > len(self.chain):
-            return
-        # cashe許容量を上回っているので記録
-        self.db.batch_create()
-        logging.debug("Start batch apply. chain={} force={}".format(len(self.chain), force))
-        best_block, best_chain = self.get_best_chain()
-        batch_count = self.batch_size
-        batched_blocks = list()
-        try:
-            block = None
-            while batch_count > 0 and len(best_chain) > 0:
-                batch_count -= 1
-                block = best_chain.pop()  # 古いものから順に
-                batched_blocks.append(block)
-                self.db.insert_block(block)  # Block
-                for tx in block.txs:
-                    tx.height = block.height
-                    self.db.insert_tx(tx)  # TX
-                    # inputs
-                    for index, (txhash, txindex) in enumerate(tx.inputs):
-                        # DataBase内でのみのUsedIndexｗｐ取得
-                        input_tx_tmp = self.db.get_tx(txhash)
-                        used = set(input_tx_tmp.used_index)
-                        if txindex in used:
-                            raise BlockBuilderError('Already used index? {}:{}'
-                                                    .format(hexlify(txhash).decode(), txindex))
-                        used.add(txindex)
-                        input_tx = tx_box.get_tx(txhash)
-                        input_tx.used_index = bytes(sorted(used))
-                        self.db.insert_tx(input_tx)  # UsedIndex update
-                        address, coin_id, amount = input_tx.outputs[txindex]
-                        # TODO: 必要なAddressだけにしたい
-                        self.db.insert_address(address, txhash, txindex, coin_id, amount, True)  # address
-                    # outputs
-                    for index, (address, coin_id, amount) in enumerate(tx.outputs):
-                        # TODO: 必要なAddressだけにしたい
-                        self.db.insert_address(address, tx.hash, index, coin_id, amount, False)  # Address
-                    # TXの種類による追加操作
-                    if tx.type == C.TX_GENESIS:
-                        pass
-                    elif tx.type == C.TX_TRANSFER:
-                        pass
-                    elif tx.type == C.TX_POW_REWARD:
-                        pass
-                    elif tx.type == C.TX_POS_REWARD:
-                        pass
-                    elif tx.type == C.TX_MINT_COIN:
-                        address, mint_id, amount = tx.outputs[0]
-                        assert mint_id != 0, 'Mint_id is not 0. {}'.format(mint_id)
-                        next_index = 0
-                        for dummy in self.db.get_coins_iter(mint_id):
-                            next_index += 1
-                        self.db.insert_coins(mint_id, next_index, tx.hash)
-                    elif tx.type == C.TX_CREATE_CONTRACT:
-                        c_address, c_bin, c_cs = bjson.loads(tx.message)
-                        start_hash, finish_hash = tx.hash, ZERO_FILLED_HASH
-                        self.db.insert_contract(c_address, 0, start_hash, finish_hash)
-                    elif tx.type == C.TX_START_CONTRACT:
-                        c_address, c_data = bjson.loads(tx.message)
-                        next_index = 0
-                        for dummy in self.db.get_contract_iter(c_address):
-                            next_index += 1
-                        assert next_index > 0, 'Not created contract.'
-                        start_hash, finish_hash = tx.hash, ZERO_FILLED_HASH
-                        self.db.insert_contract(c_address, next_index, start_hash, finish_hash)
-                    elif tx.type == C.TX_FINISH_CONTRACT:
-                        c_status, start_hash, cs_diff = bjson.loads(tx.message)
-                        # 同一BlockからStartTXを探し..
-                        for start_tx in block.txs:
-                            if start_tx.hash == start_hash:
-                                break
-                        else:
-                            raise BlockBuilderError('Not found start tx. {}'.format(tx))
-                        c_address, c_data, c_redeem = bjson.loads(start_tx.message)
-                        # 次のIndexを取得する
-                        for c_address, index, _start_hash, finish_hash in self.db.get_contract_iter(c_address):
-                            if start_hash == _start_hash and finish_hash == ZERO_FILLED_HASH:
-                                break  # STARTで既に挿入されているはず
-                        else:
-                            raise BlockBuilderError('Not found start tx on db. {}'.format(tx))
-                        self.db.insert_contract(c_address, index, start_hash, tx.hash)
-            # block挿入終了
-            self.root_block = block
-            self.db.batch_commit()
-            # root_blockよりHeightの小さいBlockを消す
-            for blockhash, block in self.chain.items():
-                if self.root_block.height >= block.height:
-                    del self.chain[blockhash]
-            logging.debug("Success batch {} blocks, root={}."
-                          .format(len(batched_blocks), self.root_block))
-            # アカウントへ反映↓
-            user_account.update(batched_blocks)
-            return batched_blocks  # [<height=n>, <height=n+1>, .., <height=n+m>]
-        except BaseException as e:
-            self.db.batch_rollback()
-            import traceback
-            traceback.print_exc()
-            logging.warning("Failed batch block builder. '{}'".format(e))
-            return None
-
-    def new_block(self, block):
-        self.chain[block.hash] = block
-        self.best_chain_cashe = None
-        self.get_chained_txs_cashe = None
-        for tx in block.txs:
-            tx.height = block.height
-        tx_box.affect_new_block(block)
-
-    def get_block(self, blockhash):
-        # memoryに無いか調べる
-        if blockhash in self.chain:
-            best_block, best_chain = self.get_best_chain()
-            block = self.chain[blockhash]
-            block.f_on_memory = True
-            block.f_orphan = False if block in best_chain else True
-        else:
-            block = self.db.get_block(blockhash)
-            block.f_on_memory = False
-            block.f_orphan = False
-        return block
 
 
 class BlockBuilderError(BaseException):
