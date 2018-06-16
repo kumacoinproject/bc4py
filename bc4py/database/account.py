@@ -1,75 +1,54 @@
 from bc4py.config import C, V, BlockChainError
-from bc4py.user import CoinObject
+from bc4py.user import CoinObject, UserCoins
 from bc4py.utils import AESCipher
-from bc4py.database.create import closing, create_db
 import time
 import os
 from binascii import hexlify, unhexlify
 
 
-def read_txhash2log(txhash, cur):
+def read_txhash2log(txhash, cur, f_dict=False):
     d = cur.execute("""
-        SELECT `type`,`from`,`to`,`coin_id`,`amount`,`time` FROM `log` WHERE `hash`=?
+        SELECT `type`,`user`,`coin_id`,`amount`,`time` FROM `log` WHERE `hash`=?
     """, (txhash,)).fetchall()
     if len(d) == 0:
-        raise BlockChainError('Not found txhash {}'.format(hexlify(txhash)))
-    _type, _from, _to, coin_id, amount, _time = d[0]
-
-    if _type in (C.LOG_MOVEMENT, C.LOG_TRANSACTION):
-        coins = CoinObject()
-        for _type, _from, _to, coin_id, amount, _time in d:
-            coins[coin_id] += amount
+        return None
+    movement = UserCoins()
+    _type = _time = None
+    for _type, user, coin_id, amount, _time in d:
+        movement.add_coins(user, coin_id, amount)
+    if f_dict:
+        movement = {read_user2name(user, cur): coins.coins for user, coins in movement.items()}
         return {
-            'type': _type,
-            'from': _from,
-            'to': _to,
-            'coins': coins,
-            'time': _time}
-
-    elif _type in (C.LOG_COMPLEX_MOVEMENT, C.LOG_COMPLEX_TRANSACTION):
-        movement = dict()
-        for _type, _from, _to, coin_id, amount, _time in d:
-            k = (_from, _to)
-            if k in movement:
-                movement[k][coin_id] += amount
-            else:
-                movement[k] = CoinObject(coin_id, amount)
-        return {
-            'type': _type,
+            'txhash': hexlify(txhash).decode(),
+            'type': C.txtype2name[_type],
             'movement': movement,
-            'time': _time}
+            'time': _time + V.BLOCK_GENESIS_TIME}
     else:
-        raise TypeError('Unknown log type {}.'.format(_type))
+        return _type, movement, _time
 
 
-def insert_simple_log(_from, _to, coins, cur, _time=None, txhash=None):
-    assert isinstance(_from, int) and isinstance(_to, int), 'user id is int.'
-    assert isinstance(coins, CoinObject), 'Is not CoinObject'
-    assert _from != _to, 'Sender and Recipient is same {}'.format(_from)
-    _type = C.LOG_TRANSACTION if txhash else C.LOG_MOVEMENT
+def read_log_iter(cur, start=0, f_dict=False):
+    d = cur.execute("SELECT DISTINCT `hash` FROM `log` ORDER BY `id` DESC").fetchall()
+    c = 0
+    for (txhash,) in d:
+        if start <= c:
+            yield read_txhash2log(txhash, cur, f_dict)
+        c += 1
+
+
+def insert_log(movements, cur, _type=None, _time=None, txhash=None):
+    assert isinstance(movements, UserCoins), 'movements is UserCoin.'
+    _type = _type or C.TX_INNER
     _time = _time or int(time.time() - V.BLOCK_GENESIS_TIME)
-    txhash = txhash or (_time.to_bytes(24, 'big') + os.urandom(8))
-    movements = list()
-    for index, (coin_id, amount) in enumerate(coins.items()):
-        movements.append((
-            txhash, index, _type, _from, _to, coin_id, amount, _time))
-    cur.executemany("INSERT INTO `log` VALUES (?,?,?,?,?,?,?,?)", movements)
-
-
-def insert_complex_log(movements, cur, _time=None, txhash=None):
-    _type = C.LOG_COMPLEX_TRANSACTION if txhash else C.LOG_COMPLEX_MOVEMENT
-    _time = _time or int(time.time() - V.BLOCK_GENESIS_TIME)
-    txhash = txhash or (_time.to_bytes(24, 'big') + os.urandom(8))
+    txhash = txhash or (b'\x00' * 24 + _time.to_bytes(4, 'big') + os.urandom(4))
     move = list()
     index = 0
-    for (_from, _to), coins in movements.items():
-        assert _from != _to, 'Sender and Recipient is same {}'.format(_from)
-        assert isinstance(_from, int) and isinstance(_to, int), 'user id is int.'
-        assert isinstance(coins, CoinObject), 'Is not CoinObject'
-        for coin_id, amount in coins.items():
-            move.append((txhash, index, _type, _from, _to, coin_id, amount, _time))
+    for user, coins in movements.items():
+        for index, (coin_id, amount) in coins.items():
+            move.append((txhash, index, _type, user, coin_id, amount, _time))
             index += 1
-    cur.executemany("INSERT INTO `log` VALUES (?,?,?,?,?,?,?,?)", move)
+    cur.executemany("INSERT INTO `log` VALUES (?,?,?,?,?,?,?)", move)
+    return txhash
 
 
 def read_address2keypair(address, cur):
@@ -125,6 +104,11 @@ def read_account_info(user, cur):
     return name, description, _time
 
 
+def read_pooled_address_iter(cur):
+    cur.execute("SELECT `id`,`ck`,`user` FROM `pool`")
+    return cur
+
+
 def read_address2account(address, cur):
     user = read_address2user(address, cur)
     if user is None:
@@ -137,7 +121,16 @@ def read_name2user(name, cur):
         SELECT `id` FROM `account` WHERE `name`=?
     """, (name,)).fetchone()
     if d is None:
-        return None
+        return create_account(name, cur)
+    return d[0]
+
+
+def read_user2name(user, cur):
+    d = cur.execute("""
+        SELECT `name` FROM `account` WHERE `id`=?
+    """, (user,)).fetchone()
+    if d is None:
+        raise Exception('Not found user id. {}'.format(user))
     return d[0]
 
 
@@ -165,7 +158,8 @@ def create_new_user_keypair(name, cur):
 
 
 __all__ = (
-    "read_txhash2log", "insert_simple_log", "insert_complex_log",
+    "read_txhash2log", "read_log_iter", "insert_log",
     "read_address2keypair", "read_address2user", "update_keypair_user", "insert_keypairs",
-    "read_account_info", "read_address2account", "create_new_user_keypair"
+    "read_account_info", "read_pooled_address_iter", "read_address2account", "read_name2user", "read_user2name",
+    "create_account", "create_new_user_keypair"
 )

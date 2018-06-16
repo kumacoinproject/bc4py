@@ -17,16 +17,17 @@ class C:  # 起動中に変更してはいけない
 
     # tx type
     TX_GENESIS = 0  # Height0の初期設定TX
-    TX_TRANSFER = 1  # 送受金
-    TX_POW_REWARD = 2  # POWの報酬TX
-    TX_POS_REWARD = 3  # POSの報酬TX
+    TX_POW_REWARD = 1  # POWの報酬TX
+    TX_POS_REWARD = 2  # POSの報酬TX
+    TX_TRANSFER = 3  # 送受金
     TX_MINT_COIN = 4  # 新規貨幣を鋳造
     TX_CREATE_CONTRACT = 5  # コントラクトアドレスを作成
     TX_START_CONTRACT = 6  # コントラクトの開始TX
     TX_FINISH_CONTRACT = 7  # コントラクトの終了TX
+    TX_INNER = 255  # 内部のみで扱うTX
     txtype2name = {
         0: 'GENESIS', 1: 'TRANSFER', 2: 'POW_REWARD', 3: 'POS_REWARD', 4: 'MINT_COIN',
-        5: 'CREATE_CONTRACT', 6: 'START_CONTRACT', 7: 'FINISH_CONTRACT'}
+        5: 'CREATE_CONTRACT', 6: 'START_CONTRACT', 7: 'FINISH_CONTRACT', 255: 'TX_INNER'}
 
     # message format
     MSG_NONE = 0  # no message
@@ -52,12 +53,6 @@ class C:  # 起動中に変更してはいけない
     ANT_NAME_UNKNOWN = '@Unknown'
     ANT_NAME_OUTSIDE = '@Outside'
     ANT_NAME_CONTRACT = '@Contract'
-
-    # log
-    LOG_MOVEMENT = 0  # 単一ユーザー間の内部移動
-    LOG_TRANSACTION = 1  # 単一ユーザー間の外部移動
-    LOG_COMPLEX_MOVEMENT = 3  # 複数ユーザー間の内部移動
-    LOG_COMPLEX_TRANSACTION = 2  # 複数ユーザー間の外部移動
 
     # Block/TX/Fee limit
     ACCEPT_MARGIN_TIME = 30  # 新規データ受け入れ時間マージンSec

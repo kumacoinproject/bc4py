@@ -3,10 +3,7 @@
 
 from bc4py.config import C, V
 from bc4py.chain.utils import MAX_256_INT, bits2target
-import yescryptr16
-# import yescryptr64
-# import zny_yescrypt
-import multiprocessing
+from bc4py.chain.workhash import update_work_hash
 from hashlib import sha256
 from os import urandom
 from binascii import hexlify
@@ -14,55 +11,7 @@ import struct
 import time
 
 
-BLOCK_PACKING_FORMAT = '> 32s32sIII4s'
-
-
-def generator_process(pipe):
-    print("POW hash gene start.")
-    while True:
-        try:
-            binary = pipe.recv()
-            pow_hash = yescryptr16.getPoWHash(binary)
-            pipe.send(pow_hash)
-        except Exception as e:
-            print("POW hash gene error:", e)
-            break
-
-
-class PowGenerator:
-    # GCとyescryptr16の相性が悪くメモリリークする為
-    def __init__(self):
-        self.p = None
-        self.pipe = None
-        self.lock = None
-
-    def start(self):
-        pipe0, pipe1 = multiprocessing.Pipe()
-        self.pipe = pipe1
-        self.lock = multiprocessing.Lock()
-        self.p = multiprocessing.Process(target=generator_process, args=(pipe0,))
-        self.p.daemon = True
-        self.p.start()
-
-    def calc(self, binary):
-        with self.lock:
-            try:
-                self.pipe.send(binary)
-                pow_hash = self.pipe.recv()
-                return pow_hash
-            except BlockingIOError:
-                self.start()
-                self.pipe.send(binary)
-                pow_hash = self.pipe.recv()
-        return pow_hash
-
-    def close(self):
-        self.p.terminate()
-        self.pipe.close()
-
-
-# メモリリーク防止の為に別プロセスでハッシュ計算する
-pow_generator = PowGenerator()
+struct_block = struct.Struct('>32s32sIII4s')
 
 
 class Block:
@@ -123,8 +72,7 @@ class Block:
         self.create_time = int(time.time())
 
     def serialize(self):
-        self.b = struct.pack(
-            BLOCK_PACKING_FORMAT,
+        self.b = struct_block.pack(
             self.merkleroot,
             self.previous_hash,
             self.bits,
@@ -137,24 +85,16 @@ class Block:
     def deserialize(self):
         assert len(self.b) == 80, 'Not correct header size [{}!={}]'.format(len(self.b), 80)
         self.merkleroot, self.previous_hash, self.bits, self.pos_bias, self.time, \
-            self.nonce = struct.unpack(BLOCK_PACKING_FORMAT, self.b)
+            self.nonce = struct_block.unpack(self.b)
         self.hash = sha256(self.b).digest()
 
     def getinfo(self):
         r = dict()
         r['hash'] = hexlify(self.hash).decode() if self.hash else None
         try:
-            if self.work_hash is not None:
-                r['work_hash'] = hexlify(self.work_hash).decode()
-            elif self.flag == C.BLOCK_POW:
-                self.update_pow()
-                r['work_hash'] = hexlify(self.work_hash).decode()
-            elif self.flag == C.BLOCK_POS:
-                proof_tx = self.txs[0]
-                self.work_hash = proof_tx.get_pos_hash(previous_hash=self.previous_hash, pos_bias=self.pos_bias)
-                r['work_hash'] = hexlify(self.work_hash).decode()
-            else:
-                r['work_hash'] = None
+            if self.work_hash is None:
+                update_work_hash(self)
+            r['work_hash'] = hexlify(self.work_hash).decode()
         except Exception as e:
             import traceback
             traceback.print_exc()
@@ -189,13 +129,7 @@ class Block:
         self.serialize()
 
     def update_pow(self):
-        # 80bytesでないと正しくハッシュが出ない模様
-        if self.flag != C.BLOCK_POW:
-            pass
-        elif pow_generator.p is None:
-            self.work_hash = yescryptr16.getPoWHash(self.b)
-        else:
-            self.work_hash = pow_generator.calc(self.b)
+        update_work_hash(self)
 
     def diff2targets(self, difficulty=None):
         difficulty = difficulty if difficulty else self.difficulty
@@ -213,7 +147,7 @@ class Block:
 
     def pow_check(self):
         if not self.work_hash:
-            self.update_pow()
+            update_work_hash(self)
         if not self.target_hash:
             self.bits2target()
         return int.from_bytes(self.target_hash, 'big') > int.from_bytes(self.work_hash, 'big')

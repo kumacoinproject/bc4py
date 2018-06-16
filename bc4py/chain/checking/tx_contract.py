@@ -5,7 +5,7 @@ from bc4py.database.builder import builder
 from bc4py.database.tools import get_contract_storage
 from bc4py.contract.finishtx import create_finish_tx
 from bc4py.contract.utils import binary2contract
-from bc4py.database.builder import tx_box
+from bc4py.database.builder import tx_builder
 from nem_ed25519.key import is_address
 import bjson
 import logging
@@ -85,7 +85,7 @@ def get_start_by_finish_tx(finish_tx, start_hash, include_block):
         else:
             raise BlockChainError('Not found StartTX on block. {} {}'.format(finish_tx, include_block))
     else:
-        for start_tx in tx_box.unconfirmed:
+        for start_tx in tx_builder.unconfirmed:
             if start_tx.type != C.TX_START_CONTRACT:
                 pass
             elif start_tx.hash == start_hash:

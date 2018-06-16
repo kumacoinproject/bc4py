@@ -1,6 +1,3 @@
-from bc4py.config import C, V, P, BlockChainError
-from bc4py.chain.block import Block
-from bc4py.chain.tx import TX
 from bc4py.chain.checking.tx_reward import *
 from bc4py.chain.checking.tx_mintcoin import *
 from bc4py.chain.checking.tx_contract import *
@@ -10,7 +7,7 @@ from binascii import hexlify
 import time
 
 
-def check_tx(tx: TX, include_block: Block):
+def check_tx(tx, include_block):
     # TXの正当性チェック
     f_amount_check = True
     f_signature_check = True

@@ -10,6 +10,11 @@ import time
 import struct
 
 
+struct_block = struct.Struct('>IIIIQqBBBI')
+struct_inputs = struct.Struct('>32sB')
+struct_outputs = struct.Struct('>40sIQ')
+
+
 class TX:
     __slots__ = (
         "b", "hash", "height", "pos_amount",
@@ -71,15 +76,15 @@ class TX:
         # 構造
         # [version I]-[type I]-[time I]-[deadline I]-[gas_price Q]-[gas_amount q]-[msg_type B]-
         # -[input_len B]-[output_len B]-[msg_len I]-[inputs]-[outputs]-[msg]
-        self.b = struct.pack(
-            '>IIIIQqBBBI', self.version, self.type, self.time, self.deadline, self.gas_price, self.gas_amount,
+        self.b = struct_block.pack(
+            self.version, self.type, self.time, self.deadline, self.gas_price, self.gas_amount,
             self.message_type, len(self.inputs), len(self.outputs), len(self.message))
         # inputs
         for txhash, txindex in self.inputs:
-            self.b += struct.pack('>32sB', txhash, txindex)
+            self.b += struct_inputs.pack(txhash, txindex)
         # outputs
         for address, coin_id, amount in self.outputs:
-            self.b += struct.pack('>40sIQ', address.encode(), coin_id, amount)
+            self.b += struct_outputs.pack(address.encode(), coin_id, amount)
         # message
         self.b += self.message
         # txhash
@@ -87,21 +92,19 @@ class TX:
 
     def deserialize(self):
         self.version, self.type, self.time, self.deadline, self.gas_price, self.gas_amount,\
-            self.message_type, input_len, outputs_len, msg_len = struct.unpack_from('>IIIIQqBBBI', self.b)
+            self.message_type, input_len, outputs_len, msg_len = struct_block.unpack_from(self.b)
         # inputs
-        pos = struct.calcsize('>IIIIQqBBBI')
+        pos = struct_block.size
         self.inputs = list()
-        add_pos = struct.calcsize('>32sB')
         for i in range(input_len):
-            self.inputs.append(struct.unpack_from('>32sB', self.b, pos))
-            pos += add_pos
+            self.inputs.append(struct_inputs.unpack_from(self.b, pos))
+            pos += struct_inputs.size
         # outputs
-        add_pos = struct.calcsize('>40sIQ')
         self.outputs = list()
         for i in range(outputs_len):
-            address, coin_id, amount = struct.unpack_from('>40sIQ', self.b, pos)
+            address, coin_id, amount = struct_outputs.unpack_from(self.b, pos)
             self.outputs.append((address.decode(), coin_id, amount))
-            pos += add_pos
+            pos += struct_outputs.size
         # msg
         self.message = self.b[pos:pos+msg_len]
         pos += msg_len

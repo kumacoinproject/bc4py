@@ -47,9 +47,5 @@ def _debug(sql, path, explain=True):
                 c += 1
 
 
-def debug_chain(sql, explain=True):
-    _debug(sql=sql, path=V.DB_BLOCKCHAIN_PATH, explain=explain)
-
-
 def debug_account(sql, explain=True):
     _debug(sql=sql, path=V.DB_ACCOUNT_PATH, explain=explain)

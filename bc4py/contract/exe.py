@@ -27,7 +27,7 @@ F_MANUAL_CONTROL = False
 
 def work_field(params, contract_tx, start_tx, que):
     set_database_path(sub_dir=params.get("sub_dir"))
-    set_blockchain_params()
+    set_blockchain_params(genesis_block=params.get('genesis_block'))
     virtual_machine = None
     try:
         virtual_machine = rpdb.Rpdb(port=0)
@@ -35,8 +35,8 @@ def work_field(params, contract_tx, start_tx, que):
         virtual_machine.server_start()
         c_address, c_bin, c_cs = bjson.loads(contract_tx.message)
         c_obj = binary2contract(c_bin)
-        filepath = c_obj.__code__.co_filename
-        module_name = os.path.split(filepath)[1]
+        file_path = c_obj.__code__.co_filename
+        module_name = os.path.split(file_path)[1]
         que.put((CMD_MODULE, module_name))
         # remote emulate
         virtual_machine.set_trace()
@@ -55,7 +55,6 @@ def auto_emulate(contract_tx, start_tx, gas_limit=None, out=None):
     # setup remote field
     params = dict(sub_dir=V.SUB_DIR)
     p = Process(target=work_field, args=(params, contract_tx, start_tx, que))
-    p.daemon = True
     p.start()
     # ServerのPortを取得
     que_cmd, port = que.get(timeout=10)

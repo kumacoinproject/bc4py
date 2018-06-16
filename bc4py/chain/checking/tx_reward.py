@@ -2,7 +2,7 @@ from bc4py import __chain_version__
 from bc4py.config import C, BlockChainError
 from bc4py.chain.utils import GompertzCurve
 from bc4py.chain.difficulty import get_pos_bias_by_hash
-from bc4py.database.builder import tx_box
+from bc4py.database.builder import tx_builder
 
 
 def check_tx_pow_reward(tx, include_block):
@@ -43,7 +43,7 @@ def check_tx_pos_reward(tx, include_block):
         raise BlockChainError('Pos msg is None type. [{},{}]'.format(tx.message_type, tx.message))
 
     txhash, txindex = tx.inputs[0]
-    base_tx = tx_box.get_tx(txhash)
+    base_tx = tx_builder.get_tx(txhash)
     if base_tx is None:
         raise BlockChainError('Not found BaseTX of {}.',format(tx))
     input_address, input_coin_id, input_amount = base_tx.outputs[txindex]

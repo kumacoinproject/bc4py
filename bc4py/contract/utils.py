@@ -1,6 +1,6 @@
 from bc4py.contract.libs import *
 from bc4py.contract.libs import __all__ as all_libs
-from bc4py.contract.dummy_module import contract
+from bc4py.contract.c_dummy_module import contract
 from importlib import import_module
 import pickletools
 import dill

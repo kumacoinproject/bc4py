@@ -1,5 +1,5 @@
 from bc4py.config import C, V, BlockChainError
-from bc4py.database.builder import builder, tx_box
+from bc4py.database.builder import builder, tx_builder
 from bc4py.database.tools import get_tx_with_usedindex, get_contract_storage
 from bc4py.user import CoinObject
 from nem_ed25519.base import Encryption
@@ -36,7 +36,7 @@ def amount_check(tx, payfee_coin_id):
     # Inputs
     input_coins = CoinObject()
     for txhash, txindex in tx.inputs:
-        input_tx = tx_box.get_tx(txhash)
+        input_tx = tx_builder.get_tx(txhash)
         address, coin_id, amount = input_tx.outputs[txindex]
         input_coins[coin_id] += amount
 
@@ -60,7 +60,7 @@ def amount_check(tx, payfee_coin_id):
 def signature_check(tx):
     need_cks = set()
     for txhash, txindex in tx.inputs:
-        input_tx = tx_box.get_tx(txhash)
+        input_tx = tx_builder.get_tx(txhash)
         address, coin_id, amount = input_tx.outputs[txindex]
         if is_address(address, V.BLOCK_PREFIX):
             need_cks.add(address)  # 通常のアドレスのみ
@@ -79,9 +79,9 @@ def signature_check(tx):
         raise BlockChainError('Signed list check is failed. [{}={}]'.format(need_cks, signed_cks))
 
 
-def validator_check(tx, include_block):
-    assert tx.type == C.TX_FINISH_CONTRACT, 'validator_check is for FinishTX.'
-    cs = get_contract_storage(V.CONTRACT_VALIDATOR_ADDRESS, include_block)
+def get_validator_info(best_block=None):
+    assert V.CONTRACT_VALIDATOR_ADDRESS, 'Not found validator address.'
+    cs = get_contract_storage(V.CONTRACT_VALIDATOR_ADDRESS, best_block)
     validator_cks = set()
     for k, v in cs.items():
         cmd, address = k[0], k[1:].decode()
@@ -90,6 +90,12 @@ def validator_check(tx, include_block):
         elif v == b'\x01':
             validator_cks.add(address)
     required_num = len(validator_cks) * 3 // 4 + 1  # TODO:数
+    return validator_cks, required_num
+
+
+def validator_check(tx, include_block):
+    assert tx.type == C.TX_FINISH_CONTRACT, 'validator_check is for FinishTX.'
+    validator_cks, required_num = get_validator_info(include_block)
     signed_cks = set()
     already_signed_num = tx.inner_params.get('signed_num', 0)
     ecc = Encryption(prefix=V.BLOCK_PREFIX)
@@ -116,5 +122,6 @@ __all__ = [
     "inputs_origin_check",
     "amount_check",
     "signature_check",
-    "validator_check"
+    "validator_check",
+    "get_validator_info"
 ]

@@ -1,8 +1,8 @@
-from bc4py.config import C, V
+from bc4py.config import C, V, P
 from bc4py.chain.utils import signature2bin, bin2signature
 from bc4py.chain.tx import TX
 from bc4py.chain.block import Block
-from bc4py.user import CoinObject
+from bc4py.user import CoinObject, UserCoins
 from bc4py.database.account import *
 from bc4py.database.create import closing, create_db
 import leveldb
@@ -25,7 +25,6 @@ struct_address = struct.Struct('>40s32sB')
 struct_address_idx = struct.Struct('>IQ?')
 
 
-ADDRESS_INDEX = True
 ZERO_FILLED_HASH = b'\x00' * 32
 
 
@@ -263,12 +262,15 @@ class DataBase:
 class ChainBuilder:
     def __init__(self, cashe_limit=100, batch_size=20):
         assert cashe_limit > batch_size, 'cashe_limit > batch_size.'
-        self.chain = dict()
-        self.root_block = None  # 最後に挿入されたBlock
         self.cashe_limit = cashe_limit
         self.batch_size = batch_size
-        self.best_chain_cashe = None
-        self.get_chained_txs_cashe = None
+        self.chain = dict()
+        # self.best_chain → [height=n]-[height=n+1]-....-[height=n+m-1]-[height=n+m]
+        # self.root_block → [height=n-1] (self.chainに含まれず)
+        # self.best_block → [height=n+m]
+        self.best_chain = None
+        self.root_block = None
+        self.best_block = None
         self.db = None
         try:
             self.db = DataBase(os.path.join(V.DB_HOME_DIR, 'db'))
@@ -283,11 +285,11 @@ class ChainBuilder:
         try:
             if genesis_block.hash != self.db.read_block_hash(0):
                 raise BlockBuilderError("Don't match genesis hash [{}!={}]".format(
-                    hexlify(genesis_block.hash), hexlify(self.db.read_block_hash(0))))
+                    hexlify(genesis_block.hash).decode(), hexlify(self.db.read_block_hash(0).decode())))
             elif genesis_block != self.db.read_block(genesis_block.hash):
                 raise BlockBuilderError("Don't match genesis binary [{}!={}]".format(
-                    hexlify(genesis_block.b), hexlify(self.db.read_block(genesis_block.hash).b)))
-        except KeyError:
+                    hexlify(genesis_block.b).decode(), hexlify(self.db.read_block(genesis_block.hash).b).decode()))
+        except BaseException:
             # GenesisBlockしか無いのでDummyBlockを入れる処理
             self.root_block = Block()
             self.root_block.hash = b'\xff' * 32
@@ -298,28 +300,32 @@ class ChainBuilder:
         # 0HeightよりBlockを取得して確認
         before_block = genesis_block
         batch_blocks = list()
-        for height, blockhash in self.db.read_block_hash_iter():
+        for height, blockhash in self.db.read_block_hash_iter(start_height=1):
             block = self.db.read_block(blockhash)
             if block.previous_hash != before_block.hash:
-                raise BlockBuilderError("PreviousHash != BlockHash [{}!={}]".format(block, before_block))
+                raise BlockBuilderError("PreviousHash != BlockHash [{}!={}]"
+                                        .format(block, before_block))
             elif block.height != height:
-                raise BlockBuilderError("BlockHeight != DBHeight [{}!={}]".format(block.height, height))
+                raise BlockBuilderError("BlockHeight != DBHeight [{}!={}]"
+                                        .format(block.height, height))
             elif height != before_block.height+1:
-                raise BlockBuilderError("DBHeight != BeforeHeight+1 [{}!={}+1]".format(height, before_block.height))
+                raise BlockBuilderError("DBHeight != BeforeHeight+1 [{}!={}+1]"
+                                        .format(height, before_block.height))
             for tx in block.txs:
                 if tx.height != height:
-                    raise BlockBuilderError("TXHeight != BlockHeight [{}!{}]".format(tx.height, height))
+                    raise BlockBuilderError("TXHeight != BlockHeight [{}!{}]"
+                                            .format(tx.height, height))
                 # inputs
                 for txhash, txindex in tx.inputs:
                     input_tx = self.db.read_tx(txhash)
                     address, coin_id, amount = input_tx.outputs[txindex]
                     _coin_id, _amount, f_used = self.db.read_address_idx(address, txhash, txindex)
+                    usedindex = self.db.read_usedindex(txhash)
                     if coin_id != _coin_id or amount != _amount:
                         raise BlockBuilderError("Inputs, coin_id != _coin_id or amount != _amount [{}!{}] [{}!={}]"
                                                 .format(coin_id, _coin_id, amount, _amount))
-                    elif txindex not in input_tx.used_index:
-                        raise BlockBuilderError("TXIndex in InputIndex [{} not in {}]"
-                                                .format(txindex, input_tx.used_index))
+                    elif txindex not in usedindex:
+                        raise BlockBuilderError("Already used but unused. [{} not in {}]".format(txindex, usedindex))
                     elif not f_used:
                         raise BlockBuilderError("Already used but unused flag. [{}:{}]".format(input_tx, txindex))
                 # outputs
@@ -332,11 +338,11 @@ class ChainBuilder:
             before_block = block
             batch_blocks.append(block)
             if block.height % 100 == 1:
-                user_account.update(batch_blocks)
+                user_account.new_batch_apply(batch_blocks)
                 batch_blocks.clear()
                 logging.debug("UserAccount batched at {} height.".format(block.height))
         # UserAccount update
-        user_account.update(batch_blocks)
+        user_account.new_batch_apply(batch_blocks)
         batch_blocks.clear()
         self.root_block = before_block
         # ここまでにErrorがあったらFixしてみる
@@ -344,10 +350,20 @@ class ChainBuilder:
         logging.info("Init finished, last block is {} {}Sec"
                      .format(before_block, round(time.time()-t, 3)))
 
-    def get_best_chain(self):
+    def get_best_chain(self, best_block=None):
         assert self.root_block, 'Do not init.'
-        if self.best_chain_cashe:
-            return self.best_chain_cashe
+        if best_block:
+            best_chain = [best_block]
+            previous_hash = best_block.previous_hash
+            while self.root_block.hash != previous_hash:
+                if previous_hash not in self.chain:
+                    raise BlockBuilderError('Cannot find previousHash, may not main-chain. {}'
+                                            .format(hexlify(previous_hash).decode()))
+                block = self.chain[previous_hash]
+                previous_hash = block.previous_hash
+                best_chain.append(block)
+            return best_block, best_chain
+        # BestBlockがchainにおける
         best_diff = 0.0
         best_block = None
         best_chain = list()
@@ -374,18 +390,7 @@ class ChainBuilder:
             for tx in block:
                 tx.height = block.height
         # best_chain = [<height=n>, <height=n-1>, ...]
-        self.best_chain_cashe = (best_block, best_chain)
         return best_block, best_chain
-
-    def get_chained_txs(self):
-        if self.get_chained_txs_cashe:
-            return self.get_chained_txs_cashe
-        chained_txs = set()
-        best_chain = self.get_best_chain()[1]
-        for block in best_chain:
-            chained_txs.difference_update(tx for tx in block.txs)
-        self.get_chained_txs_cashe = chained_txs
-        return chained_txs
 
     def batch_apply(self, force=False):
         # 無チェックで挿入するから要注意
@@ -394,7 +399,7 @@ class ChainBuilder:
         # cashe許容量を上回っているので記録
         self.db.batch_create()
         logging.debug("Start batch apply. chain={} force={}".format(len(self.chain), force))
-        best_block, best_chain = self.get_best_chain()
+        best_chain = self.best_chain.copy()
         batch_count = self.batch_size
         batched_blocks = list()
         try:
@@ -405,20 +410,17 @@ class ChainBuilder:
                 batched_blocks.append(block)
                 self.db.write_block(block)  # Block
                 for tx in block.txs:
-                    tx.height = block.height
                     self.db.write_tx(tx)  # TX
                     # inputs
                     for index, (txhash, txindex) in enumerate(tx.inputs):
-                        # DataBase内でのみのUsedIndexｗｐ取得
-                        input_tx_tmp = self.db.read_tx(txhash)
-                        used = set(input_tx_tmp.used_index)
-                        if txindex in used:
+                        # DataBase内でのみのUsedIndexを取得
+                        usedindex = self.db.read_usedindex(txhash)
+                        if txindex in usedindex:
                             raise BlockBuilderError('Already used index? {}:{}'
                                                     .format(hexlify(txhash).decode(), txindex))
-                        used.add(txindex)
-                        input_tx = tx_box.get_tx(txhash)
-                        input_tx.used_index = bytes(sorted(used))
-                        self.db.write_tx(input_tx)  # UsedIndex update
+                        usedindex.add(txindex)
+                        self.db.write_usedindex(txhash, bytes(sorted(usedindex)))  # UsedIndex update
+                        input_tx = tx_builder.get_tx(txhash)
                         address, coin_id, amount = input_tx.outputs[txindex]
                         # TODO: 必要なAddressだけにしたい
                         self.db.write_address_idx(address, txhash, txindex, coin_id, amount, True)  # address
@@ -442,10 +444,12 @@ class ChainBuilder:
                         for dummy in self.db.read_coins_iter(mint_id):
                             next_index += 1
                         self.db.write_coins(mint_id, next_index, tx.hash)
+
                     elif tx.type == C.TX_CREATE_CONTRACT:
                         c_address, c_bin, c_cs = bjson.loads(tx.message)
                         start_hash, finish_hash = tx.hash, ZERO_FILLED_HASH
                         self.db.write_contract(c_address, 0, start_hash, finish_hash)
+
                     elif tx.type == C.TX_START_CONTRACT:
                         c_address, c_data = bjson.loads(tx.message)
                         next_index = 0
@@ -454,6 +458,7 @@ class ChainBuilder:
                         assert next_index > 0, 'Not created contract.'
                         start_hash, finish_hash = tx.hash, ZERO_FILLED_HASH
                         self.db.write_contract(c_address, next_index, start_hash, finish_hash)
+
                     elif tx.type == C.TX_FINISH_CONTRACT:
                         c_status, start_hash, cs_diff = bjson.loads(tx.message)
                         # 同一BlockからStartTXを探し..
@@ -480,7 +485,7 @@ class ChainBuilder:
             logging.debug("Success batch {} blocks, root={}."
                           .format(len(batched_blocks), self.root_block))
             # アカウントへ反映↓
-            user_account.update(batched_blocks)
+            user_account.new_batch_apply(batched_blocks)
             return batched_blocks  # [<height=n>, <height=n+1>, .., <height=n+m>]
         except BaseException as e:
             self.db.batch_rollback()
@@ -490,81 +495,183 @@ class ChainBuilder:
             return None
 
     def new_block(self, block):
+        # とりあえず新規に挿入
         self.chain[block.hash] = block
-        self.best_chain_cashe = None
-        self.get_chained_txs_cashe = None
-        for tx in block.txs:
-            tx.height = block.height
-        tx_box.affect_new_block(block)
+        # BestChainの変化を調べる
+        new_best_block, new_best_chain = self.get_best_chain()
+        if new_best_block == self.best_block:
+            return  # 操作を加える必要は無い
+        # tx heightを合わせる
+        old_best_chain = self.best_chain.copy()
+        commons = set(new_best_chain) & set(old_best_chain)
+        for block in old_best_chain.copy():
+            if block in commons:
+                old_best_chain.remove(block)
+            else:
+                for tx in block.txs:
+                    tx.height = None
+        for block in new_best_chain.copy():
+            if block in commons:
+                new_best_chain.remove(block)
+            else:
+                for tx in block.txs:
+                    tx.height = block.height
+        # 変化しているので反映する
+        self.best_block, self.best_chain = new_best_block, new_best_chain
+        tx_builder.affect_new_chain(old_best_chain, new_best_chain)
 
     def get_block(self, blockhash):
-        # memoryに無いか調べる
         if blockhash in self.chain:
-            best_block, best_chain = self.get_best_chain()
+            # Memoryより
             block = self.chain[blockhash]
             block.f_on_memory = True
-            block.f_orphan = False if block in best_chain else True
+            block.f_orphan = bool(block not in self.best_chain)
         else:
-            block = self.db.read_block(blockhash)
-            block.f_on_memory = False
-            block.f_orphan = False
+            # DataBaseより
+            try:
+                block = self.db.read_block(blockhash)
+                block.f_on_memory = False
+                block.f_orphan = False
+            except KeyError:
+                return None
         return block
 
+    def get_block_hash(self, height):
+        if height > self.best_block.height:
+            return None
+        elif height < 0:
+            return None
+        # Memoryより
+        for block in self.best_chain:
+            if height == block.height:
+                return block.hash
+        try:
+            return self.db.read_block_hash(height)
+        except KeyError:
+            return None
 
-class UserCoins:
-    def __repr__(self):
-        return "<User {}>".format(self.users)
 
-    def __init__(self, users=None):
-        self.users = users or dict()
+class TransactionBuilder:
+    def __init__(self):
+        # BLockに存在するTXのみ保持すればよい
+        self.unconfirmed = dict()  # Blockに取り込まれた事のないTX、参照保持用
+        self.chained_tx = weakref.WeakValueDictionary()  # 一度でもBlockに取り込まれた事のあるTX
+        self.tmp = weakref.WeakValueDictionary()  # 一時的
 
-    def copy(self):
-        return UserCoins(deepcopy(self.users))
+    def put_unconfirmed(self, tx):
+        assert tx.height is None, 'Not unconfirmed tx {}'.format(tx)
+        if tx.type not in (C.TX_POW_REWARD, C.TX_POS_REWARD):
+            return  # It is Reword tx
+        elif tx.hash in self.unconfirmed:
+            logging.debug('Already unconfirmed tx. {}'.format(tx))
+            return
+        self.unconfirmed[tx.hash] = tx
+        if tx.hash in self.chained_tx:
+            logging.debug('Already chained tx. {}'.format(tx))
+            return
+        user_account.affect_new_tx(tx)
+        # WebSocket apiに通知
+        if P.NEW_CHAIN_INFO_QUE:
+            P.NEW_CHAIN_INFO_QUE.put_nowait(('tx', tx.getinfo()))
 
-    def add_coins(self, user, coin_id, amount):
-        if user in self.users:
-            self.users[user][coin_id] += amount
+    def get_tx(self, txhash, default=None):
+        if txhash in self.tmp:
+            return self.tmp[txhash]
+        elif txhash in self.unconfirmed:
+            # unconfirmedより
+            tx = self.unconfirmed[txhash]
+            tx.f_on_memory = True
+            assert tx.height is None, "Not unconfirmed. {}".format(tx)
+        elif txhash in self.chained_tx:
+            # Memoryより
+            tx = self.chained_tx[txhash]
+            tx.f_on_memory = True
+            assert tx.height is not None, "Is unconfirmed. {}".format(tx)
         else:
-            self.users[user] = CoinObject(coin_id, amount)
+            # Databaseより
+            try:
+                tx = builder.db.read_tx(txhash)
+                tx.f_on_memory = False
+                self.tmp[txhash] = tx
+            except KeyError:
+                return default
+        return tx
 
-    def __getitem__(self, item):
-        if item in self.users:
-            return self.users[item]
-        return None
+    @staticmethod
+    def get_usedindex(txhash, best_block=None):
+        assert builder.best_block, 'Not DataBase init.'
+        if best_block:
+            best_chain = builder.best_chain
+        else:
+            dummy, best_chain = builder.get_best_chain(best_block)
+        # Memoryより
+        usedindex = set()
+        for block in best_chain:
+            for tx in block.txs:
+                for _txhash, _txindex in tx.inputs:
+                    if _txhash == txhash:
+                        usedindex.add(_txindex)
+        # DataBaseより
+        try:
+            usedindex.update(builder.db.read_usedindex(txhash))
+        except KeyError:
+            pass
+        return usedindex
 
-    def __add__(self, other):
-        new = dict()
-        for u in set(self.users) | set(other.users):
-            new[u] = CoinObject()
-            if u in self.users:
-                new[u] += self.users[u]
-            if u in other:
-                new[u] += other[u]
-        return UserCoins(new)
+    def __contains__(self, item):
+        return bool(self.get_tx(item.hash))
+
+    def affect_new_chain(self, old_best_chain, new_best_chain):
+        # 状態を戻す
+        for block in old_best_chain:
+            for tx in block.txs:
+                if tx.type in (C.TX_POS_REWARD, C.TX_POW_REWARD):
+                    continue
+                if tx.hash not in self.unconfirmed:
+                    self.unconfirmed[tx.hash] = tx
+                if tx.hash in self.chained_tx:
+                    del self.chained_tx[tx.hash]
+        # 新規に反映する
+        for block in new_best_chain:
+            for tx in block.txs:
+                if tx.type in (C.TX_POS_REWARD, C.TX_POW_REWARD):
+                    continue
+                if tx.hash not in self.chained_tx:
+                    self.chained_tx[tx.hash] = tx
+                if tx.hash in self.unconfirmed:
+                    del self.unconfirmed[tx.hash]
+        # 時間切れを起こしたUnconfirmedを消す
+        limit = int(time.time() - V.BLOCK_GENESIS_TIME - C.ACCEPT_MARGIN_TIME)
+        for txhash, tx in self.unconfirmed.items():
+            if limit > tx.deadline:
+                del self.unconfirmed[txhash]
 
 
 class UserAccount:
     def __init__(self):
-        # ユーザーと関係あるAddress
         self.db_balance = UserCoins()
-        self.db_movement = list()  # [<height=n>, <height=n+1>, ..,<height=n+m>]
+        # {txhash: (_type, movement, _time),..}
+        self.memory_movement = dict()
 
-    def get_balance(self, confirm=6):
-        assert confirm < builder.cashe_limit - builder.batch_size, 'Too thin cashe size.'
-        # database分の残高取得
+    def get_balance(self, confirm=6, best_block=None):
+        assert confirm < builder.cashe_limit - builder.batch_size, 'Too few cashe size.'
+        assert builder.best_block, 'Not DataBase init.'
+        if best_block:
+            best_chain = builder.best_chain
+        else:
+            best_block, best_chain = builder.get_best_chain(best_block)
+        # DataBase分の残高取得
         balance = self.db_balance.copy()
         # memory分の残高取得
-        best_block, best_chain = builder.get_best_chain()
-        if best_block is None:
-            return balance
+        limit_height = best_block.heigt - confirm
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
             for block in best_chain:
-                if best_block.heigt - confirm < block.height:
+                if limit_height < block.height:
                     continue
                 for tx in block.txs:
                     for txhash, txindex in tx.inputs:
-                        input_tx = tx_box.get_tx(txhash)
+                        input_tx = tx_builder.get_tx(txhash)
                         address, coin_id, amount = input_tx.outputs[txindex]
                         user = read_address2user(address, cur)
                         if user is not None:
@@ -575,132 +682,85 @@ class UserAccount:
                             balance.add_coins(user, coin_id, amount)
         return balance
 
-    def move_balance(self, _from, _to, coins, _txhash=None, _time=None):
-
-        # TODO: move, sendfromなどどうするか、
-        pass
-
-    def get_movement_iter(self, start=0):
-        # 内部の残高移動は含まない
-        best_block, best_chain = builder.get_best_chain()
-        db_movement = self.db_movement.copy()
-        count = -1
-        # on memory
+    def move_balance(self, _from, _to, coins):
+        assert isinstance(coins, CoinObject),  'coins is CoinObject.'
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
-            for block in best_chain:
-                for tx in block.txs:
+            try:
+                # DataBaseに即書き込む(Memoryに入れない)
+                movements = UserCoins()
+                movements[_from] -= coins
+                movements[_to] += coins
+                txhash = insert_log(movements, cur)
+                db.commit()
+                self.db_balance += movements
+                return txhash
+            except BaseException:
+                db.rollback()
+
+    def get_movement_iter(self, start=0, f_dict=False):
+        count = 0
+        # Unconfirmed
+        for tx in sorted(tx_builder.unconfirmed, key=lambda x: x.time):
+            if tx.hash in self.memory_movement:
+                if count >= start:
+                    yield self.memory_movement[tx.hash][0 if f_dict else 1]
+                count += 1
+        # Memory
+        for block in reversed(builder.best_chain):
+            for tx in block.txs:
+                if tx.hash in self.memory_movement:
+                    if count >= start:
+                        yield self.memory_movement[tx.hash][0 if f_dict else 1]
                     count += 1
-                    for txhash, txindex in tx.inputs:
-                        input_tx = tx_box.get_tx(txhash)
-                        address, coin_id, amount = input_tx.outputs[txindex]
-                        user = read_address2user(address, cur)
-                        if user is not None:
-                            if start <= count:
-                                yield tx  # TODO: 何を出すか？
-                            continue
-                    for address, coin_id, amount in tx.outputs:
-                        user = read_address2user(address, cur)
-                        if user is not None:
-                            if start <= count:
-                                yield tx  # TODO: 何を出すか？
-                            continue
-        # on database
-        for txhash in reversed(db_movement):
-            if start <= count:
-                yield tx_box.get_tx(txhash)  # TODO: 何を出すか？
-            count += 1
-
-    def update(self, batched_blocks):
-        db_movement = list()
+        # DataBase
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
-            for block in batched_blocks:
-                for tx in block.txs:
-                    f_movement = False
-                    # db_balanceを更新
-                    for txhash, txindex in tx.inputs:
-                        input_tx = tx_box.get_tx(txhash)
-                        address, coin_id, amount = input_tx.outputs[txindex]
-                        user = read_address2user(address, cur)
-                        if user is not None:
-                            self.db_balance.add_coins(user, coin_id, -1 * amount)
-                            f_movement = True
-                    for address, coin_id, amount in tx.outputs:
-                        user = read_address2user(address, cur)
-                        if user is not None:
-                            self.db_balance.add_coins(user, coin_id, amount)
-                            f_movement = True
-                    # db_movementを更新
-                    if f_movement:
-                        db_movement.append(tx.hash)
-        # 最後にbatchされた結果を格納
-        self.db_movement += db_movement
+            for data in read_log_iter(cur, start - count, f_dict):
+                yield data
 
+    def new_batch_apply(self, batched_blocks):
+        for block in batched_blocks:
+            for tx in block.txs:
+                if tx.hash not in self.memory_movement:
+                    continue
+                # db_balanceに追加
+                _type, movement, _time = self.memory_movement[tx.hash][1]
+                self.db_balance += movement
+                # memory_movementから削除
+                del self.memory_movement[tx.hash]
 
-class TransactionBox:
-    def __init__(self):
-        # BLockに存在するTXのみ保持すればよい
-        self.temporary = dict()  # Blockに取り込まれた事のないTX、参照保持用
-        self.cashed = weakref.WeakValueDictionary()  # 一度でもBlockに取り込まれた事のあるTX
-        self.unconfirmed_cashe = None
-
-    def put_unconfirmed_tx(self, tx):
-        assert tx.height is None, 'Not unconfirmed tx {}'.format(tx)
-        assert tx.type not in (C.TX_POW_REWARD, C.TX_POS_REWARD), 'It is Reword tx. {}'.format(tx)
-        self.unconfirmed_cashe = None
-        self.temporary[tx.hash] = tx
-        self.cashed[tx.hash] = tx
-
-    def get_tx(self, txhash, default=None):
-        if txhash in self.temporary:
-            tx = self.temporary[txhash]
-            tx.f_on_memory = True
-            assert tx.height is None, "Tx height is null. {}".format(tx)
-            return tx
-        elif txhash in self.cashed:
-            tx = self.cashed[txhash]
-            tx.f_on_memory = True
-            return tx
-        try:
-            tx = builder.db.read_tx(txhash)
-            tx.f_on_memory = False
-            return tx
-        except KeyError:
-            return default
-
-    def __contains__(self, item):
-        for tx in self.cashed.values():
-            if tx == item:
-                return True
-        return False
-
-    @property
-    def unconfirmed(self):
-        if self.unconfirmed_cashe:
-            return self.unconfirmed_cashe
-        chained_tx = builder.get_chained_txs()
-        # MainChainに含まれないTXを取得
-        unconfirmed = set(tx for tx in self.temporary.values() if tx not in chained_tx)
-        unconfirmed.update(tx for tx in self.cashed.values() if tx not in chained_tx)
-        # 時間切れを起こしていないTXのみ
-        limit = int(time.time() - V.BLOCK_GENESIS_TIME - C.ACCEPT_MARGIN_TIME)
-        for tx in unconfirmed.copy():
-            if limit < tx.deadline:
-                unconfirmed.remove(tx)
-                del self.temporary[tx.hash]
-            tx.height = None
-        self.unconfirmed_cashe = unconfirmed
-        return unconfirmed
-
-    def affect_new_block(self, block):
-        for tx in block.txs:
-            tx.height = block.height
-            if tx.type in (C.TX_POS_REWARD, C.TX_POW_REWARD):
-                continue
-            if tx.hash in self.temporary:
-                del self.temporary[tx.hash]
-                self.unconfirmed_cashe = None
+    def affect_new_tx(self, tx):
+        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+            cur = db.cursor()
+            movement = UserCoins()
+            # send_from_applyで登録済み
+            if tx.hash in self.memory_movement:
+                return
+            # memory_movementに追加
+            for txhash, txindex in tx.inputs:
+                input_tx = tx_builder.get_tx(txhash)
+                address, coin_id, amount = input_tx.outputs[txindex]
+                user = read_address2user(address, cur)
+                if user is not None:
+                    movement.add_coins(user, coin_id, -1 * amount)
+            for address, coin_id, amount in tx.outputs:
+                user = read_address2user(address, cur)
+                if user is not None:
+                    movement.add_coins(user, coin_id, amount)
+            # check
+            if len(movement.users) == 0:
+                return  # 無関係である
+            _type, _time = tx.type, tx.time
+            tuple_data = (_type, movement, _time)
+            movement_tmp = {read_user2name(user, cur): {coin_id: amount for coin_id, amount in coins.items()}
+                            for user, coins in movement.items()}
+            dict_data = {
+                'type': C.txtype2name[_type],
+                'movement': movement_tmp,
+                'time': _time + V.BLOCK_GENESIS_TIME}
+            self.memory_movement[tx.hash] = (dict_data, tuple_data)
+            logging.debug("Affect account new tx. {}".format(tx))
 
 
 class BlockBuilderError(BaseException):
@@ -710,6 +770,6 @@ class BlockBuilderError(BaseException):
 # ファイル読み込みと同時に作成
 builder = ChainBuilder()
 # TXの管理
-tx_box = TransactionBox()
+tx_builder = TransactionBuilder()
 # User情報
 user_account = UserAccount()

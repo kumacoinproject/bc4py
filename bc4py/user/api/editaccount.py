@@ -1,9 +1,7 @@
 from bc4py.config import C, V
 from bc4py.user import CoinObject
-from bc4py.user.account import create_new_group_keypair
 from bc4py.database.create import closing, create_db
-from bc4py.database.user.write import move_account_balance, change_encrypt_key
-from bc4py.database.user.flag import is_locked_database
+from bc4py.database.keylock import is_locked_database, change_encrypt_key
 from bc4py.user.api import web_base
 from aiohttp import web
 from bc4py.utils import AESCipher
@@ -16,9 +14,9 @@ async def unlock_database(request):
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         if is_locked_database(db.cursor()):
             V.ENCRYPT_KEY = old_key
-            return web.json_response({'result': False}, status=400)
+            return web.json_response({'result': False, 'status': 'locked'}, status=400)
         else:
-            return web_base.json_res({'result': True})
+            return web_base.json_res({'result': True, 'status': 'unlocked'})
 
 
 async def lock_database(request):

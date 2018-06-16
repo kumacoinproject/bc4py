@@ -28,7 +28,7 @@ def staking_process(pipe, params):
     staking_block = None
     unconfirmed = list()
     proof_txs = list()
-    staking_time = int(time.time())
+    staking_time = 0
     while True:
         if pipe.poll():
             cmd, obj = pipe.recv()
@@ -149,13 +149,14 @@ class Staking:
     f_stop = False
     f_staking = False
 
-    def __init__(self):
+    def __init__(self, genesis_block):
         assert V.BLOCK_CONSENSUS in (C.BLOCK_POS, C.HYBRID), 'Not pos mining chain.'
         self.thread_pool = list()
         self.que = queue.LifoQueue()
         self.previous_hash = None
         self.block_reward = None
         self.block_height = None
+        self.genesis_block = genesis_block
 
     def getinfo(self):
         return [str(po) for po in self.thread_pool]

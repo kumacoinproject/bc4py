@@ -1,7 +1,7 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.chain.mintcoin import MintCoinObject, MintCoinError
 from bc4py.database.tools import get_mintcoin
-from bc4py.database.builder import tx_box
+from bc4py.database.builder import tx_builder
 from bc4py.user import CoinObject
 from binascii import hexlify
 
@@ -19,7 +19,7 @@ def check_tx_mint_coin(tx, include_block):
 
     coins = CoinObject()
     for txhash, txindex in tx.inputs:
-        input_tx = tx_box.get_tx(txhash)
+        input_tx = tx_builder.get_tx(txhash)
         if input_tx is None:
             raise BlockChainError('Not found BaseTX {} of {}'.format(hexlify(txhash).decode(), tx))
         address, coin_id, amount = input_tx.outputs[txindex]

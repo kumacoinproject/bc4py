@@ -38,15 +38,14 @@ def make_account_db():
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         db.execute("""
             CREATE TABLE IF NOT EXISTS `log` (
+            `id` INTEGER PRIMARY KEY,
             `hash` BINARY,
             `index` INTEGER,
             `type` INTEGER NOT NULL,
-            `from` INTEGER NOT NULL,
-            `to` INTEGER NOT NULL,
+            `user` INTEGER NOT NULL,
             `coin_id` INTEGER NOT NULL,
             `amount` INTEGER NOT NULL,
-            `time` INTEGER NOT NULL,
-            PRIMARY KEY (`hash`,`index`)
+            `time` INTEGER NOT NULL
         )""")
         db.execute("""
             CREATE TABLE IF NOT EXISTS `account` (
@@ -66,7 +65,7 @@ def make_account_db():
         )""")
         # index
         sql = [
-            "CREATE INDEX IF NOT EXISTS 'type_idx' ON `log` (`type`)",
+            "CREATE UNIQUE INDEX IF NOT EXISTS 'hash_idx_idx' ON `log` (`hash`,`index`)",
             "CREATE INDEX IF NOT EXISTS 'name_idx' ON `account` (`name`)",
             "CREATE INDEX IF NOT EXISTS 'ck_idx' ON `pool` (`ck`)",
             "CREATE INDEX IF NOT EXISTS 'user_idx' ON `pool` (`user`)"]

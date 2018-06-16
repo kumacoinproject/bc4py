@@ -1,4 +1,5 @@
 from bc4py.config import V, P, Debug
+from bc4py.database.builder import tx_builder
 from aiohttp import web
 from weakref import WeakValueDictionary
 from binascii import hexlify
@@ -50,7 +51,7 @@ async def ws_streaming(request):
                 elif msg.type == web.WSMsgType.CLOSED:
                     print(3, "closed")
                     break
-                elif msg.type == aiohttp.WSMsgType.ERROR:
+                elif msg.type == web.WSMsgType.ERROR:
                     print(4, "error")
                     break
             except BaseException as e:
@@ -82,12 +83,12 @@ async def event_wait_blockchain(app):
     while True:
         await asyncio.sleep(0.1)
         try:
-            data = que.get_nowait()
+            _type, data = que.get_nowait()
         except queue.Empty:
             continue
-        if 'work_hash' in data:
+        if _type == 'block':
             cmd = Cmd.NewBlock
-        elif 'signature' in data:
+        elif _type == 'tx':
             cmd = Cmd.NewTX
         else:
             cmd = Cmd.Others
@@ -97,19 +98,21 @@ async def event_wait_blockchain(app):
 
 async def change_find_system_info(app):
     def status():
-        return len(V.PC_OBJ.p2p.user), P.F_NOW_BOOTING, P.UNCONFIRMED_TX.copy()
+        return len(V.PC_OBJ.p2p.user), P.F_NOW_BOOTING, tx_builder.unconfirmed.copy()
     old_connections = status()
     while True:
         await asyncio.sleep(1)
-        if old_connections == status():
+        new_connections = status()
+        if old_connections == new_connections:
             continue
-        old_connections = status()
         data = {
             'connections': len(V.PC_OBJ.p2p.user),
             'booting': P.F_NOW_BOOTING,
-            'unconfirmed': [hexlify(txhash).decode() for txhash in P.UNCONFIRMED_TX]}
+            'new unconfirmed': [hexlify(tx.hash).decode()
+                                for tx in new_connections[2]-old_connections[2]]}
         for client in app['sockets'].values():
             await client.send(cmd=Cmd.SystemChange, data=data)
+        old_connections = new_connections
 
 
 def init_ws_status(app):

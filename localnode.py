@@ -2,14 +2,14 @@
 # -*- coding: utf-8 -*-
 
 from bc4py.config import V
-from bc4py.chain.block import pow_generator
 from bc4py.utils import set_database_path, set_blockchain_params
 from bc4py.user.mining import Mining
 from bc4py.user.staking import Staking
 from bc4py.user.boot import *
 from bc4py.user.network import broadcast_check, mined_newblock, DirectCmd
 from bc4py.user.api import create_rest_server
-from bc4py.database.create import make_account_db, make_blockchain_db, make_cashe_db
+from bc4py.database.create import make_account_db
+from bc4py.database.builder import builder
 from p2p_python.utils import setup_p2p_params
 from p2p_python.client import PeerClient
 from bc4py.for_debug import set_logger, f_already_bind
@@ -37,6 +37,7 @@ def work(port, sub_dir):
     setup_p2p_params(network_ver=1000, p2p_port=port, sub_dir=sub_dir)
     pc = PeerClient(f_local=True)
     pc.event.addevent(cmd=DirectCmd.BEST_INFO, f=DirectCmd.best_info)
+    pc.event.addevent(cmd=DirectCmd.BLOCK_BY_HEIGHT, f=DirectCmd.block_by_height)
     pc.event.addevent(cmd=DirectCmd.BLOCK_BY_HASH, f=DirectCmd.block_by_hash)
     pc.event.addevent(cmd=DirectCmd.TX_BY_HASH, f=DirectCmd.tx_by_hash)
     pc.event.addevent(cmd=DirectCmd.UNCONFIRMED_TX, f=DirectCmd.unconfirmed_tx)
@@ -50,24 +51,21 @@ def work(port, sub_dir):
     set_database_path(sub_dir=sub_dir)
     copy_boot(port)
     make_account_db()
-    make_blockchain_db()
-    make_cashe_db()
-    load_boot_file()
-    set_blockchain_params()
-    auto_save_boot_file()
-    pow_generator.start()
+    genesis_block, connections = load_boot_file()
+    for host, port in connections:
+        pc.p2p.create_connection(host, port)
+    set_blockchain_params(genesis_block)
 
     # BroadcastProcess setup
     pc.broadcast_check = broadcast_check
 
     # Update to newest blockchain
-    vacuum_orphan_block()
-    initialize_unconfirmed_tx()
+    builder.init(genesis_block)
     start_update_chain_data(f_wait_connection=True)
 
     # Mining/Staking setup
-    mining = Mining()
-    staking = Staking()
+    mining = Mining(genesis_block)
+    staking = Staking(genesis_block)
     mining.share_que(staking)
     V.F_MINING_POWER_SAVE = random.random() / 10 + 0.05
     # core = 1 if port <= 2001 else 0
