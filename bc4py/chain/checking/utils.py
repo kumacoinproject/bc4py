@@ -1,6 +1,5 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.database.builder import builder, tx_builder
-from bc4py.database.tools import get_tx_with_usedindex, get_contract_storage
 from bc4py.user import CoinObject
 from nem_ed25519.base import Encryption
 from nem_ed25519.key import is_address
@@ -11,7 +10,7 @@ def inputs_origin_check(tx, include_block):
     # Blockに取り込まれているなら
     # TXのInputsも既に取り込まれているはずだ
     for txhash, txindex in tx.inputs:
-        input_tx = get_tx_with_usedindex(txhash=txhash, best_block=include_block)
+        input_tx = tx_builder.get_tx(txhash)
         if input_tx is None:
             # InputのOriginが存在しない
             raise BlockChainError('Not found input tx. {}:{}'.format(hexlify(txhash).decode(), txindex))
@@ -28,7 +27,7 @@ def inputs_origin_check(tx, include_block):
             pass  # OK
         # 使用済みかチェック
         # TODO: 正しく機能するか？
-        if txindex in input_tx.used_index:
+        if txindex in tx_builder.get_usedindex(txhash):
             raise BlockChainError('Inout is already used! {}:{}'.format(hexlify(txhash).decode(), txindex))
 
 
@@ -79,20 +78,6 @@ def signature_check(tx):
         raise BlockChainError('Signed list check is failed. [{}={}]'.format(need_cks, signed_cks))
 
 
-def get_validator_info(best_block=None):
-    assert V.CONTRACT_VALIDATOR_ADDRESS, 'Not found validator address.'
-    cs = get_contract_storage(V.CONTRACT_VALIDATOR_ADDRESS, best_block)
-    validator_cks = set()
-    for k, v in cs.items():
-        cmd, address = k[0], k[1:].decode()
-        if cmd != 0:
-            pass
-        elif v == b'\x01':
-            validator_cks.add(address)
-    required_num = len(validator_cks) * 3 // 4 + 1  # TODO:数
-    return validator_cks, required_num
-
-
 def validator_check(tx, include_block):
     assert tx.type == C.TX_FINISH_CONTRACT, 'validator_check is for FinishTX.'
     validator_cks, required_num = get_validator_info(include_block)
@@ -123,5 +108,4 @@ __all__ = [
     "amount_check",
     "signature_check",
     "validator_check",
-    "get_validator_info"
 ]

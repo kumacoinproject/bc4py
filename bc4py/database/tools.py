@@ -1,6 +1,5 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.chain.mintcoin import MintCoinObject, setup_base_currency_mint, MintCoinError
-from bc4py.chain.checking import get_validator_info
 from bc4py.database.builder import builder, tx_builder, user_account
 from bc4py.database.create import closing, create_db
 from bc4py.contract.storage import ContractStorage
@@ -87,6 +86,20 @@ def get_contract_binary(c_address, best_block=None):
                 dummy, c_bin, c_cs = bjson.loads(tx.message)
                 return c_bin
     return None
+
+
+def get_validator_info(best_block=None):
+    assert V.CONTRACT_VALIDATOR_ADDRESS, 'Not found validator address.'
+    cs = get_contract_storage(V.CONTRACT_VALIDATOR_ADDRESS, best_block)
+    validator_cks = set()
+    for k, v in cs.items():
+        cmd, address = k[0], k[1:].decode()
+        if cmd != 0:
+            pass
+        elif v == b'\x01':
+            validator_cks.add(address)
+    required_num = len(validator_cks) * 3 // 4 + 1
+    return validator_cks, required_num
 
 
 def get_contract_history_iter(c_address, best_block=None):

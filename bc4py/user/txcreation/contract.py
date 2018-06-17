@@ -1,8 +1,8 @@
 from bc4py import __chain_version__
 from bc4py.config import C, V, BlockChainError
 from bc4py.chain import TX
+from bc4py.chain.utils import check_output_format
 from bc4py.database.account import create_new_user_keypair, insert_log
-from bc4py.contract.finishtx import check_output_format, create_finish_tx
 from bc4py.user import CoinObject, UserCoins
 from bc4py.user.txcreation.utils import *
 import time

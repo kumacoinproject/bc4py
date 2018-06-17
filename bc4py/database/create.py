@@ -65,7 +65,7 @@ def make_account_db():
         )""")
         # index
         sql = [
-            "CREATE UNIQUE INDEX IF NOT EXISTS 'hash_idx_idx' ON `log` (`hash`,`index`)",
+            "CREATE INDEX IF NOT EXISTS 'hash_idx' ON `log` (`hash`,`index`)",
             "CREATE INDEX IF NOT EXISTS 'name_idx' ON `account` (`name`)",
             "CREATE INDEX IF NOT EXISTS 'ck_idx' ON `pool` (`ck`)",
             "CREATE INDEX IF NOT EXISTS 'user_idx' ON `pool` (`user`)"]

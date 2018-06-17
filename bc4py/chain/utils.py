@@ -1,7 +1,7 @@
 #!/user/env python3
 # -*- coding: utf-8 -*-
 
-from bc4py.config import V
+from bc4py.config import V, BlockChainError
 from binascii import hexlify, unhexlify
 import math
 
@@ -85,3 +85,18 @@ def target2bits(target):
         bitsN += 1
         bitsBase >>= 8
     return bitsN << 24 | bitsBase
+
+
+def check_output_format(outputs):
+    for o in outputs:
+        if not isinstance(o, tuple):
+            raise BlockChainError('Outputs is tuple.')
+        elif len(o) != 3:
+            raise BlockChainError('Output is three element.')
+        address, coin_id, amount = o
+        if not isinstance(address, str) or len(address) != 40:
+            raise BlockChainError('output address is 40 string. {}'.format(address))
+        elif not isinstance(coin_id, int) or coin_id < 0:
+            raise BlockChainError('output coin_id is 0< int. {}'.format(coin_id))
+        elif not isinstance(amount, int) or not(amount > 0):
+            raise BlockChainError('output amount is 0<= int. {}'.format(amount))

@@ -1,3 +1,4 @@
+from bc4py.config import C, V, BlockChainError
 from bc4py.chain.checking.tx_reward import *
 from bc4py.chain.checking.tx_mintcoin import *
 from bc4py.chain.checking.tx_contract import *

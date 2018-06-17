@@ -1,6 +1,6 @@
 from bc4py.config import P
 from bc4py.chain.checking.checkblock import check_block, check_block_time
-from bc4py.chain.checking.checktx import check_tx, get_validator_info
+from bc4py.chain.checking.checktx import check_tx
 from bc4py.database.builder import builder
 import threading
 import time
@@ -37,5 +37,5 @@ def new_insert_block(block, time_check=False):
 __all__ = [
     "new_insert_block",
     "check_block", "check_block_time",
-    "check_tx", "get_validator_info",
+    "check_tx",
 ]

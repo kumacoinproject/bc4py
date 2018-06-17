@@ -6,7 +6,7 @@ from bc4py.utils import set_database_path, set_blockchain_params
 from bc4py.user.mining import Mining
 from bc4py.user.staking import Staking
 from bc4py.user.boot import *
-from bc4py.user.network import broadcast_check, mined_newblock, DirectCmd
+from bc4py.user.network import broadcast_check, mined_newblock, DirectCmd, sync_chain_loop
 from bc4py.user.api import create_rest_server
 from bc4py.database.create import make_account_db
 from bc4py.database.builder import builder
@@ -61,7 +61,7 @@ def work(port, sub_dir):
 
     # Update to newest blockchain
     builder.init(genesis_block)
-    start_update_chain_data(f_wait_connection=True)
+    sync_chain_loop()
 
     # Mining/Staking setup
     mining = Mining(genesis_block)

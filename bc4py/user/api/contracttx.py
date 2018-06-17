@@ -1,22 +1,13 @@
-from bc4py import __chain_version__
-from bc4py.config import C, V, P, BlockChainError
+from bc4py.config import C, V
 from bc4py.contract.utils import *
-from bc4py.contract.finishtx import create_finish_tx
-from bc4py.user import CoinObject
 from bc4py.user.txcreation import *
 from bc4py.database.create import closing, create_db
-from bc4py.database.builder import builder
 from bc4py.database.tools import *
 from bc4py.database.account import *
 from bc4py.user.network.sendnew import send_newtx
-from bc4py.chain.tx import TX
-from bc4py.user.utils import message2signature
 from bc4py.user.api import web_base
 from aiohttp import web
 from binascii import hexlify, unhexlify
-from nem_ed25519.base import Encryption
-import bjson
-import time
 
 
 """

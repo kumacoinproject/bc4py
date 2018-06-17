@@ -69,6 +69,6 @@ def get_mint_id_from_tx(coins):
     return mint_id_set.pop()
 
 
-__all__ = (
-    "check_tx_mint_coin"
-)
+__all__ = [
+    "check_tx_mint_coin",
+]

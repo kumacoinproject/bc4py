@@ -180,22 +180,28 @@ f_working = False
 
 def sync_chain_loop():
     global f_working
+
+    def loop():
+        while True:
+            try:
+                if P.F_NOW_BOOTING:
+                    if sync_chain_data():
+                        P.F_NOW_BOOTING = False
+                        update_mining_staking_all_info()
+                    reset_good_node()
+                time.sleep(5)
+            except BlockChainError as e:
+                reset_good_node()
+                logging.warning('Update chain failed "{}"'.format(e), exc_info=True)
+                time.sleep(10)
+            except BaseException as e:
+                reset_good_node()
+                logging.error('Update chain failed "{}"'.format(e), exc_info=True)
+                time.sleep(10)
     if f_working:
         raise Exception('Already sync_chain_loop working.')
     f_working = True
-    while True:
-        try:
-            if P.F_NOW_BOOTING:
-                if sync_chain_data():
-                    P.F_NOW_BOOTING = False
-                    update_mining_staking_all_info()
-                reset_good_node()
-            time.sleep(5)
-        except BlockChainError as e:
-            reset_good_node()
-            logging.warning('Update chain failed "{}"'.format(e), exc_info=True)
-            time.sleep(10)
-        except BaseException as e:
-            reset_good_node()
-            logging.error('Update chain failed "{}"'.format(e), exc_info=True)
-            time.sleep(10)
+    P.F_NOW_BOOTING = True
+    threading.Thread(
+        target=loop, name='Sync'
+    ).start()
