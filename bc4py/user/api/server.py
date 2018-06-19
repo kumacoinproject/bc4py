@@ -53,7 +53,7 @@ def create_rest_server(f_local, port):
             ('test', 'GET or POST', '*args', 'echo GET or POST parameters.'),
             ('getsysteminfo', 'GET', '', 'System info'),
             ('getchaininfo', 'GET', '', 'Chain info'),
-            ('listbalance', 'GET', '', 'All account balance.'),
+            ('listbalance', 'GET', '[confirm=6]', 'All account balance.'),
             ('listtransactions', 'GET', '[page=0 limit=25]', 'Get account transactions.'),
             ('listunspents', 'GET', '', 'Get all unspent and orphan txhash:txindex pairs.'),
             ('listaccountaddress', 'GET', '[account=Unknown]', 'Get account related addresses.'),
@@ -77,23 +77,20 @@ def create_rest_server(f_local, port):
                                     '[outputs:list((address, coin_id, amount),..)] <BR>\n'
                                     '[gas_price=MINIMUM_PRICE] [gas_amount=MINIMUM_AMOUNT] <BR>\n'
                                     '[message_type=None] [message=None]', 'Create raw tx without signing.'),
-            ('signrawtx', 'POST', '[binary] [pk=list(sk,..)]', 'Sign raw tx by manually'),
-            ('broadcasttx', 'POST', '[binary] [signature:list([pk, sign],..)]', 'Send raw tx by manually.'),
+            ('signrawtx', 'POST', '[hex] [pk=list(sk,..)]', 'Sign raw tx by manually'),
+            ('broadcasttx', 'POST', '[hex] [signature:list([pk, sign],..)]', 'Send raw tx by manually.'),
 
-            ('contractalllist', 'GET', '', 'Get address:txhash pairs.'),
             ('contracthistory', 'GET', '[address]', 'Get contract related txhash(start:finish) pairs.'),
             ('contractdetail', 'GET', '[address]', 'Get contract detail by address.'),
             ('sourcecompile', 'POST', '[source OR path] [name=None]', 'Python code to hexstr.'),
-            ('contractcreate', 'POST', '[hex] [group=Unknown]', 'register contract to blockchain.'),
+            ('contractcreate', 'POST', '[hex] [account=Unknown]', 'register contract to blockchain.'),
             ('contractstart', 'POST', '[address] [data=None] [gas_limit=100000000] [outputs=list()] <BR>\n'
-                                      '[group=Unknown] [send=false]', 'create and send start contract.'),
+                                      '[account=Unknown]', 'create and send start contract.'),
 
             ('getblockbyheight', 'GET', '[height]', 'Get blockinfo by height.'),
             ('getblockbyhash', 'GET', '[blockhash]', 'Get blockinfo by blockhash.'),
             ('gettxbyhash', 'GET', '[txhash]', 'Get tx by txhash.'),
             ('getmintinfo', 'GET', '[mint_id]', 'Get mintcoin info.'),
-            ('getminthistory', 'GET', '[mint_id]', 'Get mintcoin history.')
-
         ]
         L = ["<TR><TH>URI</TH> <TH>Method</TH> <TH>Params</TH> <TH>Message</TH></TR>"]
         for cmd, method, params, msg in rest:
@@ -135,12 +132,11 @@ def create_rest_server(f_local, port):
     app.router.add_post('/api/createrawtx', create_raw_tx)
     app.router.add_post('/api/signrawtx', sign_raw_tx)
     app.router.add_post('/api/broadcasttx', broadcast_tx)
-    app.router.add_post('/api/sendfrom', send_from)
-    app.router.add_post('/api/sendmany', send_many)
+    app.router.add_post('/api/sendfrom', send_from_user)
+    app.router.add_post('/api/sendmany', send_many_user)
     app.router.add_post('/api/issueminttx', issue_mint_tx)
     app.router.add_post('/api/changeminttx', change_mint_tx)
     # Contract
-    app.router.add_get('/api/contractalllist', contract_all_list)
     app.router.add_get('/api/contracthistory', contract_history)
     app.router.add_get('/api/contractdetail', contract_detail)
     app.router.add_post('/api/sourcecompile', source_compile)
@@ -150,8 +146,7 @@ def create_rest_server(f_local, port):
     app.router.add_get('/api/getblockbyheight', get_block_by_height)
     app.router.add_get('/api/getblockbyhash', get_block_by_hash)
     app.router.add_get('/api/gettxbyhash', get_tx_by_hash)
-    app.router.add_get('/api/getmintinfo', get_mintinfo_by_id)
-    app.router.add_get('/api/getminthistory', get_mint_history_by_id)
+    app.router.add_get('/api/getmintinfo', get_mintcoin_info)
     # Websocket
     init_ws_status(app)
     app.router.add_get('/streaming', ws_streaming)

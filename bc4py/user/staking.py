@@ -1,13 +1,11 @@
 from bc4py import __chain_version__
 from bc4py.config import C, V, BlockChainError
 from bc4py.utils import set_blockchain_params, set_database_path
-from bc4py.contract.finishtx import create_finish_tx_for_mining
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.chain.difficulty import get_bits_by_hash, get_pos_bias_by_hash
 from bc4py.chain.utils import GompertzCurve
-from bc4py.database.create import create_db, closing
-from bc4py.database.chain.read import read_tx_object
+from bc4py.database.tools import get_unspents_iter
 from bc4py.user import float2unit
 from bc4py.user.utils import message2signature
 from binascii import hexlify
@@ -26,11 +24,11 @@ NEW_PROOF_TXS = 2
 
 def staking_process(pipe, params):
     set_database_path(sub_dir=params.get("sub_dir"))
-    set_blockchain_params()
+    set_blockchain_params(genesis_block=params.get('genesis_block'))
     staking_block = None
     unconfirmed = list()
     proof_txs = list()
-    staking_time = int(time.time())
+    staking_time = 0
     while True:
         if pipe.poll():
             cmd, obj = pipe.recv()
@@ -40,13 +38,6 @@ def staking_process(pipe, params):
                 unconfirmed = obj
             elif cmd == NEW_PROOF_TXS:
                 proof_txs = obj
-            # contractの更新
-            if staking_block and unconfirmed and proof_txs:
-                try:
-                    create_finish_tx_for_mining(unconfirmed=unconfirmed, height=staking_block.height)
-                except BaseException:
-                    import traceback
-                    traceback.print_exc()
 
         elif staking_block:
             if staking_block.time + V.BLOCK_GENESIS_TIME == staking_time:
@@ -158,13 +149,14 @@ class Staking:
     f_stop = False
     f_staking = False
 
-    def __init__(self):
+    def __init__(self, genesis_block):
         assert V.BLOCK_CONSENSUS in (C.BLOCK_POS, C.HYBRID), 'Not pos mining chain.'
         self.thread_pool = list()
         self.que = queue.LifoQueue()
         self.previous_hash = None
         self.block_reward = None
         self.block_height = None
+        self.genesis_block = genesis_block
 
     def getinfo(self):
         return [str(po) for po in self.thread_pool]
@@ -184,8 +176,7 @@ class Staking:
         for i in range(threads):
             try:
                 parent_conn, child_conn = Pipe()
-                params = dict(COIN_DIGIT=V.COIN_DIGIT, BLOCK_GENESIS_TIME=V.BLOCK_GENESIS_TIME,
-                              ENCRYPT_KEY=V.ENCRYPT_KEY, DB_ACCOUNT_PATH=V.DB_ACCOUNT_PATH, sub_dir=V.SUB_DIR)
+                params = dict(genesis_block=self.genesis_block, sub_dir=V.SUB_DIR)
                 process = Process(
                     target=staking_process, name="C-Staking {}".format(i), args=(child_conn, params))
                 # process.daemon = True
@@ -248,38 +239,34 @@ class Staking:
         for po in self.thread_pool:
             po.update_unconfirmed(unconfirmed)
 
-    def update_unspent(self, unspent):
+    def update_unspent(self):
         assert 0 < len(self.thread_pool), "No staking thread found."
         assert self.previous_hash, "Setup block before."
         proof_txs = list()
-        with closing(create_db(V.DB_BLOCKCHAIN_PATH)) as db:
-            cur = db.cursor()
-            for txhash, txindex in unspent:
-                tx = read_tx_object(txhash=txhash, cur=cur)
-                address, coin_id, amount = tx.outputs[txindex]
-                if tx.height is None:
-                    continue
-                if coin_id != 0:
-                    continue
-                if not (self.block_height > tx.height + C.MATURE_HEIGHT):
-                    continue
-                elif not is_address(address, prefix=V.BLOCK_PREFIX):
-                    continue
-                elif amount // pow(10, V.COIN_DIGIT) < 1:
-                    continue
-                proof_tx = TX(tx={
-                    'version': __chain_version__,
-                    'type': C.TX_POS_REWARD,
-                    'time': 0, 'deadline': 0,
-                    'inputs': [(txhash, txindex)],
-                    'outputs': [(address, 0, amount + self.block_reward)],
-                    'gas_price': 0,
-                    'gas_amount': 0,
-                    'message_type': C.MSG_NONE,
-                    'message': b''})
-                proof_tx.height = None
-                proof_tx.pos_amount = amount
-                proof_txs.append(proof_tx)
+        for address, height, txhash, txindex, coin_id, amount in get_unspents_iter():
+            if height is None:
+                continue
+            if coin_id != 0:
+                continue
+            if not (self.block_height > height + C.MATURE_HEIGHT):
+                continue
+            elif not is_address(address, prefix=V.BLOCK_PREFIX):
+                continue
+            elif amount < pow(10, V.COIN_DIGIT):
+                continue
+            proof_tx = TX(tx={
+                'version': __chain_version__,
+                'type': C.TX_POS_REWARD,
+                'time': 0, 'deadline': 0,
+                'inputs': [(txhash, txindex)],
+                'outputs': [(address, 0, amount + self.block_reward)],
+                'gas_price': 0,
+                'gas_amount': 0,
+                'message_type': C.MSG_NONE,
+                'message': b''})
+            proof_tx.height = None
+            proof_tx.pos_amount = amount
+            proof_txs.append(proof_tx)
         n = len(proof_txs) // len(self.thread_pool) + 1
         for i, po in enumerate(self.thread_pool):
             po.update_proof_txs(proof_txs[i*n:i*n+n])

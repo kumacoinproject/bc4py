@@ -1,27 +1,13 @@
-from bc4py import __chain_version__
-from bc4py.config import C, V, P, BlockChainError
+from bc4py.config import C, V
 from bc4py.contract.utils import *
-from bc4py.contract.finishtx import create_finish_tx
-from bc4py.user import CoinObject
 from bc4py.user.txcreation import *
-from bc4py.database.chain.read import read_contract_list, read_contract_tx, read_contract_history, read_contract_storage
 from bc4py.database.create import closing, create_db
+from bc4py.database.tools import *
+from bc4py.database.account import *
 from bc4py.user.network.sendnew import send_newtx
-from bc4py.chain.tx import TX
-from bc4py.user.utils import message2signature
 from bc4py.user.api import web_base
 from aiohttp import web
 from binascii import hexlify, unhexlify
-from nem_ed25519.base import Encryption
-import bjson
-import time
-
-# 陶生病院　消化器内科　外科、豊橋病院、日赤
-# 名刺大　整形外科、医療センター　脳外科
-# 豊橋医療センター　泌尿器科と整形
-# 愛知医科
-# 名古屋東病院　内科
-# 成田記念病院
 
 
 """
@@ -31,56 +17,47 @@ def contract(c_address, c_tx):\n
 """
 
 
-async def contract_all_list(request):
-    with closing(create_db(V.DB_BLOCKCHAIN_PATH)) as db:
-        cur = db.cursor()
-        return web_base.json_res(read_contract_list(cur))
-
-
 async def contract_detail(request):
-    with closing(create_db(V.DB_BLOCKCHAIN_PATH)) as db:
-        cur = db.cursor()
-        try:
-            c_address = request.query['address']
-            c_tx = read_contract_tx(c_address=c_address, cur=cur)
-            c_cs = read_contract_storage(address=c_address, cur=cur)
-            c_cs_data = {k.decode(errors='ignore'): v.decode(errors='ignore')
-                         for k, v in c_cs.key_value.items()}
-            c_address, c_bin = bjson.loads(c_tx.message)
-            pickle_dis = binary2dis(c_bin)
-            c_obj = binary2contract(c_bin)
-            contract_dis = contract2dis(c_obj)
-            data = c_tx.getinfo()
-            data.update({
-                'address': c_address,
-                'cs_data': c_cs_data,
-                'cs_ver': c_cs.version,
-                'pickle_dis': pickle_dis,
-                'contract_dis': contract_dis
-            })
-            return web_base.json_res(data)
-        except BaseException:
-            return web_base.error_res()
+    try:
+        c_address = request.query['address']
+        c_bin = get_contract_binary(c_address)
+        c_cs = get_contract_storage(c_address)
+        c_cs_data = {k.decode(errors='ignore'): v.decode(errors='ignore')
+                     for k, v in c_cs.key_value.items()}
+        pickle_dis = binary2dis(c_bin)
+        c_obj = binary2contract(c_bin)
+        contract_dis = contract2dis(c_obj)
+        data = {
+            'c_address': c_address,
+            'c_cs_data': c_cs_data,
+            'c_cs_ver': c_cs.version,
+            'pickle_dis': pickle_dis,
+            'contract_dis': contract_dis,
+            'c_bin': hexlify(c_bin).decode()}
+        return web_base.json_res(data)
+    except BaseException:
+        return web_base.error_res()
 
 
 async def contract_history(request):
-    with closing(create_db(V.DB_BLOCKCHAIN_PATH)) as db:
-        cur = db.cursor()
-        try:
-            c_address = request.query['address']
-            d = read_contract_history(address=c_address, cur=cur)
-            return web_base.json_res([{
-                'height': height,
+    try:
+        c_address = request.query['address']
+        data = list()
+        for index, start_hash, finish_hash, is_unconfirmed in get_contract_history_iter(c_address):
+            data.append({
+                'index': index,
+                'unconfirmed': is_unconfirmed,
                 'start_hash': hexlify(start_hash).decode(),
-                'finish_hash': hexlify(finish_hash).decode()}
-                for start_hash, finish_hash, height in d if start_hash and finish_hash])
-        except BaseException:
-            return web_base.error_res()
+                'finish_hash': hexlify(finish_hash).decode()})
+        return web_base.json_res(data)
+    except BaseException:
+        return web_base.error_res()
 
 
 async def source_compile(request):
     post = await web_base.content_type_json_check(request)
     try:
+        # TODO:仕様変更の対応
         if 'source' in post:
             source = str(post['source'])
             name = str(post.get('name', None))
@@ -100,93 +77,57 @@ async def source_compile(request):
 
 async def contract_create(request):
     post = await web_base.content_type_json_check(request)
-    with closing(create_db(V.DB_BLOCKCHAIN_PATH, f_on_memory=True)) as chain_db:
-        with closing(create_db(V.DB_ACCOUNT_PATH, f_on_memory=True)) as account_db:
-            chain_cur = chain_db.cursor()
-            account_cur = account_db.cursor()
-            try:
-                # バイナリをピックルしオブジェクトに戻す
-                binary = unhexlify(post['hex'].encode())
-                binary2contract(binary)
-                from_group = post.get('group', C.ANT_UNKNOWN)
-                c_address, c_tx = create_contract_tx(
-                    contract=binary,
-                    chain_cur=chain_cur,
-                    account_cur=account_cur,
-                    from_group=from_group)
-                if not send_newtx(c_tx, chain_cur, account_cur):
-                    raise BaseException('Failed to send new tx.')
-                chain_db.commit()
-                account_db.commit()
-                data = c_tx.getinfo()
-                return web_base.json_res({
-                    'txhash': data['hash'],
-                    'contract': c_address,
-                    'fee': c_tx.gas_price * c_tx.gas_amount})
-            except BaseException:
-                return web_base.error_res()
+    with closing(create_db(V.DB_ACCOUNT_PATH, f_on_memory=True)) as db:
+        cur = db.cursor()
+        try:
+            # バイナリをピックルしオブジェクトに戻す
+            c_bin = unhexlify(post['hex'].encode())
+            c_cs = {k.encode(errors='ignore'): v.encode(errors='ignore')
+                    for k, v in post.get('c_cs', dict()).items()}
+            binary2contract(c_bin)  # can compile?
+            sender_name = post.get('account', C.ANT_UNKNOWN)
+            sender_id = read_name2user(sender_name, cur)
+            c_address, c_tx = create_contract_tx(c_bin, cur, sender_id, c_cs)
+            if not send_newtx(new_tx=c_tx):
+                raise BaseException('Failed to send new tx.')
+            db.commit()
+            data = c_tx.getinfo()
+            data['c_address'] = c_address
+            data['fee'] = c_tx.gas_price * c_tx.gas_amount
+            return web_base.json_res(data)
+        except BaseException:
+            return web_base.error_res()
 
 
 async def contract_start(request):
     post = await web_base.content_type_json_check(request)
-    with closing(create_db(V.DB_BLOCKCHAIN_PATH, f_on_memory=True)) as chain_db:
-        with closing(create_db(V.DB_ACCOUNT_PATH, f_on_memory=True)) as account_db:
-            chain_cur = chain_db.cursor()
-            account_cur = account_db.cursor()
-            try:
-                c_address = post['address']
-                c_data = post.get('data', None)
-                outputs = post.get('outputs', list())
-                from_group = post.get('group', C.ANT_UNKNOWN)
-                f_send = bool(post.get('send', False))
-                # TX作成
-                outputs = [(address, coin_id, amount) for address, coin_id, amount in outputs]
-                start_tx, finish_tx = start_contract_tx(
-                    c_address=c_address, c_data=c_data, chain_cur=chain_cur, account_cur=account_cur,
-                    outputs=outputs, from_group=from_group)
-                # 送信
-                if f_send:
-                    if not send_newtx(start_tx, chain_cur, account_cur):
-                        raise BaseException('Failed to send new tx.')
-                    chain_db.commit()
-                    account_db.commit()
-                    return web_base.json_res({
-                        'txhash': hexlify(start_tx.hash).decode(),
-                        'address': c_address,
-                        'fee': start_tx.gas_price * start_tx.gas_amount,
-                        'data': c_data,
-                        'send': f_send})
-                else:
-                    chain_db.rollback()
-                    account_db.rollback()
-                    status, dummy, cs_diff = bjson.loads(finish_tx.message)
-                    if cs_diff:
-                        updates, del_key, version = cs_diff
-                        updates = {k.decode(errors='ignore'): v.decode(errors='ignore') for k, v in updates.items()}
-                        del_key = [k.decode(errors='ignore') for k in del_key]
-                    else:
-                        updates, del_key, version = None, None, None
-                    return web_base.json_res({
-                        'txhash': hexlify(start_tx.hash).decode(),
-                        'address': c_address,
-                        'fee': start_tx.gas_price * start_tx.gas_amount,
-                        'input_data': c_data,
-                        'result': {
-                            'status': status,
-                            'outputs': finish_tx.outputs,
-                            'cs_updates': updates,
-                            'cs_del_key': del_key,
-                            'version': version,
-                        },
-                        'send': f_send})
-            except BaseException:
-                return web_base.error_res()
+    with closing(create_db(V.DB_ACCOUNT_PATH, f_on_memory=True)) as db:
+        cur = db.cursor()
+        try:
+            c_address = post['address']
+            c_data = post.get('data', None)
+            outputs = post.get('outputs', list())
+            account = post.get('account', C.ANT_UNKNOWN)
+            user_id = read_name2user(account, cur)
+            # TX作成
+            outputs = [(address, coin_id, amount) for address, coin_id, amount in outputs]
+            start_tx = start_contract_tx(c_address, c_data, cur, outputs, user_id)
+            # 送信
+            if not send_newtx(start_tx):
+                raise BaseException('Failed to send new tx.')
+            db.commit()
+            data = start_tx.getinfo()
+            data['c_address'] = c_address
+            data['fee'] = start_tx.gas_price * start_tx.gas_amount
+            data['c_data'] = c_data
+            return web_base.json_res(data)
+        except BaseException:
+            return web_base.error_res()
 
 
 __all__ = [
-    "contract_all_list",
-    "contract_history",
     "contract_detail",
+    "contract_history",
     "source_compile",
     "contract_create",
     "contract_start",

@@ -1,105 +1,92 @@
-from bc4py.config import V, P, Debug
-from bc4py.database.create import create_db, closing
-from bc4py.user.boot.checkpoint import update_checkpoint
-from bc4py.database.chain.read import max_block_height, read_best_block, fill_tx_objects
-from bc4py.chain.unconfirmed import update_unconfirmed_tx, get_unconfirmed_tx
-from bc4py.user.utxo import get_unspent
+from bc4py.config import C, V, P, Debug
+from bc4py.database.builder import builder, tx_builder
+from bc4py.database.tools import get_validator_info
 import logging
-from threading import Lock
+from threading import Lock, Thread
 import time
+import bjson
 
 
 global_update_status_lock = Lock()
-
-
-"""def update_mining_staking_all_info_old():
-    with global_update_status_lock:
-        now = int(time.time())
-        with closing(create_db(V.DB_BLOCKCHAIN_PATH, f_on_memory=True)) as chain_db:
-            with closing(create_db(V.DB_ACCOUNT_PATH, f_on_memory=True)) as account_db:
-                chain_cur = chain_db.cursor()
-                account_cur = account_db.cursor()
-
-                mining = V.MINING_OBJ
-                staking = V.STAKING_OBJ
-
-                top_height = max_block_height(cur=chain_cur)
-                base_block = read_best_block(height=top_height, cur=chain_cur)
-
-                update_checkpoint(cur=chain_cur)
-                fill_tx_objects(block=base_block, cur=chain_cur)
-                removed_tx = update_unconfirmed_tx(chain_cur=chain_cur, account_cur=account_cur)
-                if len(removed_tx) > 0:
-                    chain_db.commit()
-                    account_db.commit()
-                    logging.debug("Removed unconfirmed {}".format(len(removed_tx)))
-                unconfirmed_txs = get_unconfirmed_tx(cur=chain_cur)
-                if Debug.F_LIMIT_INCLUDE_TX_IN_BLOCK:
-                    unconfirmed_txs = unconfirmed_txs[:Debug.F_LIMIT_INCLUDE_TX_IN_BLOCK]
-        if mining.f_mining:
-            mining.update_block(base_block=base_block)
-            mining.update_unconfirmed(unconfirmed=unconfirmed_txs)
-        if staking.f_staking:
-            staking.update_block(base_block=base_block)
-            staking.update_unconfirmed(unconfirmed=unconfirmed_txs)
-            unspent, orphan = get_unspent(chain_cur, account_cur)
-            staking.update_unspent(unspent=unspent)
-        logging.info("Next Height={} staking={} unconfirmed={}/{} removed={}"
-                     .format(base_block.height+1, staking.thread_pool, len(unconfirmed_txs),
-                             len(P.UNCONFIRMED_TX), len(removed_tx)))"""
+update_count = 0
 
 
 def update_mining_staking_all_info(u_block=True, u_unspent=True, u_unconfirmed=True):
-    locked_time = time.time()
+    global update_count
+    Thread(target=_update,
+           args=(u_block, u_unspent, u_unconfirmed), name='Update{}'.format(update_count)).start()
+    update_count += 1
+
+
+def _update(u_block, u_unspent, u_unconfirmed):
+    t = time.time()
     with global_update_status_lock:
-        unlocked_time = time.time()
-        with closing(create_db(V.DB_BLOCKCHAIN_PATH, f_on_memory=True)) as chain_db:
-            with closing(create_db(V.DB_ACCOUNT_PATH, f_on_memory=True)) as account_db:
-                chain_cur = chain_db.cursor()
-                account_cur = account_db.cursor()
-                removed_tx = list()
-
-                if u_block:
-                    _update_block_info(chain_cur=chain_cur)
-                    update_checkpoint(cur=chain_cur)
-                    removed_tx = update_unconfirmed_tx(chain_cur=chain_cur, account_cur=account_cur)
-                if u_unspent:
-                    _update_unspent_info(chain_cur=chain_cur, account_cur=account_cur)
-                if u_unconfirmed:
-                    _update_unconfirmed_info(chain_cur=chain_cur)
-                if 0 < len(removed_tx):
-                    chain_db.commit()
-                    account_db.commit()
-                    logging.debug("Removed unconfirmed {}".format(len(removed_tx)))
-    logging.debug("Update finished {}Sec (Wait{}Sec)"
-                  .format(round(time.time()-unlocked_time, 3), round(locked_time-unlocked_time, 3)))
+        if u_block:
+            _update_block_info()
+        if u_unspent:
+            _update_unspent_info()
+        if u_unconfirmed:
+            _update_unconfirmed_info()
+    logging.debug("Update finished {}Sec".format(round(time.time() - t, 3)))
 
 
-def _update_unspent_info(chain_cur, account_cur):
-    unspent, orphan = get_unspent(chain_cur, account_cur)
+def _update_unspent_info():
     if V.STAKING_OBJ.f_staking:
-        V.STAKING_OBJ.update_unspent(unspent=unspent)
-    logging.debug("Update unspent={} orphan={}".format(len(unspent), len(orphan)))
+        next_num = V.STAKING_OBJ.update_unspent()
+        logging.debug("Update unspent={}".format(next_num))
 
 
-def _update_block_info(chain_cur):
-    top_height = max_block_height(cur=chain_cur)
-    base_block = read_best_block(height=top_height, cur=chain_cur)
-    fill_tx_objects(block=base_block, cur=chain_cur)
+def _update_block_info():
     if V.MINING_OBJ.f_mining:
-        V.MINING_OBJ.update_block(base_block=base_block)
+        V.MINING_OBJ.update_block(builder.best_block)
     if V.STAKING_OBJ.f_staking:
-        V.STAKING_OBJ.update_block(base_block=base_block)
-    logging.debug('Update next height={}'.format(top_height+1))
+        V.STAKING_OBJ.update_block(builder.best_block)
+    if V.MINING_OBJ.f_mining or V.STAKING_OBJ.f_staking:
+        logging.debug('Update generating height={}'.format(builder.best_block.height+1))
 
 
-def _update_unconfirmed_info(chain_cur):
-    unconfirmed_txs = get_unconfirmed_tx(cur=chain_cur)
+def _update_unconfirmed_info():
+    # sort unconfirmed txs
+    unconfirmed_txs = sorted(tx_builder.unconfirmed.values(), key=lambda x: x.gas_price, reverse=True)
     if Debug.F_LIMIT_INCLUDE_TX_IN_BLOCK:
         unconfirmed_txs = unconfirmed_txs[:Debug.F_LIMIT_INCLUDE_TX_IN_BLOCK]
+    unconfirmed_txs = sorted(unconfirmed_txs, key=lambda x: x.time)
+
+    # ContractTXのみ取り出す
+    contract_txs = dict()
+    for tx in unconfirmed_txs.copy():
+        if tx.type == C.TX_START_CONTRACT:
+            unconfirmed_txs.remove(tx)
+            if tx not in contract_txs:
+                contract_txs[tx] = list()
+        elif tx.type == C.TX_FINISH_CONTRACT:
+            unconfirmed_txs.remove(tx)
+            dummy0, start_hash, dummy1 = bjson.loads(tx.message)
+            if start_hash not in tx_builder.unconfirmed:
+                continue
+            start_tx = tx_builder.unconfirmed[start_hash]
+            if start_tx in contract_txs:
+                contract_txs[start_tx].append(tx)
+            if start_tx in unconfirmed_txs:
+                contract_txs[start_tx] = [tx]
+
+    # StartTX=>FinishTXを一対一関係で繋げる
+    if len(contract_txs) > 0:
+        _, required_num = get_validator_info()
+        for start_tx, finish_txs in contract_txs.items():
+            if len(finish_txs) == 0:
+                continue
+            for tx in finish_txs:
+                if len(tx.signature) < required_num:
+                    continue
+                # OK!
+                unconfirmed_txs.extend((start_tx, tx))
+                break
+
     if V.MINING_OBJ.f_mining:
-        V.MINING_OBJ.update_unconfirmed(unconfirmed=unconfirmed_txs)
+        V.MINING_OBJ.update_unconfirmed(unconfirmed_txs)
     if V.STAKING_OBJ.f_staking:
-        V.STAKING_OBJ.update_unconfirmed(unconfirmed=unconfirmed_txs)
-    logging.debug("Update unconfirmed={}/{}"
-                  .format(len(unconfirmed_txs), len(P.UNCONFIRMED_TX)))
+        V.STAKING_OBJ.update_unconfirmed(unconfirmed_txs)
+    if V.MINING_OBJ.f_mining or V.STAKING_OBJ.f_staking:
+        logging.debug("Update unconfirmed={}/{}"
+                      .format(len(unconfirmed_txs), len(tx_builder.unconfirmed)))

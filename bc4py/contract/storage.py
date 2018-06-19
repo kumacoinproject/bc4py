@@ -27,6 +27,15 @@ class ContractStorage:
             return self.key_value[key]
         return default
 
+    def items(self):
+        return self.key_value.items()
+
+    def keys(self):
+        return self.key_value.keys()
+
+    def values(self):
+        return self.key_value.values()
+
     def __delitem__(self, key):
         if key in self.key_value:
             del self.key_value[key]

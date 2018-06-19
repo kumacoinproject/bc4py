@@ -1,13 +1,14 @@
 from bc4py import __chain_version__
 from bc4py.config import C, V, BlockChainError
 from bc4py.utils import set_database_path, set_blockchain_params
-from bc4py.contract.finishtx import create_finish_tx_for_mining
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
+from bc4py.chain.workhash import update_work_hash
 from bc4py.chain.difficulty import get_bits_by_hash, get_pos_bias_by_hash
 from bc4py.chain.utils import GompertzCurve
 from bc4py.database.create import create_db, closing
-from bc4py.database.user.write import new_keypair
+from bc4py.database.account import create_new_user_keypair
+from bc4py.database.builder import builder
 from bc4py.user import float2unit
 from multiprocessing import Process, Pipe
 from threading import Thread
@@ -25,7 +26,7 @@ CLOSE_PROCESS = 2
 
 def mining_process(pipe, params):
     set_database_path(sub_dir=params.get("sub_dir"))
-    set_blockchain_params()
+    set_blockchain_params(genesis_block=params.get('genesis_block'))
     power_save = params.get("power_save")
     unconfirmed = list()
     mining_block = None
@@ -41,14 +42,6 @@ def mining_process(pipe, params):
                 mining_block = obj
             else:
                 raise BaseException('Not found command {}'.format(cmd))
-            # contractの更新
-            if mining_block and unconfirmed:
-                try:
-                    create_finish_tx_for_mining(unconfirmed, mining_block.height)
-                except BaseException as e:
-                    logging.debug("Skip {}".format(e))
-                    import traceback
-                    traceback.print_exc()
 
             # setup new block
             if mining_block:
@@ -73,7 +66,7 @@ def mining_process(pipe, params):
                 while c > 0:
                     c -= 1
                     mining_block.update_nonce()
-                    mining_block.update_pow()
+                    update_work_hash(mining_block)
                     count += 1
                     if mining_block.pow_check():
                         mining_block.work2diff()
@@ -119,7 +112,7 @@ def mining_process(pipe, params):
 def new_key():
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
-            sk, pk, ck = new_keypair(C.ANT_UNKNOWN, cur=cur)
+            ck = create_new_user_keypair(C.ANT_NAME_UNKNOWN, cur)
             db.commit()
         return ck
 
@@ -175,11 +168,12 @@ class Mining:
     f_stop = False
     f_mining = False
 
-    def __init__(self):
+    def __init__(self, genesis_block):
         self.thread_pool = list()
         self.que = queue.LifoQueue()
         self.mining_address = None
         self.previous_hash = None
+        self.genesis_block = genesis_block
 
     def __repr__(self):
         return "<Mining Core={} Previous={}>"\
@@ -199,7 +193,7 @@ class Mining:
         for i in range(core):
             try:
                 parent_conn, child_conn = Pipe()
-                params = dict(genesis_time=V.BLOCK_GENESIS_TIME, power_save=V.F_MINING_POWER_SAVE, sub_dir=V.SUB_DIR)
+                params = dict(genesis_block=self.genesis_block, power_save=V.F_MINING_POWER_SAVE, sub_dir=V.SUB_DIR)
                 process = Process(target=mining_process, name="C-Mining {}".format(i), args=(child_conn, params))
                 # process.daemon = True
                 process.start()

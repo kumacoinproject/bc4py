@@ -1,9 +1,9 @@
-from .transfer import sendfrom, sendmany
-from .mintcoin import issue_mintcoin, change_mintcoin
-from .contract import create_contract_tx, start_contract_tx
+from bc4py.user.txcreation.transfer import *
+from bc4py.user.txcreation.mintcoin import *
+from bc4py.user.txcreation.contract import *
 __all__ = [
-    "sendfrom",
-    "sendmany",
+    "send_from",
+    "send_many",
     "issue_mintcoin",
     "change_mintcoin",
     "create_contract_tx",

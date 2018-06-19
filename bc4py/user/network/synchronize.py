@@ -1,18 +1,15 @@
 from bc4py.config import C, V, P, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
-from bc4py.chain.manage import insert_to_chain, global_chain_lock, check_tx, add_tx_as_new
-from bc4py.database.create import create_db, closing
-from bc4py.database.chain.read import max_block_height, read_best_block_on_chain, read_tx_object, read_tx_output
-from bc4py.database.chain.flag import is_include_txhash, is_include_blockhash
-from bc4py.user.utxo import add_utxo_user
+from bc4py.chain.checking import check_block, check_tx
+from bc4py.database.builder import builder, tx_builder, user_account
 from bc4py.user.network import update_mining_staking_all_info
-from .directcmd import DirectCmd
+from bc4py.user.network.directcmd import DirectCmd
 import logging
 import random
 import collections
 import time
-from binascii import hexlify
+import threading
 
 
 good_node = list()
@@ -43,7 +40,7 @@ def set_good_node():
     bad_node.clear()
     for _user, _hash, _height, _booting in _node:
         if num0 == num1 == 1:
-            if _booting:
+            if not _booting:
                 good_node.append(_user)
             else:
                 bad_node.append(_user)
@@ -58,8 +55,9 @@ def set_good_node():
 
 def reset_good_node():
     good_node.clear()
-    global best_hash_on_network
+    global best_hash_on_network, best_height_on_network
     best_hash_on_network = None
+    best_height_on_network = None
 
 
 def ask_node(cmd, data=None, f_continue_asking=False):
@@ -93,160 +91,132 @@ def ask_node(cmd, data=None, f_continue_asking=False):
     raise BlockChainError('Too many retry ask_node.')
 
 
-def fill_newblock(new_block, txs, next_height, next_hash, chain_cur):
-    for txhash in txs:
-        if is_include_txhash(txhash=txhash, cur=chain_cur):
-            tx = read_tx_object(txhash=txhash, cur=chain_cur)
-            tx.height = next_height
-        else:
-            r2 = ask_node(cmd=DirectCmd.TX_BY_HASH, data={'txhash': txhash}, f_continue_asking=True)
-            if isinstance(r2, str):
-                next_hash = new_block.previous_hash
-                next_height -= 1
-                return True, next_height, next_hash
-            else:
-                tx = TX(binary=r2['tx'])
-                tx.height = next_height
-                tx.signature = r2['sign']
-
-        # POS-TXの追加
-        if tx.type == C.TX_POS_REWARD:
-            txhash, txindex = tx.inputs[0]
-            if is_include_txhash(txhash=txhash, cur=chain_cur):
-                address, coin_id, amount = read_tx_output(txhash=txhash, txindex=txindex, cur=chain_cur)
-                tx.pos_amount = amount
-            else:
-                # originalのTXがみつからない？
-                next_hash = new_block.previous_hash
-                next_height -= 1
-                return True, next_height, next_hash
-        # Blockに追加
-        new_block.txs.append(tx)
-    return False, next_height, next_hash
-
-
 def sync_chain_data():
     assert V.PC_OBJ is not None, "Need PeerClient start before."
     start = time.time()
-    with closing(create_db(V.DB_BLOCKCHAIN_PATH, f_wal_mode=True)) as chain_db:
-        with closing(create_db(V.DB_ACCOUNT_PATH, f_wal_mode=True)) as account_db:
-            chain_cur = chain_db.cursor()
-            account_cur = account_db.cursor()
-
-            # 内部の最新のBlock
-            try:
-                check_height = max_block_height(cur=chain_cur)
-                my_best_block = read_best_block_on_chain(height=check_height, cur=chain_cur)
-                next_hash = my_best_block.hash
-                next_height = my_best_block.height
-            except BlockChainError as e:
-                logging.fatal('Failed by inner error, broken chain. "{}"'.format(e))
-                exit(1)
-                return False
-
-            # 外部Nodeに次のBlockを逐一尋ねる
-            while True:
-                r = ask_node(cmd=DirectCmd.BLOCK_BY_HASH, data={'blockhash': next_hash})
-                if isinstance(r, str):
-                    logging.debug("NewBlockInfoException:{}".format(r))
-                    my_best_block = read_best_block_on_chain(height=next_height-1, cur=chain_cur)
-                    next_hash = my_best_block.hash
-                    next_height = my_best_block.height
-                    continue
-                new_block = Block(binary=r['block'])
-                new_block.height = next_height
-                new_block.flag = r['flag']
-                if r['orphan']:
-                    next_hash = new_block.previous_hash
-                    next_height -= 1
-                    continue
-
-                # TX objectを補充
-                f_get_previous_block, next_height, next_hash = fill_newblock(
-                    new_block=new_block, txs=r['txs'],
-                    next_height=next_height, next_hash=next_hash, chain_cur=chain_cur)
-
-                # Chainに加える
-                if f_get_previous_block:
-                    continue
-                elif is_include_blockhash(blockhash=new_block.hash, cur=chain_cur):
-                    # 既に追加済み
-                    next_hash = r['next_hash']
-                    next_height += 1
-                elif insert_to_chain(new_block=new_block, chain_cur=chain_cur,
-                                     account_cur=account_cur, f_check_time=False):
-                    chain_db.commit()
-                    account_db.commit()
-                    # 次のBlock準備
-                    next_hash = r['next_hash']
-                    next_height += 1
-                else:
-                    chain_db.rollback()
-                    account_db.rollback()
-                    next_hash = new_block.previous_hash
-                    next_height -= 1
-                    continue
-
-                # Break条件チェック
-                if best_hash_on_network == new_block.hash:
-                    logging.debug("Now on best block {}".format(hexlify(best_hash_on_network).decode()))
-                    break
-                elif next_hash is None:
-                    logging.debug("Next hash is None, now on best chain.")
-                    break
-
-                # ロギング
-                if next_height < 10 or next_height % 100 == 0:
-                    logging.debug("Update block {} now...".format(next_height))
-                    time.sleep(0.1)
-
-            # Unconfirmed txを取得
-            r = ask_node(cmd=DirectCmd.UNCONFIRMED_TX, f_continue_asking=True)
-            for txhash in r['txs']:
-                if is_include_txhash(txhash=txhash, cur=chain_cur):
-                    P.UNCONFIRMED_TX.add(txhash)
-                    continue
-                else:
-                    r2 = ask_node(cmd=DirectCmd.TX_BY_HASH, data={'txhash': txhash}, f_continue_asking=True)
-                    new_tx = TX(binary=r2['tx'])
-                    new_tx.height = None
-                    new_tx.signature = r2['sign']
-                try:
-                    check_tx(tx=new_tx, include_block=None, cur=chain_cur)
-                    add_tx_as_new(new_tx=new_tx, chain_cur=chain_cur, account_cur=account_cur)
-                    add_utxo_user(tx=new_tx, chain_cur=chain_cur, account_cur=account_cur)
-                    chain_db.commit()
-                    account_db.commit()
-                except BlockChainError as e:
-                    logging.debug("Reject tx {}".format(new_tx.getinfo()))
-                    chain_db.rollback()
-                    account_db.rollback()
-            # 最終判断
-            reset_good_node()
-            set_good_node()
-            my_best_height = max_block_height(cur=chain_cur)
-            if best_height_on_network <= my_best_height:
-                logging.info("Finish update chain data by network. {}Sec [{}<={}]"
-                             .format(round(time.time()-start, 1), best_height_on_network, my_best_height))
-                return True
+    # 内部の最新のBlock
+    try:
+        previous_hash = builder.best_block.hash
+        previous_height = builder.best_block.height
+    except BlockChainError as e:
+        logging.fatal('Failed by inner error, broken chain. "{}"'.format(e))
+        exit(1)
+        return False
+    # 外部Nodeに次のBlockを逐一尋ねる
+    count = 5
+    while count > 0:
+        r = ask_node(cmd=DirectCmd.BLOCK_BY_HEIGHT, data={'height': previous_height + 1})
+        if isinstance(r, str):
+            logging.debug("NewBlockInfoException:{}".format(r))
+            previous_height -= 1
+            previous_hash = builder.get_block_hash(previous_height)
+            count -= 1
+            continue
+        r = ask_node(cmd=DirectCmd.BLOCK_BY_HASH, data=r)
+        new_block = Block(binary=r['block'])
+        new_block.height = previous_height + 1
+        new_block.flag = r['flag']
+        if r['orphan']:
+            previous_height -= 1
+            previous_hash = builder.get_block_hash(previous_height)
+            count -= 1
+            continue
+        elif new_block.previous_hash != previous_hash:
+            previous_height -= 1
+            previous_hash = builder.get_block_hash(previous_height)
+            count -= 1
+            continue
+        elif builder.get_block(new_block.hash):
+            previous_height += 1
+            previous_hash = new_block.hash
+            count -= 1
+            continue
+        # TXを補充
+        for tx_dict in r['txs']:
+            tx = TX(binary=tx_dict['tx'])
+            tx.height = None
+            tx.signature = tx_dict['sign']
+            tx_from_database = tx_builder.get_tx(txhash=tx.hash)
+            if tx_from_database:
+                new_block.txs.append(tx_from_database)
+            elif tx.type in (C.TX_POS_REWARD, C.TX_POW_REWARD):
+                new_block.txs.append(tx)
             else:
-                return False
+                check_tx(tx, include_block=None)
+                tx_builder.put_unconfirmed(tx)
+                new_block.txs.append(tx)
+            # re set height
+            tx.height = new_block.height
+        # Block check
+        check_block(new_block)
+        # TX check
+        for tx in new_block.txs:
+            check_tx(tx, new_block)
+        # Chainに挿入
+        builder.new_block(new_block)
+        builder.batch_apply()
+        # 次のBlock
+        previous_height += 1
+        previous_hash = new_block.hash
+        # ロギング
+        if previous_height % 100 == 0:
+            logging.debug("Update block {} now...".format(previous_height+1))
+    # Unconfirmed txを取得
+    r = ask_node(cmd=DirectCmd.UNCONFIRMED_TX, f_continue_asking=True)
+    for tx_dict in r:
+        tx = TX(binary=tx_dict['tx'])
+        try:
+            tx.signature = tx_dict['sign']
+            check_tx(tx, include_block=None)
+            tx_builder.put_unconfirmed(tx)
+        except BlockChainError:
+            logging.debug("Failed get unconfirmed {}".format(tx))
+    # 最終判断
+    reset_good_node()
+    set_good_node()
+    my_best_height = builder.best_block.height
+    if best_height_on_network <= my_best_height:
+        logging.info("Finish update chain data by network. {}Sec [{}<={}]"
+                     .format(round(time.time()-start, 1), best_height_on_network, my_best_height))
+        return True
+    else:
+        logging.debug("Finish update chain, but {}<={}".format(best_height_on_network, my_best_height))
+        return False
+
+
+f_working = False
 
 
 def sync_chain_loop():
-    while True:
-        try:
-            if P.F_NOW_BOOTING:
-                with global_chain_lock:
-                    P.F_SYNC_DIRECT_IMPORT = True
+    global f_working
+
+    def loop():
+        while True:
+            try:
+                if P.F_NOW_BOOTING:
                     if sync_chain_data():
                         P.F_NOW_BOOTING = False
-                        update_mining_staking_all_info()
-                    P.F_SYNC_DIRECT_IMPORT = False
+                        if builder.best_block:
+                            update_mining_staking_all_info()
                     reset_good_node()
-            time.sleep(5)
-        except BlockChainError as e:
-            P.F_SYNC_DIRECT_IMPORT = False
-            reset_good_node()
-            logging.warning('Update chain failed "{}"'.format(e), exc_info=True)
-            time.sleep(10)
+                time.sleep(5)
+            except BlockChainError as e:
+                reset_good_node()
+                logging.warning('Update chain failed "{}"'.format(e), exc_info=True)
+                time.sleep(10)
+            except BaseException as e:
+                reset_good_node()
+                logging.error('Update chain failed "{}"'.format(e), exc_info=True)
+                time.sleep(10)
+    if f_working:
+        raise Exception('Already sync_chain_loop working.')
+    f_working = True
+    P.F_NOW_BOOTING = True
+    c = 0
+    while len(V.PC_OBJ.p2p.user) < 3:
+        if c % 10 == 0:
+            logging.debug("Waiting for new connections.. {}".format(len(V.PC_OBJ.p2p.user)))
+        time.sleep(15)
+        c += 1
+    logging.info("Start sync now {} connections.".format(len(V.PC_OBJ.p2p.user)))
+    threading.Thread(target=loop, name='Sync').start()

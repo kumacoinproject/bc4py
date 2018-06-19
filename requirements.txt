@@ -1,4 +1,3 @@
-fasteners
 aiohttp>=2.3.10
 aiohttp_cors
 pycryptodomex
@@ -8,3 +7,8 @@ p2p_python>=1.0.4
 dill
 psutil
 pysha3
+git+https://github.com/namuyan/yescryptR16-python@master
+xmltodict
+requests
+leveldb
+more_itertools

@@ -1,11 +1,13 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.chain.mintcoin import MintCoinObject, MintCoinError
-from bc4py.database.chain.read import read_tx_output, read_mint_coin
+from bc4py.database.tools import get_mintcoin
+from bc4py.database.builder import tx_builder
 from bc4py.user import CoinObject
+from binascii import hexlify
 
 
-def check_tx_mint_coin(tx, include_block, cur):
-    if not (len(tx.inputs) > 0 and len(tx.outputs) > 0):
+def check_tx_mint_coin(tx, include_block):
+    if not (0 < len(tx.inputs) and 0 < len(tx.outputs) <= 2):
         raise BlockChainError('Input and output is more than 1.')
     elif tx.message_type != C.MSG_BYTE:
         raise BlockChainError('TX_MINT_COIN message is bytes.')
@@ -17,7 +19,10 @@ def check_tx_mint_coin(tx, include_block, cur):
 
     coins = CoinObject()
     for txhash, txindex in tx.inputs:
-        address, coin_id, amount = read_tx_output(txhash, txindex, cur)
+        input_tx = tx_builder.get_tx(txhash)
+        if input_tx is None:
+            raise BlockChainError('Not found BaseTX {} of {}'.format(hexlify(txhash).decode(), tx))
+        address, coin_id, amount = input_tx.outputs[txindex]
         coins[coin_id] += amount
         if coin_id != 0:
             raise BlockChainError('TX_MINT_COIN inputs are all coinID 0. {}'.format(coin_id))
@@ -25,13 +30,13 @@ def check_tx_mint_coin(tx, include_block, cur):
     for address, coin_id, amount in tx.outputs:
         coins[coin_id] -= amount
     payfee_coin_id = 0
-    coins[payfee_coin_id] -= tx.gas_amount*tx.gas_price
+    coins[payfee_coin_id] -= tx.gas_amount * tx.gas_price
 
     if sum(coins.values()) < 0:
         print(tx.getinfo())
         raise BlockChainError('mintcoin amount sum is {}'.format(sum(coins.values())))
 
-    mint = MintCoinObject(None, binary=tx.message)
+    mint = MintCoinObject(txhash=tx.hash, binary=tx.message)
     mint_id = get_mint_id_from_tx(coins)
     if mint_id:
         # 追加発行あり
@@ -51,7 +56,8 @@ def check_tx_mint_coin(tx, include_block, cur):
 
     try:
         # 読み込んでおかしなところがなければOK
-        read_mint_coin(mint_id, cur)
+        old_mint = get_mintcoin(mint_id=mint_id, best_block=include_block)
+        mint.marge(old_mint)
     except MintCoinError as e:
         raise BlockChainError('Failed check mint coin "{}"'.format(e))
 
@@ -61,3 +67,8 @@ def get_mint_id_from_tx(coins):
     if len(mint_id_set) != 1:
         return None
     return mint_id_set.pop()
+
+
+__all__ = [
+    "check_tx_mint_coin",
+]

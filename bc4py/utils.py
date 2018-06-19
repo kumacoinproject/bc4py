@@ -3,8 +3,6 @@
 
 from bc4py.config import V, BlockChainError
 from bc4py.chain.utils import GompertzCurve
-from bc4py.database.create import create_db, closing
-from bc4py.database.chain.read import read_blocks_by_height, fill_tx_objects
 from Cryptodome.Cipher import AES
 from Cryptodome import Random
 from Cryptodome.Hash import SHA256
@@ -25,34 +23,26 @@ def set_database_path(sub_dir=None):
         V.DB_HOME_DIR = os.path.join(V.DB_HOME_DIR, sub_dir)
         if not os.path.exists(V.DB_HOME_DIR):
             os.makedirs(V.DB_HOME_DIR)
-    V.DB_BLOCKCHAIN_PATH = os.path.join(V.DB_HOME_DIR, 'blockchain.dat')
     V.DB_ACCOUNT_PATH = os.path.join(V.DB_HOME_DIR, 'account.dat')
-    V.DB_CASHE_PATH = 'file:cashe.{}.dat?mode=memory'.format(sub_dir)
 
 
-def set_blockchain_params():
+def set_blockchain_params(genesis_block):
     multiprocessing.set_start_method('spawn', force=True)
-    with closing(create_db(V.DB_BLOCKCHAIN_PATH)) as db:
-        cur = db.cursor()
-        blocks = read_blocks_by_height(0, cur)
-        if len(blocks) != 1:
-            raise BlockChainError('Not found genesis block.')
-        genesis_block = blocks[0]
-        fill_tx_objects(block=genesis_block, cur=cur)
-        setting_tx = genesis_block.txs[0]
-        params = bjson.loads(setting_tx.message)
-        V.BLOCK_GENESIS_HASH = genesis_block.hash
-        V.BLOCK_PREFIX = params.get('prefix')
-        V.BLOCK_CONTRACT_PREFIX = params.get('contract_prefix')
-        V.BLOCK_GENESIS_TIME = params.get('genesis_time')
-        V.BLOCK_HALVING_SPAN = params.get('halving_span')
-        V.BLOCK_TIME_SPAN = params.get('block_span')
-        V.BLOCK_REWARD = params.get('block_reward')
-        V.COIN_DIGIT = params.get('digit_number')
-        V.COIN_MINIMUM_PRICE = params.get('minimum_price')
-        V.BLOCK_CONSENSUS = params.get('consensus')
-        V.BLOCK_POW_RATIO = params.get('pow_ratio')
-        GompertzCurve.setup_params()
+    setting_tx = genesis_block.txs[0]
+    params = bjson.loads(setting_tx.message)
+    V.BLOCK_GENESIS_HASH = genesis_block.hash
+    V.BLOCK_PREFIX = params.get('prefix')
+    V.BLOCK_CONTRACT_PREFIX = params.get('contract_prefix')
+    V.BLOCK_GENESIS_TIME = params.get('genesis_time')
+    V.BLOCK_HALVING_SPAN = params.get('halving_span')
+    V.BLOCK_TIME_SPAN = params.get('block_span')
+    V.BLOCK_REWARD = params.get('block_reward')
+    V.COIN_DIGIT = params.get('digit_number')
+    V.COIN_MINIMUM_PRICE = params.get('minimum_price')
+    V.CONTRACT_MINIMUM_AMOUNT = params.get('contract_minimum_amount')
+    V.BLOCK_CONSENSUS = params.get('consensus')
+    V.BLOCK_POW_RATIO = params.get('pow_ratio')
+    GompertzCurve.setup_params()
 
 
 def delete_pid_file():

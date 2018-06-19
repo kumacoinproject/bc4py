@@ -17,16 +17,18 @@ class C:  # 起動中に変更してはいけない
 
     # tx type
     TX_GENESIS = 0  # Height0の初期設定TX
-    TX_TRANSFER = 1  # 送受金
-    TX_POW_REWARD = 2  # POWの報酬TX
-    TX_POS_REWARD = 3  # POSの報酬TX
+    TX_POW_REWARD = 1  # POWの報酬TX
+    TX_POS_REWARD = 2  # POSの報酬TX
+    TX_TRANSFER = 3  # 送受金
     TX_MINT_COIN = 4  # 新規貨幣を鋳造
     TX_CREATE_CONTRACT = 5  # コントラクトアドレスを作成
     TX_START_CONTRACT = 6  # コントラクトの開始TX
     TX_FINISH_CONTRACT = 7  # コントラクトの終了TX
+    TX_INNER = 255  # 内部のみで扱うTX
     txtype2name = {
-        0: 'GENESIS', 1: 'TRANSFER', 2: 'POW_REWARD', 3: 'POS_REWARD', 4: 'MINT_COIN',
-        5: 'CREATE_CONTRACT', 6: 'START_CONTRACT', 7: 'FINISH_CONTRACT'}
+        TX_GENESIS: 'GENESIS', TX_POW_REWARD: 'POW_REWARD', TX_POS_REWARD: 'POS_REWARD',
+        TX_TRANSFER: 'TRANSFER', TX_MINT_COIN: 'MINT_COIN', TX_CREATE_CONTRACT: 'CREATE_CONTRACT',
+        TX_START_CONTRACT: 'START_CONTRACT', TX_FINISH_CONTRACT: 'FINISH_CONTRACT', TX_INNER: 'TX_INNER'}
 
     # message format
     MSG_NONE = 0  # no message
@@ -43,20 +45,22 @@ class C:  # 起動中に変更してはいけない
     CHECKPOINT_SPAN = 200  # checkpointの作成間隔
 
     # account
-    ANT_RESERVED = '@0'  # 未使用
-    ANT_UNKNOWN = '@1'  # 使用済みだがTag無し
-    ANT_OUTSIDE = '@2'  # 外部への入出金
-    ANT_CONTRACT = '@3'  # コントラクトアドレス
-    account2name = {
-        ANT_RESERVED: '@Reserved', ANT_UNKNOWN: '@Unknown',
-        ANT_OUTSIDE: '@Outside', ANT_CONTRACT: '@Contract'}
+    ANT_RESERVED = 0  # 未使用
+    ANT_UNKNOWN = 1  # 使用済みだがTag無し
+    ANT_OUTSIDE = 2  # 外部への入出金
+    ANT_CONTRACT = 3  # コントラクトアドレス
+    # name
+    ANT_NAME_RESERVED = '@Reserved'
+    ANT_NAME_UNKNOWN = '@Unknown'
+    ANT_NAME_OUTSIDE = '@Outside'
+    ANT_NAME_CONTRACT = '@Contract'
 
     # Block/TX/Fee limit
     ACCEPT_MARGIN_TIME = 30  # 新規データ受け入れ時間マージンSec
     SIZE_BLOCK_LIMIT = 1000*1000  # 1Mb block
     SIZE_TX_LIMIT = 200*1000  # 200kb tx
-    CASHE_SIZE = 5000
-    # REORG_LIMIT = 6  # Blockの撒き戻り制限
+    CASHE_LIMIT = 10  # Memoryに置く最大Block数、実質Reorg制限
+    BATCH_SIZE = 5
     MINTCOIN_FEE = 10 * 1000000  # 新規Mintcoin発行GasFee
     CONTRACT_CREATE_FEE = 10 * 1000000  # コントラクト作成GasFee
 
@@ -76,13 +80,13 @@ class V:  # 起動時に設定される変数
     # base coin
     COIN_DIGIT = None
     COIN_MINIMUM_PRICE = None  # Gasの最小Price
+    CONTRACT_MINIMUM_AMOUNT = None
+    CONTRACT_VALIDATOR_ADDRESS = None
 
     # database path
     SUB_DIR = None
     DB_HOME_DIR = None
-    DB_BLOCKCHAIN_PATH = None
     DB_ACCOUNT_PATH = None
-    DB_CASHE_PATH = None
 
     # encryption key
     ENCRYPT_KEY = None
@@ -100,10 +104,8 @@ class V:  # 起動時に設定される変数
 
 
 class P:  # 起動中もダイナミックに変化
-    CHECK_POINTS = dict()  # { height: blockhash,..} 0Blockより1000Block毎にCheckPointを作成する
-    UNCONFIRMED_TX = set()  # {txhash,..}
+    F_VALIDATOR = False  # コントラクト検証者
     F_NOW_BOOTING = True  # 起動中
-    F_SYNC_DIRECT_IMPORT = False
     NEW_CHAIN_INFO_QUE = None  # API streaming
 
 
