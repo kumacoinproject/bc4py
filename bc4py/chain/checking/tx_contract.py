@@ -84,7 +84,8 @@ def get_start_by_finish_tx(finish_tx, start_hash, include_block):
         else:
             raise BlockChainError('Not found StartTX on block. {} {}'.format(finish_tx, include_block))
     else:
-        for start_tx in tx_builder.unconfirmed:
+        if start_hash in tx_builder.unconfirmed:
+            start_tx = tx_builder.unconfirmed[start_hash]
             if start_tx.type != C.TX_START_CONTRACT:
                 pass
             elif start_tx.hash == start_hash:

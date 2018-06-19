@@ -1,6 +1,6 @@
 from bc4py.config import C, V, P, Debug
 from bc4py.database.builder import builder, tx_builder
-from bc4py.database.tools import get_contract_storage
+from bc4py.database.tools import get_validator_info
 import logging
 from threading import Lock, Thread
 import time
@@ -71,21 +71,17 @@ def _update_unconfirmed_info():
                 contract_txs[start_tx] = [tx]
 
     # StartTX=>FinishTXを一対一関係で繋げる
-    validator_cs = get_contract_storage(V.CONTRACT_VALIDATOR_ADDRESS)
-    validators = 0
-    for k, v in validator_cs.items():
-        if k.startswith(b'\x00') and v == b'\x01':
-            validators += 1
-    need_validators = validators * 2 // 3 + 1
-    for start_tx, finish_txs in contract_txs.items():
-        if len(finish_txs) == 0:
-            continue
-        for tx in finish_txs:
-            if len(tx.signature) < need_validators:
+    if len(contract_txs) > 0:
+        _, required_num = get_validator_info()
+        for start_tx, finish_txs in contract_txs.items():
+            if len(finish_txs) == 0:
                 continue
-            # OK!
-            unconfirmed_txs.extend((start_tx, tx))
-            break
+            for tx in finish_txs:
+                if len(tx.signature) < required_num:
+                    continue
+                # OK!
+                unconfirmed_txs.extend((start_tx, tx))
+                break
 
     if V.MINING_OBJ.f_mining:
         V.MINING_OBJ.update_unconfirmed(unconfirmed_txs)

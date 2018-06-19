@@ -10,11 +10,13 @@ import pickle
 from base64 import b64decode, b64encode
 
 
-def create_boot_file(genesis_block, connections=None):
+def create_boot_file(genesis_block, network_ver, connections=None):
+    assert isinstance(network_ver, int) and abs(network_ver) <= 0xffffffff, 'network_ver ia int.'
     data = {
         'block': genesis_block.b,
         'txs': [tx.b for tx in genesis_block.txs],
-        'connections': connections or list()}
+        'connections': connections or list(),
+        'network_ver': network_ver}
     boot_path = os.path.join(V.DB_HOME_DIR, 'boot.dat')
     with open(boot_path, mode='bw') as fp:
         bjson.dump(data, fp, compress=False)
@@ -33,13 +35,15 @@ def load_boot_file():
     else:
         raise FileNotFoundError('Cannot find boot.dat "{}" or "{}" ?'.format(normal_path, extra_path))
     genesis_block = Block(binary=data['block'])
+    genesis_block.flag = C.BLOCK_GENESIS
     genesis_block.height = 0
     for b_tx in data['txs']:
         tx = TX(binary=b_tx)
         tx.height = 0
         genesis_block.txs.append(tx)
     connections = data.get('connections', list())
-    return genesis_block, connections
+    network_ver = data['network_ver']
+    return genesis_block, network_ver, connections
 
 
 def create_bootstrap_file():

@@ -33,9 +33,8 @@ def _block_by_height(height):
 
 
 def _block_by_hash(blockhash):
-    try:
-        block = builder.get_block(blockhash)
-    except KeyError:
+    block = builder.get_block(blockhash)
+    if block is None:
         return 'Not found blockhash {}.'.format(hexlify(blockhash).decode())
     if not block.difficulty:
         block.bits2target()
@@ -69,7 +68,7 @@ def _tx_by_hash(txhash):
 def _unconfirmed_tx():
     send_data = [{
         'tx': tx.b,
-        'sign': tx.signature} for tx in tx_builder.unconfirmed]
+        'sign': tx.signature} for tx in tx_builder.unconfirmed.values()]
     return send_data
 
 

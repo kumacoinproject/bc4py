@@ -26,6 +26,9 @@ class TX:
     def __eq__(self, other):
         return self.hash == other.hash
 
+    def __hash__(self):
+        return hash(self.hash)
+
     def __repr__(self):
         return "<TX {} {} {} >"\
             .format(self.height, C.txtype2name[self.type], hexlify(self.hash).decode())

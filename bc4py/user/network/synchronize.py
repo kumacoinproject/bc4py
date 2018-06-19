@@ -109,7 +109,7 @@ def sync_chain_data():
         if isinstance(r, str):
             logging.debug("NewBlockInfoException:{}".format(r))
             previous_height -= 1
-            previous_hash -= builder.get_block_hash(previous_hash)
+            previous_hash = builder.get_block_hash(previous_height)
             count -= 1
             continue
         r = ask_node(cmd=DirectCmd.BLOCK_BY_HASH, data=r)
@@ -118,17 +118,17 @@ def sync_chain_data():
         new_block.flag = r['flag']
         if r['orphan']:
             previous_height -= 1
-            previous_hash -= builder.get_block_hash(previous_hash)
+            previous_hash = builder.get_block_hash(previous_height)
             count -= 1
             continue
         elif new_block.previous_hash != previous_hash:
             previous_height -= 1
-            previous_hash -= builder.get_block_hash(previous_hash)
+            previous_hash = builder.get_block_hash(previous_height)
             count -= 1
             continue
         elif builder.get_block(new_block.hash):
             previous_height += 1
-            previous_hash -= new_block.hash
+            previous_hash = new_block.hash
             count -= 1
             continue
         # TXを補充
@@ -139,14 +139,22 @@ def sync_chain_data():
             tx_from_database = tx_builder.get_tx(txhash=tx.hash)
             if tx_from_database:
                 new_block.txs.append(tx_from_database)
+            elif tx.type in (C.TX_POS_REWARD, C.TX_POW_REWARD):
+                new_block.txs.append(tx)
             else:
                 check_tx(tx, include_block=None)
                 tx_builder.put_unconfirmed(tx)
                 new_block.txs.append(tx)
+            # re set height
+            tx.height = new_block.height
         # Block check
         check_block(new_block)
+        # TX check
+        for tx in new_block.txs:
+            check_tx(tx, new_block)
         # Chainに挿入
         builder.new_block(new_block)
+        builder.batch_apply()
         # 次のBlock
         previous_height += 1
         previous_hash = new_block.hash
@@ -172,6 +180,7 @@ def sync_chain_data():
                      .format(round(time.time()-start, 1), best_height_on_network, my_best_height))
         return True
     else:
+        logging.debug("Finish update chain, but {}<={}".format(best_height_on_network, my_best_height))
         return False
 
 
@@ -187,7 +196,8 @@ def sync_chain_loop():
                 if P.F_NOW_BOOTING:
                     if sync_chain_data():
                         P.F_NOW_BOOTING = False
-                        update_mining_staking_all_info()
+                        if builder.best_block:
+                            update_mining_staking_all_info()
                     reset_good_node()
                 time.sleep(5)
             except BlockChainError as e:
@@ -202,6 +212,11 @@ def sync_chain_loop():
         raise Exception('Already sync_chain_loop working.')
     f_working = True
     P.F_NOW_BOOTING = True
-    threading.Thread(
-        target=loop, name='Sync'
-    ).start()
+    c = 0
+    while len(V.PC_OBJ.p2p.user) < 3:
+        if c % 10 == 0:
+            logging.debug("Waiting for new connections.. {}".format(len(V.PC_OBJ.p2p.user)))
+        time.sleep(15)
+        c += 1
+    logging.info("Start sync now {} connections.".format(len(V.PC_OBJ.p2p.user)))
+    threading.Thread(target=loop, name='Sync').start()

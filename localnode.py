@@ -33,8 +33,16 @@ def copy_boot(port):
 
 
 def work(port, sub_dir):
+    # BlockChain setup
+    set_database_path(sub_dir=sub_dir)
+    builder.set_database_path()
+    copy_boot(port)
+    make_account_db()
+    genesis_block, network_ver, connections = load_boot_file()
+    logging.info("Start p2p network-ver{} .".format(network_ver))
+
     # P2P network setup
-    setup_p2p_params(network_ver=1000, p2p_port=port, sub_dir=sub_dir)
+    setup_p2p_params(network_ver=network_ver, p2p_port=port, sub_dir=sub_dir)
     pc = PeerClient(f_local=True)
     pc.event.addevent(cmd=DirectCmd.BEST_INFO, f=DirectCmd.best_info)
     pc.event.addevent(cmd=DirectCmd.BLOCK_BY_HEIGHT, f=DirectCmd.block_by_height)
@@ -44,14 +52,10 @@ def work(port, sub_dir):
     pc.start()
     V.PC_OBJ = pc
 
+    # for debug node
     if port != 2000 and pc.p2p.create_connection('127.0.0.1', 2000):
         logging.info("Connect!")
 
-    # BlockChain setup
-    set_database_path(sub_dir=sub_dir)
-    copy_boot(port)
-    make_account_db()
-    genesis_block, connections = load_boot_file()
     for host, port in connections:
         pc.p2p.create_connection(host, port)
     set_blockchain_params(genesis_block)
@@ -67,7 +71,7 @@ def work(port, sub_dir):
     mining = Mining(genesis_block)
     staking = Staking(genesis_block)
     mining.share_que(staking)
-    V.F_MINING_POWER_SAVE = random.random() / 10 + 0.05
+    V.F_MINING_POWER_SAVE = random.random() / 5 + 0.05
     # core = 1 if port <= 2001 else 0
     Thread(target=mining.start, name='Mining', args=(1,), daemon=True).start()
     Thread(target=staking.start, name='Staking', daemon=True).start()

@@ -14,7 +14,7 @@ import threading
 import bjson
 from binascii import hexlify
 import time
-from copy import deepcopy
+import pickle
 
 # http://blog.livedoor.jp/wolf200x/archives/53052954.html
 # https://github.com/happynear/py-leveldb-windows
@@ -35,6 +35,7 @@ class DataBase:
         self.sync = sync
         self.timeout = timeout
         self.event = threading.Event()
+        self.event.set()
         # already used => LevelDBError
         self._block = leveldb.LevelDB(os.path.join(dirs, 'block'))
         self._tx = leveldb.LevelDB(os.path.join(dirs, 'tx'))
@@ -92,7 +93,7 @@ class DataBase:
         if self.is_batch_thread() and blockhash in self.batch['_block']:
             b = self.batch['_block'][blockhash]
         else:
-            b = self._block.Get(blockhash)
+            b = bytes(self._block.Get(blockhash))
         height, _time, work, b_block, flag, tx_len = struct_block.unpack_from(b)
         idx = struct_block.size
         assert len(b) == idx+tx_len, 'Not correct size. [{}={}]'.format(len(b), idx+tx_len)
@@ -100,22 +101,23 @@ class DataBase:
         block.height = height
         block.work_hash = work
         block.flag = flag
-        for i in range(tx_len//32):
-            txhash = b[idx+32*i:idx+32*i+32]
-            block.txs = self.read_tx(txhash)
+        block.txs = [self.read_tx(b[idx+32*i:idx+32*i+32]) for i in range(tx_len//32)]
         return block
 
     def read_block_hash(self, height):
-        if self.is_batch_thread() and height in self.batch['_block_index']:
-            return self.batch['_block_index'][height.to_bytes(4, 'big')]
+        b_height = height.to_bytes(4, 'big')
+        if self.is_batch_thread() and b_height in self.batch['_block_index']:
+            return self.batch['_block_index'][b_height]
         else:
-            return self._block_index.Get(height.to_bytes(4, 'big'))
+            return bytes(self._block_index.Get(b_height))
 
     def read_block_hash_iter(self, start_height=0):
         f_batch = self.is_batch_thread()
         batch_copy = self.batch['_block_index'].copy() if self.batch else dict()
         for b_height, blockhash in self._block_index.RangeIter(key_from=start_height.to_bytes(4, 'big')):
             # height, blockhash
+            b_height = bytes(b_height)
+            blockhash = bytes(blockhash)
             if f_batch and b_height in batch_copy:
                 yield int.from_bytes(b_height, 'big'), batch_copy[b_height]
                 del batch_copy[b_height]
@@ -129,12 +131,12 @@ class DataBase:
         if self.is_batch_thread() and txhash in self.batch['_tx']:
             b = self.batch['_tx'][txhash]
         else:
-            b = self._tx.Get(txhash)
+            b = bytes(self._tx.Get(txhash))
         height, _time, bin_len, sign_len = struct_tx.unpack_from(b)
-        b_tx = b[20:20+bin_len]
-        b_sign = b[20+bin_len:20+bin_len+sign_len]
-        assert len(b) == 20+bin_len+sign_len, 'Wrong len [{}={}]'\
-            .format(len(b), 20+bin_len+sign_len)
+        b_tx = b[16:16+bin_len]
+        b_sign = b[16+bin_len:16+bin_len+sign_len]
+        assert len(b) == 16+bin_len+sign_len, 'Wrong len [{}={}]'\
+            .format(len(b), 16+bin_len+sign_len)
         tx = TX(binary=b_tx)
         tx.height = height
         tx.signature = bin2signature(b_sign)
@@ -144,7 +146,10 @@ class DataBase:
         if self.is_batch_thread() and txhash in self.batch['_used_index']:
             b = self.batch['_used_index'][txhash]
         else:
-            b = self._used_index.Get(txhash)
+            try:
+                b = bytes(self._used_index.Get(txhash))
+            except KeyError:
+                return set()
         return set(b)
 
     def read_address_idx(self, address, txhash, index):
@@ -152,7 +157,7 @@ class DataBase:
         if self.is_batch_thread() and k in self.batch['_address_index']:
             b = self.batch['_address_index'][k]
         else:
-            b = self._address_index.Get(k)
+            b = bytes(self._address_index.Get(k))
         # coin_id, amount, f_used
         return struct_address_idx.unpack(b)
 
@@ -163,6 +168,7 @@ class DataBase:
         for k, v in self._address_index.RangeIter(
                 key_from=b_address+b'\x00'*(32+1),
                 key_to=b_address+b'\xff'*(32+1)):
+            k, v = bytes(k), bytes(v)
             # address, txhash, index, coin_id, amount, f_used
             if f_batch and k in batch_copy:
                 yield struct_address.unpack(k) + struct_address_idx.unpack(batch_copy[k])
@@ -182,6 +188,7 @@ class DataBase:
         for k, v in self._coins.RangeIter(
                 key_from=b_coin_id+b'\x00'*4,
                 key_to=b_coin_id+b'\xff'*4):
+            k, v = bytes(k), bytes(v)
             # coin_id, index, txhash
             if f_batch and k in batch_copy:
                 yield struct_coins.unpack(k) + (batch_copy[k],)
@@ -202,6 +209,7 @@ class DataBase:
         for k, v in self._contract.RangeIter(
                 key_from=b_c_address+b'\x00'*4,
                 key_to=b_c_address+b'\xff'*4):
+            k, v = bytes(k), bytes(v)
             # c_address, index, start_hash, finish_hash
             if f_batch and k in batch_copy:
                 yield struct_construct_key.unpack(k) + struct_construct_value.unpack(batch_copy[k])
@@ -217,6 +225,8 @@ class DataBase:
         assert self.is_batch_thread(), 'Not created batch.'
         b_tx = b''.join(tx.hash for tx in block.txs)
         tx_len = len(b_tx)
+        if block.work_hash is None:
+            block.update_pow()
         b = struct_block.pack(block.height, block.time, block.work_hash, block.b, block.flag, tx_len)
         b += b_tx
         self.batch['_block'][block.hash] = b
@@ -260,7 +270,7 @@ class DataBase:
 
 
 class ChainBuilder:
-    def __init__(self, cashe_limit=100, batch_size=20):
+    def __init__(self, cashe_limit=C.CASHE_LIMIT, batch_size=C.BATCH_SIZE):
         assert cashe_limit > batch_size, 'cashe_limit > batch_size.'
         self.cashe_limit = cashe_limit
         self.batch_size = batch_size
@@ -274,10 +284,22 @@ class ChainBuilder:
         self.db = None
         try:
             self.db = DataBase(os.path.join(V.DB_HOME_DIR, 'db'))
+            logging.info("Connect database.")
         except leveldb.LevelDBError:
             logging.warning("Already connect database.")
-        except BaseException:
-            pass
+        except BaseException as e:
+            logging.debug("Failed connect database, {}.".format(e))
+        # levelDBのStreamHandlerを削除
+        logging.getLogger().handlers.clear()
+
+    def set_database_path(self):
+        try:
+            self.db = DataBase(os.path.join(V.DB_HOME_DIR, 'db'))
+            logging.info("Connect database.")
+        except leveldb.LevelDBError:
+            logging.warning("Already connect database.")
+        except BaseException as e:
+            logging.debug("Failed connect database, {}.".format(e))
 
     def init(self, genesis_block: Block):
         # GenesisBlockか確認
@@ -294,6 +316,8 @@ class ChainBuilder:
             self.root_block = Block()
             self.root_block.hash = b'\xff' * 32
             self.chain[genesis_block.hash] = genesis_block
+            self.best_chain = [genesis_block]
+            self.best_block = genesis_block
             logging.info("Set dummy block. GenesisBlock={}".format(genesis_block))
             return
 
@@ -337,18 +361,37 @@ class ChainBuilder:
             # Block確認終了
             before_block = block
             batch_blocks.append(block)
-            if block.height % 100 == 1:
+            if len(batch_blocks) > self.cashe_limit:
                 user_account.new_batch_apply(batch_blocks)
                 batch_blocks.clear()
                 logging.debug("UserAccount batched at {} height.".format(block.height))
+        # import from starter.dat
+        self.root_block = before_block
+        self.load_starter()
+        batch_blocks.append(self.best_block)
+        self.chain[self.best_block.hash] = self.best_block
+        self.best_chain = [self.best_block]
         # UserAccount update
         user_account.new_batch_apply(batch_blocks)
-        batch_blocks.clear()
-        self.root_block = before_block
-        # ここまでにErrorがあったらFixしてみる
-        # それでもダメなら削除して再同期すること
+        # TODO: before blockの被りをどうするか, UsedIndex? ファイルに保存する？
         logging.info("Init finished, last block is {} {}Sec"
                      .format(before_block, round(time.time()-t, 3)))
+
+    def save_starter(self):
+        with open(os.path.join(V.DB_HOME_DIR, 'starter.dat'), mode='bw') as fp:
+            pickle.dump(self.best_chain, fp, protocol=4)
+
+    def load_starter(self):
+        try:
+            with open(os.path.join(V.DB_HOME_DIR, 'starter.dat'), mode='br') as fp:
+                for block in pickle.load(fp):
+                    if self.root_block.hash == block.previous_hash:
+                        self.best_block = block
+                        break
+                else:
+                    raise Exception('Cannot init, not found next block. root={}'.format(self.root_block))
+        except FileNotFoundError:
+            return list()
 
     def get_best_chain(self, best_block=None):
         assert self.root_block, 'Do not init.'
@@ -367,14 +410,20 @@ class ChainBuilder:
         best_diff = 0.0
         best_block = None
         best_chain = list()
-        for blockhash, block in self.chain.items():
+        for block in self.chain.values():
             if block in best_chain:
                 continue
+            if not block.difficulty:
+                block.bits2target()
+                block.target2diff()
             tmp_best_diff = block.difficulty
             tmp_best_block = block
             tmp_best_chain = [block]
             while block.previous_hash in self.chain:
                 block = self.chain[block.previous_hash]
+                if not block.difficulty:
+                    block.bits2target()
+                    block.target2diff()
                 tmp_best_diff += block.difficulty
                 tmp_best_chain.append(block)
             else:
@@ -387,7 +436,7 @@ class ChainBuilder:
             best_chain = tmp_best_chain
         # txのheightを揃える
         for block in best_chain:
-            for tx in block:
+            for tx in block.txs:
                 tx.height = block.height
         # best_chain = [<height=n>, <height=n-1>, ...]
         return best_block, best_chain
@@ -399,7 +448,7 @@ class ChainBuilder:
         # cashe許容量を上回っているので記録
         self.db.batch_create()
         logging.debug("Start batch apply. chain={} force={}".format(len(self.chain), force))
-        best_chain = self.best_chain.copy()
+        best_chain = self.best_chain # .copy()
         batch_count = self.batch_size
         batched_blocks = list()
         try:
@@ -478,8 +527,9 @@ class ChainBuilder:
             # block挿入終了
             self.root_block = block
             self.db.batch_commit()
+            self.save_starter()
             # root_blockよりHeightの小さいBlockを消す
-            for blockhash, block in self.chain.items():
+            for blockhash, block in self.chain.copy().items():
                 if self.root_block.height >= block.height:
                     del self.chain[blockhash]
             logging.debug("Success batch {} blocks, root={}."
@@ -504,21 +554,19 @@ class ChainBuilder:
         # tx heightを合わせる
         old_best_chain = self.best_chain.copy()
         commons = set(new_best_chain) & set(old_best_chain)
-        for block in old_best_chain.copy():
-            if block in commons:
-                old_best_chain.remove(block)
-            else:
+        for block in old_best_chain:
+            if block not in commons:
                 for tx in block.txs:
                     tx.height = None
-        for block in new_best_chain.copy():
-            if block in commons:
-                new_best_chain.remove(block)
-            else:
+        for block in new_best_chain:
+            if block not in commons:
                 for tx in block.txs:
                     tx.height = block.height
         # 変化しているので反映する
         self.best_block, self.best_chain = new_best_block, new_best_chain
-        tx_builder.affect_new_chain(old_best_chain, new_best_chain)
+        tx_builder.affect_new_chain(
+            new_best_chain=set(new_best_chain) - commons,
+            old_best_chain=set(old_best_chain) - commons)
 
     def get_block(self, blockhash):
         if blockhash in self.chain:
@@ -541,10 +589,11 @@ class ChainBuilder:
             return None
         elif height < 0:
             return None
-        # Memoryより
+        # Memory
         for block in self.best_chain:
             if height == block.height:
                 return block.hash
+        # DataBase
         try:
             return self.db.read_block_hash(height)
         except KeyError:
@@ -625,24 +674,20 @@ class TransactionBuilder:
         # 状態を戻す
         for block in old_best_chain:
             for tx in block.txs:
-                if tx.type in (C.TX_POS_REWARD, C.TX_POW_REWARD):
-                    continue
-                if tx.hash not in self.unconfirmed:
+                if tx.hash not in self.unconfirmed and tx.type not in (C.TX_POW_REWARD, C.TX_POS_REWARD):
                     self.unconfirmed[tx.hash] = tx
                 if tx.hash in self.chained_tx:
                     del self.chained_tx[tx.hash]
         # 新規に反映する
         for block in new_best_chain:
             for tx in block.txs:
-                if tx.type in (C.TX_POS_REWARD, C.TX_POW_REWARD):
-                    continue
                 if tx.hash not in self.chained_tx:
                     self.chained_tx[tx.hash] = tx
                 if tx.hash in self.unconfirmed:
                     del self.unconfirmed[tx.hash]
         # 時間切れを起こしたUnconfirmedを消す
         limit = int(time.time() - V.BLOCK_GENESIS_TIME - C.ACCEPT_MARGIN_TIME)
-        for txhash, tx in self.unconfirmed.items():
+        for txhash, tx in self.unconfirmed.copy().items():
             if limit > tx.deadline:
                 del self.unconfirmed[txhash]
 
@@ -701,7 +746,7 @@ class UserAccount:
     def get_movement_iter(self, start=0, f_dict=False):
         count = 0
         # Unconfirmed
-        for tx in sorted(tx_builder.unconfirmed, key=lambda x: x.time):
+        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.time):
             if tx.hash in self.memory_movement:
                 if count >= start:
                     yield self.memory_movement[tx.hash][0 if f_dict else 1]

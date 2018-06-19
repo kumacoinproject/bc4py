@@ -45,7 +45,7 @@ async def get_system_info(request):
             'chain_ver': __chain_version__,
             'booting': P.F_NOW_BOOTING,
             'connections': len(V.PC_OBJ.p2p.user),
-            'unconfirmed': [hexlify(tx.hash).decode() for tx in tx_builder.unconfirmed],
+            'unconfirmed': [hexlify(txhash).decode() for txhash in tx_builder.unconfirmed.keys()],
             'directory': V.DB_HOME_DIR,
             'encryption': '*'*len(V.ENCRYPT_KEY) if V.ENCRYPT_KEY else V.ENCRYPT_KEY,
             'mining': {

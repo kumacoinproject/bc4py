@@ -3,6 +3,7 @@ from bc4py.config import C, BlockChainError
 from bc4py.chain.utils import GompertzCurve
 from bc4py.chain.difficulty import get_pos_bias_by_hash
 from bc4py.database.builder import tx_builder
+from binascii import hexlify
 
 
 def check_tx_pow_reward(tx, include_block):
@@ -45,8 +46,10 @@ def check_tx_pos_reward(tx, include_block):
     txhash, txindex = tx.inputs[0]
     base_tx = tx_builder.get_tx(txhash)
     if base_tx is None:
-        raise BlockChainError('Not found BaseTX of {}.',format(tx))
+        print(list(tx_builder.chained_tx.values()))
+        raise BlockChainError('Not found PosBaseTX:{} of {}.'.format(hexlify(txhash).decode(), tx))
     input_address, input_coin_id, input_amount = base_tx.outputs[txindex]
+    tx.pos_amount = input_amount
     output_address, output_coin_id, output_amount = tx.outputs[0]
     reward = GompertzCurve.calc_block_reward(tx.height)
     pos_bias = get_pos_bias_by_hash(previous_hash=include_block.previous_hash)[0]

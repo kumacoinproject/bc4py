@@ -55,6 +55,8 @@ def fill_newblock_info(data):
     if builder.get_block(new_block.hash):
         raise BlockChainError('Already inserted block.')
     before_block = builder.get_block(new_block.previous_hash)
+    if before_block is None:
+        raise BlockChainError('Not found beforeBlock {}.'.format(hexlify(new_block.previous_hash).decode()))
     new_height = before_block.height + 1
     # ProofTX
     proof = TX(binary=data['proof'])

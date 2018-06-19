@@ -26,8 +26,9 @@ class C:  # 起動中に変更してはいけない
     TX_FINISH_CONTRACT = 7  # コントラクトの終了TX
     TX_INNER = 255  # 内部のみで扱うTX
     txtype2name = {
-        0: 'GENESIS', 1: 'TRANSFER', 2: 'POW_REWARD', 3: 'POS_REWARD', 4: 'MINT_COIN',
-        5: 'CREATE_CONTRACT', 6: 'START_CONTRACT', 7: 'FINISH_CONTRACT', 255: 'TX_INNER'}
+        TX_GENESIS: 'GENESIS', TX_POW_REWARD: 'POW_REWARD', TX_POS_REWARD: 'POS_REWARD',
+        TX_TRANSFER: 'TRANSFER', TX_MINT_COIN: 'MINT_COIN', TX_CREATE_CONTRACT: 'CREATE_CONTRACT',
+        TX_START_CONTRACT: 'START_CONTRACT', TX_FINISH_CONTRACT: 'FINISH_CONTRACT', TX_INNER: 'TX_INNER'}
 
     # message format
     MSG_NONE = 0  # no message
@@ -58,8 +59,8 @@ class C:  # 起動中に変更してはいけない
     ACCEPT_MARGIN_TIME = 30  # 新規データ受け入れ時間マージンSec
     SIZE_BLOCK_LIMIT = 1000*1000  # 1Mb block
     SIZE_TX_LIMIT = 200*1000  # 200kb tx
-    CASHE_SIZE = 5000
-    # REORG_LIMIT = 6  # Blockの撒き戻り制限
+    CASHE_LIMIT = 10  # Memoryに置く最大Block数、実質Reorg制限
+    BATCH_SIZE = 5
     MINTCOIN_FEE = 10 * 1000000  # 新規Mintcoin発行GasFee
     CONTRACT_CREATE_FEE = 10 * 1000000  # コントラクト作成GasFee
 

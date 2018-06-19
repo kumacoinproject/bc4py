@@ -1,9 +1,12 @@
 from bc4py.config import C, V, BlockChainError
-from bc4py.user import CoinObject, UserCoins
+from bc4py.user import UserCoins
 from bc4py.utils import AESCipher
+from bc4py.database.create import closing, create_db
 import time
 import os
 from binascii import hexlify, unhexlify
+import multiprocessing
+from nem_ed25519.base import Encryption
 
 
 def read_txhash2log(txhash, cur, f_dict=False):
@@ -47,7 +50,8 @@ def insert_log(movements, cur, _type=None, _time=None, txhash=None):
         for index, (coin_id, amount) in coins.items():
             move.append((txhash, index, _type, user, coin_id, amount, _time))
             index += 1
-    cur.executemany("INSERT INTO `log` VALUES (?,?,?,?,?,?,?)", move)
+    cur.executemany("""INSERT INTO `log` (`hash`,`index`,`type`,`user`,`coin_id`,
+    `amount`,`time`) VALUES (?,?,?,?,?,?,?)""", move)
     return txhash
 
 
@@ -59,7 +63,7 @@ def read_address2keypair(address, cur):
         raise BlockChainError('Not found address {}'.format(address))
     uuid, sk, pk = d
     if len(sk) == 32:
-        sk = hexlify(sk).decode()
+        pass
     elif V.ENCRYPT_KEY:
         sk = AESCipher.decrypt(V.ENCRYPT_KEY, sk)
         if len(sk) != 32:
@@ -84,11 +88,31 @@ def update_keypair_user(uuid, user, cur):
     cur.execute("UPDATE `pool` SET `user`=? WHERE `id`=?", (user, uuid))
 
 
+def _insert(limit, encrypt_key, prefix, account_path, genesis_time, _cur=None):
+    pairs = list()
+    ecc = Encryption(prefix=prefix)
+    while len(pairs) < limit:
+        sk = unhexlify(ecc.secret_key().encode())
+        if encrypt_key:
+            sk = AESCipher.encrypt(key=encrypt_key, raw=sk)
+        pk = unhexlify(ecc.public_key().encode())
+        ck = ecc.get_address()
+        pairs.append((sk, pk, ck, C.ANT_RESERVED, int(time.time() - genesis_time)))
+    with closing(create_db(account_path)) as db:
+        insert_keypairs(pairs, _cur or db.cursor())
+        db.commit()
+
+
+def auto_insert_keypairs(cur):
+    multiprocessing.Process(
+        target=_insert, args=(5, V.ENCRYPT_KEY, V.BLOCK_PREFIX, V.DB_ACCOUNT_PATH, V.BLOCK_GENESIS_TIME)
+    ).start()
+    _insert(1, V.ENCRYPT_KEY, V.BLOCK_PREFIX, V.DB_ACCOUNT_PATH, V.BLOCK_GENESIS_TIME, cur)
+
+
 def insert_keypairs(pairs, cur):
     sk, pk, ck, user, _time = pairs[0]
-    assert isinstance(sk, str) and isinstance(pk, str) and isinstance(ck, str) and isinstance(user, int)
-    pairs = [(unhexlify(sk.encode()), unhexlify(pk.encode()), ck, user, _time)
-             for sk, pk, ck, user, _time in pairs]
+    assert isinstance(sk, bytes) and isinstance(pk, bytes) and isinstance(ck, str) and isinstance(user, int)
     cur.executemany("""
     INSERT INTO `pool` (`sk`,`pk`,`ck`,`user`,`time`) VALUES (?,?,?,?,?)
     """, pairs)
@@ -137,18 +161,23 @@ def read_user2name(user, cur):
 def create_account(name, cur, description="", _time=None):
     _time = _time or int(time.time() - V.BLOCK_GENESIS_TIME)
     cur.execute("""
-        INSERT INTO `account` VALUES (?,?,?)
+        INSERT INTO `account` (`name`,`description`,`time`) VALUES (?,?,?)
     """, (name, description, _time))
     d = cur.execute("SELECT last_insert_rowid()").fetchone()
     return d[0]
 
 
 def create_new_user_keypair(name, cur):
+    def get_pairs():
+        return cur.execute("""
+            SELECT `id`,`sk`,`pk`,`ck` FROM `pool` WHERE `user`=?
+        """, (C.ANT_RESERVED,)).fetchall()
     # ReservedKeypairを１つ取得
-    d = cur.execute("""
-        SELECT `id`,`sk`,`pk`,`ck` FROM `pool` WHERE `user`=?
-    """, (C.ANT_RESERVED,)).fetchone()
-    uuid, sk, pk, ck = d
+    d = get_pairs()
+    if len(d) < 100:
+        auto_insert_keypairs(cur)
+        d = get_pairs()
+    uuid, sk, pk, ck = d[0]
     user = read_name2user(name, cur)
     if user is None:
         # 新規にユーザー作成

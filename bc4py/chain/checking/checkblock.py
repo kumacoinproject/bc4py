@@ -2,7 +2,6 @@ from bc4py.config import C, V, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.chain.difficulty import get_bits_by_hash, get_pos_bias_by_hash
 import logging
-from binascii import hexlify
 import time
 
 
@@ -20,7 +19,7 @@ def check_block(block: Block):
         raise BlockChainError('Block bits differ from calc. [{}!={}]'.format(block.bits, bits))
     elif block.pos_bias != pos_bias:
         raise BlockChainError('Block pos_bias differ from calc. [{}!={}]'.format(block.pos_bias, pos_bias))
-    logging.debug("Checked block {} {}tx".format(block, len(block.txs)))
+    logging.debug("Checked block {}.".format(block))
 
 
 def check_block_time(block: Block, fix_delay):

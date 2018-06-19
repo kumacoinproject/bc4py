@@ -15,7 +15,6 @@ def check_tx(tx, include_block):
     f_size_check = True
     f_minimum_fee_check = True
     payfee_coin_id = 0
-    now = int(time.time()) - V.BLOCK_GENESIS_TIME
 
     # 共通検査
     if include_block:
@@ -29,7 +28,8 @@ def check_tx(tx, include_block):
             if tx.type not in (C.TX_POS_REWARD, C.TX_POW_REWARD):
                 raise BlockChainError('tx index is zero, but not proof tx.')
         elif tx.type in (C.TX_POS_REWARD, C.TX_POW_REWARD):
-            raise BlockChainError('tx index is not zero, but proof tx.')
+            raise BlockChainError('{} index is not 0 idx:{}.'
+                                  .format(tx, include_block.txs.index(tx)))
 
     else:
         # Unconfirmed tx
@@ -46,7 +46,7 @@ def check_tx(tx, include_block):
 
     # 各々のタイプで検査
     if tx.type == C.TX_GENESIS:
-        assert False, "GenesisTX do not need tx check."
+        return
 
     elif tx.type == C.TX_POS_REWARD:
         f_amount_check = False
@@ -64,8 +64,6 @@ def check_tx(tx, include_block):
         payfee_coin_id = tx.outputs[0][1]
         if not (0 < len(tx.inputs) < 256 and 0 < len(tx.outputs) < 256):
             raise BlockChainError('Input and output is 1～256.')
-        elif not (now + C.ACCEPT_MARGIN_TIME >= tx.time <= tx.deadline - 10800):
-            raise BlockChainError('TX time is wrong 2. [{}>={}-5<={}-10800]'.format(now, tx.time, tx.deadline))
 
     elif tx.type == C.TX_MINT_COIN:
         f_amount_check = False
@@ -110,3 +108,16 @@ def check_tx(tx, include_block):
             raise BlockChainError('TX size is too large. [{}>{}]'.format(tx.getsize(), C.SIZE_TX_LIMIT))
 
     logging.debug("Checked tx {} {}".format(C.txtype2name[tx.type], hexlify(tx.hash).decode()))
+
+
+def check_tx_time(tx):
+    now = int(time.time()) - V.BLOCK_GENESIS_TIME
+    if tx.time > now + C.ACCEPT_MARGIN_TIME:
+        raise BlockChainError('TX time too early. {}>{}+{}'
+                              .format(tx.time, now, C.ACCEPT_MARGIN_TIME))
+    elif tx.deadline - tx.time < 10800:
+        raise BlockChainError('TX acceptable spam is too short. {}-{}<{}'
+                              .format(tx.deadline, tx.time, 10800))
+    elif tx.deadline < now - C.ACCEPT_MARGIN_TIME:
+        raise BlockChainError('TX time is too late. [{}<{}-{}]'
+                              .format(tx.deadline, now, C.ACCEPT_MARGIN_TIME))

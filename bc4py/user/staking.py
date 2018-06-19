@@ -168,7 +168,7 @@ class Staking:
         self.thread_pool.clear()
         self.f_staking = False
 
-    def start(self, genesis_block, threads=1):
+    def start(self, threads=1):
         if self.f_staking:
             raise BlockChainError('Already POS is running.')
         self.f_staking = True
@@ -176,7 +176,7 @@ class Staking:
         for i in range(threads):
             try:
                 parent_conn, child_conn = Pipe()
-                params = dict(genesis_block=genesis_block, sub_dir=V.SUB_DIR)
+                params = dict(genesis_block=self.genesis_block, sub_dir=V.SUB_DIR)
                 process = Process(
                     target=staking_process, name="C-Staking {}".format(i), args=(child_conn, params))
                 # process.daemon = True

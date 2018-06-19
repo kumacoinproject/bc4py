@@ -53,7 +53,7 @@ def get_mintcoin(mint_id, best_block=None):
             mint_coin_old = mint_coin_new
     # Unconfirmedより
     if best_block is None:
-        for tx in sorted(tx_builder.unconfirmed, key=lambda x: x.time):
+        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.time):
             if tx.type != C.TX_MINT_COIN:
                 continue
             mint_coin_new = MintCoinObject(txhash=tx.hash, binary=tx.message)
@@ -81,7 +81,7 @@ def get_contract_binary(c_address, best_block=None):
                 return c_bin
     # Unconfirmedより
     if best_block is None:
-        for tx in sorted(tx_builder.unconfirmed, key=lambda x: x.time):
+        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.time):
             if tx.type == C.TX_CREATE_CONTRACT:
                 dummy, c_bin, c_cs = bjson.loads(tx.message)
                 return c_bin
@@ -124,12 +124,12 @@ def get_contract_history_iter(c_address, best_block=None):
     # Unconfirmedより
     if best_block is None:
         validator_cks, required_num = get_validator_info()
-        for tx in sorted(tx_builder.unconfirmed, key=lambda x: x.time):
+        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.time):
             if tx.type == C.TX_CREATE_CONTRACT:
                 yield 0, tx.hash, b'\x00'*32, True
             if tx.type == C.TX_START_CONTRACT:
                 last_index += 1
-                for finish_tx in tx_builder.unconfirmed:
+                for finish_tx in tx_builder.unconfirmed.values():
                     if len(finish_tx.signature) < required_num:
                         continue
                     dummy0, start_hash, dummy1 = bjson.loads(finish_tx.message)
@@ -164,7 +164,7 @@ def get_contract_storage(c_address, best_block=None):
                 cs.marge(c_diff)
     # Unconfirmedより
     if best_block is None:
-        for tx in sorted(tx_builder.unconfirmed, key=lambda x: x.time):
+        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.time):
             if tx.type == C.TX_CREATE_CONTRACT:
                 dummy, c_bin, c_cs = bjson.loads(tx.message)
                 cs.key_value = c_cs or dict()
@@ -205,7 +205,7 @@ def get_utxo_iter(target_address, best_block=None):
                         yield address, tx.height, tx.hash, index, coin_id, amount
     # Unconfirmedより
     if best_block is None:
-        for tx in sorted(tx_builder.unconfirmed, key=lambda x: x.time):
+        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.time):
             used_index = tx_builder.get_usedindex(tx.hash)
             for index, (address, coin_id, amount) in enumerate(tx.outputs):
                 if index in used_index:

@@ -25,6 +25,9 @@ class Block:
     def __eq__(self, other):
         return self.hash == other.hash
 
+    def __hash__(self):
+        return hash(self.hash)
+
     def __repr__(self):
         name = 'DeleteBlock' if self.delete_time else 'Block'
         return "<{} {} {} {} {} txs={}>".format(
