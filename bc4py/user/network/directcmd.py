@@ -66,9 +66,10 @@ def _tx_by_hash(txhash):
 
 
 def _unconfirmed_tx():
-    send_data = [{
-        'tx': tx.b,
-        'sign': tx.signature} for tx in tx_builder.unconfirmed.values()]
+    send_data = {'txs': list(tx_builder.unconfirmed.keys())}
+    # send_data = [{
+    #    'tx': tx.b,
+    #    'sign': tx.signature} for tx in tx_builder.unconfirmed.values()]
     return send_data
 
 

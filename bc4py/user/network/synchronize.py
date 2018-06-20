@@ -167,14 +167,25 @@ def sync_chain_data():
             logging.debug("Update block {} now...".format(previous_height+1))
     # Unconfirmed txを取得
     r = ask_node(cmd=DirectCmd.UNCONFIRMED_TX, f_continue_asking=True)
-    for tx_dict in r:
-        tx = TX(binary=tx_dict['tx'])
-        try:
-            tx.signature = tx_dict['sign']
-            check_tx(tx, include_block=None)
-            tx_builder.put_unconfirmed(tx)
-        except BlockChainError:
-            logging.debug("Failed get unconfirmed {}".format(tx))
+    if isinstance(r, dict):
+        for txhash in r['txs']:
+            r = ask_node(cmd=DirectCmd.TX_BY_HASH, data={'txhash': txhash}, f_continue_asking=True)
+            tx = TX(binary=r['tx'])
+            try:
+                tx.signature = r['sign']
+                check_tx(tx, include_block=None)
+                tx_builder.put_unconfirmed(tx)
+            except BlockChainError:
+                logging.debug("Failed get unconfirmed {}".format(tx))
+    elif isinstance(r, list):
+        for tx_dict in r:
+            tx = TX(binary=tx_dict['tx'])
+            try:
+                tx.signature = tx_dict['sign']
+                check_tx(tx, include_block=None)
+                tx_builder.put_unconfirmed(tx)
+            except BlockChainError:
+                logging.debug("Failed get unconfirmed {}".format(tx))
     # 最終判断
     reset_good_node()
     set_good_node()

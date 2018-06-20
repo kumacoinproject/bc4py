@@ -53,6 +53,22 @@ def _update_block_info():
 def _update_unconfirmed_info():
     # sort unconfirmed txs
     unconfirmed_txs = sorted(tx_builder.unconfirmed.values(), key=lambda x: x.gas_price, reverse=True)
+    # reject tx (input tx is unconfirmed)
+    limit_height = builder.best_block.height - C.MATURE_HEIGHT
+    for tx in unconfirmed_txs.copy():
+        for txhash, txindex in tx.inputs:
+            input_tx = tx_builder.get_tx(txhash)
+            if input_tx is None:
+                unconfirmed_txs.remove(tx)
+                break
+            elif input_tx.height is None:
+                unconfirmed_txs.remove(tx)
+                break
+            elif input_tx.type in (C.TX_POS_REWARD, C.TX_POW_REWARD) and \
+                    input_tx.height > limit_height:
+                unconfirmed_txs.remove(tx)
+                break
+    # limit per tx's in block
     if Debug.F_LIMIT_INCLUDE_TX_IN_BLOCK:
         unconfirmed_txs = unconfirmed_txs[:Debug.F_LIMIT_INCLUDE_TX_IN_BLOCK]
     unconfirmed_txs = sorted(unconfirmed_txs, key=lambda x: x.time)
