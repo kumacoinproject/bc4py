@@ -107,12 +107,16 @@ def sync_chain_data():
     while count > 0:
         r = ask_node(cmd=DirectCmd.BLOCK_BY_HEIGHT, data={'height': previous_height + 1})
         if isinstance(r, str):
-            logging.debug("NewBlockInfoException:{}".format(r))
+            logging.debug("NewBlockInfoException1:{}".format(r))
             previous_height -= 1
             previous_hash = builder.get_block_hash(previous_height)
             count -= 1
             continue
-        r = ask_node(cmd=DirectCmd.BLOCK_BY_HASH, data=r)
+        r = ask_node(cmd=DirectCmd.BLOCK_BY_HASH, data=r, f_continue_asking=True)
+        if isinstance(r, str):
+            logging.debug("NewBlockInfoException2:{}".format(r))
+            count -= 1
+            continue
         new_block = Block(binary=r['block'])
         new_block.height = previous_height + 1
         new_block.flag = r['flag']
@@ -180,7 +184,7 @@ def sync_chain_data():
                      .format(round(time.time()-start, 1), best_height_on_network, my_best_height))
         return True
     else:
-        logging.debug("Finish update chain, but {}<={}".format(best_height_on_network, my_best_height))
+        logging.debug("Continue update chain, {}<={}".format(best_height_on_network, my_best_height))
         return False
 
 

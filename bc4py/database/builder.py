@@ -37,13 +37,15 @@ class DataBase:
         self.event = threading.Event()
         self.event.set()
         # already used => LevelDBError
-        self._block = leveldb.LevelDB(os.path.join(dirs, 'block'))
-        self._tx = leveldb.LevelDB(os.path.join(dirs, 'tx'))
-        self._used_index = leveldb.LevelDB(os.path.join(dirs, 'used-index'))
-        self._block_index = leveldb.LevelDB(os.path.join(dirs, 'block-index'))
-        self._address_index = leveldb.LevelDB(os.path.join(dirs, 'address-index'))
-        self._coins = leveldb.LevelDB(os.path.join(dirs, 'coins'))
-        self._contract = leveldb.LevelDB(os.path.join(dirs, 'contract'))
+        if not os.path.exists(dirs):
+            os.mkdir(dirs)
+        self._block = leveldb.LevelDB(os.path.join(dirs, 'block'), create_if_missing=True)
+        self._tx = leveldb.LevelDB(os.path.join(dirs, 'tx'), create_if_missing=True)
+        self._used_index = leveldb.LevelDB(os.path.join(dirs, 'used-index'), create_if_missing=True)
+        self._block_index = leveldb.LevelDB(os.path.join(dirs, 'block-index'), create_if_missing=True)
+        self._address_index = leveldb.LevelDB(os.path.join(dirs, 'address-index'), create_if_missing=True)
+        self._coins = leveldb.LevelDB(os.path.join(dirs, 'coins'), create_if_missing=True)
+        self._contract = leveldb.LevelDB(os.path.join(dirs, 'contract'), create_if_missing=True)
         self.batch = None
         self.batch_thread = None
         logging.debug('Create database connection. {}'.format(dirs))
@@ -284,11 +286,8 @@ class ChainBuilder:
         self.db = None
         try:
             self.db = DataBase(os.path.join(V.DB_HOME_DIR, 'db'))
-            logging.info("Connect database.")
-        except leveldb.LevelDBError:
-            logging.warning("Already connect database.")
-        except BaseException as e:
-            logging.debug("Failed connect database, {}.".format(e))
+        except BaseException:
+            pass
         # levelDBのStreamHandlerを削除
         logging.getLogger().handlers.clear()
 
@@ -302,6 +301,7 @@ class ChainBuilder:
             logging.debug("Failed connect database, {}.".format(e))
 
     def init(self, genesis_block: Block):
+        assert self.db, 'Why database connection failed?'
         # GenesisBlockか確認
         t = time.time()
         try:
@@ -378,12 +378,12 @@ class ChainBuilder:
                      .format(before_block, round(time.time()-t, 3)))
 
     def save_starter(self):
-        with open(os.path.join(V.DB_HOME_DIR, 'starter.dat'), mode='bw') as fp:
+        with open(os.path.join(V.DB_HOME_DIR, 'db', 'starter.dat'), mode='bw') as fp:
             pickle.dump(self.best_chain, fp, protocol=4)
 
     def load_starter(self):
         try:
-            with open(os.path.join(V.DB_HOME_DIR, 'starter.dat'), mode='br') as fp:
+            with open(os.path.join(V.DB_HOME_DIR, 'db', 'starter.dat'), mode='br') as fp:
                 for block in pickle.load(fp):
                     if self.root_block.hash == block.previous_hash:
                         self.best_block = block
