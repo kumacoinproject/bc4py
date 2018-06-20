@@ -202,7 +202,7 @@ def sync_chain_loop():
                     if sync_chain_data():
                         P.F_NOW_BOOTING = False
                         if builder.best_block:
-                            update_mining_staking_all_info()
+                            update_mining_staking_all_info(f_force=True)
                     elif failed < 0:
                         exit('You may in fork chain. please delete and resync blockchain.')
                     else:

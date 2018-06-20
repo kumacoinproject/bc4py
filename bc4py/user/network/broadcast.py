@@ -20,7 +20,7 @@ class BroadcastCmd:
         try:
             new_block = fill_newblock_info(data)
             new_insert_block(new_block, time_check=True)
-            update_mining_staking_all_info()  # TODO: 別に移す？
+            update_mining_staking_all_info(f_force=True)
             logging.info("Accept new block {}".format(new_block))
             return True
         except BlockChainError as e:
@@ -39,7 +39,7 @@ class BroadcastCmd:
             new_tx.signature = data['sign']
             check_tx(tx=new_tx, include_block=None)
             tx_builder.put_unconfirmed(new_tx)
-            update_mining_staking_all_info()  # TODO: 別に移す？
+            update_mining_staking_all_info()
             logging.info("Accept new tx {}".format(new_tx))
             return True
         except BlockChainError as e:
