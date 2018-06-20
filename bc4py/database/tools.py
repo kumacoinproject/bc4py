@@ -10,14 +10,7 @@ import bjson
 
 def _get_best_chain_all(best_block):
     # MemoryにおけるBestBlockまでのChainを返す
-    if best_block:
-        block = best_block
-        best_chain = list()
-        while block.f_on_memory:
-            best_chain.append(block)
-            block = builder.get_block(block.previous_hash)
-    else:
-        best_chain = builder.best_chain
+    dummy, best_chain = builder.get_best_chain(best_block=best_block)
     # best_chain = [<height=n>, <height=n-1>,.. <height=n-m>]
     return best_chain
 

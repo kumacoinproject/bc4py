@@ -63,6 +63,8 @@ def signature_check(tx):
         address, coin_id, amount = input_tx.outputs[txindex]
         if is_address(address, V.BLOCK_PREFIX):
             need_cks.add(address)  # 通常のアドレスのみ
+        else:
+            raise BlockChainError('Not common address {} {}.'.format(address, tx))
     signed_cks = set()
     ecc = Encryption(prefix=V.BLOCK_PREFIX)
     for pubkey, signature in tx.signature:

@@ -195,6 +195,7 @@ def sync_chain_loop():
     global f_working
 
     def loop():
+        failed = 10
         while True:
             try:
                 if P.F_NOW_BOOTING:
@@ -202,8 +203,12 @@ def sync_chain_loop():
                         P.F_NOW_BOOTING = False
                         if builder.best_block:
                             update_mining_staking_all_info()
+                    elif failed < 0:
+                        exit('You may in fork chain. please delete and resync blockchain.')
+                    else:
+                        failed -= 1
                     reset_good_node()
-                time.sleep(5)
+                time.sleep(10)
             except BlockChainError as e:
                 reset_good_node()
                 logging.warning('Update chain failed "{}"'.format(e), exc_info=True)
