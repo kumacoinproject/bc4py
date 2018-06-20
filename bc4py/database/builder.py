@@ -609,7 +609,7 @@ class TransactionBuilder:
 
     def put_unconfirmed(self, tx):
         assert tx.height is None, 'Not unconfirmed tx {}'.format(tx)
-        if tx.type not in (C.TX_POW_REWARD, C.TX_POS_REWARD):
+        if tx.type in (C.TX_POW_REWARD, C.TX_POS_REWARD):
             return  # It is Reword tx
         elif tx.hash in self.unconfirmed:
             logging.debug('Already unconfirmed tx. {}'.format(tx))
