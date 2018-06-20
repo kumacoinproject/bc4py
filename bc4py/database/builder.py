@@ -708,7 +708,7 @@ class UserAccount:
         # DataBase分の残高取得
         balance = self.db_balance.copy()
         # memory分の残高取得
-        limit_height = best_block.heigt - confirm
+        limit_height = best_block.height - confirm
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
             for block in best_chain:

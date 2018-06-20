@@ -43,16 +43,16 @@ def send_many(sender, send_pairs, cur, fee_coin_id=0, gas_price=None,
     if f_balance_check:
         # 残高が十分にあるかチェック
         send_coins = CoinObject()
-        for address, coins in send_pairs:
-            send_coins += coins
+        for address, coin_id, amount in send_pairs:
+            send_coins[coin_id] += amount
         check_enough_amount(sender, send_coins, fee_coins)
     if sender in (C.ANT_OUTSIDE, C.ANT_RESERVED):
         # 内部アカウントは不可
         raise BlockChainError('Not allowed inner account.')
     # fill unspents
-    fill_inputs_outputs(tx, cur, fee_coin_id, additional_fee=0)
+    input_address = fill_inputs_outputs(tx, cur, fee_coin_id, additional_fee=0)
     # replace dummy address
-    input_address = replace_redeem_dummy_address(tx, cur)
+    replace_redeem_dummy_address(tx, cur)
     # setup signature
     tx.serialize()
     setup_signature(tx, input_address)

@@ -122,6 +122,9 @@ class UserCoins:
             return self.users[item]
         return CoinObject()
 
+    def __setitem__(self, key, value):
+        self.users[key] = value
+
     def __add__(self, other):
         new = dict()
         for u in set(self.users) | set(other.users):

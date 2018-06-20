@@ -26,7 +26,7 @@ def fill_inputs_outputs(tx, cur, fee_coin_id=0, additional_fee=0):
     need_coins = output_coins + fee_coins
     input_coins = CoinObject()
     input_address = set()
-    for uuid, address in read_pooled_address_iter(cur):
+    for uuid, address, dummy in read_pooled_address_iter(cur):
         for dummy, txhash, txindex, coin_id, amount, f_used in builder.db.read_address_idx_iter(address):
             if f_used:
                 continue

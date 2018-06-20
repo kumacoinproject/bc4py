@@ -61,12 +61,12 @@ def issue_mintcoin(name, unit, amount, digit, cur, gas_price=None,
     tx.serialize()
     # fill unspents
     fee_coin_id = 0
-    fill_inputs_outputs(tx, cur, fee_coin_id, C.MINTCOIN_FEE)
+    input_address = fill_inputs_outputs(tx, cur, fee_coin_id, C.MINTCOIN_FEE)
     fee_coins = CoinObject(fee_coin_id, tx.gas_price*tx.gas_amount)
     # check amount
     check_enough_amount(sender, minting_coins, fee_coins)
     # replace dummy address
-    input_address = replace_redeem_dummy_address(tx, cur)
+    replace_redeem_dummy_address(tx, cur)
     # replace dummy mint_id
     replace_mint_dummy_address(tx, new_mint_address, new_mint_id)
     # setup signature
@@ -122,12 +122,12 @@ def change_mintcoin(mint_id, cur, amount=0, message=None,
     tx.gas_amount = tx.getsize() + 96 + C.MINTCOIN_FEE
     tx.serialize()
     fee_coin_id = 0
-    fill_inputs_outputs(tx, cur, fee_coin_id, C.MINTCOIN_FEE)
+    input_address = fill_inputs_outputs(tx, cur, fee_coin_id, C.MINTCOIN_FEE)
     fee_coins = CoinObject(fee_coin_id, tx.gas_price * tx.gas_amount)
     # check amount
     check_enough_amount(sender, minting_coins, fee_coins)
     # replace dummy address
-    input_address = replace_redeem_dummy_address(tx, cur)
+    replace_redeem_dummy_address(tx, cur)
     # replace dummy mint_id
     if amount > 0:
         replace_mint_dummy_address(tx, mint_address, mint_id)
