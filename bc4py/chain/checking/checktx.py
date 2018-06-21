@@ -31,19 +31,6 @@ def check_tx(tx, include_block):
             raise BlockChainError('{} index is not 0 idx:{}.'
                                   .format(tx, include_block.txs.index(tx)))
 
-    else:
-        # Unconfirmed tx
-        now = int(time.time())-V.BLOCK_GENESIS_TIME
-        if now+C.ACCEPT_MARGIN_TIME < tx.time:
-            raise BlockChainError("Unconfirmed tx is too future. [{}+{}<{}]"
-                                  .format(now, C.ACCEPT_MARGIN_TIME, tx.time))
-        elif tx.deadline < now-C.ACCEPT_MARGIN_TIME:
-            raise BlockChainError("Unconfirmed tx is too past. [{}<{}-{}]"
-                                  .format(tx.deadline, now, C.ACCEPT_MARGIN_TIME))
-        elif tx.deadline-tx.time < 10800:
-            raise BlockChainError("Unconfirmed tx is too short retention. [{}-{}<10800]"
-                                  .format(tx.deadline, tx.time))
-
     # 各々のタイプで検査
     if tx.type == C.TX_GENESIS:
         return
@@ -111,6 +98,7 @@ def check_tx(tx, include_block):
 
 
 def check_tx_time(tx):
+    # For unconfirmed tx
     now = int(time.time()) - V.BLOCK_GENESIS_TIME
     if tx.time > now + C.ACCEPT_MARGIN_TIME:
         raise BlockChainError('TX time too early. {}>{}+{}'

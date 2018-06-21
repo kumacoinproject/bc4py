@@ -1,7 +1,7 @@
 from bc4py.config import C, V, P, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
-from bc4py.chain.checking import new_insert_block, check_tx
+from bc4py.chain.checking import new_insert_block, check_tx, check_tx_time
 from bc4py.database.builder import builder, tx_builder
 from bc4py.user.network.update import update_mining_staking_all_info
 import logging
@@ -19,10 +19,12 @@ class BroadcastCmd:
             return False
         try:
             new_block = fill_newblock_info(data)
-            new_insert_block(new_block, time_check=True)
-            update_mining_staking_all_info(f_force=True)
-            logging.info("Accept new block {}".format(new_block))
-            return True
+            if new_insert_block(new_block, time_check=True):
+                update_mining_staking_all_info(f_force=True)
+                logging.info("Accept new block {}".format(new_block))
+                return True
+            else:
+                return False
         except BlockChainError as e:
             logging.error('Failed accept new block "{}"'.format(e))
             return False
@@ -38,6 +40,7 @@ class BroadcastCmd:
             new_tx = TX(binary=data['tx'])
             new_tx.signature = data['sign']
             check_tx(tx=new_tx, include_block=None)
+            check_tx_time(new_tx)
             tx_builder.put_unconfirmed(new_tx)
             update_mining_staking_all_info()
             logging.info("Accept new tx {}".format(new_tx))
