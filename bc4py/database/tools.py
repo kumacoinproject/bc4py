@@ -223,6 +223,8 @@ def get_usedindex(txhash, best_block=None):
     # Memoryより
     usedindex = set()
     for block in best_chain:
+        if best_block and block == best_block:
+            continue
         for tx in block.txs:
             for _txhash, _txindex in tx.inputs:
                 if _txhash == txhash:
