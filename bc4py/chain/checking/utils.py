@@ -27,7 +27,7 @@ def inputs_origin_check(tx, include_block):
             pass  # OK
         # 使用済みかチェック
         # TODO: 正しく機能するか？
-        if txindex in tx_builder.get_usedindex(txhash):
+        if txindex in tx_builder.get_usedindex(txhash, include_block):
             raise BlockChainError('Input is already used! {}:{}'.format(hexlify(txhash).decode(), txindex))
 
 
