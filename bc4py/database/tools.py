@@ -177,7 +177,7 @@ def get_utxo_iter(target_address, best_block=None):
     for address in target_address:
         for dummy, txhash, txindex, coin_id, amount, f_used in builder.db.read_address_idx_iter(address):
             if f_used is False:
-                if txindex in tx_builder.get_usedindex(txhash, best_block):
+                if txindex in get_usedindex(txhash, best_block):
                     continue  # Used
                 tx = tx_builder.get_tx(txhash)
                 if tx.type in (C.TX_POW_REWARD, C.TX_POS_REWARD) and tx.height < allow_mined_height:
@@ -187,7 +187,7 @@ def get_utxo_iter(target_address, best_block=None):
     # Memoryより
     for block in reversed(best_chain):
         for tx in block.txs:
-            used_index = tx_builder.get_usedindex(tx.hash, best_block)
+            used_index = get_usedindex(tx.hash, best_block)
             for index, (address, coin_id, amount) in enumerate(tx.outputs):
                 if index in used_index:
                     continue  # Used
@@ -199,7 +199,7 @@ def get_utxo_iter(target_address, best_block=None):
     # Unconfirmedより
     if best_block is None:
         for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.time):
-            used_index = tx_builder.get_usedindex(tx.hash)
+            used_index = get_usedindex(tx.hash, best_block)
             for index, (address, coin_id, amount) in enumerate(tx.outputs):
                 if index in used_index:
                     continue  # Used
@@ -217,11 +217,36 @@ def get_unspents_iter():
     return get_utxo_iter(target_address)
 
 
+def get_usedindex(txhash, best_block=None):
+    assert builder.best_block, 'Not DataBase init.'
+    best_chain = _get_best_chain_all(best_block)
+    # Memoryより
+    usedindex = set()
+    for block in best_chain:
+        for tx in block.txs:
+            for _txhash, _txindex in tx.inputs:
+                if _txhash == txhash:
+                    usedindex.add(_txindex)
+    # DataBaseより
+    try:
+        usedindex.update(builder.db.read_usedindex(txhash))
+    except KeyError:
+        pass
+    # unconfirmedより
+    if best_block is None:
+        for tx in tx_builder.unconfirmed.values():
+            for _txhash, _txindex in tx.inputs:
+                if _txhash == txhash:
+                    usedindex.add(_txindex)
+    return usedindex
+
+
 __all__ = [
     "get_mintcoin",
     "get_contract_binary",
     "get_contract_history_iter",
     "get_contract_storage",
     "get_utxo_iter",
-    "get_unspents_iter"
+    "get_unspents_iter",
+    "get_usedindex"
 ]

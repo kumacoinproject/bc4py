@@ -1,5 +1,6 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.database.builder import builder, tx_builder
+from bc4py.database.tools import get_usedindex
 from bc4py.user import CoinObject
 from nem_ed25519.base import Encryption
 from nem_ed25519.key import is_address
@@ -27,8 +28,9 @@ def inputs_origin_check(tx, include_block):
             pass  # OK
         # 使用済みかチェック
         # TODO: 正しく機能するか？
-        if txindex in tx_builder.get_usedindex(txhash, include_block):
-            raise BlockChainError('Input is already used! {}:{}'.format(hexlify(txhash).decode(), txindex))
+        if txindex in get_usedindex(txhash, include_block):
+            raise BlockChainError('Input of {} is already used! {}:{}'
+                                  .format(tx, hexlify(txhash).decode(), txindex))
 
 
 def amount_check(tx, payfee_coin_id):

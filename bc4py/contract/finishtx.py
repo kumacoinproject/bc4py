@@ -6,7 +6,7 @@ from bc4py.user import CoinObject
 from bc4py.contract.exe import auto_emulate
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.account import create_new_user_keypair
-from bc4py.database.tools import get_contract_binary, get_contract_storage
+from bc4py.database.tools import get_contract_binary, get_contract_storage, get_usedindex
 import bjson
 import logging
 
@@ -89,7 +89,7 @@ def fill_inputs_outputs(finish_tx, c_address, start_hash, cur, redeem_gas):
     for dummy, txhash, txindex, coin_id, amount, f_used in builder.db.read_address_idx_iter(c_address):
         if f_used:
             continue
-        elif txindex in tx_builder.get_usedindex(txhash):
+        elif txindex in get_usedindex(txhash):
             continue
         need_coins[coin_id] -= amount
         input_coins[coin_id] += amount

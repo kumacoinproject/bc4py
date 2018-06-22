@@ -646,27 +646,6 @@ class TransactionBuilder:
                 return default
         return tx
 
-    @staticmethod
-    def get_usedindex(txhash, best_block=None):
-        assert builder.best_block, 'Not DataBase init.'
-        if best_block:
-            best_chain = builder.best_chain
-        else:
-            dummy, best_chain = builder.get_best_chain(best_block)
-        # Memoryより
-        usedindex = set()
-        for block in best_chain:
-            for tx in block.txs:
-                for _txhash, _txindex in tx.inputs:
-                    if _txhash == txhash:
-                        usedindex.add(_txindex)
-        # DataBaseより
-        try:
-            usedindex.update(builder.db.read_usedindex(txhash))
-        except KeyError:
-            pass
-        return usedindex
-
     def __contains__(self, item):
         return bool(self.get_tx(item.hash))
 

@@ -2,6 +2,7 @@ from bc4py.user.utils import message2signature
 from bc4py.config import C, BlockChainError
 from bc4py.database.builder import builder, tx_builder, user_account
 from bc4py.database.account import read_pooled_address_iter, create_new_user_keypair
+from bc4py.database.tools import get_usedindex
 from bc4py.user import CoinObject
 import logging
 
@@ -30,7 +31,7 @@ def fill_inputs_outputs(tx, cur, fee_coin_id=0, additional_fee=0):
         for dummy, txhash, txindex, coin_id, amount, f_used in builder.db.read_address_idx_iter(address):
             if f_used:
                 continue
-            elif txindex in tx_builder.get_usedindex(txhash):
+            elif txindex in get_usedindex(txhash):
                 continue
             need_coins[coin_id] -= amount
             input_coins[coin_id] += amount
