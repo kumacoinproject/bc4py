@@ -682,8 +682,8 @@ class UserAccount:
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
             memory_sum = UserCoins()
-            for _type, movement, _time in read_log_iter(cur):
-                memory_sum += movement
+            for move_log in read_log_iter(cur):
+                memory_sum += move_log.movement
             self.db_balance += memory_sum
 
     def get_balance(self, confirm=6, best_block=None):
@@ -750,22 +750,30 @@ class UserAccount:
         for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.time, reverse=True):
             if tx.hash in self.memory_movement:
                 if count >= start:
-                    yield self.memory_movement[tx.hash][0 if f_dict else 1]
+                    if f_dict:
+                        yield self.memory_movement[tx.hash].get_dict_data()
+                    else:
+                        yield self.memory_movement[tx.hash].get_tuple_data()
                 count += 1
         # Memory
         for block in reversed(builder.best_chain):
             for tx in block.txs:
                 if tx.hash in self.memory_movement:
                     if count >= start:
-                        yield self.memory_movement[tx.hash][0 if f_dict else 1]
+                        if f_dict:
+                            yield self.memory_movement[tx.hash].get_dict_data()
+                        else:
+                            yield self.memory_movement[tx.hash].get_tuple_data()
                     count += 1
         # DataBase
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
-            for data in read_log_iter(cur, start - count, f_dict):
-                if unhexlify(data['txhash'].encode()) not in tx_builder.unconfirmed:
-                    print("d", data['txhash'])
-                    yield data
+            for move_log in read_log_iter(cur, start - count):
+                if move_log.txhash not in tx_builder.unconfirmed:
+                    if f_dict:
+                        yield move_log.get_dict_data(cur)
+                    else:
+                        yield move_log.get_tuple_data()
 
     def new_batch_apply(self, batched_blocks):
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
@@ -775,7 +783,7 @@ class UserAccount:
                     if tx.hash not in self.memory_movement:
                         continue
                     # db_balanceに追加
-                    _type, movement, _time = self.memory_movement[tx.hash][1]
+                    _type, movement, _time = self.memory_movement[tx.hash].get_tuple_data()
                     self.db_balance += movement
                     # memory_movementから削除
                     del self.memory_movement[tx.hash]
@@ -783,9 +791,9 @@ class UserAccount:
                     insert_log(movement, cur, _type, _time, tx.hash)
             db.commit()
 
-    def affect_new_tx(self, tx):
+    def affect_new_tx(self, tx, outer_cur=None):
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-            cur = db.cursor()
+            cur = outer_cur or db.cursor()
             movement = UserCoins()
             # send_from_applyで登録済み
             if tx.hash in self.memory_movement:
@@ -804,16 +812,8 @@ class UserAccount:
             # check
             if len(movement.users) == 0:
                 return  # 無関係である
-            _type, _time = tx.type, tx.time
-            tuple_data = (_type, movement, _time)
-            movement_tmp = {read_user2name(user, cur): {coin_id: amount for coin_id, amount in coins.items()}
-                            for user, coins in movement.items()}
-            dict_data = {
-                'txhash': hexlify(tx.hash).decode(),
-                'type': C.txtype2name[_type],
-                'movement': movement_tmp,
-                'time': _time + V.BLOCK_GENESIS_TIME}
-            self.memory_movement[tx.hash] = (dict_data, tuple_data)
+            move_log = MoveLog(tx.hash, tx.type, movement, tx.time, True)
+            self.memory_movement[tx.hash] = move_log
             logging.debug("Affect account new tx. {}".format(tx))
 
 
