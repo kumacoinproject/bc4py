@@ -47,7 +47,7 @@ def insert_log(movements, cur, _type=None, _time=None, txhash=None):
     move = list()
     index = 0
     for user, coins in movements.items():
-        for index, (coin_id, amount) in coins.items():
+        for coin_id, amount in coins:
             move.append((txhash, index, _type, user, coin_id, amount, _time))
             index += 1
     cur.executemany("""INSERT INTO `log` (`hash`,`index`,`type`,`user`,`coin_id`,
@@ -78,7 +78,7 @@ def read_address2keypair(address, cur):
 def read_address2user(address, cur):
     user = cur.execute("""
         SELECT `user` FROM `pool` WHERE `ck`=?
-    """, (address,)).fetxhone()
+    """, (address,)).fetchone()
     if user is None:
         return None
     return user[0]

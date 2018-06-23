@@ -1,7 +1,7 @@
 from bc4py.config import C, V, P, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
-from bc4py.chain.checking import check_block, check_tx
+from bc4py.chain.checking import check_block, check_tx, check_tx_time
 from bc4py.database.builder import builder, tx_builder, user_account
 from bc4py.user.network import update_mining_staking_all_info
 from bc4py.user.network.directcmd import DirectCmd
@@ -107,12 +107,16 @@ def sync_chain_data():
     while count > 0:
         r = ask_node(cmd=DirectCmd.BLOCK_BY_HEIGHT, data={'height': previous_height + 1})
         if isinstance(r, str):
-            logging.debug("NewBlockInfoException:{}".format(r))
+            logging.debug("NewBlockInfoException1:{}".format(r))
             previous_height -= 1
             previous_hash = builder.get_block_hash(previous_height)
             count -= 1
             continue
-        r = ask_node(cmd=DirectCmd.BLOCK_BY_HASH, data=r)
+        r = ask_node(cmd=DirectCmd.BLOCK_BY_HASH, data=r, f_continue_asking=True)
+        if isinstance(r, str):
+            logging.debug("NewBlockInfoException2:{}".format(r))
+            count -= 1
+            continue
         new_block = Block(binary=r['block'])
         new_block.height = previous_height + 1
         new_block.flag = r['flag']
@@ -163,14 +167,26 @@ def sync_chain_data():
             logging.debug("Update block {} now...".format(previous_height+1))
     # Unconfirmed txを取得
     r = ask_node(cmd=DirectCmd.UNCONFIRMED_TX, f_continue_asking=True)
-    for tx_dict in r:
-        tx = TX(binary=tx_dict['tx'])
-        try:
-            tx.signature = tx_dict['sign']
-            check_tx(tx, include_block=None)
-            tx_builder.put_unconfirmed(tx)
-        except BlockChainError:
-            logging.debug("Failed get unconfirmed {}".format(tx))
+    if isinstance(r, dict):
+        for txhash in r['txs']:
+            r = ask_node(cmd=DirectCmd.TX_BY_HASH, data={'txhash': txhash}, f_continue_asking=True)
+            tx = TX(binary=r['tx'])
+            try:
+                tx.signature = r['sign']
+                check_tx_time(tx)
+                check_tx(tx, include_block=None)
+                tx_builder.put_unconfirmed(tx)
+            except BlockChainError:
+                logging.debug("Failed get unconfirmed {}".format(tx))
+    elif isinstance(r, list):
+        for tx_dict in r:
+            tx = TX(binary=tx_dict['tx'])
+            try:
+                tx.signature = tx_dict['sign']
+                check_tx(tx, include_block=None)
+                tx_builder.put_unconfirmed(tx)
+            except BlockChainError:
+                logging.debug("Failed get unconfirmed {}".format(tx))
     # 最終判断
     reset_good_node()
     set_good_node()
@@ -180,7 +196,7 @@ def sync_chain_data():
                      .format(round(time.time()-start, 1), best_height_on_network, my_best_height))
         return True
     else:
-        logging.debug("Finish update chain, but {}<={}".format(best_height_on_network, my_best_height))
+        logging.debug("Continue update chain, {}<={}".format(best_height_on_network, my_best_height))
         return False
 
 
@@ -191,15 +207,22 @@ def sync_chain_loop():
     global f_working
 
     def loop():
+        failed = 5
         while True:
             try:
                 if P.F_NOW_BOOTING:
                     if sync_chain_data():
                         P.F_NOW_BOOTING = False
                         if builder.best_block:
-                            update_mining_staking_all_info()
+                            update_mining_staking_all_info(f_force=True)
+                    elif failed < 0:
+                        exit_msg = 'You may in fork chain. please delete "db" from "blockchain-py" folder,' \
+                                   ' and resync blockchain. Close resync now.'
+                        break
+                    else:
+                        failed -= 1
                     reset_good_node()
-                time.sleep(5)
+                time.sleep(10)
             except BlockChainError as e:
                 reset_good_node()
                 logging.warning('Update chain failed "{}"'.format(e), exc_info=True)
@@ -208,6 +231,9 @@ def sync_chain_loop():
                 reset_good_node()
                 logging.error('Update chain failed "{}"'.format(e), exc_info=True)
                 time.sleep(10)
+        # out of loop
+        logging.critical(exit_msg)
+
     if f_working:
         raise Exception('Already sync_chain_loop working.')
     f_working = True

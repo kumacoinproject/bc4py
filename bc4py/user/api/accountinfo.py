@@ -4,7 +4,7 @@ from bc4py.user.api import web_base
 from bc4py.database.builder import builder, tx_builder, user_account
 from bc4py.database.create import closing, create_db
 from bc4py.database.account import *
-from bc4py.database.tools import get_unspents_iter, get_utxo_iter
+from bc4py.database.tools import get_unspents_iter
 from aiohttp import web
 from binascii import hexlify
 

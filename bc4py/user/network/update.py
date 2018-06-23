@@ -5,28 +5,33 @@ import logging
 from threading import Lock, Thread
 import time
 import bjson
-
+import time
 
 global_update_status_lock = Lock()
 update_count = 0
+last_update = 0
 
 
-def update_mining_staking_all_info(u_block=True, u_unspent=True, u_unconfirmed=True):
+def update_mining_staking_all_info(u_block=True, u_unspent=True, u_unconfirmed=True, f_force=False):
     global update_count
     Thread(target=_update,
-           args=(u_block, u_unspent, u_unconfirmed), name='Update{}'.format(update_count)).start()
+           args=(u_block, u_unspent, u_unconfirmed, f_force, time.time()), name='Update{}'.format(update_count)).start()
     update_count += 1
 
 
-def _update(u_block, u_unspent, u_unconfirmed):
+def _update(u_block, u_unspent, u_unconfirmed, f_force, _time):
+    global last_update
     t = time.time()
     with global_update_status_lock:
+        if not f_force and _time - last_update < 10:
+            return
         if u_block:
             _update_block_info()
         if u_unspent:
             _update_unspent_info()
         if u_unconfirmed:
             _update_unconfirmed_info()
+        last_update = time.time()
     logging.debug("Update finished {}Sec".format(round(time.time() - t, 3)))
 
 
@@ -48,6 +53,22 @@ def _update_block_info():
 def _update_unconfirmed_info():
     # sort unconfirmed txs
     unconfirmed_txs = sorted(tx_builder.unconfirmed.values(), key=lambda x: x.gas_price, reverse=True)
+    # reject tx (input tx is unconfirmed)
+    limit_height = builder.best_block.height - C.MATURE_HEIGHT
+    for tx in unconfirmed_txs.copy():
+        for txhash, txindex in tx.inputs:
+            input_tx = tx_builder.get_tx(txhash)
+            if input_tx is None:
+                unconfirmed_txs.remove(tx)
+                break
+            elif input_tx.height is None:
+                unconfirmed_txs.remove(tx)
+                break
+            elif input_tx.type in (C.TX_POS_REWARD, C.TX_POW_REWARD) and \
+                    input_tx.height > limit_height:
+                unconfirmed_txs.remove(tx)
+                break
+    # limit per tx's in block
     if Debug.F_LIMIT_INCLUDE_TX_IN_BLOCK:
         unconfirmed_txs = unconfirmed_txs[:Debug.F_LIMIT_INCLUDE_TX_IN_BLOCK]
     unconfirmed_txs = sorted(unconfirmed_txs, key=lambda x: x.time)

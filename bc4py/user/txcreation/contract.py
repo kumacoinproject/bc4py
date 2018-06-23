@@ -35,7 +35,7 @@ def create_contract_tx(c_bin, cur, sender=C.ANT_UNKNOWN,
     tx.gas_amount = tx.getsize() + C.CONTRACT_CREATE_FEE + 96
     # fill unspents
     fee_coin_id = 0
-    fill_inputs_outputs(tx, cur, fee_coin_id, C.CONTRACT_CREATE_FEE)
+    input_address = fill_inputs_outputs(tx, cur, fee_coin_id, C.CONTRACT_CREATE_FEE)
     fee_coins = CoinObject(fee_coin_id, tx.gas_price * tx.gas_amount)
     movements = UserCoins()
     movements[sender] -= fee_coins
@@ -46,7 +46,7 @@ def create_contract_tx(c_bin, cur, sender=C.ANT_UNKNOWN,
     if sender in (C.ANT_OUTSIDE, C.ANT_RESERVED):
         raise BlockChainError('Not allowed inner account.')
     # replace dummy address
-    input_address = replace_redeem_dummy_address(tx, cur)
+    replace_redeem_dummy_address(tx, cur)
     # setup signature
     tx.serialize()
     setup_signature(tx, input_address)
@@ -78,7 +78,7 @@ def start_contract_tx(c_address, c_data, cur, outputs=None, sender=C.ANT_UNKNOWN
     tx.serialize()
     # fill unspents
     fee_coin_id = 0
-    fill_inputs_outputs(tx, cur, fee_coin_id, additional_gas_amount or V.CONTRACT_MINIMUM_AMOUNT)
+    input_address = fill_inputs_outputs(tx, cur, fee_coin_id, additional_gas_amount or V.CONTRACT_MINIMUM_AMOUNT)
     fee_coins = CoinObject(fee_coin_id, tx.gas_price * tx.gas_amount)
     movements = UserCoins()
     movements[sender] -= fee_coins
@@ -89,7 +89,7 @@ def start_contract_tx(c_address, c_data, cur, outputs=None, sender=C.ANT_UNKNOWN
     if sender in (C.ANT_OUTSIDE, C.ANT_RESERVED):
         raise BlockChainError('Not allowed inner account.')
     # replace dummy address
-    input_address = replace_redeem_dummy_address(tx, cur)
+    replace_redeem_dummy_address(tx, cur)
     # setup signature
     tx.serialize()
     setup_signature(tx, input_address)

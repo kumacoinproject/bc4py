@@ -103,7 +103,8 @@ class UserCoins:
         self.users = users or dict()
 
     def copy(self):
-        return UserCoins(deepcopy(self.users))
+        users = {user: coins.copy() for user, coins in self.users.items()}
+        return UserCoins(users)
 
     def items(self):
         return self.users.items()
@@ -121,6 +122,9 @@ class UserCoins:
         if item in self.users:
             return self.users[item]
         return CoinObject()
+
+    def __setitem__(self, key, value):
+        self.users[key] = value
 
     def __add__(self, other):
         new = dict()
