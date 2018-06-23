@@ -188,7 +188,7 @@ class MoveLog:
         self.movement = movement
         self.time = _time
         self.on_memory = on_memory
-        self.pointer = ref(tx)
+        self.pointer = ref(tx) if tx else object()
 
     def __repr__(self):
         return "<MoveLog {} {}>".format(C.txtype2name[self.type], hexlify(self.txhash).decode())
