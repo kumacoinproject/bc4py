@@ -812,7 +812,7 @@ class UserAccount:
             # check
             if len(movement.users) == 0:
                 return  # 無関係である
-            move_log = MoveLog(tx.hash, tx.type, movement, tx.time, True)
+            move_log = MoveLog(tx.hash, tx.type, movement, tx.time, True, tx)
             self.memory_movement[tx.hash] = move_log
             logging.debug("Affect account new tx. {}".format(tx))
 

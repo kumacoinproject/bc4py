@@ -38,6 +38,8 @@ def amount_check(tx, payfee_coin_id):
     input_coins = CoinObject()
     for txhash, txindex in tx.inputs:
         input_tx = tx_builder.get_tx(txhash)
+        if input_tx is None:
+            raise BlockChainError('Not found input tx {}'.format(hexlify(txhash).decode()))
         address, coin_id, amount = input_tx.outputs[txindex]
         input_coins[coin_id] += amount
 
@@ -62,6 +64,8 @@ def signature_check(tx):
     need_cks = set()
     for txhash, txindex in tx.inputs:
         input_tx = tx_builder.get_tx(txhash)
+        if input_tx is None:
+            raise BlockChainError('Not found input tx {}'.format(hexlify(txhash).decode()))
         address, coin_id, amount = input_tx.outputs[txindex]
         if is_address(address, V.BLOCK_PREFIX):
             need_cks.add(address)  # 通常のアドレスのみ

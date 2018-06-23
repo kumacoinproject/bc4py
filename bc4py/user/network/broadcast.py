@@ -75,12 +75,11 @@ def fill_newblock_info(data):
     new_block.flag = proof.type
     new_block.txs.append(proof)
     for txhash in data['txs'][1:]:
-        try:
-            tx = tx_builder.get_tx(txhash)
-            tx.height = new_height
-            new_block.txs.append(tx)
-        except KeyError:
+        tx = tx_builder.get_tx(txhash)
+        if tx is None:
             raise BlockChainError('Not found tx {}.'.format(hexlify(txhash).decode()))
+        tx.height = new_height
+        new_block.txs.append(tx)
     return new_block
 
 

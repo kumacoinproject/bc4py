@@ -7,6 +7,7 @@ import os
 from binascii import hexlify, unhexlify
 import multiprocessing
 from nem_ed25519.base import Encryption
+from weakref import ref
 
 
 def read_txhash2log(txhash, cur):
@@ -179,14 +180,15 @@ def create_new_user_keypair(name, cur):
 
 
 class MoveLog:
-    __slots__ = ("txhash", "type", "movement", "time", "on_memory")
+    __slots__ = ("txhash", "type", "movement", "time", "on_memory", "pointer")
 
-    def __init__(self, txhash, _type, movement, _time, on_memory):
+    def __init__(self, txhash, _type, movement, _time, on_memory, tx=None):
         self.txhash = txhash
         self.type = _type
         self.movement = movement
         self.time = _time
         self.on_memory = on_memory
+        self.pointer = ref(tx)
 
     def __repr__(self):
         return "<MoveLog {} {}>".format(C.txtype2name[self.type], hexlify(self.txhash).decode())
@@ -200,6 +202,7 @@ class MoveLog:
             movement = {read_user2name(user, cur): coins.coins for user, coins in self.movement.items()}
         return {
             'txhash': hexlify(self.txhash).decode(),
+            'height': self.pointer().height if self.pointer() else None,
             'on_memory': self.on_memory,
             'type': C.txtype2name[self.type],
             'movement': movement,
