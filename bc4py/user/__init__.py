@@ -72,7 +72,7 @@ class CoinObject:
             if coin_id in coin:
                 coin[coin_id] -= amount
             else:
-                coin[coin_id] = amount
+                coin[coin_id] = -1 * amount
             if coin[coin_id] == 0:
                 del coin[coin_id]
         coin_object = CoinObject()

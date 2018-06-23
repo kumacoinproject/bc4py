@@ -76,9 +76,11 @@ async def move_one(request):
             cur = db.cursor()
             _from = read_name2user(ant_from, cur)
             _to = read_name2user(ant_to, cur)
-            txhash = user_account.move_balance(_from, _to, coins)
+            txhash = user_account.move_balance(_from, _to, coins, cur)
             db.commit()
-        return web_base.json_res({'txhash': hexlify(txhash).decode()})
+        return web_base.json_res({
+            'txhash': hexlify(txhash).decode(),
+            'from_id': _from, 'to_id': _to})
     except Exception as e:
         return web.Response(text=str(e), status=400)
 
@@ -95,9 +97,11 @@ async def move_many(request):
             cur = db.cursor()
             _from = read_name2user(ant_from, cur)
             _to = read_name2user(ant_to, cur)
-            txhash = user_account.move_balance(_from, _to, coins)
+            txhash = user_account.move_balance(_from, _to, coins, cur)
             db.commit()
-        return web_base.json_res({'txhash': hexlify(txhash).decode()})
+        return web_base.json_res({
+            'txhash': hexlify(txhash).decode(),
+            'from_id': _from, 'to_id': _to})
     except Exception as e:
         return web.Response(text=str(e), status=400)
 

@@ -319,6 +319,7 @@ class ChainBuilder:
             self.best_chain = [genesis_block]
             self.best_block = genesis_block
             logging.info("Set dummy block. GenesisBlock={}".format(genesis_block))
+            user_account.init()
             return
 
         # 0HeightよりBlockを取得して確認
@@ -373,6 +374,7 @@ class ChainBuilder:
         self.best_chain = [self.best_block]
         # UserAccount update
         user_account.new_batch_apply(batch_blocks)
+        user_account.init()
         # TODO: before blockの被りをどうするか, UsedIndex? ファイルに保存する？
         logging.info("Init finished, last block is {} {}Sec"
                      .format(before_block, round(time.time()-t, 3)))
@@ -677,6 +679,14 @@ class UserAccount:
         # {txhash: (_type, movement, _time),..}
         self.memory_movement = dict()
 
+    def init(self):
+        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+            cur = db.cursor()
+            memory_sum = UserCoins()
+            for _type, movement, _time in read_log_iter(cur):
+                memory_sum += movement
+            self.db_balance += memory_sum
+
     def get_balance(self, confirm=6, best_block=None):
         assert confirm < builder.cashe_limit - builder.batch_size, 'Too few cashe size.'
         assert builder.best_block, 'Not DataBase init.'
@@ -684,9 +694,9 @@ class UserAccount:
             best_chain = builder.best_chain
         else:
             best_block, best_chain = builder.get_best_chain(best_block)
-        # DataBase分の残高取得
+        # DataBase
         balance = self.db_balance.copy()
-        # memory分の残高取得
+        # Memory
         limit_height = best_block.height - confirm
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
@@ -702,21 +712,34 @@ class UserAccount:
                             balance.add_coins(user, coin_id, -1 * amount)
                     for address, coin_id, amount in tx.outputs:
                         user = read_address2user(address, cur)
-                        if user is not None:
+                        if limit_height < block.height:
+                            pass  # user input coins need confirmations
+                        elif user is not None:
                             balance.add_coins(user, coin_id, amount)
+        # Unconfirmed
+        if best_block is None:
+            for tx in tx_builder.unconfirmed.values():
+                for txhash, txindex in tx.inputs:
+                    input_tx = tx_builder.get_tx(txhash)
+                    address, coin_id, amount = input_tx.outputs[txindex]
+                    user = read_address2user(address, cur)
+                    if user is not None:
+                        balance.add_coins(user, coin_id, -1 * amount)
+                # ignore User inputs(tx.outputs)
         return balance
 
-    def move_balance(self, _from, _to, coins):
+    def move_balance(self, _from, _to, coins, outer_cur=None):
         assert isinstance(coins, CoinObject),  'coins is CoinObject.'
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-            cur = db.cursor()
+            cur = outer_cur or db.cursor()
             try:
                 # DataBaseに即書き込む(Memoryに入れない)
                 movements = UserCoins()
                 movements[_from] -= coins
                 movements[_to] += coins
                 txhash = insert_log(movements, cur)
-                db.commit()
+                if outer_cur is None:
+                    db.commit()
                 self.db_balance += movements
                 return txhash
             except BaseException:
