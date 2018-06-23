@@ -608,7 +608,7 @@ class TransactionBuilder:
         self.chained_tx = weakref.WeakValueDictionary()  # 一度でもBlockに取り込まれた事のあるTX
         self.tmp = weakref.WeakValueDictionary()  # 一時的
 
-    def put_unconfirmed(self, tx):
+    def put_unconfirmed(self, tx, outer_cur=None):
         assert tx.height is None, 'Not unconfirmed tx {}'.format(tx)
         if tx.type in (C.TX_POW_REWARD, C.TX_POS_REWARD):
             return  # It is Reword tx
@@ -619,7 +619,7 @@ class TransactionBuilder:
         if tx.hash in self.chained_tx:
             logging.debug('Already chained tx. {}'.format(tx))
             return
-        user_account.affect_new_tx(tx)
+        user_account.affect_new_tx(tx, outer_cur)
         # WebSocket apiに通知
         if P.NEW_CHAIN_INFO_QUE:
             P.NEW_CHAIN_INFO_QUE.put_nowait(('tx', tx.getinfo()))

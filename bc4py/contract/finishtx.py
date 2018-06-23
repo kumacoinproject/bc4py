@@ -70,7 +70,7 @@ def finish_contract_tx(start_tx, cur, set_limit=True):
     return finish_tx, estimate_gas
 
 
-def fill_inputs_outputs(finish_tx, c_address, start_hash, cur, redeem_gas):
+def fill_inputs_outputs(finish_tx, c_address, start_hash, cur, redeem_gas, dust_percent=0.8):
     assert finish_tx.gas_price > 0, "Gas params is none zero."
     # outputsの合計を取得
     output_coins = CoinObject()
@@ -86,10 +86,16 @@ def fill_inputs_outputs(finish_tx, c_address, start_hash, cur, redeem_gas):
     finish_tx.inputs.clear()
     need_coins = output_coins + fee_coins
     input_coins = CoinObject()
+    f_dust_skipped = False
     for dummy, txhash, txindex, coin_id, amount, f_used in builder.db.read_address_idx_iter(c_address):
         if f_used:
             continue
         elif txindex in get_usedindex(txhash):
+            continue
+        elif coin_id not in need_coins:
+            continue
+        elif need_coins[coin_id] * dust_percent > amount:
+            f_dust_skipped = True
             continue
         need_coins[coin_id] -= amount
         input_coins[coin_id] += amount
@@ -97,6 +103,11 @@ def fill_inputs_outputs(finish_tx, c_address, start_hash, cur, redeem_gas):
         if need_coins.is_all_minus_amount():
             break
     else:
+        if f_dust_skipped and dust_percent > 0.1:
+            new_dust_percent = round(dust_percent * 0.8, 4)
+            logging.debug("Retry by lower dust percent. {}=>{}".format(dust_percent, new_dust_percent))
+            fill_inputs_outputs(finish_tx, c_address, start_hash, cur, redeem_gas, new_dust_percent)
+            return
         # 失敗に変更
         finish_tx.inputs.clear()
         finish_tx.outputs.clear()
@@ -126,7 +137,7 @@ def fill_inputs_outputs(finish_tx, c_address, start_hash, cur, redeem_gas):
         logging.debug("Retry calculate tx fee. [{}=>{}+{}={}]".format(
             finish_tx.gas_amount, finish_tx.getsize(), redeem_gas, need_gas_amount))
         finish_tx.gas_amount = need_gas_amount
-        fill_inputs_outputs(finish_tx, c_address, start_hash, cur, redeem_gas)
+        fill_inputs_outputs(finish_tx, c_address, start_hash, cur, redeem_gas, dust_percent)
         return
 
 

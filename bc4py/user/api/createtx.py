@@ -36,7 +36,7 @@ async def send_from_user(request):
                 msg_type = C.MSG_NONE
                 msg_body = b''
             new_tx = send_from(from_id, to_address, coins, cur, msg_type=msg_type, msg_body=msg_body)
-            if not send_newtx(new_tx=new_tx):
+            if not send_newtx(new_tx=new_tx, outer_cur=cur):
                 raise BaseException('Failed to send new tx.')
             db.commit()
             return web_base.json_res({'txhash': hexlify(new_tx.hash).decode()})
@@ -65,7 +65,7 @@ async def send_many_user(request):
                 msg_type = C.MSG_NONE
                 msg_body = b''
             new_tx = send_many(user_id, send_pairs, cur, msg_type=msg_type, msg_body=msg_body)
-            if not send_newtx(new_tx=new_tx):
+            if not send_newtx(new_tx=new_tx, outer_cur=cur):
                 raise BaseException('Failed to send new tx.')
             db.commit()
             return web_base.json_res({'txhash': hexlify(new_tx.hash).decode()})
@@ -184,7 +184,7 @@ async def issue_mint_tx(request):
                 image=post.get('image', None),
                 additional_issue=bool(post.get('additional_issue', True)),
                 sender=sender)
-            if not send_newtx(mintcoin_tx):
+            if not send_newtx(new_tx=mintcoin_tx, outer_cur=cur):
                 raise BaseException('Failed to send new tx.')
             db.commit()
             data = mintcoin_tx.getinfo()
@@ -210,7 +210,7 @@ async def change_mint_tx(request):
                 image=post.get('image', None),
                 additional_issue= bool(post['additional_issue']) if 'additional_issue' in post else None,
                 sender=sender)
-            if not send_newtx(mintcoin_tx):
+            if not send_newtx(new_tx=mintcoin_tx, outer_cur=cur):
                 raise BaseException('Failed to send new tx.')
             db.commit()
             data = mintcoin_tx.getinfo()

@@ -88,7 +88,7 @@ async def contract_create(request):
             sender_name = post.get('account', C.ANT_UNKNOWN)
             sender_id = read_name2user(sender_name, cur)
             c_address, c_tx = create_contract_tx(c_bin, cur, sender_id, c_cs)
-            if not send_newtx(new_tx=c_tx):
+            if not send_newtx(new_tx=c_tx, outer_cur=cur):
                 raise BaseException('Failed to send new tx.')
             db.commit()
             data = c_tx.getinfo()
@@ -113,7 +113,7 @@ async def contract_start(request):
             outputs = [(address, coin_id, amount) for address, coin_id, amount in outputs]
             start_tx = start_contract_tx(c_address, c_data, cur, outputs, user_id)
             # 送信
-            if not send_newtx(start_tx):
+            if not send_newtx(new_tx=start_tx, outer_cur=cur):
                 raise BaseException('Failed to send new tx.')
             db.commit()
             data = start_tx.getinfo()
