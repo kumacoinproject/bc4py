@@ -1,4 +1,3 @@
-from copy import deepcopy
 
 
 class CoinObject:

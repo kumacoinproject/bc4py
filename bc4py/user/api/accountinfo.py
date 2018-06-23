@@ -21,18 +21,16 @@ async def list_balance(request):
 
 
 async def list_transactions(request):
-    with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-        cur = db.cursor()
-        page = int(request.query.get('page', 0))
-        limit = int(request.query.get('limit', 25))
-        data = list()
-        f_next_page = False
-        for tx_dict in read_log_iter(cur, start=page, f_dict=True):
-            if limit == 0:
-                f_next_page = True
-                break
-            data.append(tx_dict)
-            limit -= 1
+    page = int(request.query.get('page', 0))
+    limit = int(request.query.get('limit', 25))
+    data = list()
+    f_next_page = False
+    for tx_dict in user_account.get_movement_iter(start=page, f_dict=True):
+        if limit == 0:
+            f_next_page = True
+            break
+        data.append(tx_dict)
+        limit -= 1
     return web_base.json_res({'txs': data, 'next': f_next_page})
 
 

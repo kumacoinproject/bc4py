@@ -158,6 +158,8 @@ def sync_chain_data():
             check_tx(tx, new_block)
         # Chainに挿入
         builder.new_block(new_block)
+        for tx in new_block.txs:
+            user_account.affect_new_tx(tx)
         builder.batch_apply()
         # 次のBlock
         previous_height += 1

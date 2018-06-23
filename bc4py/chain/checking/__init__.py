@@ -1,7 +1,7 @@
 from bc4py.config import P
 from bc4py.chain.checking.checkblock import check_block, check_block_time
 from bc4py.chain.checking.checktx import check_tx, check_tx_time
-from bc4py.database.builder import builder
+from bc4py.database.builder import builder, user_account
 import threading
 import time
 import logging
@@ -25,6 +25,8 @@ def new_insert_block(block, time_check=False):
                     check_tx_time(tx)
             # Recode
             builder.new_block(block)
+            for tx in block.txs:
+                user_account.affect_new_tx(tx)
             builder.batch_apply()
             # WebSocket apiに通知
             if P.NEW_CHAIN_INFO_QUE:

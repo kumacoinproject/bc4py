@@ -12,7 +12,7 @@ import os
 import logging
 import threading
 import bjson
-from binascii import hexlify
+from binascii import hexlify, unhexlify
 import time
 import pickle
 
@@ -375,7 +375,6 @@ class ChainBuilder:
         # UserAccount update
         user_account.new_batch_apply(batch_blocks)
         user_account.init()
-        # TODO: before blockの被りをどうするか, UsedIndex? ファイルに保存する？
         logging.info("Init finished, last block is {} {}Sec"
                      .format(before_block, round(time.time()-t, 3)))
 
@@ -748,7 +747,7 @@ class UserAccount:
     def get_movement_iter(self, start=0, f_dict=False):
         count = 0
         # Unconfirmed
-        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.time):
+        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.time, reverse=True):
             if tx.hash in self.memory_movement:
                 if count >= start:
                     yield self.memory_movement[tx.hash][0 if f_dict else 1]
@@ -764,18 +763,25 @@ class UserAccount:
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
             for data in read_log_iter(cur, start - count, f_dict):
-                yield data
+                if unhexlify(data['txhash'].encode()) not in tx_builder.unconfirmed:
+                    print("d", data['txhash'])
+                    yield data
 
     def new_batch_apply(self, batched_blocks):
-        for block in batched_blocks:
-            for tx in block.txs:
-                if tx.hash not in self.memory_movement:
-                    continue
-                # db_balanceに追加
-                _type, movement, _time = self.memory_movement[tx.hash][1]
-                self.db_balance += movement
-                # memory_movementから削除
-                del self.memory_movement[tx.hash]
+        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+            cur = db.cursor()
+            for block in batched_blocks:
+                for tx in block.txs:
+                    if tx.hash not in self.memory_movement:
+                        continue
+                    # db_balanceに追加
+                    _type, movement, _time = self.memory_movement[tx.hash][1]
+                    self.db_balance += movement
+                    # memory_movementから削除
+                    del self.memory_movement[tx.hash]
+                    # insert_log
+                    insert_log(movement, cur, _type, _time, tx.hash)
+            db.commit()
 
     def affect_new_tx(self, tx):
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
@@ -803,6 +809,7 @@ class UserAccount:
             movement_tmp = {read_user2name(user, cur): {coin_id: amount for coin_id, amount in coins.items()}
                             for user, coins in movement.items()}
             dict_data = {
+                'txhash': hexlify(tx.hash).decode(),
                 'type': C.txtype2name[_type],
                 'movement': movement_tmp,
                 'time': _time + V.BLOCK_GENESIS_TIME}
