@@ -248,6 +248,7 @@ class DataBase:
 
     def write_usedindex(self, txhash, usedindex):
         assert self.is_batch_thread(), 'Not created batch.'
+        assert isinstance(usedindex, set), 'Unsedindex is set.'
         self.batch['_used_index'][txhash] = bytes(sorted(usedindex))
 
     def write_address_idx(self, address, txhash, index, coin_id, amount, f_used):
@@ -469,7 +470,7 @@ class ChainBuilder:
                             raise BlockBuilderError('Already used index? {}:{}'
                                                     .format(hexlify(txhash).decode(), txindex))
                         usedindex.add(txindex)
-                        self.db.write_usedindex(txhash, bytes(sorted(usedindex)))  # UsedIndex update
+                        self.db.write_usedindex(txhash, usedindex)  # UsedIndex update
                         input_tx = tx_builder.get_tx(txhash)
                         address, coin_id, amount = input_tx.outputs[txindex]
                         # TODO: 必要なAddressだけにしたい

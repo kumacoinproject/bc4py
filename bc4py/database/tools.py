@@ -1,10 +1,9 @@
-from bc4py.config import C, V, BlockChainError
+from bc4py.config import C, V
 from bc4py.chain.mintcoin import MintCoinObject, setup_base_currency_mint, MintCoinError
-from bc4py.database.builder import builder, tx_builder, user_account
+from bc4py.database.builder import builder, tx_builder
 from bc4py.database.create import closing, create_db
 from bc4py.contract.storage import ContractStorage
-from bc4py.user import UserCoins, CoinObject
-from bc4py.database.account import insert_log, read_pooled_address_iter
+from bc4py.database.account import read_pooled_address_iter
 import bjson
 
 

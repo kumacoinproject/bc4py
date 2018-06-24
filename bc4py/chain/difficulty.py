@@ -1,12 +1,13 @@
 #!/user/env python3
 # -*- coding: utf-8 -*-
 
-from bc4py.config import C, V
+from bc4py.config import C, V, BlockChainError
 from bc4py.database.builder import builder
 from bc4py.chain.utils import bits2target, target2bits
 from math import log2
 import time
 from threading import Lock
+from binascii import hexlify
 
 """
 https://github.com/fujicoin/electrum-fjc-3.0.5/blob/master/lib/blockchain.py#L266
@@ -75,6 +76,8 @@ def get_bits_by_hash(previous_hash, consensus):
     count = 0
     while True:
         block = builder.get_block(check_previous_hash)
+        if block is None:
+            raise BlockChainError('Not found block {}.'.format(hexlify(check_previous_hash).decode()))
         check_previous_hash = block.previous_hash
         if block.flag == C.BLOCK_GENESIS:
             cashe[(previous_hash, consensus)] = (MAX_BITS, MAX_TARGET)

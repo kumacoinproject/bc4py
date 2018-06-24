@@ -162,6 +162,7 @@ def sync_chain_data():
             user_account.affect_new_tx(tx)
         builder.batch_apply()
         # 次のBlock
+        count = 5
         previous_height += 1
         previous_hash = new_block.hash
         # ロギング
