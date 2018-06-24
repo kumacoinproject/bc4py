@@ -1,8 +1,8 @@
 from bc4py.user.utils import message2signature
 from bc4py.config import C, BlockChainError
-from bc4py.database.builder import builder, tx_builder, user_account
-from bc4py.database.account import read_pooled_address_iter, create_new_user_keypair
-from bc4py.database.tools import get_usedindex
+from bc4py.database.builder import user_account
+from bc4py.database.account import create_new_user_keypair
+from bc4py.database.tools import get_unspents_iter
 from bc4py.user import CoinObject
 import logging
 
@@ -28,23 +28,16 @@ def fill_inputs_outputs(tx, cur, fee_coin_id=0, additional_fee=0, dust_percent=0
     input_coins = CoinObject()
     input_address = set()
     f_dust_skipped = False
-    for uuid, address, dummy in read_pooled_address_iter(cur):
-        for dummy, txhash, txindex, coin_id, amount, f_used in builder.db.read_address_idx_iter(address):
-            if f_used:
-                continue
-            elif txindex in get_usedindex(txhash):
-                continue
-            elif coin_id not in need_coins:
-                continue
-            elif need_coins[coin_id] * dust_percent > amount:
-                f_dust_skipped = True
-                continue
-            need_coins[coin_id] -= amount
-            input_coins[coin_id] += amount
-            input_address.add(address)
-            tx.inputs.append((txhash, txindex))
-            if need_coins.is_all_minus_amount():
-                break
+    for address, height, txhash, txindex, coin_id, amount in get_unspents_iter(cur):
+        if coin_id not in need_coins:
+            continue
+        elif need_coins[coin_id] * dust_percent > amount:
+            f_dust_skipped = True
+            continue
+        need_coins[coin_id] -= amount
+        input_coins[coin_id] += amount
+        input_address.add(address)
+        tx.inputs.append((txhash, txindex))
         if need_coins.is_all_minus_amount():
             break
     else:

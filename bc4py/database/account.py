@@ -200,13 +200,9 @@ class MoveLog:
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = outer_cur or db.cursor()
             movement = {read_user2name(user, cur): coins.coins for user, coins in self.movement.items()}
-        try:
-            height = self.pointer().height
-        except Exception:
-            height = None
         return {
             'txhash': hexlify(self.txhash).decode(),
-            'height':  height,
+            'height':  self.height,
             'on_memory': self.on_memory,
             'type': C.txtype2name[self.type],
             'movement': movement,
@@ -214,6 +210,13 @@ class MoveLog:
 
     def get_tuple_data(self):
         return self.type, self.movement, self.time
+
+    @property
+    def height(self):
+        try:
+            return self.pointer().height
+        except Exception:
+            return None
 
 
 __all__ = [

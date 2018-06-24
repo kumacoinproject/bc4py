@@ -696,27 +696,35 @@ class UserAccount:
         assert builder.best_block, 'Not DataBase init.'
         # DataBase
         balance = self.db_balance.copy()
-        # Memory
-        limit_height = builder.best_block.height - confirm
-        for block in builder.best_chain:
-            for tx in block.txs:
-                if tx.hash not in self.memory_movement:
-                    continue
-                for user, coins in self.memory_movement[tx.hash].movement.items():
-                    for coin_id, amount in coins:
-                        if limit_height < block.height:
+        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+            cur = db.cursor()
+            # Memory
+            limit_height = builder.best_block.height - confirm
+            for block in builder.best_chain:
+                for tx in block.txs:
+                    move_log = read_txhash2log(tx.hash, cur)
+                    if move_log is None:
+                        if tx.hash in self.memory_movement:
+                            move_log = self.memory_movement[tx.hash]
+                    if move_log:
+                        for user, coins in move_log.movement.items():
+                            for coin_id, amount in coins:
+                                if limit_height < block.height:
+                                    if amount < 0:
+                                        balance.add_coins(user, coin_id, amount)
+                                else:
+                                    balance.add_coins(user, coin_id, amount)
+            # Unconfirmed
+            for tx in tx_builder.unconfirmed.values():
+                move_log = read_txhash2log(tx.hash, cur)
+                if move_log is None:
+                    if tx.hash in self.memory_movement:
+                        move_log = self.memory_movement[tx.hash]
+                if move_log:
+                    for user, coins in move_log.movement.items():
+                        for coin_id, amount in coins:
                             if amount < 0:
                                 balance.add_coins(user, coin_id, amount)
-                        else:
-                            balance.add_coins(user, coin_id, amount)
-        # Unconfirmed
-        for tx in tx_builder.unconfirmed.values():
-            if tx.hash not in self.memory_movement:
-                continue
-            for user, coins in self.memory_movement[tx.hash].movement.items():
-                for coin_id, amount in coins:
-                    if amount < 0:
-                        balance.add_coins(user, coin_id, amount)
         return balance
 
     def move_balance(self, _from, _to, coins, outer_cur=None):
@@ -738,49 +746,71 @@ class UserAccount:
 
     def get_movement_iter(self, start=0, f_dict=False):
         count = 0
-        # Unconfirmed
-        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.time, reverse=True):
-            if tx.hash in self.memory_movement:
-                if count >= start:
-                    if f_dict:
-                        yield self.memory_movement[tx.hash].get_dict_data()
-                    else:
-                        yield self.memory_movement[tx.hash].get_tuple_data()
-                count += 1
-        # Memory
-        for block in reversed(builder.best_chain):
-            for tx in block.txs:
-                if tx.hash in self.memory_movement:
-                    if count >= start:
-                        if f_dict:
-                            yield self.memory_movement[tx.hash].get_dict_data()
-                        else:
-                            yield self.memory_movement[tx.hash].get_tuple_data()
-                    count += 1
-        # DataBase
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
-            for move_log in read_log_iter(cur, start - count):
-                if move_log.txhash not in tx_builder.unconfirmed:
-                    if f_dict:
-                        yield move_log.get_dict_data(cur)
+            # Unconfirmed
+            for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.time, reverse=True):
+                move_log = read_txhash2log(tx.hash, cur)
+                if move_log is None:
+                    if tx.hash in self.memory_movement:
+                        move_log = self.memory_movement[tx.hash]
+                else:
+                    if tx.hash in self.memory_movement:
+                        move_log.pointer = self.memory_movement[tx.hash].pointer
+                if move_log:
+                    if count >= start:
+                        if f_dict:
+                            yield move_log.get_dict_data(cur)
+                        else:
+                            yield move_log.get_tuple_data()
+                    count += 1
+            # Memory
+            for block in reversed(builder.best_chain):
+                for tx in block.txs:
+                    move_log = read_txhash2log(tx.hash, cur)
+                    if move_log is None:
+                        if tx.hash in self.memory_movement:
+                            move_log = self.memory_movement[tx.hash]
                     else:
-                        yield move_log.get_tuple_data()
+                        if tx.hash in self.memory_movement:
+                            move_log.pointer = self.memory_movement[tx.hash].pointer
+                    if move_log:
+                        if count >= start:
+                            if f_dict:
+                                yield move_log.get_dict_data(cur)
+                            else:
+                                yield move_log.get_tuple_data()
+                        count += 1
+            # DataBase
+            for move_log in read_log_iter(cur, start - count):
+                # TRANSFERなど はDBとMemoryの両方に存在する
+                if move_log.txhash in self.memory_movement:
+                    continue
+                elif f_dict:
+                    yield move_log.get_dict_data(cur)
+                else:
+                    yield move_log.get_tuple_data()
 
     def new_batch_apply(self, batched_blocks):
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
             for block in batched_blocks:
                 for tx in block.txs:
-                    if tx.hash not in self.memory_movement:
-                        continue
-                    # db_balanceに追加
-                    _type, movement, _time = self.memory_movement[tx.hash].get_tuple_data()
-                    self.db_balance += movement
-                    # memory_movementから削除
-                    del self.memory_movement[tx.hash]
-                    # insert_log
-                    insert_log(movement, cur, _type, _time, tx.hash)
+                    move_log = read_txhash2log(tx.hash, cur)
+                    if move_log:
+                        # User操作の記録
+                        self.db_balance += move_log.movement
+                        if tx.hash in self.memory_movement:
+                            del self.memory_movement[tx.hash]
+                        logging.debug("Already recoded log {}".format(tx))
+                    elif tx.hash in self.memory_movement:
+                        # db_balanceに追加
+                        _type, movement, _time = self.memory_movement[tx.hash].get_tuple_data()
+                        self.db_balance += movement
+                        # memory_movementから削除
+                        del self.memory_movement[tx.hash]
+                        # insert_log
+                        insert_log(movement, cur, _type, _time, tx.hash)
             db.commit()
 
     def affect_new_tx(self, tx, outer_cur=None):

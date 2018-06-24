@@ -41,7 +41,7 @@ async def list_unspents(request):
         data.append({
             'address': address,
             'height': height,
-            'confirmed': best_height - height,
+            'confirmed': None if height is None else best_height - height,
             'txhash': hexlify(txhash).decode(),
             'txindex': txindex,
             'coin_id': coin_id,
