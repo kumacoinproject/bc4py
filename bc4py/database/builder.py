@@ -278,7 +278,7 @@ class ChainBuilder:
         self.cashe_limit = cashe_limit
         self.batch_size = batch_size
         self.chain = dict()
-        # self.best_chain → [height=n]-[height=n+1]-....-[height=n+m-1]-[height=n+m]
+        # self.best_chain → [height=n+m]-[height=n+m-1]-....-[height=n+1]-[height=n]
         # self.root_block → [height=n-1] (self.chainに含まれず)
         # self.best_block → [height=n+m]
         self.best_chain = None
@@ -556,12 +556,16 @@ class ChainBuilder:
         # tx heightを合わせる
         old_best_chain = self.best_chain.copy()
         commons = set(new_best_chain) & set(old_best_chain)
-        for block in old_best_chain:
+        for index, block in enumerate(old_best_chain):
             if block not in commons:
+                try: old_best_chain[index+1].next_hash = None
+                except IndexError: pass
                 for tx in block.txs:
                     tx.height = None
-        for block in new_best_chain:
+        for index, block in enumerate(new_best_chain):
             if block not in commons:
+                try: new_best_chain[index+1].next_hash = block.hash
+                except IndexError: pass
                 for tx in block.txs:
                     tx.height = block.height
         # 変化しているので反映する
