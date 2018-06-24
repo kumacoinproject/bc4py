@@ -705,8 +705,6 @@ class UserAccount:
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
             for block in best_chain:
-                if limit_height < block.height:
-                    continue
                 for tx in block.txs:
                     for txhash, txindex in tx.inputs:
                         input_tx = tx_builder.get_tx(txhash)
