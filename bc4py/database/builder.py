@@ -691,43 +691,32 @@ class UserAccount:
                 memory_sum += move_log.movement
             self.db_balance += memory_sum
 
-    def get_balance(self, confirm=6, best_block=None):
+    def get_balance(self, confirm=6):
         assert confirm < builder.cashe_limit - builder.batch_size, 'Too few cashe size.'
         assert builder.best_block, 'Not DataBase init.'
-        if best_block:
-            best_chain = builder.best_chain
-        else:
-            best_block, best_chain = builder.get_best_chain(best_block)
         # DataBase
         balance = self.db_balance.copy()
         # Memory
-        limit_height = best_block.height - confirm
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-            cur = db.cursor()
-            for block in best_chain:
-                for tx in block.txs:
-                    for txhash, txindex in tx.inputs:
-                        input_tx = tx_builder.get_tx(txhash)
-                        address, coin_id, amount = input_tx.outputs[txindex]
-                        user = read_address2user(address, cur)
-                        if user is not None:
-                            balance.add_coins(user, coin_id, -1 * amount)
-                    for address, coin_id, amount in tx.outputs:
-                        user = read_address2user(address, cur)
+        limit_height = builder.best_block.height - confirm
+        for block in builder.best_chain:
+            for tx in block.txs:
+                if tx.hash not in self.memory_movement:
+                    continue
+                for user, coins in self.memory_movement[tx.hash].movement.items():
+                    for coin_id, amount in coins:
                         if limit_height < block.height:
-                            pass  # user input coins need confirmations
-                        elif user is not None:
+                            if amount < 0:
+                                balance.add_coins(user, coin_id, amount)
+                        else:
                             balance.add_coins(user, coin_id, amount)
         # Unconfirmed
-        if best_block is None:
-            for tx in tx_builder.unconfirmed.values():
-                for txhash, txindex in tx.inputs:
-                    input_tx = tx_builder.get_tx(txhash)
-                    address, coin_id, amount = input_tx.outputs[txindex]
-                    user = read_address2user(address, cur)
-                    if user is not None:
-                        balance.add_coins(user, coin_id, -1 * amount)
-                # ignore User inputs(tx.outputs)
+        for tx in tx_builder.unconfirmed.values():
+            if tx.hash not in self.memory_movement:
+                continue
+            for user, coins in self.memory_movement[tx.hash].movement.items():
+                for coin_id, amount in coins:
+                    if amount < 0:
+                        balance.add_coins(user, coin_id, amount)
         return balance
 
     def move_balance(self, _from, _to, coins, outer_cur=None):
