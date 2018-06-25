@@ -10,6 +10,7 @@ from binascii import hexlify
 def inputs_origin_check(tx, include_block):
     # Blockに取り込まれているなら
     # TXのInputsも既に取り込まれているはずだ
+    limit_height = builder.best_block.height - C.MATURE_HEIGHT
     for txhash, txindex in tx.inputs:
         input_tx = tx_builder.get_tx(txhash)
         if input_tx is None:
@@ -23,6 +24,9 @@ def inputs_origin_check(tx, include_block):
             else:
                 # UnconfirmedTXの受け入れなので、txもinput_txもUnconfirmed
                 pass  # OK
+        elif input_tx.type in (C.TX_POS_REWARD, C.TX_POW_REWARD) and \
+                input_tx.height > limit_height:
+            raise BlockChainError('input origin is proof tx, {}>{}'.format(input_tx.height, limit_height))
         else:
             # InputのOriginは既に取り込まれている
             pass  # OK
