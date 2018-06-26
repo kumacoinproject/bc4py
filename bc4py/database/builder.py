@@ -95,7 +95,10 @@ class DataBase:
         if self.is_batch_thread() and blockhash in self.batch['_block']:
             b = self.batch['_block'][blockhash]
         else:
-            b = bytes(self._block.Get(blockhash))
+            b = self._block.Get(blockhash, default=None)
+        if b is None:
+            return None
+        b = bytes(b)
         height, _time, work, b_block, flag, tx_len = struct_block.unpack_from(b)
         idx = struct_block.size
         assert len(b) == idx+tx_len, 'Not correct size. [{}={}]'.format(len(b), idx+tx_len)
@@ -111,7 +114,10 @@ class DataBase:
         if self.is_batch_thread() and b_height in self.batch['_block_index']:
             return self.batch['_block_index'][b_height]
         else:
-            return bytes(self._block_index.Get(b_height))
+            b = self._block_index.Get(b_height, default=None)
+            if b is None:
+                return None
+            return bytes(b)
 
     def read_block_hash_iter(self, start_height=0):
         f_batch = self.is_batch_thread()
@@ -133,7 +139,10 @@ class DataBase:
         if self.is_batch_thread() and txhash in self.batch['_tx']:
             b = self.batch['_tx'][txhash]
         else:
-            b = bytes(self._tx.Get(txhash))
+            b = self._tx.Get(txhash, default=None)
+        if b is None:
+            return None
+        b = bytes(b)
         height, _time, bin_len, sign_len = struct_tx.unpack_from(b)
         b_tx = b[16:16+bin_len]
         b_sign = b[16+bin_len:16+bin_len+sign_len]
@@ -148,18 +157,20 @@ class DataBase:
         if self.is_batch_thread() and txhash in self.batch['_used_index']:
             b = self.batch['_used_index'][txhash]
         else:
-            try:
-                b = bytes(self._used_index.Get(txhash))
-            except KeyError:
+            d = self._used_index.Get(txhash, default=None)
+            if d is None:
                 return set()
-        return set(b)
+            return bytes(d)
 
     def read_address_idx(self, address, txhash, index):
         k = address.encode() + txhash + index.to_bytes(1, 'big')
         if self.is_batch_thread() and k in self.batch['_address_index']:
             b = self.batch['_address_index'][k]
         else:
-            b = bytes(self._address_index.Get(k))
+            b = self._address_index.Get(k)
+        if b is None:
+            return None
+        b = bytes(b)
         # coin_id, amount, f_used
         return struct_address_idx.unpack(b)
 
@@ -582,11 +593,11 @@ class ChainBuilder:
             block.f_orphan = bool(block not in self.best_chain)
         else:
             # DataBaseより
-            try:
-                block = self.db.read_block(blockhash)
+            block = self.db.read_block(blockhash)
+            if block:
                 block.f_on_memory = False
                 block.f_orphan = False
-            except KeyError:
+            else:
                 return None
         return block
 
@@ -600,10 +611,7 @@ class ChainBuilder:
             if height == block.height:
                 return block.hash
         # DataBase
-        try:
-            return self.db.read_block_hash(height)
-        except KeyError:
-            return None
+        return self.db.read_block_hash(height)
 
 
 class TransactionBuilder:
@@ -644,11 +652,11 @@ class TransactionBuilder:
             assert tx.height is not None, "Is unconfirmed. {}".format(tx)
         else:
             # Databaseより
-            try:
-                tx = builder.db.read_tx(txhash)
+            tx = builder.db.read_tx(txhash)
+            if tx:
                 tx.f_on_memory = False
                 self.tmp[txhash] = tx
-            except KeyError:
+            else:
                 return default
         return tx
 

@@ -230,10 +230,7 @@ def get_usedindex(txhash, best_block=None):
                 if _txhash == txhash:
                     usedindex.add(_txindex)
     # DataBaseより
-    try:
-        usedindex.update(builder.db.read_usedindex(txhash))
-    except KeyError:
-        pass
+    usedindex.update(builder.db.read_usedindex(txhash))
     # unconfirmedより
     if best_block is None:
         for tx in tx_builder.unconfirmed.values():
