@@ -157,10 +157,10 @@ class DataBase:
         if self.is_batch_thread() and txhash in self.batch['_used_index']:
             b = self.batch['_used_index'][txhash]
         else:
-            d = self._used_index.Get(txhash, default=None)
-            if d is None:
+            b = self._used_index.Get(txhash, default=None)
+            if b is None:
                 return set()
-            return bytes(d)
+        return set(b)
 
     def read_address_idx(self, address, txhash, index):
         k = address.encode() + txhash + index.to_bytes(1, 'big')
