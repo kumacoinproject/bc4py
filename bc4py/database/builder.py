@@ -696,7 +696,12 @@ class UserAccount:
             cur = db.cursor()
             memory_sum = UserCoins()
             for move_log in read_log_iter(cur):
-                memory_sum += move_log.movement
+                # logに記録されてもBlockに取り込まれていないならTXは存在せず
+                if builder.db.read_tx(move_log.txhash):
+                    memory_sum += move_log.movement
+                else:
+                    logging.warning("need to delete unknown log {}".format(move_log))
+                    # delete_log(move_log.txhash, cur)
             self.db_balance += memory_sum
 
     def get_balance(self, confirm=6):

@@ -48,6 +48,11 @@ def insert_log(movements, cur, _type=None, _time=None, txhash=None):
     return txhash
 
 
+def delete_log(txhash, cur):
+    cur.execute("""DELETE FROM `log` WHERE `hash`=?
+    """, (txhash,))
+
+
 def read_address2keypair(address, cur):
     d = cur.execute("""
         SELECT `id`,`sk`,`pk` FROM `pool` WHERE `ck`=?
@@ -220,7 +225,7 @@ class MoveLog:
 
 
 __all__ = [
-    "read_txhash2log", "read_log_iter", "insert_log",
+    "read_txhash2log", "read_log_iter", "insert_log", "delete_log",
     "read_address2keypair", "read_address2user", "update_keypair_user", "insert_keypairs",
     "read_account_info", "read_pooled_address_iter", "read_address2account", "read_name2user", "read_user2name",
     "create_account", "create_new_user_keypair",
