@@ -67,7 +67,7 @@ def create_rest_server(f_local, port):
             ('sendfrom', 'POST', '[from=Unknown] [address] [coin_id=0] [amount] [message=None]', 'Send from account to address.'),
             ('sendmany', 'POST', '[from=Unknown] [pairs:list(address,coin_id,amount)] [message=None]', 'Send to many account'),
             ('issueminttx', 'POST', '[name] [unit] [amount] [digit=0] <BR>\n'
-                                    '[message=None] [image=None] [additional_issue=True] [group=Unknown]', 'Issue mintcoin.'),
+                                    '[message=None] [image=None] [additional_issue=True] [account=Unknown]', 'Issue mintcoin.'),
             ('changeminttx', 'POST', '[mint_id] [amount=0] [message=None] [image=None]<BR>\n'
                                      '[additional_issue=None] [group=Unknown]', 'Chainge mintcoin.'),
             ('newaddress', 'GET', '[account=Unknown]', 'Get new bind account address.'),

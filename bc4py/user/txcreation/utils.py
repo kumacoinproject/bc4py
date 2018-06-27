@@ -87,7 +87,8 @@ def check_enough_amount(sender, send_coins, fee_coins):
     from_coins = user_account.get_balance()[sender]
     remain_coins = from_coins - send_coins - fee_coins
     if not remain_coins.is_all_plus_amount():
-        raise BlockChainError('Not enough balance in id={} {}.'.format(sender, from_coins))
+        raise BlockChainError('Not enough balance in id={} balance={} remains={}.'
+                              .format(sender, from_coins, remain_coins))
 
 
 __all__ = [
