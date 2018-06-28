@@ -461,7 +461,7 @@ class ChainBuilder:
         # cashe許容量を上回っているので記録
         self.db.batch_create()
         logging.debug("Start batch apply. chain={} force={}".format(len(self.chain), force))
-        best_chain = self.best_chain # .copy()
+        best_chain = self.best_chain.copy()
         batch_count = self.batch_size
         batched_blocks = list()
         try:
@@ -501,7 +501,6 @@ class ChainBuilder:
                         pass
                     elif tx.type == C.TX_MINT_COIN:
                         address, mint_id, amount = tx.outputs[0]
-                        assert mint_id != 0, 'Mint_id is not 0. {}'.format(mint_id)
                         next_index = 0
                         for dummy in self.db.read_coins_iter(mint_id):
                             next_index += 1
@@ -538,6 +537,7 @@ class ChainBuilder:
                             raise BlockBuilderError('Not found start tx on db. {}'.format(tx))
                         self.db.write_contract(c_address, index, start_hash, tx.hash)
             # block挿入終了
+            self.best_chain = best_chain
             self.root_block = block
             self.db.batch_commit()
             self.save_starter()
@@ -552,9 +552,7 @@ class ChainBuilder:
             return batched_blocks  # [<height=n>, <height=n+1>, .., <height=n+m>]
         except BaseException as e:
             self.db.batch_rollback()
-            import traceback
-            traceback.print_exc()
-            logging.warning("Failed batch block builder. '{}'".format(e))
+            logging.warning("Failed batch block builder. '{}'".format(e), exc_info=True)
             return None
 
     def new_block(self, block):
