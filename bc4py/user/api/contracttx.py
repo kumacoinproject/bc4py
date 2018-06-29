@@ -1,5 +1,5 @@
 from bc4py.config import C, V
-from bc4py.contract.utils import *
+from bc4py.contract.tools import *
 from bc4py.user.txcreation import *
 from bc4py.database.create import closing, create_db
 from bc4py.database.tools import *
@@ -24,14 +24,12 @@ async def contract_detail(request):
         c_cs = get_contract_storage(c_address)
         c_cs_data = {k.decode(errors='ignore'): v.decode(errors='ignore')
                      for k, v in c_cs.key_value.items()}
-        pickle_dis = binary2dis(c_bin)
         c_obj = binary2contract(c_bin)
         contract_dis = contract2dis(c_obj)
         data = {
             'c_address': c_address,
             'c_cs_data': c_cs_data,
             'c_cs_ver': c_cs.version,
-            'pickle_dis': pickle_dis,
             'contract_dis': contract_dis,
             'c_bin': hexlify(c_bin).decode()}
         return web_base.json_res(data)
@@ -57,13 +55,11 @@ async def contract_history(request):
 async def source_compile(request):
     post = await web_base.content_type_json_check(request)
     try:
-        # TODO:仕様変更の対応
         if 'source' in post:
             source = str(post['source'])
-            name = str(post.get('name', None))
-            c_obj = string2contract(source, name, limited=False)
+            c_obj = string2contract(source)
         elif 'path' in post:
-            c_obj = filepath2contract(path=post['path'])
+            c_obj = path2contract(path=post['path'])
         else:
             raise BaseException('You need set "source" or "path".')
         c_bin = contract2binary(c_obj)
@@ -105,13 +101,14 @@ async def contract_start(request):
         cur = db.cursor()
         try:
             c_address = post['address']
-            c_data = post.get('data', None)
+            c_method = post['method']
+            c_args = post.get('args', None)
             outputs = post.get('outputs', list())
             account = post.get('account', C.ANT_UNKNOWN)
             user_id = read_name2user(account, cur)
             # TX作成
             outputs = [(address, coin_id, amount) for address, coin_id, amount in outputs]
-            start_tx = start_contract_tx(c_address, c_data, cur, outputs, user_id)
+            start_tx = start_contract_tx(c_address, c_method, c_args, cur, outputs, user_id)
             # 送信
             if not send_newtx(new_tx=start_tx, outer_cur=cur):
                 raise BaseException('Failed to send new tx.')
@@ -119,7 +116,8 @@ async def contract_start(request):
             data = start_tx.getinfo()
             data['c_address'] = c_address
             data['fee'] = start_tx.gas_price * start_tx.gas_amount
-            data['c_data'] = c_data
+            data['method'] = c_method
+            data['args'] = c_args
             return web_base.json_res(data)
         except BaseException:
             return web_base.error_res()

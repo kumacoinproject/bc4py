@@ -528,9 +528,9 @@ class ChainBuilder:
                                 break
                         else:
                             raise BlockBuilderError('Not found start tx. {}'.format(tx))
-                        c_address, c_data, c_redeem = bjson.loads(start_tx.message)
+                        c_address, c_data, c_args, c_redeem = bjson.loads(start_tx.message)
                         # 次のIndexを取得する
-                        for c_address, index, _start_hash, finish_hash in self.db.read_contract_iter(c_address):
+                        for dummy, index, _start_hash, finish_hash in self.db.read_contract_iter(c_address):
                             if start_hash == _start_hash and finish_hash == ZERO_FILLED_HASH:
                                 break  # STARTで既に挿入されているはず
                         else:

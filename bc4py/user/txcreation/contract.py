@@ -56,12 +56,12 @@ def create_contract_tx(c_bin, cur, sender=C.ANT_UNKNOWN,
     return c_address, tx
 
 
-def start_contract_tx(c_address, c_data, cur, outputs=None, sender=C.ANT_UNKNOWN,
+def start_contract_tx(c_address, c_method, cur, c_args=None, outputs=None, sender=C.ANT_UNKNOWN,
                       gas_price=None, additional_gas_amount=None, retention=10800):
     # TXを作成
     now = int(time.time()) - V.BLOCK_GENESIS_TIME
     c_redeem = create_new_user_keypair(C.ANT_NAME_UNKNOWN, cur)
-    message = bjson.dumps((c_address, c_data, c_redeem), compress=False)
+    message = bjson.dumps((c_address, c_method, c_args or tuple(), c_redeem), compress=False)
     tx = TX(tx={
         'version': __chain_version__,
         'type': C.TX_START_CONTRACT,

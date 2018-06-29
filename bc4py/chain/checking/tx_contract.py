@@ -41,7 +41,7 @@ def check_tx_create_contract(tx: TX, include_block: Block):
 
 def check_tx_start_contract(start_tx: TX, include_block: Block):
     # 共通チェック
-    c_address, c_data, c_redeem = bjson.loads(start_tx.message)
+    c_address, c_data, c_args, c_redeem = bjson.loads(start_tx.message)
     if not is_address(c_address, V.BLOCK_CONTRACT_PREFIX):
         raise BlockChainError('Is not contract address. {}'.format(c_address))
     elif not is_address(c_redeem, V.BLOCK_PREFIX):

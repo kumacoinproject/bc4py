@@ -6,8 +6,8 @@ from bc4py.chain.difficulty import MAX_BITS, MIN_BIAS_BITS
 from bc4py.config import C, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
-from bc4py.contract.utils import contract2binary
-from bc4py.contract.c_validator import contract
+from bc4py.contract.tools import contract2binary
+from bc4py.contract.c_validator import Contract
 from nem_ed25519.base import Encryption
 import time
 import logging
@@ -88,7 +88,7 @@ def create_genesis_block(all_supply, block_span, prefix=b'\x98', contract_prefix
     ecc.secret_key()
     ecc.public_key()
     c_address = ecc.get_address()
-    c_bin = contract2binary(contract)
+    c_bin = contract2binary(Contract)
     c_cs = {b'': b''}  # TODO:　初期値どうする？
     validator_tx = TX(tx={
             'version': __chain_version__,
