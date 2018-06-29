@@ -15,13 +15,12 @@ import bjson
 from more_itertools import chunked
 
 
-def create_genesis_block(all_supply, halving_span, block_span, prefix=b'\x98', contract_prefix=b'\x12',
+def create_genesis_block(all_supply, block_span, prefix=b'\x98', contract_prefix=b'\x12',
                          digit_number=8, minimum_price=100, consensus=C.BLOCK_POW,
                          pow_ratio=100, premine=None):
     """
     Height0のGenesisBlockを作成する
     :param all_supply: PoW/POS合わせた全採掘量、プリマインを除く
-    :param halving_span: 半減期(Sec)
     :param block_span: Blockの採掘間隔(Sec)
     :param prefix: 一般アドレスの頭文字、b'\x98'=N
     :param contract_prefix: コントラクトの頭文字、b'\x98'=C
@@ -42,9 +41,6 @@ def create_genesis_block(all_supply, halving_span, block_span, prefix=b'\x98', c
         raise BlockChainError('not found consensus \"%s\"' % consensus)
 
     """params"""
-    block_reward = round(all_supply / 2 / (halving_span // block_span))
-    logging.info("BlockReward {}".format(block_reward / pow(10, digit_number)))
-    assert block_reward > 0, 'block reward is minus.'
     assert isinstance(minimum_price, int), 'minimum_price is INT'
     genesis_time = int(time.time())
     params = {
@@ -52,9 +48,7 @@ def create_genesis_block(all_supply, halving_span, block_span, prefix=b'\x98', c
         'contract_prefix': contract_prefix,  # ContractKey prefix
         'genesis_time': genesis_time,  # GenesisBlockの採掘時間
         'all_supply': all_supply,  # 全採掘量
-        'halving_span': halving_span,  # ブロックの半減期の間隔
         'block_span': block_span,  # ブロックの採掘間隔
-        'block_reward': block_reward,  # Blockの初期採掘報酬
         'digit_number': digit_number,  # 小数点以下の桁数
         'minimum_price': minimum_price,
         'contract_minimum_amount': pow(10, digit_number),

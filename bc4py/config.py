@@ -72,7 +72,7 @@ class V:  # 起動時に設定される変数
     BLOCK_CONTRACT_PREFIX = None
     BLOCK_GENESIS_TIME = None
     BLOCK_TIME_SPAN = None
-    BLOCK_HALVING_SPAN = None
+    BLOCK_ALL_SUPPLY = None
     BLOCK_REWARD = None
     BLOCK_CONSENSUS = None
     BLOCK_POW_RATIO = None

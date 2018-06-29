@@ -4,8 +4,8 @@ It enable you to create application with blockchain on Python3.
 
 Function
 --------
-* UTXO system
-* Proof of work or/and proof of stake mining consensus
+* UTXO base
+* Proof of work or/and proof of stake consensus
 * Minting colored coin (Not token)
 * Python interpreter based smart contract (PyContract)
 * block containing result smart contract　(differ from Ethereum)

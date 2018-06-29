@@ -172,7 +172,7 @@ def setup_base_currency_mint():
     mint.unit = C.BASE_CURRENCY_UNIT
     mint.digit = V.COIN_DIGIT
     mint.amount = 0
-    mint.supply_before = 2 * V.BLOCK_REWARD * (V.BLOCK_HALVING_SPAN // V.BLOCK_TIME_SPAN)
+    mint.supply_before = V.BLOCK_ALL_SUPPLY
     mint.additional_issue = False
     mint.owner = None
     mint.image = None

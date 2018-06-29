@@ -34,7 +34,7 @@ def set_blockchain_params(genesis_block):
     V.BLOCK_PREFIX = params.get('prefix')
     V.BLOCK_CONTRACT_PREFIX = params.get('contract_prefix')
     V.BLOCK_GENESIS_TIME = params.get('genesis_time')
-    V.BLOCK_HALVING_SPAN = params.get('halving_span')
+    V.BLOCK_ALL_SUPPLY = params.get('all_supply')
     V.BLOCK_TIME_SPAN = params.get('block_span')
     V.BLOCK_REWARD = params.get('block_reward')
     V.COIN_DIGIT = params.get('digit_number')
