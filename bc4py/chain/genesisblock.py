@@ -1,25 +1,26 @@
 #!/user/env python3
 # -*- coding: utf-8 -*-
 
+from bc4py import __chain_version__
 from bc4py.chain.difficulty import MAX_BITS, MIN_BIAS_BITS
-from bc4py.database.create import create_db, closing
-from bc4py.database.chain.write import recode_block, recode_tx
-from bc4py.config import C, V, BlockChainError
+from bc4py.config import C, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
+from bc4py.contract.utils import contract2binary
+from bc4py.contract.c_validator import contract
+from nem_ed25519.base import Encryption
 import time
 import logging
 import bjson
-from binascii import hexlify
+from more_itertools import chunked
 
 
-def create_genesis_block(all_supply, halving_span, block_span, prefix=b'\x98', contract_prefix=b'\x12',
+def create_genesis_block(all_supply, block_span, prefix=b'\x98', contract_prefix=b'\x12',
                          digit_number=8, minimum_price=100, consensus=C.BLOCK_POW,
                          pow_ratio=100, premine=None):
     """
     Height0のGenesisBlockを作成する
     :param all_supply: PoW/POS合わせた全採掘量、プリマインを除く
-    :param halving_span: 半減期(Sec)
     :param block_span: Blockの採掘間隔(Sec)
     :param prefix: 一般アドレスの頭文字、b'\x98'=N
     :param contract_prefix: コントラクトの頭文字、b'\x98'=C
@@ -40,9 +41,6 @@ def create_genesis_block(all_supply, halving_span, block_span, prefix=b'\x98', c
         raise BlockChainError('not found consensus \"%s\"' % consensus)
 
     """params"""
-    block_reward = round(all_supply / 2 / (halving_span // block_span))
-    logging.info("BlockReward {}".format(block_reward / pow(10, digit_number)))
-    assert block_reward > 0, 'block reward is minus.'
     assert isinstance(minimum_price, int), 'minimum_price is INT'
     genesis_time = int(time.time())
     params = {
@@ -50,16 +48,15 @@ def create_genesis_block(all_supply, halving_span, block_span, prefix=b'\x98', c
         'contract_prefix': contract_prefix,  # ContractKey prefix
         'genesis_time': genesis_time,  # GenesisBlockの採掘時間
         'all_supply': all_supply,  # 全採掘量
-        'halving_span': halving_span,  # ブロックの半減期の間隔
         'block_span': block_span,  # ブロックの採掘間隔
-        'block_reward': block_reward,  # Blockの初期採掘報酬
         'digit_number': digit_number,  # 小数点以下の桁数
         'minimum_price': minimum_price,
+        'contract_minimum_amount': pow(10, digit_number),
         'consensus': consensus,  # Block承認のアルゴリズム
         'pow_ratio': pow_ratio}  # POWによるBlock採掘割合
     # BLockChainの設定TX
     setting_tx = TX(tx={
-        'version': 1,
+        'version': __chain_version__,
         'type': C.TX_GENESIS,
         'time': 0,
         'deadline': 10800,
@@ -68,24 +65,43 @@ def create_genesis_block(all_supply, halving_span, block_span, prefix=b'\x98', c
         'gas_price': 0,
         'gas_amount': 0,
         'message_type': C.MSG_BYTE,
-        'message': bjson.dumps(params)})
+        'message': bjson.dumps(params, compress=False)})
     setting_tx.height = 0
-    genesis_txs = [setting_tx]
-    if premine and len(premine) > 0:
-        for i in range(len(premine) // 256 + 1):
-            tx = TX(tx={
-                'version': 1,
-                'type': C.TX_GENESIS,
-                'time': 0,
-                'deadline': 10800,
-                'inputs': list(),
-                'outputs': premine[256*i:256*i+256],
-                'gas_price': 0,
-                'gas_amount': 0,
-                'message_type': C.MSG_PLAIN,
-                'message': 'Premine {}'.format(i).encode()})
-            tx.height = 0
-            genesis_txs.append(tx)
+    # premine
+    premine_txs = list()
+    for index, chunk in enumerate(chunked(premine or list(), 256)):
+        tx = TX(tx={
+            'version': __chain_version__,
+            'type': C.TX_TRANSFER,
+            'time': 0,
+            'deadline': 10800,
+            'inputs': list(),
+            'outputs': chunk,
+            'gas_price': 0,
+            'gas_amount': 0,
+            'message_type': C.MSG_PLAIN,
+            'message': 'Premine {}'.format(index).encode()})
+        tx.height = 0
+        premine_txs.append(tx)
+    # validator
+    ecc = Encryption(prefix=prefix)
+    ecc.secret_key()
+    ecc.public_key()
+    c_address = ecc.get_address()
+    c_bin = contract2binary(contract)
+    c_cs = {b'': b''}  # TODO:　初期値どうする？
+    validator_tx = TX(tx={
+            'version': __chain_version__,
+            'type': C.TX_CREATE_CONTRACT,
+            'time': 0,
+            'deadline': 10800,
+            'inputs': list(),
+            'outputs': list(),
+            'gas_price': 0,
+            'gas_amount': 0,
+            'message_type': C.MSG_BYTE,
+            'message': bjson.dumps((c_address, c_bin, c_cs), compress=False)})
+    validator_tx.height = 0
     # height0のBlock生成
     genesis_block = Block(block={
         'merkleroot': b'\x00'*32,
@@ -98,19 +114,11 @@ def create_genesis_block(all_supply, halving_span, block_span, prefix=b'\x98', c
     genesis_block.height = 0
     genesis_block.flag = C.BLOCK_GENESIS
     # block body
-    genesis_block.txs = genesis_txs
+    genesis_block.txs.append(setting_tx)
+    genesis_block.txs.append(validator_tx)
+    genesis_block.txs.extend(premine_txs)
     genesis_block.bits2target()
     genesis_block.target2diff()
     genesis_block.update_merkleroot()
     genesis_block.serialize()
     return genesis_block
-
-
-def set_genesis_block(genesis_block):
-    with closing(create_db(V.DB_BLOCKCHAIN_PATH)) as db:
-        cur = db.cursor()
-        recode_block(genesis_block, cur=cur)
-        for tx in genesis_block.txs:
-            recode_tx(tx, cur=cur)
-        db.commit()
-    logging.info("Insert Genesis block {}".format(hexlify(genesis_block.hash).decode()))

@@ -21,7 +21,7 @@ def set_logger(level, prefix=''):
     logger.propagate = False
     logger.setLevel(logging.DEBUG)
     formatter = logging.Formatter('[%(levelname)-6s] [%(threadName)-10s] [%(asctime)-24s] %(message)s')
-    sh = logging.FileHandler('{}-logging.log'.format(prefix))
+    sh = logging.FileHandler('debug-{}.log'.format(prefix))
     sh.setLevel(level)
     sh.setFormatter(formatter)
     logger.addHandler(sh)
@@ -45,10 +45,6 @@ def _debug(sql, path, explain=True):
             for d in f.fetchall():
                 print(c, ':', ', '.join(map(str, d)))
                 c += 1
-
-
-def debug_chain(sql, explain=True):
-    _debug(sql=sql, path=V.DB_BLOCKCHAIN_PATH, explain=explain)
 
 
 def debug_account(sql, explain=True):

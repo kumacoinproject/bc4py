@@ -1,4 +1,3 @@
-fasteners
 aiohttp>=2.3.10
 aiohttp_cors
 pycryptodomex
@@ -11,3 +10,5 @@ pysha3
 git+https://github.com/namuyan/yescryptR16-python@master
 xmltodict
 requests
+leveldb
+more_itertools

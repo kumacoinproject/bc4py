@@ -15,6 +15,10 @@ class CoinObject:
         coin = ", ".join("{}={}".format(coin_id, amount) for coin_id, amount in self.coins.items())
         return "<Coins {}>".format(coin)
 
+    def __iter__(self):
+        for coin_id, amount in self.coins.items():
+            yield coin_id, amount
+
     def is_all_plus_amount(self):
         for v in self.coins.values():
             if v < 0:
@@ -50,7 +54,7 @@ class CoinObject:
 
     def __add__(self, other):
         coin = self.coins.copy()
-        for coin_id, amount in other.items():
+        for coin_id, amount in other:
             if coin_id in coin:
                 coin[coin_id] += amount
             else:
@@ -63,11 +67,11 @@ class CoinObject:
 
     def __sub__(self, other):
         coin = self.coins.copy()
-        for coin_id, amount in other.items():
+        for coin_id, amount in other:
             if coin_id in coin:
                 coin[coin_id] -= amount
             else:
-                coin[coin_id] = amount
+                coin[coin_id] = -1 * amount
             if coin[coin_id] == 0:
                 del coin[coin_id]
         coin_object = CoinObject()
@@ -88,6 +92,58 @@ class CoinObject:
 
     def items(self):
         return self.coins.items()
+
+
+class UserCoins:
+    def __repr__(self):
+        return "<User {}>".format(self.users)
+
+    def __init__(self, users=None):
+        self.users = users or dict()
+
+    def copy(self):
+        users = {user: coins.copy() for user, coins in self.users.items()}
+        return UserCoins(users)
+
+    def items(self):
+        return self.users.items()
+
+    def add_coins(self, user, coin_id, amount):
+        if user in self.users:
+            self.users[user][coin_id] += amount
+        else:
+            self.users[user] = CoinObject(coin_id, amount)
+
+    def __contains__(self, item):
+        return item in self.users
+
+    def __getitem__(self, item):
+        if item in self.users:
+            return self.users[item]
+        return CoinObject()
+
+    def __setitem__(self, key, value):
+        self.users[key] = value
+
+    def __add__(self, other):
+        new = dict()
+        for u in set(self.users) | set(other.users):
+            new[u] = CoinObject()
+            if u in self.users:
+                new[u] += self.users[u]
+            if u in other:
+                new[u] += other[u]
+        return UserCoins(new)
+
+    def __sub__(self, other):
+        new = dict()
+        for u in set(self.users) | set(other.users):
+            new[u] = CoinObject()
+            if u in self.users:
+                new[u] += self.users[u]
+            if u in other:
+                new[u] -= other[u]
+        return UserCoins(new)
 
 
 def float2unit(f):

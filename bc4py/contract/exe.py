@@ -1,5 +1,6 @@
 from bc4py.config import V
 from bc4py.utils import set_database_path, set_blockchain_params
+from bc4py.database.builder import builder
 from bc4py.contract.utils import *
 from bc4py.contract.libs import __price__
 from bc4py.contract import rpdb
@@ -25,18 +26,18 @@ EMU_RETURN = 'return'
 F_MANUAL_CONTROL = False
 
 
-def work_field(params, contract_tx, start_tx, que):
-    set_database_path(sub_dir=params.get("sub_dir"))
-    set_blockchain_params()
+def work_field(params, start_tx, que):
+    set_database_path(sub_dir=params["sub_dir"])
+    set_blockchain_params(genesis_block=params['genesis_block'])
     virtual_machine = None
     try:
         virtual_machine = rpdb.Rpdb(port=0)
         que.put((CMD_PORT, virtual_machine.port))
         virtual_machine.server_start()
-        c_address, c_bin = bjson.loads(contract_tx.message)
-        c_obj = binary2contract(c_bin)
-        filepath = c_obj.__code__.co_filename
-        module_name = os.path.split(filepath)[1]
+        c_address = params['c_address']
+        c_obj = binary2contract(params['c_bin'])
+        file_path = c_obj.__code__.co_filename
+        module_name = os.path.split(file_path)[1]
         que.put((CMD_MODULE, module_name))
         # remote emulate
         virtual_machine.set_trace()
@@ -49,13 +50,16 @@ def work_field(params, contract_tx, start_tx, que):
     except: pass
 
 
-def auto_emulate(contract_tx, start_tx, gas_limit=None, out=None):
+def auto_emulate(c_bin, c_address, start_tx, gas_limit=None, out=None):
     start_time = time.time()
     que = Queue()
     # setup remote field
-    params = dict(sub_dir=V.SUB_DIR)
-    p = Process(target=work_field, args=(params, contract_tx, start_tx, que))
-    p.daemon = True
+    params = {
+        'sub_dir': V.SUB_DIR,
+        'genesis_block': builder.get_block(builder.get_block_hash(0)),
+        'c_address': c_address,
+        'c_bin': c_bin}
+    p = Process(target=work_field, args=(params, start_tx, que))
     p.start()
     # ServerのPortを取得
     que_cmd, port = que.get(timeout=10)

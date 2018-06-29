@@ -1,74 +1,36 @@
 from bc4py import __chain_version__
-from bc4py.config import C, V, BlockChainError
+from bc4py.config import C, P, BlockChainError
 from bc4py.chain.tx import TX
+from bc4py.chain.utils import check_output_format
 from bc4py.user import CoinObject
 from bc4py.contract.exe import auto_emulate
-from bc4py.database.create import closing, create_db
-from bc4py.database.chain.read import read_contract_tx, read_contract_storage, read_contract_utxo
-from fasteners import InterProcessLock
+from bc4py.database.builder import builder, tx_builder
+from bc4py.database.account import create_new_user_keypair
+from bc4py.database.tools import get_contract_binary, get_contract_storage, get_usedindex
 import bjson
 import logging
-import os
-import tempfile
-
-finish_tx_cashe_lock = InterProcessLock(os.path.join(tempfile.gettempdir(), 'f.lock'))
 
 
-def create_finish_tx_for_mining(unconfirmed, height):
-    used_contract_address = set()
-    with closing(create_db(V.DB_BLOCKCHAIN_PATH)) as db:
-        cur = db.cursor()
-        for tx in unconfirmed.copy():
-            if tx.type == C.TX_FINISH_CONTRACT:
-                unconfirmed.remove(tx)
-            elif tx.type == C.TX_START_CONTRACT:
-                try:
-                    c_address, c_data = bjson.loads(tx.message)
-                    # 1Blockに入るコントラクトアドレスは１つまで
-                    if c_address in used_contract_address:
-                        unconfirmed.remove(tx)
-                        continue
-                    with finish_tx_cashe_lock:
-                        finish_tx = get_finish_tx_cashe(start_hash=tx.hash, height=height)
-                        if not finish_tx:
-                            tx.height = height
-                            finish_tx, estimate_gas = create_finish_tx(start_tx=tx, cur=cur)
-                            if tx.gas_amount < tx.getsize() + estimate_gas:
-                                raise BlockChainError('exceed need gas amount. [{}<{}+{}]'
-                                                      .format(tx.gas_amount, tx.getsize(), estimate_gas))
-                            put_finish_tx_cashe(start_hash=tx.hash, height=height, finish_tx=finish_tx)
-                            logging.debug("create!", finish_tx.getinfo())
-                        else:
-                            logging.debug("cashed..", height)
-                        start_idx = unconfirmed.index(tx)
-                        unconfirmed.insert(start_idx+1, finish_tx)
-                        used_contract_address.add(c_address)
-                except BlockChainError as e:
-                    import traceback
-                    traceback.print_exc()
-                    unconfirmed.remove(tx)
-                    logging.debug('finish tx creation failed {} "{}"'.format(tx, e))
-            else:
-                pass
+DUMMY_REDEEM_ADDRESS = '_____DUMMY______REDEEM______ADDRESS_____'  # 40letters
 
 
-def create_finish_tx(start_tx, cur, set_limit=True):
+def finish_contract_tx(start_tx, cur, set_limit=True):
     assert start_tx.height > 0, 'Need to set start tx height.'
-    c_address, c_data = bjson.loads(start_tx.message)
-    contract_tx = read_contract_tx(c_address=c_address, cur=cur)
+    assert P.F_VALIDATOR, 'You are not a validator.'
+    c_address, c_data, c_redeem = bjson.loads(start_tx.message)
+    c_bin = get_contract_binary(c_address)
     if set_limit:
         gas_limit = start_tx.gas_amount - start_tx.getsize()
     else:
         gas_limit = None
-    status, result, estimate_gas, line = auto_emulate(
-        contract_tx=contract_tx, start_tx=start_tx, gas_limit=gas_limit)
+    status, result, estimate_gas, line = auto_emulate(c_bin, c_address, start_tx, gas_limit)
     if status:
         # 成功時
         outputs, cs_result = result
         if cs_result is None:
             message = bjson.dumps((True, start_tx.hash, None), compress=False)
         else:
-            cs = read_contract_storage(address=c_address, cur=cur, stop_hash=start_tx.hash)
+            cs = get_contract_storage(c_address)
             cs_diff = cs.diff_dev(new_key_value=cs_result.key_value)
             message = bjson.dumps((True, start_tx.hash, cs_diff), compress=False)
         try:
@@ -91,87 +53,101 @@ def create_finish_tx(start_tx, cur, set_limit=True):
         'deadline': start_tx.deadline,
         'inputs': list(),
         'outputs': outputs or list(),
-        'gas_price': 0,
-        'gas_amount': 0,
+        'gas_price': start_tx.gas_price,
+        'gas_amount': 1,
         'message_type': C.MSG_BYTE,
         'message': message})
-    # inputs/outputsを補充
-    output_coins = fill_finish_inout(c_address, start_tx, finish_tx, cur)
-    # Redeemを設定
-    output_coins.reverse_amount()
-    for coin_id, amount in output_coins.items():
-        finish_tx.outputs.append((c_address, coin_id, amount))
+    to_user_redeem = (c_redeem, 0, 0)
+    finish_tx.outputs.append(to_user_redeem)  # gas_amountを返す
+    # fill input/output
+    # TODO: c_redeemを用いてFeeを還元
+    redeem_gas = start_tx.gas_amount - (start_tx.getsize() + estimate_gas) // start_tx.gas_price
+    fill_inputs_outputs(finish_tx, c_address, start_tx.hash, cur, redeem_gas)
+    redeem_idx = finish_tx.outputs.index(to_user_redeem)
+    finish_tx.outputs[redeem_idx] = (c_redeem, 0, -1 * finish_tx.gas_amount * finish_tx.gas_price)
+    replace_redeem_dummy_address(finish_tx, cur)
     finish_tx.serialize()
     return finish_tx, estimate_gas
 
 
-def fill_finish_inout(c_address, start_tx, finish_tx, cur):
+def fill_inputs_outputs(finish_tx, c_address, start_hash, cur, redeem_gas, dust_percent=0.8):
+    assert finish_tx.gas_price > 0, "Gas params is none zero."
+    # outputsの合計を取得
     output_coins = CoinObject()
-    for address, coin_id, amount in finish_tx.outputs:
-        output_coins[coin_id] += amount
-    if output_coins.is_all_minus_amount():
-        return output_coins
-    for txhash, txindex, coin_id, amount in read_contract_utxo(c_address=c_address, cur=cur):
-        if coin_id in output_coins and output_coins[coin_id] > 0:
-            output_coins[coin_id] -= amount
-            finish_tx.inputs.append((txhash, txindex))
-        if output_coins.is_all_minus_amount():
-            return output_coins
-    # Balanceが足りない？StartTXのOutputsも使用してみる
-    for txindex, (address, coin_id, amount) in enumerate(start_tx.outputs):
-        if address != c_address:
+    for address, coin_id, amount in finish_tx.outputs.copy():
+        if address == DUMMY_REDEEM_ADDRESS:
+            # 償還Outputは再構築するので消す
+            finish_tx.outputs.remove((address, coin_id, amount))
             continue
-        if coin_id in output_coins and output_coins[coin_id] > 0:
-            output_coins[coin_id] -= amount
-            finish_tx.inputs.append((start_tx.hash, txindex))
-        if output_coins.is_all_minus_amount():
-            return output_coins
-    if not output_coins.is_all_minus_amount():
+        output_coins[coin_id] += amount
+    # 一時的にfeeの概算
+    fee_coins = CoinObject(coin_id=0, amount=finish_tx.gas_price * finish_tx.gas_amount)
+    # 必要なだけinputsを取得
+    finish_tx.inputs.clear()
+    need_coins = output_coins + fee_coins
+    input_coins = CoinObject()
+    f_dust_skipped = False
+    for dummy, txhash, txindex, coin_id, amount, f_used in builder.db.read_address_idx_iter(c_address):
+        if f_used:
+            continue
+        elif txindex in get_usedindex(txhash):
+            continue
+        elif coin_id not in need_coins:
+            continue
+        elif need_coins[coin_id] * dust_percent > amount:
+            f_dust_skipped = True
+            continue
+        need_coins[coin_id] -= amount
+        input_coins[coin_id] += amount
+        finish_tx.inputs.append((txhash, txindex))
+        if need_coins.is_all_minus_amount():
+            break
+    else:
+        if f_dust_skipped and dust_percent > 0.1:
+            new_dust_percent = round(dust_percent * 0.8, 4)
+            logging.debug("Retry by lower dust percent. {}=>{}".format(dust_percent, new_dust_percent))
+            fill_inputs_outputs(finish_tx, c_address, start_hash, cur, redeem_gas, new_dust_percent)
+            return
         # 失敗に変更
         finish_tx.inputs.clear()
         finish_tx.outputs.clear()
-        finish_tx.message = bjson.dumps((False, start_tx.hash, None), compress=False)
-        logging.debug("Contract success, but insufficient balance on contract. {}".format(output_coins))
-        output_coins.coins.clear()
-    return output_coins
+        finish_tx.gas_amount = 0
+        finish_tx.message = bjson.dumps((False, start_hash, None), compress=False)
+        logging.debug('Insufficient balance. inputs={} needs={}'.format(input_coins, need_coins))
+        return
+    # redeemを計算
+    redeem_coins = input_coins - output_coins - fee_coins
+    for coin_id, amount in redeem_coins:
+        finish_tx.outputs.append((DUMMY_REDEEM_ADDRESS, coin_id, amount))
+    # Feeをチェックし再計算するか決める
+    finish_tx.serialize()
+    need_gas_amount = finish_tx.getsize() - redeem_gas
+    if finish_tx.gas_amount == need_gas_amount:
+        return
+    elif need_gas_amount > 0:
+        # Gas使いすぎ,失敗に変更
+        finish_tx.inputs.clear()
+        finish_tx.outputs.clear()
+        finish_tx.gas_amount = 0
+        finish_tx.message = bjson.dumps((False, start_hash, None), compress=False)
+        logging.debug('Too match gas used. need_gas={}'.format(need_gas_amount))
+        return
+    else:
+        # insufficient gas
+        logging.debug("Retry calculate tx fee. [{}=>{}+{}={}]".format(
+            finish_tx.gas_amount, finish_tx.getsize(), redeem_gas, need_gas_amount))
+        finish_tx.gas_amount = need_gas_amount
+        fill_inputs_outputs(finish_tx, c_address, start_hash, cur, redeem_gas, dust_percent)
+        return
 
 
-def check_output_format(outputs):
-    for o in outputs:
-        if not isinstance(o, tuple):
-            raise BlockChainError('Output is tuple element.')
-        elif len(o) != 3:
-            raise BlockChainError('Output is three element.')
-        address, coin_id, amount = o
-        if not isinstance(address, str) or len(address) != 40:
-            raise BlockChainError('output address is 40 string. {}'.format(address))
-        elif not isinstance(coin_id, int) or not(coin_id >= 0):
-            raise BlockChainError('output coin_id is 0< int. {}'.format(coin_id))
-        elif not isinstance(amount, int) or not(amount > 0):
-            raise BlockChainError('output amount is 0<= int. {}'.format(amount))
-
-
-# あくまで採掘時のキャッシュ代わりにするだけ
-# get_finish_tx_cashe, put_finish_tx_cashe
-
-
-def get_finish_tx_cashe(start_hash, height):
-    with closing(create_db(V.DB_CASHE_PATH)) as db:
-        cur = db.cursor()
-        d = cur.execute("""
-            SELECT `bin` FROM `finish_tx` WHERE `hash`=? AND `height`=?
-            """, (start_hash, height)).fetchone()
-        if d is None:
-            return None
-        finish_tx = TX(binary=d[0])
-        finish_tx.height = height
-        return finish_tx
-
-
-def put_finish_tx_cashe(start_hash, height, finish_tx):
-    with closing(create_db(V.DB_CASHE_PATH)) as db:
-        cur = db.cursor()
-        cur.execute("""
-            INSERT OR REPLACE INTO `finish_tx` VALUES (?,?,?)
-            """, (start_hash, height, finish_tx.b))
-        db.commit()
+def replace_redeem_dummy_address(tx, cur):
+    new_redeem_address = set()
+    for index, (address, coin_id, amount) in enumerate(tx.outputs):
+        if address != DUMMY_REDEEM_ADDRESS:
+            continue
+        new_address = create_new_user_keypair(C.ANT_NAME_UNKNOWN, cur)
+        tx.outputs[index] = (new_address, coin_id, amount)
+        new_redeem_address.add(new_address)
+    tx.serialize()
+    return new_redeem_address
