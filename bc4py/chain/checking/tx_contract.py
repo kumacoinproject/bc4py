@@ -1,9 +1,8 @@
 from bc4py.config import C, V, P, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
-from bc4py.database.builder import builder
 from bc4py.database.tools import get_contract_storage
-from bc4py.contract.utils import binary2contract
+from bc4py.contract.tools import binary2contract
 from bc4py.database.builder import tx_builder
 from nem_ed25519.key import is_address
 import bjson

@@ -1,5 +1,5 @@
 from bc4py import __chain_version__
-from bc4py.config import C, V, BlockChainError
+from bc4py.config import C, V, Debug, BlockChainError
 from bc4py.utils import set_database_path, set_blockchain_params
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
@@ -193,7 +193,7 @@ class Mining:
         for i in range(core):
             try:
                 parent_conn, child_conn = Pipe()
-                params = dict(genesis_block=self.genesis_block, power_save=V.F_MINING_POWER_SAVE, sub_dir=V.SUB_DIR)
+                params = dict(genesis_block=self.genesis_block, power_save=Debug.F_MINING_POWER_SAVE, sub_dir=V.SUB_DIR)
                 process = Process(target=mining_process, name="C-Mining {}".format(i), args=(child_conn, params))
                 # process.daemon = True
                 process.start()

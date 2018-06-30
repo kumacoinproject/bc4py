@@ -1,6 +1,6 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.database.builder import builder, tx_builder
-from bc4py.database.tools import get_usedindex
+from bc4py.database.tools import get_usedindex, get_validator_info
 from bc4py.user import CoinObject
 from nem_ed25519.base import Encryption
 from nem_ed25519.key import is_address
@@ -104,14 +104,15 @@ def validator_check(tx, include_block):
         except BaseException as e:
             raise BlockChainError('Signature verification failed. "{}"'.format(e))
 
+    valid_num = len(validator_cks & signed_cks)
     if include_block:
-        if required_num > len(validator_cks & signed_cks):
+        if required_num > valid_num:
             raise BlockChainError('Not satisfied required sign num. [{}>{}&{}]'
                                   .format(required_num, len(validator_cks), len(signed_cks)))
     else:
-        if already_signed_num >= len(validator_cks & signed_cks):
-            raise BlockChainError('')
-        tx.inner_params['signed_num'] = len(validator_cks & signed_cks)
+        if already_signed_num >= valid_num:
+            raise BlockChainError('Not found any change {}.'.format(tx))
+        tx.inner_params['signed_num'] = valid_num
 
 
 __all__ = [

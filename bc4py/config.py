@@ -98,10 +98,6 @@ class V:  # 起動時に設定される変数
     STAKING_OBJ = None
     PC_OBJ = None
 
-    # logging debug
-    F_MINING_POWER_SAVE = 0.0
-    F_DEBUG = None
-
 
 class P:  # 起動中もダイナミックに変化
     F_VALIDATOR = False  # コントラクト検証者
@@ -110,8 +106,11 @@ class P:  # 起動中もダイナミックに変化
 
 
 class Debug:
-    F_WS_FULL_ERROR_MSG = True
+    F_WS_FULL_ERROR_MSG = False
     F_LIMIT_INCLUDE_TX_IN_BLOCK = 0  # 1blockに入れるTXの最大数(0=無効)
+    F_MINING_POWER_SAVE = 0.0
+    F_SHOW_DIFFICULTY = False
+    F_CONSTANT_DIFF = False
 
 
 class BlockChainError(Exception):

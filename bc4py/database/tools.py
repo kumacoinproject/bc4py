@@ -84,12 +84,11 @@ def get_validator_info(best_block=None):
     assert V.CONTRACT_VALIDATOR_ADDRESS, 'Not found validator address.'
     cs = get_contract_storage(V.CONTRACT_VALIDATOR_ADDRESS, best_block)
     validator_cks = set()
-    for k, v in cs.items():
-        cmd, address = k[0], k[1:].decode()
-        if cmd != 0:
-            pass
-        elif v == b'\x01':
-            validator_cks.add(address)
+    for ck, uuid in cs.items():
+        if len(ck) != 40:
+            continue
+        elif cs.get(b'\x00' + uuid, b'\x00') == b'\x01':
+            validator_cks.add(ck.decode())
     required_num = len(validator_cks) * 3 // 4 + 1
     return validator_cks, required_num
 
@@ -98,36 +97,47 @@ def get_contract_history_iter(c_address, best_block=None):
     # DataBaseより
     last_index = 0
     for dummy, index, start_hash, finish_hash in builder.db.read_contract_iter(c_address):
-        yield index, start_hash, finish_hash, False
-        last_index = index
+        yield index, start_hash, finish_hash, None, False
+        last_index += 1
     # Memoryより
     best_chain = _get_best_chain_all(best_block)
     for block in reversed(best_chain):
         for tx in block.txs:
             if tx.type == C.TX_CREATE_CONTRACT:
-                yield 0, tx.hash, b'\x00'*32, False
+                c_address2, c_bin, c_cs = bjson.loads(tx.message)
+                if c_address == c_address2:
+                    yield 0, tx.hash, b'\x00'*32, tx.height, True
+                    last_index += 1
             elif tx.type == C.TX_START_CONTRACT:
-                last_index += 1
+                c_address2, c_method, c_args, c_redeem = bjson.loads(tx.message)
+                if c_address != c_address2:
+                    continue
                 for finish_tx in block.txs:
                     dummy0, start_hash, dummy1 = bjson.loads(finish_tx.message)
                     if start_hash == tx.hash:
-                        yield last_index, start_hash, finish_tx.hash, False
+                        yield last_index, start_hash, finish_tx.hash, tx.height, True
+                        last_index += 1
                         break
     # Unconfirmedより
     if best_block is None:
         validator_cks, required_num = get_validator_info()
         for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.time):
             if tx.type == C.TX_CREATE_CONTRACT:
-                yield 0, tx.hash, b'\x00'*32, True
-            if tx.type == C.TX_START_CONTRACT:
+                yield 0, tx.hash, b'\x00'*32, None, True
                 last_index += 1
+            if tx.type == C.TX_START_CONTRACT:
+                c_address2, c_method, c_args, c_redeem = bjson.loads(tx.message)
+                if c_address != c_address2:
+                    continue
                 for finish_tx in tx_builder.unconfirmed.values():
                     if len(finish_tx.signature) < required_num:
                         continue
                     dummy0, start_hash, dummy1 = bjson.loads(finish_tx.message)
                     if start_hash == tx.hash:
-                        yield last_index, start_hash, finish_tx.hash, True
+                        yield last_index, start_hash, finish_tx.hash, None, True
+                        last_index += 1
                         break
+    # index, start_hash, finish_hash, height, on_memory
 
 
 def get_contract_storage(c_address, best_block=None):

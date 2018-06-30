@@ -1,5 +1,5 @@
 from bc4py.contract.params import allow_globals, deny_builtins
-from bc4py.contract.dummy_contract import Contract
+from bc4py.contract.c_dummy import Contract
 from bc4py.contract.libs import *
 from bc4py.contract.libs import __all__ as all_libs
 from types import FunctionType, ModuleType

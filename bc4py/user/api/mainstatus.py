@@ -5,6 +5,7 @@ from bc4py.chain.difficulty import get_bits_by_hash, get_pos_bias_by_hash
 from bc4py.database.create import closing, create_db
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.keylock import is_locked_database
+from bc4py.database.tools import get_validator_info
 from bc4py.user.api import web_base
 from binascii import hexlify
 import time
@@ -15,7 +16,7 @@ start_time = int(time.time())
 __api_version__ = '0.0.1'
 
 
-async def get_chain_info(request):
+async def chain_info(request):
     best_height = builder.best_block.height
     best_block = builder.best_block
     old_block_height = builder.best_chain[0].height - 1
@@ -36,7 +37,7 @@ async def get_chain_info(request):
     return web_base.json_res(data)
 
 
-async def get_system_info(request):
+async def system_info(request):
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         cur = db.cursor()
         data = {
@@ -57,12 +58,24 @@ async def get_system_info(request):
                 'status': bool(V.STAKING_OBJ),
                 'threads': V.STAKING_OBJ.getinfo() if V.STAKING_OBJ else None},
             'locked': is_locked_database(cur),
-            'debug': V.F_DEBUG,
+            'validator_address': V.CONTRACT_VALIDATOR_ADDRESS,
             'access_time': int(time.time()),
             'start_time': start_time}
     return web_base.json_res(data)
 
 
+async def validator_info(request):
+    try:
+        validator_cks, required_num = get_validator_info()
+        return web_base.json_res({
+            'validator_address': V.CONTRACT_VALIDATOR_ADDRESS,
+            'validators': list(validator_cks),
+            'all': len(validator_cks),
+            'require': required_num})
+    except BaseException:
+        return web_base.error_res()
+
+
 __all__ = [
-    "get_chain_info", "get_system_info"
+    "chain_info", "system_info", "validator_info"
 ]

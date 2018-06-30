@@ -41,12 +41,25 @@ async def contract_history(request):
     try:
         c_address = request.query['address']
         data = list()
-        for index, start_hash, finish_hash, is_unconfirmed in get_contract_history_iter(c_address):
+        for index, start_hash, finish_hash, height, on_memory in get_contract_history_iter(c_address):
             data.append({
                 'index': index,
-                'unconfirmed': is_unconfirmed,
+                'height': height,
+                'on_memory': on_memory,
                 'start_hash': hexlify(start_hash).decode(),
                 'finish_hash': hexlify(finish_hash).decode()})
+        return web_base.json_res(data)
+    except BaseException:
+        return web_base.error_res()
+
+
+async def contract_storage(request):
+    try:
+        c_address = request.query['address']
+        cs = get_contract_storage(c_address)
+        data = {
+            'storage': {k.decode(errors='ignore'): v.decode(errors='ignore') for k, v in cs.items()},
+            'version': cs.version}
         return web_base.json_res(data)
     except BaseException:
         return web_base.error_res()
@@ -126,6 +139,7 @@ async def contract_start(request):
 __all__ = [
     "contract_detail",
     "contract_history",
+    "contract_storage",
     "source_compile",
     "contract_create",
     "contract_start",

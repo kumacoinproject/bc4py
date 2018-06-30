@@ -53,6 +53,7 @@ def create_rest_server(f_local, port):
             ('test', 'GET or POST', '*args', 'echo GET or POST parameters.'),
             ('getsysteminfo', 'GET', '', 'System info'),
             ('getchaininfo', 'GET', '', 'Chain info'),
+            ('validatorinfo', 'GET', '', 'Validator info.'),
             ('listbalance', 'GET', '[confirm=6]', 'All account balance.'),
             ('listtransactions', 'GET', '[page=0 limit=25]', 'Get account transactions.'),
             ('listunspents', 'GET', '', 'Get all unspent and orphan txhash:txindex pairs.'),
@@ -82,6 +83,7 @@ def create_rest_server(f_local, port):
 
             ('contracthistory', 'GET', '[address]', 'Get contract related txhash(start:finish) pairs.'),
             ('contractdetail', 'GET', '[address]', 'Get contract detail by address.'),
+            ('contractstorage', 'GET', '[address]', 'Get contract storage.'),
             ('sourcecompile', 'POST', '[source OR path] [name=None]', 'Python code to hexstr.'),
             ('contractcreate', 'POST', '[hex] [account=Unknown]', 'register contract to blockchain.'),
             ('contractstart', 'POST', '[address] [data=None] [gas_limit=100000000] [outputs=list()] <BR>\n'
@@ -116,8 +118,9 @@ def create_rest_server(f_local, port):
         return web.Response(text='Not found method.', status=400)
 
     # Base
-    app.router.add_get('/api/getsysteminfo', get_system_info)
-    app.router.add_get('/api/getchaininfo', get_chain_info)
+    app.router.add_get('/api/getsysteminfo', system_info)
+    app.router.add_get('/api/getchaininfo', chain_info)
+    app.router.add_get('/api/validatorinfo', validator_info)
     # Account
     app.router.add_get('/api/listbalance', list_balance)
     app.router.add_get('/api/listtransactions', list_transactions)
@@ -139,6 +142,7 @@ def create_rest_server(f_local, port):
     # Contract
     app.router.add_get('/api/contracthistory', contract_history)
     app.router.add_get('/api/contractdetail', contract_detail)
+    app.router.add_get('/api/contractstorage', contract_storage)
     app.router.add_post('/api/sourcecompile', source_compile)
     app.router.add_post('/api/contractcreate', contract_create)
     app.router.add_post('/api/contractstart', contract_start)
