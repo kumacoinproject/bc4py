@@ -17,8 +17,6 @@ class BroadcastCmd:
 
     @staticmethod
     def new_block(data):
-        if P.F_NOW_BOOTING:
-            return False
         try:
             new_block = fill_newblock_info(data)
             if new_insert_block(new_block, time_check=True):
@@ -36,8 +34,6 @@ class BroadcastCmd:
 
     @staticmethod
     def new_tx(data):
-        if P.F_NOW_BOOTING:
-            return False
         try:
             new_tx = TX(binary=data['tx'])
             new_tx.signature = data['sign']
@@ -48,10 +44,10 @@ class BroadcastCmd:
             logging.info("Accept new tx {}".format(new_tx))
             return True
         except BlockChainError as e:
-            logging.error('Failed accept new block "{}"'.format(e))
+            logging.error('Failed accept new tx "{}"'.format(e))
             return False
         except BaseException:
-            logging.error("Failed accept new block", exc_info=True)
+            logging.error("Failed accept new tx", exc_info=True)
             return False
 
 

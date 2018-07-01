@@ -3,7 +3,8 @@
 
 from bc4py.config import V, BlockChainError
 from bc4py.database.create import closing, create_db
-from bc4py.database.account import read_address2keypair
+from bc4py.database.account import read_address2keypair, read_address2user
+from bc4py.database.tools import get_validator_info
 from nem_ed25519.base import Encryption
 
 
@@ -17,3 +18,13 @@ def message2signature(raw, address):
     ecc = Encryption()
     ecc.sk, ecc.pk = sk, pk
     return pk, ecc.sign(msg=raw, encode='raw')
+
+
+def im_a_validator(best_block=None):
+    validator_cks, required_num = get_validator_info(best_block)
+    with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+        cur = db.cursor()
+        for address in validator_cks:
+            if read_address2user(address, cur):
+                return True
+    return False

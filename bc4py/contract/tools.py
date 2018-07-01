@@ -41,8 +41,8 @@ def _import_lack_modules(c_bin):
                 sys.modules[module] = Contract
 
 
-def binary2contract(c_bin):
-    f_globals = _limited_globals({n: globals()[n] for n in all_libs})
+def binary2contract(c_bin, limit_global=True):
+    f_globals = _limited_globals({n: globals()[n] for n in all_libs}) if limit_global else globals()
 
     def dummy_create_type(*args):
         return args
@@ -63,14 +63,15 @@ def binary2contract(c_bin):
     return c_obj
 
 
-def string2contract(string):
+def string2contract(string, limit_global=True):
     code_obj = compile(string, "Contract", 'exec')
     f_type = type(ModuleType)
-    class_element = code_obj.co_consts[0].co_consts
+    code_idx = code_obj.co_consts.index('Contract') - 1
+    class_element = code_obj.co_consts[code_idx].co_consts
     f_name = class_element[0]
     f_obj = (object,)
     f_dict = {'__module__': '__main__', '__doc__': None}
-    f_globals = _limited_globals({n: globals()[n] for n in all_libs})
+    f_globals = _limited_globals({n: globals()[n] for n in all_libs}) if limit_global else globals()
     f_defaults = f_closure = None
     for code in class_element:
         if type(code_obj) == type(code):
@@ -79,14 +80,14 @@ def string2contract(string):
     return f_type(f_name, f_obj, f_dict)
 
 
-def path2contract(path):
+def path2contract(path, limit_global=True):
     if not os.path.exists(path):
         raise FileNotFoundError('Not found "{}"'.format(path))
     elif os.path.isdir(path):
         raise TypeError('Is not file "{}"'.format(path))
     with open(path, mode='r') as fp:
         string = fp.read()
-    return string2contract(string)
+    return string2contract(string, limit_global)
 
 
 def contract2binary(obj):

@@ -1,12 +1,14 @@
 from bc4py.config import C, V, P, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
+from bc4py.user.utils import im_a_validator
 from bc4py.database.tools import get_contract_storage
 from bc4py.contract.tools import binary2contract
 from bc4py.database.builder import tx_builder
 from nem_ed25519.key import is_address
 import bjson
 import logging
+import threading
 
 
 def check_tx_create_contract(tx: TX, include_block: Block):
@@ -67,10 +69,11 @@ def check_tx_start_contract(start_tx: TX, include_block: Block):
             raise BlockChainError('Find some FinishTX on block. {}'.format(count))
 
     else:
-        pass
-    # TODO: Validatorとしてチェックし、FinishTXを発行
-    if P.F_VALIDATOR:
-        pass
+        # TODO: Validatorとしてチェックし、FinishTXを発行
+        if P.F_VALIDATOR and im_a_validator(include_block):
+            def check():
+                pass
+            threading.Thread(target=check, name='Validate').start()
 
 
 def get_start_by_finish_tx(finish_tx, start_hash, include_block):

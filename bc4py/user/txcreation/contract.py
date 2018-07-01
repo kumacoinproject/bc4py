@@ -5,6 +5,7 @@ from bc4py.chain.utils import check_output_format
 from bc4py.database.account import create_new_user_keypair, insert_log
 from bc4py.user import CoinObject, UserCoins
 from bc4py.user.txcreation.utils import *
+from nem_ed25519.key import convert_address
 import time
 import bjson
 
@@ -19,7 +20,8 @@ def create_contract_tx(c_bin, cur, sender=C.ANT_UNKNOWN,
             assert isinstance(v, bytes), 'Value is bytes.'
     # TXを作成
     now = int(time.time()) - V.BLOCK_GENESIS_TIME
-    c_address = create_new_user_keypair(C.ANT_NAME_CONTRACT, cur)
+    ck = create_new_user_keypair(C.ANT_NAME_CONTRACT, cur)
+    c_address = convert_address(ck, V.BLOCK_CONTRACT_PREFIX)
     message = bjson.dumps((c_address, c_bin, c_cs), compress=False)
     tx = TX(tx={
         'version': __chain_version__,

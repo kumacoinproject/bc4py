@@ -253,6 +253,7 @@ def get_usedindex(txhash, best_block=None):
 __all__ = [
     "get_mintcoin",
     "get_contract_binary",
+    "get_validator_info",
     "get_contract_history_iter",
     "get_contract_storage",
     "get_utxo_iter",

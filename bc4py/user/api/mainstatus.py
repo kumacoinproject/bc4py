@@ -6,6 +6,7 @@ from bc4py.database.create import closing, create_db
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.keylock import is_locked_database
 from bc4py.database.tools import get_validator_info
+from bc4py.user.utils import im_a_validator
 from bc4py.user.api import web_base
 from binascii import hexlify
 import time
@@ -68,6 +69,7 @@ async def validator_info(request):
     try:
         validator_cks, required_num = get_validator_info()
         return web_base.json_res({
+            'im_a_validator': im_a_validator(),
             'validator_address': V.CONTRACT_VALIDATOR_ADDRESS,
             'validators': list(validator_cks),
             'all': len(validator_cks),

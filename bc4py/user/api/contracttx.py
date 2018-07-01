@@ -70,9 +70,9 @@ async def source_compile(request):
     try:
         if 'source' in post:
             source = str(post['source'])
-            c_obj = string2contract(source)
+            c_obj = string2contract(source, limit_global=False)
         elif 'path' in post:
-            c_obj = path2contract(path=post['path'])
+            c_obj = path2contract(path=post['path'], limit_global=False)
         else:
             raise BaseException('You need set "source" or "path".')
         c_bin = contract2binary(c_obj)
@@ -94,7 +94,7 @@ async def contract_create(request):
             c_cs = {k.encode(errors='ignore'): v.encode(errors='ignore')
                     for k, v in post.get('c_cs', dict()).items()}
             binary2contract(c_bin)  # can compile?
-            sender_name = post.get('account', C.ANT_UNKNOWN)
+            sender_name = post.get('account', C.ANT_NAME_UNKNOWN)
             sender_id = read_name2user(sender_name, cur)
             c_address, c_tx = create_contract_tx(c_bin, cur, sender_id, c_cs)
             if not send_newtx(new_tx=c_tx, outer_cur=cur):
