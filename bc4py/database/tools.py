@@ -113,6 +113,8 @@ def get_contract_history_iter(c_address, best_block=None):
                 if c_address != c_address2:
                     continue
                 for finish_tx in block.txs:
+                    if finish_tx.type != C.TX_FINISH_CONTRACT:
+                        continue
                     dummy0, start_hash, dummy1 = bjson.loads(finish_tx.message)
                     if start_hash == tx.hash:
                         yield last_index, start_hash, finish_tx.hash, tx.height, True
@@ -131,6 +133,8 @@ def get_contract_history_iter(c_address, best_block=None):
                     continue
                 for finish_tx in tx_builder.unconfirmed.values():
                     if len(finish_tx.signature) < required_num:
+                        continue
+                    elif finish_tx.type != C.TX_FINISH_CONTRACT:
                         continue
                     dummy0, start_hash, dummy1 = bjson.loads(finish_tx.message)
                     if start_hash == tx.hash:

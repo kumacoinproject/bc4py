@@ -69,11 +69,8 @@ def check_tx_start_contract(start_tx: TX, include_block: Block):
             raise BlockChainError('Find some FinishTX on block. {}'.format(count))
 
     else:
-        # TODO: Validatorとしてチェックし、FinishTXを発行
         if P.F_VALIDATOR and im_a_validator(include_block):
-            def check():
-                pass
-            threading.Thread(target=check, name='Validate').start()
+            P.VALIDATOR_QUE.put_unvalidated(start_tx)
 
 
 def get_start_by_finish_tx(finish_tx, start_hash, include_block):

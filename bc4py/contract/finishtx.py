@@ -38,7 +38,7 @@ def failed_finish_tx(start_tx):
         'message': message})
 
 
-def finish_contract_tx(start_tx, cur, f_limit=True):
+def finish_contract_tx(start_tx, f_limit=True):
     assert start_tx.height is None, 'StartTX height is None.'
     assert P.F_VALIDATOR, 'You are not a validator.'
     c_address, c_data, c_args, c_redeem = bjson.loads(start_tx.message)
@@ -84,17 +84,17 @@ def finish_contract_tx(start_tx, cur, f_limit=True):
     # fill input/output
     # TODO: c_redeemを用いてFeeを還元
     redeem_gas = start_tx.gas_amount - start_tx.getsize() - estimate_gas
-    if not fill_inputs_outputs(finish_tx, c_address, start_tx.hash, cur, redeem_gas):
+    if not fill_inputs_outputs(finish_tx, c_address, start_tx.hash, redeem_gas):
         return failed_finish_tx(start_tx), estimate_gas
     redeem_idx = finish_tx.outputs.index(to_user_redeem)
     redeem_amount = -1 * finish_tx.gas_amount * finish_tx.gas_price
     finish_tx.outputs[redeem_idx] = (c_redeem, 0, redeem_amount)
-    replace_redeem_dummy_address(finish_tx, cur)
+    replace_redeem_dummy_address(finish_tx, c_address)
     finish_tx.serialize()
     return finish_tx, estimate_gas
 
 
-def fill_inputs_outputs(finish_tx, c_address, start_hash, cur, redeem_gas, dust_percent=0.8):
+def fill_inputs_outputs(finish_tx, c_address, start_hash, redeem_gas, dust_percent=0.8):
     assert finish_tx.gas_price > 0, "Gas params is none zero."
     # outputsの合計を取得
     output_coins = CoinObject()
@@ -126,7 +126,7 @@ def fill_inputs_outputs(finish_tx, c_address, start_hash, cur, redeem_gas, dust_
         if f_dust_skipped and dust_percent > 0.1:
             new_dust_percent = round(dust_percent * 0.8, 4)
             logging.debug("Retry by lower dust percent. {}=>{}".format(dust_percent, new_dust_percent))
-            return fill_inputs_outputs(finish_tx, c_address, start_hash, cur, redeem_gas, new_dust_percent)
+            return fill_inputs_outputs(finish_tx, c_address, start_hash, redeem_gas, new_dust_percent)
         # 失敗に変更
         logging.debug('Insufficient balance. inputs={} needs={}'.format(input_coins, need_coins))
         return False
@@ -149,16 +149,12 @@ def fill_inputs_outputs(finish_tx, c_address, start_hash, cur, redeem_gas, dust_
         logging.debug("Retry calculate tx fee. [{}=>{}+{}={}]".format(
             finish_tx.gas_amount, finish_tx.getsize(), redeem_gas, need_gas_amount))
         finish_tx.gas_amount = need_gas_amount
-        return fill_inputs_outputs(finish_tx, c_address, start_hash, cur, redeem_gas, dust_percent)
+        return fill_inputs_outputs(finish_tx, c_address, start_hash, redeem_gas, dust_percent)
 
 
-def replace_redeem_dummy_address(tx, cur):
-    new_redeem_address = set()
+def replace_redeem_dummy_address(tx, c_address):
     for index, (address, coin_id, amount) in enumerate(tx.outputs):
         if address != DUMMY_REDEEM_ADDRESS:
             continue
-        new_address = create_new_user_keypair(C.ANT_NAME_UNKNOWN, cur)
-        tx.outputs[index] = (new_address, coin_id, amount)
-        new_redeem_address.add(new_address)
+        tx.outputs[index] = (c_address, coin_id, amount)
     tx.serialize()
-    return new_redeem_address

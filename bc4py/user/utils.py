@@ -26,5 +26,5 @@ def im_a_validator(best_block=None):
         cur = db.cursor()
         for address in validator_cks:
             if read_address2user(address, cur):
-                return True
-    return False
+                return address
+    return None

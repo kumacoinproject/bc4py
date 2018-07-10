@@ -117,20 +117,27 @@ async def contract_start(request):
             c_method = post['method']
             c_args = post.get('args', None)
             outputs = post.get('outputs', list())
-            account = post.get('account', C.ANT_UNKNOWN)
+            account = post.get('account', C.ANT_NAME_UNKNOWN)
             user_id = read_name2user(account, cur)
             # TX作成
             outputs = [(address, coin_id, amount) for address, coin_id, amount in outputs]
-            start_tx = start_contract_tx(c_address, c_method, c_args, cur, outputs, user_id)
+            start_tx = start_contract_tx(c_address, c_method, cur, c_args, outputs, user_id)
             # 送信
             if not send_newtx(new_tx=start_tx, outer_cur=cur):
                 raise BaseException('Failed to send new tx.')
             db.commit()
-            data = start_tx.getinfo()
-            data['c_address'] = c_address
-            data['fee'] = start_tx.gas_price * start_tx.gas_amount
-            data['method'] = c_method
-            data['args'] = c_args
+            data = {
+                'txhash': hexlify(start_tx.hash).decode(),
+                'time': start_tx.time,
+                'c_address': c_address,
+                'fee': {
+                    'gas_price': start_tx.gas_price,
+                    'gas_amount': start_tx.gas_amount,
+                    'total': start_tx.gas_price * start_tx.gas_amount},
+                'params': {
+                    'method': c_method,
+                    'args': c_args}
+            }
             return web_base.json_res(data)
         except BaseException:
             return web_base.error_res()
