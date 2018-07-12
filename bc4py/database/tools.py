@@ -161,24 +161,31 @@ def get_contract_storage(c_address, best_block=None):
     for block in reversed(best_chain):
         for tx in block.txs:
             if tx.type == C.TX_CREATE_CONTRACT:
-                dummy, c_bin, c_cs = bjson.loads(tx.message)
-                cs.key_value = c_cs or dict()
-            if tx.type == C.TX_START_CONTRACT:
+                check_address, c_bin, c_cs = bjson.loads(tx.message)
+                if c_address == check_address:
+                    cs.key_value = c_cs or dict()
+            elif tx.type == C.TX_START_CONTRACT:
                 pass
             elif tx.type == C.TX_FINISH_CONTRACT:
-                c_status, dummy, c_diff = bjson.loads(tx.message)
-                cs.marge(c_diff)
+                c_status, start_hash, c_diff = bjson.loads(tx.message)
+                start_tx = tx_builder.get_tx(start_hash)
+                check_address, c_bin, c_cs = bjson.loads(start_tx.message)
+                if c_address == check_address:
+                    cs.marge(c_diff)
     # Unconfirmedより
     if best_block is None:
         for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.time):
             if tx.type == C.TX_CREATE_CONTRACT:
-                dummy, c_bin, c_cs = bjson.loads(tx.message)
+                check_address, c_bin, c_cs = bjson.loads(tx.message)
                 cs.key_value = c_cs or dict()
-            if tx.type == C.TX_START_CONTRACT:
+            elif tx.type == C.TX_START_CONTRACT:
                 pass
             elif tx.type == C.TX_FINISH_CONTRACT:
-                c_status, dummy, c_diff = bjson.loads(tx.message)
-                cs.marge(c_diff)
+                c_status, start_hash, c_diff = bjson.loads(tx.message)
+                start_tx = tx_builder.get_tx(start_hash)
+                check_address, c_bin, c_cs = bjson.loads(start_tx.message)
+                if c_address == check_address:
+                    cs.marge(c_diff)
     return cs
 
 

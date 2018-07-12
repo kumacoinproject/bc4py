@@ -2,7 +2,7 @@ from bc4py.config import C, V, P, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.user.utils import im_a_validator
-from bc4py.database.tools import get_contract_storage
+from bc4py.database.tools import get_contract_storage, get_contract_binary
 from bc4py.contract.tools import binary2contract
 from bc4py.database.builder import tx_builder
 from nem_ed25519.key import is_address
@@ -69,8 +69,11 @@ def check_tx_start_contract(start_tx: TX, include_block: Block):
             raise BlockChainError('Find some FinishTX on block. {}'.format(count))
 
     else:
+        c_address, c_method, c_args, c_redeem = bjson.loads(start_tx.message)
+        get_contract_binary(c_address)
         if P.F_VALIDATOR and im_a_validator(include_block):
             P.VALIDATOR_QUE.put_unvalidated(start_tx)
+            logging.debug("Add validator que {}".format(start_tx))
 
 
 def get_start_by_finish_tx(finish_tx, start_hash, include_block):

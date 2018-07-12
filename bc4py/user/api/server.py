@@ -72,6 +72,7 @@ def create_rest_server(f_local, port):
             ('changeminttx', 'POST', '[mint_id] [amount=0] [message=None] [image=None]<BR>\n'
                                      '[additional_issue=None] [group=Unknown]', 'Chainge mintcoin.'),
             ('newaddress', 'GET', '[account=Unknown]', 'Get new bind account address.'),
+            ('getkeypair', 'GET', '[address]', 'Get priKey:pubKey by address.'),
 
             ('createrawtx', 'POST', '[version=1] [type=TRANSFER] [time=now] [deadline=now+10800] <BR>\n'
                                     '[inputs:list((txhash, txindex),..)] <BR>\n'
@@ -131,6 +132,7 @@ def create_rest_server(f_local, port):
     app.router.add_post('/api/move', move_one)
     app.router.add_post('/api/movemany', move_many)
     app.router.add_get('/api/newaddress', new_address)
+    app.router.add_get('/api/getkeypair', get_keypair)
     # Sending
     app.router.add_post('/api/createrawtx', create_raw_tx)
     app.router.add_post('/api/signrawtx', sign_raw_tx)

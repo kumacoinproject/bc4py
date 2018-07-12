@@ -100,9 +100,14 @@ async def contract_create(request):
             if not send_newtx(new_tx=c_tx, outer_cur=cur):
                 raise BaseException('Failed to send new tx.')
             db.commit()
-            data = c_tx.getinfo()
-            data['c_address'] = c_address
-            data['fee'] = c_tx.gas_price * c_tx.gas_amount
+            data = {
+                'txhash': hexlify(c_tx.hash).decode(),
+                'c_address': c_address,
+                'time': c_tx.time,
+                'fee': {
+                    'gas_price': c_tx.gas_price,
+                    'gas_amount': c_tx.gas_amount,
+                    'total': c_tx.gas_price * c_tx.gas_amount}}
             return web_base.json_res(data)
         except BaseException:
             return web_base.error_res()
