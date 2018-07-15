@@ -380,10 +380,11 @@ class ChainBuilder:
                 logging.debug("UserAccount batched at {} height.".format(block.height))
         # import from starter.dat
         self.root_block = before_block
-        self.load_starter()
-        batch_blocks.append(self.best_block)
-        self.chain[self.best_block.hash] = self.best_block
-        self.best_chain = [self.best_block]
+        memorized_blocks, self.best_block = self.load_starter(before_block)
+        for block in memorized_blocks:
+            batch_blocks.append(block)
+            self.chain[block.hash] = block
+        self.best_chain = list(reversed(memorized_blocks))
         # UserAccount update
         user_account.new_batch_apply(batch_blocks)
         user_account.init()
@@ -391,20 +392,30 @@ class ChainBuilder:
                      .format(before_block, round(time.time()-t, 3)))
 
     def save_starter(self):
-        with open(os.path.join(V.DB_HOME_DIR, 'db', 'starter.dat'), mode='bw') as fp:
+        for index in reversed(range(3)):
+            target_path = os.path.join(V.DB_HOME_DIR, 'db', 'starter.{}.dat'.format(index))
+            if os.path.exists(target_path):
+                old_file_path = os.path.join(V.DB_HOME_DIR, 'db', 'starter.{}.dat'.format(index+1))
+                if os.path.exists(old_file_path):
+                    os.remove(old_file_path)
+                os.rename(target_path, old_file_path)
+        with open(os.path.join(V.DB_HOME_DIR, 'db', 'starter.0.dat'), mode='bw') as fp:
             pickle.dump(self.best_chain, fp, protocol=4)
 
-    def load_starter(self):
-        try:
-            with open(os.path.join(V.DB_HOME_DIR, 'db', 'starter.dat'), mode='br') as fp:
-                for block in pickle.load(fp):
-                    if self.root_block.hash == block.previous_hash:
-                        self.best_block = block
-                        break
-                else:
-                    raise Exception('Cannot init, not found next block. root={}'.format(self.root_block))
-        except FileNotFoundError:
-            return list()
+    def load_starter(self, root_block):
+        memorized_blocks = list()
+        for index in range(3):
+            target_path = os.path.join(V.DB_HOME_DIR, 'db', 'starter.{}.dat'.format(index))
+            if os.path.exists(target_path):
+                with open(target_path, mode='br') as fp:
+                    for block in reversed(pickle.load(fp)):
+                        if root_block.hash == block.previous_hash:
+                            memorized_blocks.append(block)
+                            root_block = block
+            if len(memorized_blocks) > 0:
+                logging.debug("Load {} blocks, best={}".format(len(memorized_blocks), root_block))
+                return memorized_blocks, root_block
+        raise BlockBuilderError("Failed load block from file, cannot find starter.n.dat?")
 
     def get_best_chain(self, best_block=None):
         assert self.root_block, 'Do not init.'

@@ -56,6 +56,8 @@ def work(port, sub_dir):
     # for debug node
     if port != 2000 and pc.p2p.create_connection('127.0.0.1', 2000):
         logging.info("Connect!")
+    else:
+        pc.p2p.create_connection('127.0.0.1', 2001)
 
     for host, port in connections:
         pc.p2p.create_connection(host, port)
