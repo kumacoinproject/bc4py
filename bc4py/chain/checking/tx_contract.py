@@ -45,6 +45,8 @@ def check_tx_start_contract(start_tx: TX, include_block: Block):
     c_address, c_data, c_args, c_redeem = bjson.loads(start_tx.message)
     if not is_address(c_address, V.BLOCK_CONTRACT_PREFIX):
         raise BlockChainError('Is not contract address. {}'.format(c_address))
+    elif not (c_args is None or isinstance(c_args, list) or isinstance(c_args, tuple)):
+        raise BlockChainError('c_args is {}'.format(type(c_args)))
     elif not is_address(c_redeem, V.BLOCK_PREFIX):
         raise BlockChainError('Is not redeem address. {}'.format(c_redeem))
     elif start_tx.gas_price < V.COIN_MINIMUM_PRICE:
@@ -71,9 +73,9 @@ def check_tx_start_contract(start_tx: TX, include_block: Block):
     else:
         c_address, c_method, c_args, c_redeem = bjson.loads(start_tx.message)
         get_contract_binary(c_address)
-        if P.F_VALIDATOR and im_a_validator(include_block):
-            P.VALIDATOR_QUE.put_unvalidated(start_tx)
-            logging.debug("Add validator que {}".format(start_tx))
+        if P.VALIDATOR_OBJ and im_a_validator(include_block):
+            P.VALIDATOR_OBJ.put_unvalidated(start_tx)
+            logging.debug("Add validation que {}".format(start_tx))
 
 
 def get_start_by_finish_tx(finish_tx, start_hash, include_block):

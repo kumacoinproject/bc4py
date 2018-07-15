@@ -28,7 +28,7 @@ class Validator:
 
     def put_unvalidated(self, tx):
         if tx.hash in self.tx_validated:
-            raise BlockChainError('Already validated tx {}'.format(tx))
+            return  # Already validated tx
         with self.lock:
             self.tx_unvalidated[tx.hash] = tx
 
@@ -47,13 +47,12 @@ class Validator:
 
 
 def setup_as_validator():
-    assert P.F_VALIDATOR is False, 'Already enabled Validator.'
+    assert not P.VALIDATOR_OBJ, 'Already enabled Validator.'
     v_address = im_a_validator()
     if not v_address:
         logging.warning("You are not a validator.")
         return
-    P.F_VALIDATOR = True
-    P.VALIDATOR_QUE = Validator()
+    P.VALIDATOR_OBJ = Validator()
     threading.Thread(target=_loop, name='Validate', args=(v_address,)).start()
 
 
@@ -62,26 +61,28 @@ def _loop(v_address):
         time.sleep(2)
     for tx in tx_builder.unconfirmed.values():
         if tx.type == C.TX_START_CONTRACT:
-            P.VALIDATOR_QUE.put_unvalidated(tx)
+            P.VALIDATOR_OBJ.put_unvalidated(tx)
+
+    # check validated start tx
     for tx in tx_builder.unconfirmed.values():
         if tx.type == C.TX_FINISH_CONTRACT:
-            # TODO: 既にValidateしていないか
             c_result, start_hash, cs_diff = bjson.loads(tx.message)
-            start_tx = P.VALIDATOR_QUE[start_hash]
+            start_tx = P.VALIDATOR_OBJ[start_hash]
             if start_tx:
                 sign_pair = message2signature(tx.b, v_address)
                 if sign_pair in tx.signature:
-                    P.VALIDATOR_QUE.put_validated(tx)
-                else:
-                    # TODO:Validateして公開する
-                    pass
+                    P.VALIDATOR_OBJ.put_validated(start_tx)
+
     logging.info("Enabled validator mode [{}].".format(v_address))
     while True:
-        for start_tx in P.VALIDATOR_QUE.get_unvalidated():
+        for start_tx in P.VALIDATOR_OBJ.get_unvalidated():
             finish_tx, estimate_gas = finish_contract_tx(start_tx)
-            P.VALIDATOR_QUE.put_validated(start_tx)
+            P.VALIDATOR_OBJ.put_validated(start_tx)
+            finish_tx.signature.append(message2signature(finish_tx.b, v_address))
             print(estimate_gas, finish_tx)
+            logging.info("Validated! {}".format(finish_tx))
             time.sleep(1)
+        time.sleep(1)
 
 
 __all__ = [

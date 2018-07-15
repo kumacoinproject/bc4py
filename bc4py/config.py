@@ -100,8 +100,7 @@ class V:  # 起動時に設定される変数
 
 
 class P:  # 起動中もダイナミックに変化
-    F_VALIDATOR = False  # コントラクト検証者
-    VALIDATOR_QUE = None  # Validation request
+    VALIDATOR_OBJ = None  # Validation request
     F_NOW_BOOTING = True  # 起動中
     NEW_CHAIN_INFO_QUE = None  # API streaming
 

@@ -6,7 +6,6 @@ from bc4py.database.tools import *
 from bc4py.database.account import *
 from bc4py.user.network.sendnew import send_newtx
 from bc4py.user.api import web_base
-from aiohttp import web
 from binascii import hexlify, unhexlify
 
 

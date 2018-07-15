@@ -11,7 +11,7 @@ TYPE_STOP_ITERATION = 'StopIteration'
 number = 0
 
 
-def create_connection(timeout=None):
+def create_remote_conn(timeout=None):
     global number
     queue = multiprocessing.Queue()
     threading.Thread(
@@ -83,5 +83,5 @@ class Interface:
 
 
 __all__ = [
-    "create_connection"
+    "create_remote_conn"
 ]

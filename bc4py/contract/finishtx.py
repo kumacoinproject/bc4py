@@ -40,7 +40,7 @@ def failed_finish_tx(start_tx):
 
 def finish_contract_tx(start_tx, f_limit=True):
     assert start_tx.height is None, 'StartTX height is None.'
-    assert P.F_VALIDATOR, 'You are not a validator.'
+    assert P.VALIDATOR_OBJ, 'You are not a validator.'
     c_address, c_data, c_args, c_redeem = bjson.loads(start_tx.message)
     if f_limit:
         gas_limit = start_tx.gas_amount - start_tx.getsize()

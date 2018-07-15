@@ -16,8 +16,7 @@ import io
 
 CMD_ERROR = 0
 CMD_SUCCESS = 1
-CMD_MODULE = 3
-CMD_PORT = 4
+CMD_PORT = 3
 
 EMU_STEP = 'step'
 EMU_NEXT = 'next'
@@ -34,14 +33,13 @@ def _work(params, start_tx, que):
         que.put((CMD_PORT, virtual_machine.port))
         virtual_machine.server_start()
         c_obj = binary2contract(params['c_bin'])
-        file_path = c_obj.__code__.co_filename
-        module_name = os.path.split(file_path)[1]
-        que.put((CMD_MODULE, module_name))
         # remote emulate
         virtual_machine.set_trace()
-        result = exe(c_obj=c_obj, start_tx=start_tx, c_address=params['c_address'],
-                     method=params['c_method'], args=params['args'])
+        obj = c_obj(start_tx, params['c_address'])
+        fnc = getattr(obj, params['c_method'])
+        result = fnc(*params['args'])
         que.put((CMD_SUCCESS, result))
+        virtual_machine.do_quit('quit')
     except BaseException:
         tb = traceback.format_exc()
         que.put((CMD_ERROR, str(tb)))
@@ -50,7 +48,7 @@ def _work(params, start_tx, que):
 def try_emulate(start_tx, gas_limit=None, out=None):
     start_time = time.time()
     que = Queue()
-    out = out or io.StringIO()
+    # out = out or io.StringIO()
     c_address, c_method, c_args, c_redeem = bjson.loads(start_tx.message)
     c_bin = get_contract_binary(c_address)
     assert c_bin, 'Not found c_bin of {}'.format(c_address)
@@ -69,10 +67,7 @@ def try_emulate(start_tx, gas_limit=None, out=None):
     line = fee = 0
     cmd = EMU_STEP
     error = None
-    que_cmd, module_name = que.get(timeout=10)
-    if que_cmd != CMD_MODULE:
-        raise TypeError('Not correct command="{}" data="{}"'.format(que_cmd, module_name))
-    logging.debug("Start {} contract port={}.".format(module_name, port))
+    logging.debug("Start contract emulate port={}".format(port))
     while True:
         try:
             msg_list = sock.recv(8192).decode(errors='ignore').replace("\r", "").split("\n")
@@ -87,10 +82,11 @@ def try_emulate(start_tx, gas_limit=None, out=None):
             elif cmd in (EMU_STEP, EMU_NEXT, EMU_UNTIL, EMU_RETURN):
                 msg_list, path, words = msg_list[:-3], msg_list[-3][2:], msg_list[-2][3:]
                 file = os.path.split(path)[1]
+                print(file, words, path)
                 if file.startswith('exe.py') and file.endswith('work_field()'):
                     cmd = EMU_STEP  # Start!
-                    print("start contract {}".format(module_name), file=out)
-                elif file.startswith(module_name) and file.endswith('contract()'):
+                    print("start contract {}", file=out)
+                elif file.startswith('contract('):
                     line += 1
                     fee += 1
                     cmd = EMU_STEP
@@ -115,6 +111,7 @@ def try_emulate(start_tx, gas_limit=None, out=None):
     # Close emulation
     try:
         que_cmd, result = que.get_nowait()
+        print(result)
         try: que.close()
         except: pass
         try: p.terminate()

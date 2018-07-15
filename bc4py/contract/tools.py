@@ -12,11 +12,6 @@ import sys
 import logging
 
 
-def exe(c_obj, start_tx, c_address, method, args):
-    obj = c_obj(start_tx, c_address)
-    return getattr(obj, method)(*args)
-
-
 def _limited_globals(extra=None):
     g = extra if extra else dict()
     for n in allow_globals:
@@ -105,7 +100,6 @@ def contract2dis(obj):
 
 
 __all__ = [
-    "exe",
     "binary2contract", "string2contract", "path2contract",
     "contract2binary", "contract2dis"
 ]
