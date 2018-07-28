@@ -59,7 +59,6 @@ async def system_info(request):
                 'status': bool(V.STAKING_OBJ),
                 'threads': V.STAKING_OBJ.getinfo() if V.STAKING_OBJ else None},
             'locked': is_locked_database(cur),
-            'validator_address': V.CONTRACT_VALIDATOR_ADDRESS,
             'access_time': int(time.time()),
             'start_time': start_time}
     return web_base.json_res(data)

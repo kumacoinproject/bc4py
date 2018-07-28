@@ -15,9 +15,9 @@ c_data
 cmd, dataのtuple
  :cmd        :data
 deposit      address
-withdraw     (address, message, signature, amount)
-lock         (address, message, signature)
-unlock       (address, message, signature)
+withdraw     (address, message, sign, amount)
+lock         (address, message, sign)
+unlock       (address, message, sign)
 """
 
 # TODO: 設計
@@ -27,3 +27,15 @@ class Contract:
     def __init__(self, start_tx, c_address):
         self.start_tx = start_tx
         self.c_address = c_address
+
+    def deposit(self, address):
+        pass
+
+    def withdraw(self, address, message, sign, amount):
+        pass
+
+    def lock(self, address, message, sign):
+        pass
+
+    def unlock(self, address, message, sign):
+        pass
