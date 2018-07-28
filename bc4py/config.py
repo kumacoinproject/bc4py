@@ -56,10 +56,10 @@ class C:  # 起動中に変更してはいけない
     ANT_NAME_CONTRACT = '@Contract'
 
     # Block/TX/Fee limit
-    ACCEPT_MARGIN_TIME = 30  # 新規データ受け入れ時間マージンSec
+    ACCEPT_MARGIN_TIME = 60  # 新規データ受け入れ時間マージンSec
     SIZE_BLOCK_LIMIT = 1000*1000  # 1Mb block
     SIZE_TX_LIMIT = 200*1000  # 200kb tx
-    CASHE_LIMIT = 20  # Memoryに置く最大Block数、実質Reorg制限
+    CASHE_LIMIT = 100  # Memoryに置く最大Block数、実質Reorg制限
     BATCH_SIZE = 10
     MINTCOIN_FEE = 10 * 1000000  # 新規Mintcoin発行GasFee
     CONTRACT_CREATE_FEE = 10 * 1000000  # コントラクト作成GasFee
@@ -72,7 +72,7 @@ class V:  # 起動時に設定される変数
     BLOCK_CONTRACT_PREFIX = None
     BLOCK_GENESIS_TIME = None
     BLOCK_TIME_SPAN = None
-    BLOCK_HALVING_SPAN = None
+    BLOCK_ALL_SUPPLY = None
     BLOCK_REWARD = None
     BLOCK_CONSENSUS = None
     BLOCK_POW_RATIO = None
@@ -98,20 +98,19 @@ class V:  # 起動時に設定される変数
     STAKING_OBJ = None
     PC_OBJ = None
 
-    # logging debug
-    F_MINING_POWER_SAVE = 0.0
-    F_DEBUG = None
-
 
 class P:  # 起動中もダイナミックに変化
-    F_VALIDATOR = False  # コントラクト検証者
+    VALIDATOR_OBJ = None  # Validation request
     F_NOW_BOOTING = True  # 起動中
     NEW_CHAIN_INFO_QUE = None  # API streaming
 
 
 class Debug:
-    F_WS_FULL_ERROR_MSG = True
+    F_WS_FULL_ERROR_MSG = False
     F_LIMIT_INCLUDE_TX_IN_BLOCK = 0  # 1blockに入れるTXの最大数(0=無効)
+    F_MINING_POWER_SAVE = 0.0
+    F_SHOW_DIFFICULTY = False
+    F_CONSTANT_DIFF = False
 
 
 class BlockChainError(Exception):

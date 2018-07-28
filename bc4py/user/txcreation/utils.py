@@ -1,8 +1,8 @@
 from bc4py.user.utils import message2signature
 from bc4py.config import C, BlockChainError
-from bc4py.database.builder import builder, tx_builder, user_account
-from bc4py.database.account import read_pooled_address_iter, create_new_user_keypair
-from bc4py.database.tools import get_usedindex
+from bc4py.database.builder import user_account
+from bc4py.database.account import create_new_user_keypair
+from bc4py.database.tools import get_unspents_iter
 from bc4py.user import CoinObject
 import logging
 
@@ -10,7 +10,7 @@ import logging
 DUMMY_REDEEM_ADDRESS = '_____DUMMY______REDEEM______ADDRESS_____'  # 40letters
 
 
-def fill_inputs_outputs(tx, cur, fee_coin_id=0, additional_fee=0):
+def fill_inputs_outputs(tx, cur, fee_coin_id=0, additional_fee=0, dust_percent=0.8):
     assert tx.gas_price > 0, "Gas params is none zero."
     # outputsの合計を取得
     output_coins = CoinObject()
@@ -27,21 +27,24 @@ def fill_inputs_outputs(tx, cur, fee_coin_id=0, additional_fee=0):
     need_coins = output_coins + fee_coins
     input_coins = CoinObject()
     input_address = set()
-    for uuid, address, dummy in read_pooled_address_iter(cur):
-        for dummy, txhash, txindex, coin_id, amount, f_used in builder.db.read_address_idx_iter(address):
-            if f_used:
-                continue
-            elif txindex in get_usedindex(txhash):
-                continue
-            need_coins[coin_id] -= amount
-            input_coins[coin_id] += amount
-            input_address.add(address)
-            tx.inputs.append((txhash, txindex))
-            if need_coins.is_all_minus_amount():
-                break
+    f_dust_skipped = False
+    for address, height, txhash, txindex, coin_id, amount in get_unspents_iter(cur):
+        if coin_id not in need_coins:
+            continue
+        elif need_coins[coin_id] * dust_percent > amount:
+            f_dust_skipped = True
+            continue
+        need_coins[coin_id] -= amount
+        input_coins[coin_id] += amount
+        input_address.add(address)
+        tx.inputs.append((txhash, txindex))
         if need_coins.is_all_minus_amount():
             break
     else:
+        if f_dust_skipped and dust_percent > 0.1:
+            new_dust_percent = round(dust_percent * 0.8, 4)
+            logging.debug("Retry by lower dust percent. {}=>{}".format(dust_percent, new_dust_percent))
+            return fill_inputs_outputs(tx, cur, fee_coin_id, additional_fee, new_dust_percent)
         raise BlockChainError('Insufficient balance. inputs={} needs={}'.format(input_coins, need_coins))
     # redeemを計算
     redeem_coins = input_coins - output_coins - fee_coins
@@ -58,7 +61,7 @@ def fill_inputs_outputs(tx, cur, fee_coin_id=0, additional_fee=0):
         logging.debug("Retry calculate tx fee. [{}=>{}+{}={}]".format(
             tx.gas_amount, tx.getsize()+len(input_address) * 96, additional_fee, need_gas_amount))
         tx.gas_amount = need_gas_amount
-        return fill_inputs_outputs(tx, cur, fee_coin_id, additional_fee)
+        return fill_inputs_outputs(tx, cur, fee_coin_id, additional_fee, dust_percent)
 
 
 def replace_redeem_dummy_address(tx, cur):
@@ -84,7 +87,8 @@ def check_enough_amount(sender, send_coins, fee_coins):
     from_coins = user_account.get_balance()[sender]
     remain_coins = from_coins - send_coins - fee_coins
     if not remain_coins.is_all_plus_amount():
-        raise BlockChainError('Not enough balance in id={} {}.'.format(sender, from_coins))
+        raise BlockChainError('Not enough balance in id={} balance={} remains={}.'
+                              .format(sender, from_coins, remain_coins))
 
 
 __all__ = [

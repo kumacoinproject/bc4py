@@ -36,17 +36,17 @@ def _update(u_block, u_unspent, u_unconfirmed, f_force, _time):
 
 
 def _update_unspent_info():
-    if V.STAKING_OBJ.f_staking:
+    if V.STAKING_OBJ:
         next_num = V.STAKING_OBJ.update_unspent()
         logging.debug("Update unspent={}".format(next_num))
 
 
 def _update_block_info():
-    if V.MINING_OBJ.f_mining:
+    if V.MINING_OBJ:
         V.MINING_OBJ.update_block(builder.best_block)
-    if V.STAKING_OBJ.f_staking:
+    if V.STAKING_OBJ:
         V.STAKING_OBJ.update_block(builder.best_block)
-    if V.MINING_OBJ.f_mining or V.STAKING_OBJ.f_staking:
+    if V.MINING_OBJ or V.STAKING_OBJ:
         logging.debug('Update generating height={}'.format(builder.best_block.height+1))
 
 
@@ -104,10 +104,10 @@ def _update_unconfirmed_info():
                 unconfirmed_txs.extend((start_tx, tx))
                 break
 
-    if V.MINING_OBJ.f_mining:
+    if V.MINING_OBJ:
         V.MINING_OBJ.update_unconfirmed(unconfirmed_txs)
-    if V.STAKING_OBJ.f_staking:
+    if V.STAKING_OBJ:
         V.STAKING_OBJ.update_unconfirmed(unconfirmed_txs)
-    if V.MINING_OBJ.f_mining or V.STAKING_OBJ.f_staking:
+    if V.MINING_OBJ or V.STAKING_OBJ:
         logging.debug("Update unconfirmed={}/{}"
                       .format(len(unconfirmed_txs), len(tx_builder.unconfirmed)))

@@ -1,7 +1,7 @@
 #!/user/env python3
 # -*- coding: utf-8 -*-
 
-from bc4py.config import V
+from bc4py.config import Debug
 from bc4py.utils import set_database_path, set_blockchain_params
 from bc4py.user.mining import Mining
 from bc4py.user.staking import Staking
@@ -55,14 +55,14 @@ def work(port, sub_dir=None):
     mining = Mining(genesis_block)
     staking = Staking(genesis_block)
     mining.share_que(staking)
-    V.F_MINING_POWER_SAVE = random.random() / 5 + 0.05
+    Debug.F_WS_FULL_ERROR_MSG = True
+    Debug.F_MINING_POWER_SAVE = random.random() / 5 + 0.05
     # core = 1 if port <= 2001 else 0
     Thread(target=mining.start, name='Mining', args=(1,), daemon=True).start()
     Thread(target=staking.start, name='Staking', daemon=True).start()
     Thread(target=mined_newblock, name='MinedBlock', args=(mining.que, pc), daemon=True).start()
     V.MINING_OBJ = mining
     V.STAKING_OBJ = staking
-    V.F_DEBUG = True
     logging.info("Finished all initialize.")
 
     try:

@@ -1,13 +1,14 @@
 from bc4py.config import C, V, P, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
-from bc4py.database.builder import builder
-from bc4py.database.tools import get_contract_storage
-from bc4py.contract.utils import binary2contract
+from bc4py.user.utils import im_a_validator
+from bc4py.database.tools import get_contract_storage, get_contract_binary
+from bc4py.contract.tools import binary2contract
 from bc4py.database.builder import tx_builder
 from nem_ed25519.key import is_address
 import bjson
 import logging
+import threading
 
 
 def check_tx_create_contract(tx: TX, include_block: Block):
@@ -41,9 +42,11 @@ def check_tx_create_contract(tx: TX, include_block: Block):
 
 def check_tx_start_contract(start_tx: TX, include_block: Block):
     # 共通チェック
-    c_address, c_data, c_redeem = bjson.loads(start_tx.message)
+    c_address, c_data, c_args, c_redeem = bjson.loads(start_tx.message)
     if not is_address(c_address, V.BLOCK_CONTRACT_PREFIX):
         raise BlockChainError('Is not contract address. {}'.format(c_address))
+    elif not (c_args is None or isinstance(c_args, list) or isinstance(c_args, tuple)):
+        raise BlockChainError('c_args is {}'.format(type(c_args)))
     elif not is_address(c_redeem, V.BLOCK_PREFIX):
         raise BlockChainError('Is not redeem address. {}'.format(c_redeem))
     elif start_tx.gas_price < V.COIN_MINIMUM_PRICE:
@@ -68,10 +71,11 @@ def check_tx_start_contract(start_tx: TX, include_block: Block):
             raise BlockChainError('Find some FinishTX on block. {}'.format(count))
 
     else:
-        pass
-    # TODO: Validatorとしてチェックし、FinishTXを発行
-    if P.F_VALIDATOR:
-        pass
+        c_address, c_method, c_args, c_redeem = bjson.loads(start_tx.message)
+        get_contract_binary(c_address)
+        if P.VALIDATOR_OBJ and im_a_validator(include_block):
+            P.VALIDATOR_OBJ.put_unvalidated(start_tx)
+            logging.debug("Add validation que {}".format(start_tx))
 
 
 def get_start_by_finish_tx(finish_tx, start_hash, include_block):

@@ -21,18 +21,16 @@ async def list_balance(request):
 
 
 async def list_transactions(request):
-    with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-        cur = db.cursor()
-        page = int(request.query.get('page', 0))
-        limit = int(request.query.get('limit', 25))
-        data = list()
-        f_next_page = False
-        for tx_dict in read_log_iter(cur, start=page, f_dict=True):
-            if limit == 0:
-                f_next_page = True
-                break
-            data.append(tx_dict)
-            limit -= 1
+    page = int(request.query.get('page', 0))
+    limit = int(request.query.get('limit', 25))
+    data = list()
+    f_next_page = False
+    for tx_dict in user_account.get_movement_iter(start=page, f_dict=True):
+        if limit == 0:
+            f_next_page = True
+            break
+        data.append(tx_dict)
+        limit -= 1
     return web_base.json_res({'txs': data, 'next': f_next_page})
 
 
@@ -43,7 +41,7 @@ async def list_unspents(request):
         data.append({
             'address': address,
             'height': height,
-            'confirmed': best_height - height,
+            'confirmed': None if height is None else best_height - height,
             'txhash': hexlify(txhash).decode(),
             'txindex': txindex,
             'coin_id': coin_id,
@@ -76,9 +74,11 @@ async def move_one(request):
             cur = db.cursor()
             _from = read_name2user(ant_from, cur)
             _to = read_name2user(ant_to, cur)
-            txhash = user_account.move_balance(_from, _to, coins)
+            txhash = user_account.move_balance(_from, _to, coins, cur)
             db.commit()
-        return web_base.json_res({'txhash': hexlify(txhash).decode()})
+        return web_base.json_res({
+            'txhash': hexlify(txhash).decode(),
+            'from_id': _from, 'to_id': _to})
     except Exception as e:
         return web.Response(text=str(e), status=400)
 
@@ -95,9 +95,11 @@ async def move_many(request):
             cur = db.cursor()
             _from = read_name2user(ant_from, cur)
             _to = read_name2user(ant_to, cur)
-            txhash = user_account.move_balance(_from, _to, coins)
+            txhash = user_account.move_balance(_from, _to, coins, cur)
             db.commit()
-        return web_base.json_res({'txhash': hexlify(txhash).decode()})
+        return web_base.json_res({
+            'txhash': hexlify(txhash).decode(),
+            'from_id': _from, 'to_id': _to})
     except Exception as e:
         return web.Response(text=str(e), status=400)
 
@@ -112,6 +114,20 @@ async def new_address(request):
     return web_base.json_res({'account': user_name, 'user_id': user_id, 'address': address})
 
 
+async def get_keypair(request):
+    with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+        cur = db.cursor()
+        try:
+            address = request.query.get('address')
+            uuid, sk, pk = read_address2keypair(address, cur)
+            return web_base.json_res({
+                'uuid': uuid,
+                'address': address,
+                'private_key': sk,
+                'public_key': pk})
+        except BlockChainError as e:
+            return web.Response(text=str(e), status=400)
+
 __all__ = [
     "list_balance",
     "list_transactions",
@@ -119,5 +135,6 @@ __all__ = [
     "list_account_address",
     "move_one",
     "move_many",
-    "new_address"
+    "new_address",
+    "get_keypair"
 ]

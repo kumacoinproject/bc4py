@@ -16,7 +16,6 @@ make_account_db()
 # create first block
 genesis_block = create_genesis_block(
     all_supply=10000000000 * 100000000,  # 10 billion total supply
-    halving_span=3*365*24*3600,  # nonsense
     block_span=120,  # block time
     prefix=b'\x68',  # normal address prefix "N"
     contract_prefix=b'\x12',  # contract address prefix "C"

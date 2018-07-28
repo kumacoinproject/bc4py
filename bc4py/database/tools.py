@@ -1,10 +1,9 @@
-from bc4py.config import C, V, BlockChainError
+from bc4py.config import C, V
 from bc4py.chain.mintcoin import MintCoinObject, setup_base_currency_mint, MintCoinError
-from bc4py.database.builder import builder, tx_builder, user_account
+from bc4py.database.builder import builder, tx_builder
 from bc4py.database.create import closing, create_db
 from bc4py.contract.storage import ContractStorage
-from bc4py.user import UserCoins, CoinObject
-from bc4py.database.account import insert_log, read_pooled_address_iter
+from bc4py.database.account import read_pooled_address_iter
 import bjson
 
 
@@ -85,12 +84,11 @@ def get_validator_info(best_block=None):
     assert V.CONTRACT_VALIDATOR_ADDRESS, 'Not found validator address.'
     cs = get_contract_storage(V.CONTRACT_VALIDATOR_ADDRESS, best_block)
     validator_cks = set()
-    for k, v in cs.items():
-        cmd, address = k[0], k[1:].decode()
-        if cmd != 0:
-            pass
-        elif v == b'\x01':
-            validator_cks.add(address)
+    for ck, uuid in cs.items():
+        if len(ck) != 40:
+            continue
+        elif cs.get(b'\x00' + uuid, b'\x00') == b'\x01':
+            validator_cks.add(ck.decode())
     required_num = len(validator_cks) * 3 // 4 + 1
     return validator_cks, required_num
 
@@ -99,36 +97,51 @@ def get_contract_history_iter(c_address, best_block=None):
     # DataBaseより
     last_index = 0
     for dummy, index, start_hash, finish_hash in builder.db.read_contract_iter(c_address):
-        yield index, start_hash, finish_hash, False
-        last_index = index
+        yield index, start_hash, finish_hash, None, False
+        last_index += 1
     # Memoryより
     best_chain = _get_best_chain_all(best_block)
     for block in reversed(best_chain):
         for tx in block.txs:
             if tx.type == C.TX_CREATE_CONTRACT:
-                yield 0, tx.hash, b'\x00'*32, False
+                c_address2, c_bin, c_cs = bjson.loads(tx.message)
+                if c_address == c_address2:
+                    yield 0, tx.hash, b'\x00'*32, tx.height, True
+                    last_index += 1
             elif tx.type == C.TX_START_CONTRACT:
-                last_index += 1
+                c_address2, c_method, c_args, c_redeem = bjson.loads(tx.message)
+                if c_address != c_address2:
+                    continue
                 for finish_tx in block.txs:
+                    if finish_tx.type != C.TX_FINISH_CONTRACT:
+                        continue
                     dummy0, start_hash, dummy1 = bjson.loads(finish_tx.message)
                     if start_hash == tx.hash:
-                        yield last_index, start_hash, finish_tx.hash, False
+                        yield last_index, start_hash, finish_tx.hash, tx.height, True
+                        last_index += 1
                         break
     # Unconfirmedより
     if best_block is None:
         validator_cks, required_num = get_validator_info()
         for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.time):
             if tx.type == C.TX_CREATE_CONTRACT:
-                yield 0, tx.hash, b'\x00'*32, True
-            if tx.type == C.TX_START_CONTRACT:
+                yield 0, tx.hash, b'\x00'*32, None, True
                 last_index += 1
+            if tx.type == C.TX_START_CONTRACT:
+                c_address2, c_method, c_args, c_redeem = bjson.loads(tx.message)
+                if c_address != c_address2:
+                    continue
                 for finish_tx in tx_builder.unconfirmed.values():
                     if len(finish_tx.signature) < required_num:
                         continue
+                    elif finish_tx.type != C.TX_FINISH_CONTRACT:
+                        continue
                     dummy0, start_hash, dummy1 = bjson.loads(finish_tx.message)
                     if start_hash == tx.hash:
-                        yield last_index, start_hash, finish_tx.hash, True
+                        yield last_index, start_hash, finish_tx.hash, None, True
+                        last_index += 1
                         break
+    # index, start_hash, finish_hash, height, on_memory
 
 
 def get_contract_storage(c_address, best_block=None):
@@ -148,24 +161,31 @@ def get_contract_storage(c_address, best_block=None):
     for block in reversed(best_chain):
         for tx in block.txs:
             if tx.type == C.TX_CREATE_CONTRACT:
-                dummy, c_bin, c_cs = bjson.loads(tx.message)
-                cs.key_value = c_cs or dict()
-            if tx.type == C.TX_START_CONTRACT:
+                check_address, c_bin, c_cs = bjson.loads(tx.message)
+                if c_address == check_address:
+                    cs.key_value = c_cs or dict()
+            elif tx.type == C.TX_START_CONTRACT:
                 pass
             elif tx.type == C.TX_FINISH_CONTRACT:
-                c_status, dummy, c_diff = bjson.loads(tx.message)
-                cs.marge(c_diff)
+                c_status, start_hash, c_diff = bjson.loads(tx.message)
+                start_tx = tx_builder.get_tx(start_hash)
+                check_address, c_bin, c_cs = bjson.loads(start_tx.message)
+                if c_address == check_address:
+                    cs.marge(c_diff)
     # Unconfirmedより
     if best_block is None:
         for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.time):
             if tx.type == C.TX_CREATE_CONTRACT:
-                dummy, c_bin, c_cs = bjson.loads(tx.message)
+                check_address, c_bin, c_cs = bjson.loads(tx.message)
                 cs.key_value = c_cs or dict()
-            if tx.type == C.TX_START_CONTRACT:
+            elif tx.type == C.TX_START_CONTRACT:
                 pass
             elif tx.type == C.TX_FINISH_CONTRACT:
-                c_status, dummy, c_diff = bjson.loads(tx.message)
-                cs.marge(c_diff)
+                c_status, start_hash, c_diff = bjson.loads(tx.message)
+                start_tx = tx_builder.get_tx(start_hash)
+                check_address, c_bin, c_cs = bjson.loads(start_tx.message)
+                if c_address == check_address:
+                    cs.marge(c_diff)
     return cs
 
 
@@ -209,10 +229,11 @@ def get_utxo_iter(target_address, best_block=None):
     # address, height, txhash, index, coin_id, amount
 
 
-def get_unspents_iter():
+def get_unspents_iter(outer_cur=None):
     target_address = set()
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-        for (uuid, address, user) in read_pooled_address_iter(db.cursor()):
+        cur = outer_cur or db.cursor()
+        for (uuid, address, user) in read_pooled_address_iter(cur):
             target_address.add(address)
     return get_utxo_iter(target_address)
 
@@ -230,10 +251,7 @@ def get_usedindex(txhash, best_block=None):
                 if _txhash == txhash:
                     usedindex.add(_txindex)
     # DataBaseより
-    try:
-        usedindex.update(builder.db.read_usedindex(txhash))
-    except KeyError:
-        pass
+    usedindex.update(builder.db.read_usedindex(txhash))
     # unconfirmedより
     if best_block is None:
         for tx in tx_builder.unconfirmed.values():
@@ -246,6 +264,7 @@ def get_usedindex(txhash, best_block=None):
 __all__ = [
     "get_mintcoin",
     "get_contract_binary",
+    "get_validator_info",
     "get_contract_history_iter",
     "get_contract_storage",
     "get_utxo_iter",

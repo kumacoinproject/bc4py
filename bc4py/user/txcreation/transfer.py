@@ -38,6 +38,8 @@ def send_many(sender, send_pairs, cur, fee_coin_id=0, gas_price=None,
         'message_type': msg_type,
         'message': msg_body})
     tx.gas_amount = tx.getsize()
+    # fill unspents
+    input_address = fill_inputs_outputs(tx, cur, fee_coin_id, additional_fee=0)
     # account check
     fee_coins = CoinObject(coin_id=fee_coin_id, amount=tx.gas_price * tx.gas_amount)
     if f_balance_check:
@@ -49,8 +51,6 @@ def send_many(sender, send_pairs, cur, fee_coin_id=0, gas_price=None,
     if sender in (C.ANT_OUTSIDE, C.ANT_RESERVED):
         # 内部アカウントは不可
         raise BlockChainError('Not allowed inner account.')
-    # fill unspents
-    input_address = fill_inputs_outputs(tx, cur, fee_coin_id, additional_fee=0)
     # replace dummy address
     replace_redeem_dummy_address(tx, cur)
     # setup signature

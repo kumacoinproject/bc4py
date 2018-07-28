@@ -8,16 +8,6 @@ import math
 MAX_256_INT = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 
 
-#def calc_block_reward(height):
-#    span = V.BLOCK_HALVING_SPAN // V.BLOCK_TIME_SPAN
-#    reward = V.BLOCK_REWARD
-#    height -= span
-#    while height > 0:
-#        height -= span
-#        reward >>= 1
-#    return reward
-
-
 class GompertzCurve:
     k = None  # total block reward supply
     b = 0.4
@@ -49,7 +39,7 @@ class GompertzCurve:
     @staticmethod
     def setup_params():
         g = GompertzCurve
-        g.k = V.BLOCK_REWARD * (V.BLOCK_HALVING_SPAN // V.BLOCK_TIME_SPAN) * 2
+        g.k = V.BLOCK_ALL_SUPPLY
 
 
 def bin2signature(b):

@@ -1,6 +1,6 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.database.builder import builder, tx_builder
-from bc4py.database.tools import get_usedindex
+from bc4py.database.tools import get_usedindex, get_validator_info
 from bc4py.user import CoinObject
 from nem_ed25519.base import Encryption
 from nem_ed25519.key import is_address
@@ -10,6 +10,7 @@ from binascii import hexlify
 def inputs_origin_check(tx, include_block):
     # Blockに取り込まれているなら
     # TXのInputsも既に取り込まれているはずだ
+    limit_height = builder.best_block.height - C.MATURE_HEIGHT
     for txhash, txindex in tx.inputs:
         input_tx = tx_builder.get_tx(txhash)
         if input_tx is None:
@@ -23,11 +24,13 @@ def inputs_origin_check(tx, include_block):
             else:
                 # UnconfirmedTXの受け入れなので、txもinput_txもUnconfirmed
                 pass  # OK
+        elif input_tx.type in (C.TX_POS_REWARD, C.TX_POW_REWARD) and \
+                input_tx.height > limit_height:
+            raise BlockChainError('input origin is proof tx, {}>{}'.format(input_tx.height, limit_height))
         else:
             # InputのOriginは既に取り込まれている
             pass  # OK
         # 使用済みかチェック
-        # TODO: 正しく機能するか？
         if txindex in get_usedindex(txhash, include_block):
             raise BlockChainError('Input of {} is already used! {}:{}'
                                   .format(tx, hexlify(txhash).decode(), txindex))
@@ -38,6 +41,8 @@ def amount_check(tx, payfee_coin_id):
     input_coins = CoinObject()
     for txhash, txindex in tx.inputs:
         input_tx = tx_builder.get_tx(txhash)
+        if input_tx is None:
+            raise BlockChainError('Not found input tx {}'.format(hexlify(txhash).decode()))
         address, coin_id, amount = input_tx.outputs[txindex]
         input_coins[coin_id] += amount
 
@@ -62,6 +67,8 @@ def signature_check(tx):
     need_cks = set()
     for txhash, txindex in tx.inputs:
         input_tx = tx_builder.get_tx(txhash)
+        if input_tx is None:
+            raise BlockChainError('Not found input tx {}'.format(hexlify(txhash).decode()))
         address, coin_id, amount = input_tx.outputs[txindex]
         if is_address(address, V.BLOCK_PREFIX):
             need_cks.add(address)  # 通常のアドレスのみ
@@ -97,14 +104,15 @@ def validator_check(tx, include_block):
         except BaseException as e:
             raise BlockChainError('Signature verification failed. "{}"'.format(e))
 
+    valid_num = len(validator_cks & signed_cks)
     if include_block:
-        if required_num > len(validator_cks & signed_cks):
+        if required_num > valid_num:
             raise BlockChainError('Not satisfied required sign num. [{}>{}&{}]'
                                   .format(required_num, len(validator_cks), len(signed_cks)))
     else:
-        if already_signed_num >= len(validator_cks & signed_cks):
-            raise BlockChainError('')
-        tx.inner_params['signed_num'] = len(validator_cks & signed_cks)
+        if already_signed_num >= valid_num:
+            raise BlockChainError('Not found any change {}.'.format(tx))
+        tx.inner_params['signed_num'] = valid_num
 
 
 __all__ = [

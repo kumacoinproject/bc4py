@@ -16,6 +16,7 @@ good_node = list()
 bad_node = list()
 best_hash_on_network = None
 best_height_on_network = None
+f_changed_status = False
 
 
 def set_good_node():
@@ -38,19 +39,14 @@ def set_good_node():
     best_height_on_network, num1 = blockheight.most_common()[0]
     good_node.clear()
     bad_node.clear()
-    for _user, _hash, _height, _booting in _node:
-        if num0 == num1 == 1:
-            if not _booting:
+    if num0 <= 1 or num1 <= 1:
+        good_node.extend(_user for _user, _hash, _height, _booting in _node)
+    else:
+        for _user, _hash, _height, _booting in _node:
+            if _hash == best_hash_on_network or _height == best_height_on_network:
                 good_node.append(_user)
             else:
                 bad_node.append(_user)
-        elif num0 == 1:
-            if _height == best_height_on_network:
-                good_node.append(_user)
-            else:
-                bad_node.append(_user)
-        else:
-            good_node.append(_user)
 
 
 def reset_good_node():
@@ -93,6 +89,7 @@ def ask_node(cmd, data=None, f_continue_asking=False):
 
 def sync_chain_data():
     assert V.PC_OBJ is not None, "Need PeerClient start before."
+    global f_changed_status
     start = time.time()
     # 内部の最新のBlock
     try:
@@ -158,8 +155,12 @@ def sync_chain_data():
             check_tx(tx, new_block)
         # Chainに挿入
         builder.new_block(new_block)
+        for tx in new_block.txs:
+            user_account.affect_new_tx(tx)
         builder.batch_apply()
+        f_changed_status = True
         # 次のBlock
+        count = 5
         previous_height += 1
         previous_hash = new_block.hash
         # ロギング
@@ -203,10 +204,11 @@ def sync_chain_data():
 f_working = False
 
 
-def sync_chain_loop():
+def sync_chain_loop(f_3_conn=True):
     global f_working
 
     def loop():
+        global f_changed_status
         failed = 5
         while True:
             try:
@@ -219,18 +221,20 @@ def sync_chain_loop():
                         exit_msg = 'You may in fork chain. please delete "db" from "blockchain-py" folder,' \
                                    ' and resync blockchain. Close resync now.'
                         break
-                    else:
+                    elif f_changed_status is False:
                         failed -= 1
+                    elif f_changed_status is True:
+                        f_changed_status = False
                     reset_good_node()
-                time.sleep(10)
+                time.sleep(5)
             except BlockChainError as e:
                 reset_good_node()
                 logging.warning('Update chain failed "{}"'.format(e), exc_info=True)
-                time.sleep(10)
+                time.sleep(5)
             except BaseException as e:
                 reset_good_node()
                 logging.error('Update chain failed "{}"'.format(e), exc_info=True)
-                time.sleep(10)
+                time.sleep(5)
         # out of loop
         logging.critical(exit_msg)
 
@@ -239,7 +243,8 @@ def sync_chain_loop():
     f_working = True
     P.F_NOW_BOOTING = True
     c = 0
-    while len(V.PC_OBJ.p2p.user) < 3:
+    need = 3 if f_3_conn else 1
+    while len(V.PC_OBJ.p2p.user) < need:
         if c % 10 == 0:
             logging.debug("Waiting for new connections.. {}".format(len(V.PC_OBJ.p2p.user)))
         time.sleep(15)

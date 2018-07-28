@@ -7,9 +7,10 @@ import os
 from binascii import hexlify, unhexlify
 import multiprocessing
 from nem_ed25519.base import Encryption
+from weakref import ref
 
 
-def read_txhash2log(txhash, cur, f_dict=False):
+def read_txhash2log(txhash, cur):
     d = cur.execute("""
         SELECT `type`,`user`,`coin_id`,`amount`,`time` FROM `log` WHERE `hash`=?
     """, (txhash,)).fetchall()
@@ -19,23 +20,15 @@ def read_txhash2log(txhash, cur, f_dict=False):
     _type = _time = None
     for _type, user, coin_id, amount, _time in d:
         movement.add_coins(user, coin_id, amount)
-    if f_dict:
-        movement = {read_user2name(user, cur): coins.coins for user, coins in movement.items()}
-        return {
-            'txhash': hexlify(txhash).decode(),
-            'type': C.txtype2name[_type],
-            'movement': movement,
-            'time': _time + V.BLOCK_GENESIS_TIME}
-    else:
-        return _type, movement, _time
+    return MoveLog(txhash, _type, movement, _time, False)
 
 
-def read_log_iter(cur, start=0, f_dict=False):
+def read_log_iter(cur, start=0):
     d = cur.execute("SELECT DISTINCT `hash` FROM `log` ORDER BY `id` DESC").fetchall()
     c = 0
     for (txhash,) in d:
         if start <= c:
-            yield read_txhash2log(txhash, cur, f_dict)
+            yield read_txhash2log(txhash, cur)
         c += 1
 
 
@@ -53,6 +46,11 @@ def insert_log(movements, cur, _type=None, _time=None, txhash=None):
     cur.executemany("""INSERT INTO `log` (`hash`,`index`,`type`,`user`,`coin_id`,
     `amount`,`time`) VALUES (?,?,?,?,?,?,?)""", move)
     return txhash
+
+
+def delete_log(txhash, cur):
+    cur.execute("""DELETE FROM `log` WHERE `hash`=?
+    """, (txhash,))
 
 
 def read_address2keypair(address, cur):
@@ -186,9 +184,50 @@ def create_new_user_keypair(name, cur):
     return ck
 
 
-__all__ = (
-    "read_txhash2log", "read_log_iter", "insert_log",
+class MoveLog:
+    __slots__ = ("txhash", "type", "movement", "time", "on_memory", "pointer")
+
+    def __init__(self, txhash, _type, movement, _time, on_memory, tx=None):
+        self.txhash = txhash
+        self.type = _type
+        self.movement = movement
+        self.time = _time
+        self.on_memory = on_memory
+        self.pointer = ref(tx) if tx else object()
+
+    def __repr__(self):
+        return "<MoveLog {} {}>".format(C.txtype2name[self.type], hexlify(self.txhash).decode())
+
+    def __hash__(self):
+        return hash(self.txhash)
+
+    def get_dict_data(self, outer_cur=None):
+        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+            cur = outer_cur or db.cursor()
+            movement = {read_user2name(user, cur): coins.coins for user, coins in self.movement.items()}
+        return {
+            'txhash': hexlify(self.txhash).decode(),
+            'height':  self.height,
+            'on_memory': self.on_memory,
+            'type': C.txtype2name[self.type],
+            'movement': movement,
+            'time': self.time + V.BLOCK_GENESIS_TIME}
+
+    def get_tuple_data(self):
+        return self.type, self.movement, self.time
+
+    @property
+    def height(self):
+        try:
+            return self.pointer().height
+        except Exception:
+            return None
+
+
+__all__ = [
+    "read_txhash2log", "read_log_iter", "insert_log", "delete_log",
     "read_address2keypair", "read_address2user", "update_keypair_user", "insert_keypairs",
     "read_account_info", "read_pooled_address_iter", "read_address2account", "read_name2user", "read_user2name",
-    "create_account", "create_new_user_keypair"
-)
+    "create_account", "create_new_user_keypair",
+    "MoveLog"
+]

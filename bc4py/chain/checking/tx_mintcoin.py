@@ -57,7 +57,8 @@ def check_tx_mint_coin(tx, include_block):
     try:
         # 読み込んでおかしなところがなければOK
         old_mint = get_mintcoin(mint_id=mint_id, best_block=include_block)
-        mint.marge(old_mint)
+        if include_block is None:
+            mint.marge(old_mint)
     except MintCoinError as e:
         raise BlockChainError('Failed check mint coin "{}"'.format(e))
 

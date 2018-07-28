@@ -41,8 +41,8 @@ def issue_mintcoin(name, unit, amount, digit, cur, gas_price=None,
     # movement
     movements = UserCoins()
     minting_coins = CoinObject(new_mint_id, amount)
-    movements[sender] -= minting_coins
-    movements[C.ANT_OUTSIDE] += minting_coins
+    movements[sender] += minting_coins
+    movements[C.ANT_OUTSIDE] -= minting_coins
     # TXを作成する
     base_coin_id = 0
     now = int(time.time()) - V.BLOCK_GENESIS_TIME
@@ -64,7 +64,7 @@ def issue_mintcoin(name, unit, amount, digit, cur, gas_price=None,
     input_address = fill_inputs_outputs(tx, cur, fee_coin_id, C.MINTCOIN_FEE)
     fee_coins = CoinObject(fee_coin_id, tx.gas_price*tx.gas_amount)
     # check amount
-    check_enough_amount(sender, minting_coins, fee_coins)
+    check_enough_amount(sender, CoinObject(base_coin_id, amount), fee_coins)
     # replace dummy address
     replace_redeem_dummy_address(tx, cur)
     # replace dummy mint_id
@@ -103,8 +103,8 @@ def change_mintcoin(mint_id, cur, amount=0, message=None,
     # movement
     movements = UserCoins()
     minting_coins = CoinObject(mint_id, amount)
-    movements[sender] -= minting_coins
-    movements[C.ANT_OUTSIDE] += minting_coins
+    movements[sender] += minting_coins
+    movements[C.ANT_OUTSIDE] -= minting_coins
     # TXを作成する
     base_coin_id = 0
     now = int(time.time()) - V.BLOCK_GENESIS_TIME
@@ -125,7 +125,7 @@ def change_mintcoin(mint_id, cur, amount=0, message=None,
     input_address = fill_inputs_outputs(tx, cur, fee_coin_id, C.MINTCOIN_FEE)
     fee_coins = CoinObject(fee_coin_id, tx.gas_price * tx.gas_amount)
     # check amount
-    check_enough_amount(sender, minting_coins, fee_coins)
+    check_enough_amount(sender, CoinObject(base_coin_id, amount), fee_coins)
     # replace dummy address
     replace_redeem_dummy_address(tx, cur)
     # replace dummy mint_id

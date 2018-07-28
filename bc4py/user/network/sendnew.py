@@ -42,7 +42,7 @@ def mined_newblock(que, pc):
             logging.error('Failed mined new block "{}"'.format(e))
 
 
-def send_newtx(new_tx):
+def send_newtx(new_tx, outer_cur=None):
     assert V.PC_OBJ, "PeerClient is None."
     try:
         check_tx(new_tx, include_block=None)
@@ -53,10 +53,11 @@ def send_newtx(new_tx):
                 'tx': new_tx.b,
                 'sign': new_tx.signature}}
         V.PC_OBJ.send_command(cmd=ClientCmd.BROADCAST, data=data)
-        tx_builder.put_unconfirmed(new_tx)
+        tx_builder.put_unconfirmed(new_tx, outer_cur)
         logging.info("Success broadcast new tx {}".format(new_tx))
         return True
     except BaseException as e:
-        logging.warning("Failed broadcast new tx, other nodes don\'t accept {} {}"
-                        .format(new_tx.getinfo(), e))
+        logging.warning("Failed broadcast new tx, other nodes don\'t accept {}"
+                        .format(new_tx.getinfo()))
+        logging.warning("Reason is \"{}\"".format(e))
         return False

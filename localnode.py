@@ -1,13 +1,14 @@
 #!/user/env python3
 # -*- coding: utf-8 -*-
 
-from bc4py.config import V
+from bc4py.config import P, Debug
 from bc4py.utils import set_database_path, set_blockchain_params
 from bc4py.user.mining import Mining
 from bc4py.user.staking import Staking
 from bc4py.user.boot import *
 from bc4py.user.network import broadcast_check, mined_newblock, DirectCmd, sync_chain_loop
 from bc4py.user.api import create_rest_server
+from bc4py.user.validator import setup_as_validator
 from bc4py.database.create import make_account_db
 from bc4py.database.builder import builder
 from p2p_python.utils import setup_p2p_params
@@ -55,6 +56,8 @@ def work(port, sub_dir):
     # for debug node
     if port != 2000 and pc.p2p.create_connection('127.0.0.1', 2000):
         logging.info("Connect!")
+    else:
+        pc.p2p.create_connection('127.0.0.1', 2001)
 
     for host, port in connections:
         pc.p2p.create_connection(host, port)
@@ -65,20 +68,22 @@ def work(port, sub_dir):
 
     # Update to newest blockchain
     builder.init(genesis_block)
-    sync_chain_loop()
+    sync_chain_loop(f_3_conn=False)
+    setup_as_validator()
 
     # Mining/Staking setup
     mining = Mining(genesis_block)
     staking = Staking(genesis_block)
     mining.share_que(staking)
-    V.F_MINING_POWER_SAVE = random.random() / 5 + 0.05
+    Debug.F_WS_FULL_ERROR_MSG = True
+    # Debug.F_CONSTANT_DIFF = True
+    Debug.F_MINING_POWER_SAVE = random.random() / 2 + 0.05
     # core = 1 if port <= 2001 else 0
     Thread(target=mining.start, name='Mining', args=(1,), daemon=True).start()
     Thread(target=staking.start, name='Staking', daemon=True).start()
     Thread(target=mined_newblock, name='MinedBlock', args=(mining.que, pc), daemon=True).start()
     V.MINING_OBJ = mining
     V.STAKING_OBJ = staking
-    V.F_DEBUG = True
     logging.info("Finished all initialize.")
 
     try:
