@@ -21,20 +21,27 @@ class GompertzCurve:
         x = g.x0 + height / g.ybnum / 10.0
         e = math.exp(-g.c * x)
         r = -g.k * g.c * math.log(g.b) * e * pow(g.b, e) / g.ybnum / 10.0
-        return round(r) if 0 < r else 0
+        return g.round(r)
+
+    @staticmethod
+    def round(i):
+        integer = int(i)
+        if i - integer >= 0.5:
+            return integer + 1
+        return integer
 
     @staticmethod
     def base_total_supply():
         g = GompertzCurve
         e = math.exp(-g.c * g.x0)
-        return round(g.k * (g.b ** e)) - g.calc_block_reward(0)
+        return g.round(g.k * (g.b ** e)) - g.calc_block_reward(0)
 
     @staticmethod
     def calc_total_supply(height):
         g = GompertzCurve
         x = g.x0 + height / g.ybnum / 10.0
         e = math.exp(-g.c * x)
-        return round(g.k * (g.b ** e)) - g.base_total_supply()
+        return g.round(g.k * (g.b ** e)) - g.base_total_supply()
 
     @staticmethod
     def setup_params():

@@ -434,7 +434,7 @@ class ChainBuilder:
         best_diff = 0.0
         best_block = None
         best_chain = list()
-        for block in self.chain.values():
+        for block in list(self.chain.values()):
             if block in best_chain:
                 continue
             if not block.difficulty:
@@ -709,7 +709,7 @@ class UserAccount:
                 if builder.db.read_tx(move_log.txhash):
                     memory_sum += move_log.movement
                 else:
-                    logging.warning("need to delete unknown log {}".format(move_log))
+                    logging.warning("It's unknown log {}".format(move_log))
                     # delete_log(move_log.txhash, cur)
             self.db_balance += memory_sum
 
