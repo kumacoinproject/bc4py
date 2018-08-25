@@ -19,9 +19,13 @@ class GompertzCurve:
     def calc_block_reward(height):
         g = GompertzCurve
         x = g.x0 + height / g.ybnum / 10.0
+        # print("{} = {} + {} / {} / 10.0".format(x, g.x0, height, g.ybnum))
         e = math.exp(-g.c * x)
-        r = -g.k * g.c * math.log(g.b) * e * pow(g.b, e) / g.ybnum / 10.0
-        return g.round(r)
+        # print("{} = math.exp(-{} * {})".format(e, g.c, x))
+        r = g.c * math.log(g.b) * e * pow(g.b, e) / g.ybnum / 10.0
+        # print("{} = {} * math.log({}) * {} * pow({}, {}) / {} / 10.0".format(r, g.c, g.b, e, g.b, e, g.ybnum))
+        # print("round(-{} * {})".format(g.k, r))
+        return round(-g.k * r)
 
     @staticmethod
     def round(i):
@@ -34,14 +38,14 @@ class GompertzCurve:
     def base_total_supply():
         g = GompertzCurve
         e = math.exp(-g.c * g.x0)
-        return g.round(g.k * (g.b ** e)) - g.calc_block_reward(0)
+        return round(g.k * (g.b ** e)) - g.calc_block_reward(0)
 
     @staticmethod
     def calc_total_supply(height):
         g = GompertzCurve
         x = g.x0 + height / g.ybnum / 10.0
         e = math.exp(-g.c * x)
-        return g.round(g.k * (g.b ** e)) - g.base_total_supply()
+        return round(g.k * (g.b ** e)) - g.base_total_supply()
 
     @staticmethod
     def setup_params():
