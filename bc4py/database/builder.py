@@ -106,7 +106,8 @@ class DataBase:
         block.height = height
         block.work_hash = work
         block.flag = flag
-        block.txs = [self.read_tx(b[idx+32*i:idx+32*i+32]) for i in range(tx_len//32)]
+        # block.txs = [self.read_tx(b[idx+32*i:idx+32*i+32]) for i in range(tx_len//32)]
+        block.txs = [tx_builder.get_tx(b[idx+32*i:idx+32*i+32]) for i in range(tx_len//32)]
         return block
 
     def read_block_hash(self, height):
@@ -381,9 +382,15 @@ class ChainBuilder:
         # import from starter.dat
         self.root_block = before_block
         memorized_blocks, self.best_block = self.load_starter(before_block)
+        # Memory化されたChainを直接復元
         for block in memorized_blocks:
             batch_blocks.append(block)
             self.chain[block.hash] = block
+            for tx in block.txs:
+                if tx.hash not in tx_builder.chained_tx:
+                    tx_builder.chained_tx[tx.hash] = tx
+                if tx.hash in tx_builder.unconfirmed:
+                    del tx_builder.unconfirmed[tx.hash]
         self.best_chain = list(reversed(memorized_blocks))
         # UserAccount update
         user_account.new_batch_apply(batch_blocks)
@@ -434,7 +441,7 @@ class ChainBuilder:
         best_diff = 0.0
         best_block = None
         best_chain = list()
-        for block in self.chain.values():
+        for block in list(self.chain.values()):
             if block in best_chain:
                 continue
             if not block.difficulty:
@@ -482,6 +489,7 @@ class ChainBuilder:
                 block = best_chain.pop()  # 古いものから順に
                 batched_blocks.append(block)
                 self.db.write_block(block)  # Block
+                assert len(block.txs) > 0, "found no tx in {}".format(block)
                 for tx in block.txs:
                     self.db.write_tx(tx)  # TX
                     # inputs
@@ -709,7 +717,7 @@ class UserAccount:
                 if builder.db.read_tx(move_log.txhash):
                     memory_sum += move_log.movement
                 else:
-                    logging.warning("need to delete unknown log {}".format(move_log))
+                    logging.warning("It's unknown log {}".format(move_log))
                     # delete_log(move_log.txhash, cur)
             self.db_balance += memory_sum
 

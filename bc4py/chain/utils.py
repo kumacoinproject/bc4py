@@ -19,9 +19,20 @@ class GompertzCurve:
     def calc_block_reward(height):
         g = GompertzCurve
         x = g.x0 + height / g.ybnum / 10.0
+        # print("{} = {} + {} / {} / 10.0".format(x, g.x0, height, g.ybnum))
         e = math.exp(-g.c * x)
-        r = -g.k * g.c * math.log(g.b) * e * pow(g.b, e) / g.ybnum / 10.0
-        return round(r) if 0 < r else 0
+        # print("{} = math.exp(-{} * {})".format(e, g.c, x))
+        r = g.c * math.log(g.b) * e * pow(g.b, e) / g.ybnum / 10.0
+        # print("{} = {} * math.log({}) * {} * pow({}, {}) / {} / 10.0".format(r, g.c, g.b, e, g.b, e, g.ybnum))
+        # print("round(-{} * {})".format(g.k, r))
+        return round(-g.k * r)
+
+    @staticmethod
+    def round(i):
+        integer = int(i)
+        if i - integer >= 0.5:
+            return integer + 1
+        return integer
 
     @staticmethod
     def base_total_supply():
