@@ -108,7 +108,10 @@ class Block:
         r['f_orphan'] = self.f_orphan
         r['f_on_memory'] = self.f_on_memory
         r['height'] = self.height
-        r['difficulty'] = self.difficulty if self.difficulty else None
+        if self.difficulty is None:
+            self.bits2target()
+            self.target2diff()
+        r['difficulty'] = self.difficulty
         r['flag'] = C.consensus2name[self.flag]
         r['merkleroot'] = hexlify(self.merkleroot).decode() if self.merkleroot else None
         r['time'] = V.BLOCK_GENESIS_TIME + self.time
