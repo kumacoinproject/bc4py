@@ -174,10 +174,14 @@ class Mining:
         self.mining_address = None
         self.previous_hash = None
         self.genesis_block = genesis_block
+        self.cores = 0
 
     def __repr__(self):
-        return "<Mining Core={} Previous={}>"\
-            .format(len(self.thread_pool), hexlify(self.previous_hash).decode())
+        if self.previous_hash:
+            previous_hash = hexlify(self.previous_hash).decode()
+        else:
+            previous_hash = "None"
+        return "<Mining Core={} Previous={}>".format(len(self.thread_pool), previous_hash)
 
     def getinfo(self):
         return [str(po) for po in self.thread_pool]
@@ -187,10 +191,9 @@ class Mining:
             raise BlockChainError('Already POW is running.')
         self.f_mining = True
         self.f_stop = False
-        if core is None:
-            core = os.cpu_count()
-        logging.info("Start mining by {} cores.".format(core))
-        for i in range(core):
+        self.cores = core or os.cpu_count()
+        logging.info("Start mining by {} cores.".format(self.cores))
+        for i in range(self.cores):
             try:
                 parent_conn, child_conn = Pipe()
                 params = dict(genesis_block=self.genesis_block, power_save=Debug.F_MINING_POWER_SAVE, sub_dir=V.SUB_DIR)
@@ -255,11 +258,15 @@ class Mining:
         mining_block.serialize()
         logging.debug("Update pow block Diff={} {}"
                       .format(float2unit(mining_block.difficulty), hexlify(mining_block.hash).decode()))
+        while self.cores != len(self.thread_pool):
+            time.sleep(1)
         for po in self.thread_pool:
             po.update_new_block(mining_block)
         self.previous_hash = base_block.hash
 
     def update_unconfirmed(self, unconfirmed):
+        while self.cores != len(self.thread_pool):
+            time.sleep(1)
         for po in self.thread_pool:
             po.update_unconfirmed(unconfirmed)
 

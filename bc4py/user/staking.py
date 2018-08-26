@@ -157,6 +157,7 @@ class Staking:
         self.block_reward = None
         self.block_height = None
         self.genesis_block = genesis_block
+        self.cores = 0
 
     def getinfo(self):
         return [str(po) for po in self.thread_pool]
@@ -173,6 +174,7 @@ class Staking:
             raise BlockChainError('Already POS is running.')
         self.f_staking = True
         self.f_stop = False
+        self.cores = threads
         for i in range(threads):
             try:
                 parent_conn, child_conn = Pipe()
@@ -228,6 +230,8 @@ class Staking:
         staking_block.target2diff()
         logging.debug("Update pos block Diff={} {}"
                       .format(float2unit(staking_block.difficulty), hexlify(staking_block.hash).decode()))
+        while self.cores != len(self.thread_pool):
+            time.sleep(1)
         for po in self.thread_pool:
             po.update_new_block(staking_block)
         # New block info
@@ -236,6 +240,8 @@ class Staking:
         self.block_height = staking_block.height
 
     def update_unconfirmed(self, unconfirmed):
+        while self.cores != len(self.thread_pool):
+            time.sleep(1)
         for po in self.thread_pool:
             po.update_unconfirmed(unconfirmed)
 

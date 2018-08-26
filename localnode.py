@@ -77,6 +77,7 @@ def work(port, sub_dir):
     mining.share_que(staking)
     Debug.F_WS_FULL_ERROR_MSG = True
     # Debug.F_CONSTANT_DIFF = True
+    Debug.F_SHOW_DIFFICULTY = True
     Debug.F_MINING_POWER_SAVE = random.random() / 2 + 0.05
     # core = 1 if port <= 2001 else 0
     Thread(target=mining.start, name='Mining', args=(1,), daemon=True).start()
