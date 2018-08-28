@@ -69,7 +69,6 @@ def staking_process(pipe, params):
                     tx.height = staking_block.height
                 info = "Staked yay!! Diff={} ({}hash/s)"\
                     .format(float2unit(staking_block.difficulty), len(proof_txs))
-                print("Staaaking!", info)
                 pipe.send((True, staking_block, info))
                 # Clear
                 staking_block = None

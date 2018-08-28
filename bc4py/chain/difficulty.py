@@ -146,8 +146,8 @@ def get_bias_by_hash(previous_hash, consensus):
         return 1.0
     elif consensus == C.HYBRID:
         raise BlockChainError('C.HYBRID is not consensus.')
-    if (previous_hash, consensus) in cashe:
-        return cashe[(previous_hash, consensus)]
+    if (consensus, previous_hash) in cashe:
+        return cashe[(consensus, previous_hash)]
     if previous_hash == GENESIS_PREVIOUS_HASH:
         return 1.0
     if V.BLOCK_CONSENSUS != C.HYBRID:
@@ -163,13 +163,15 @@ def get_bias_by_hash(previous_hash, consensus):
         target_hash = target_block.previous_hash
         if target_hash == GENESIS_PREVIOUS_HASH:
             return 1.0
-        elif target_block.flag == base_consensus:
+        elif target_block.flag == base_consensus and N > len(base_diffs):
             base_diffs.append(bits2target(target_block.bits) * (N-len(base_diffs)))
-        elif target_block.flag == consensus:
+        elif target_block.flag == consensus and N > len(target_diffs):
             target_diffs.append(bits2target(target_block.bits) * (N-len(target_diffs)))
         if len(base_diffs) >= N and len(target_diffs) >= N:
             break
 
     bias = sum(base_diffs) / sum(target_diffs)
-    cashe[(previous_hash, consensus)] = bias
+    cashe[(consensus, previous_hash)] = bias
+    if Debug.F_SHOW_DIFFICULTY:
+        print("bias", bias, hexlify(previous_hash).decode())
     return bias
