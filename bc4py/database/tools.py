@@ -3,6 +3,8 @@ from bc4py.chain.mintcoin import MintCoinObject, setup_base_currency_mint, MintC
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.create import closing, create_db
 from bc4py.contract.storage import ContractStorage
+from bc4py.contract.tools import contract2binary
+from bc4py.contract.c_validator import Contract
 from bc4py.database.account import read_pooled_address_iter
 import bjson
 
@@ -59,6 +61,9 @@ def get_mintcoin(mint_id, best_block=None):
 
 
 def get_contract_binary(c_address, best_block=None):
+    assert V.CONTRACT_VALIDATOR_ADDRESS, 'Not found validator address.'
+    if c_address == V.CONTRACT_VALIDATOR_ADDRESS:
+        return contract2binary(Contract)
     # DataBaseより
     for dummy, index, start_hash, finish_hash in builder.db.read_contract_iter(c_address):
         start_tx = tx_builder.get_tx(start_hash)

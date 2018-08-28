@@ -98,7 +98,7 @@ def mining_process(pipe, params):
                 continue
             if mining_block.time % 300 == 0:
                 hashrate = float2unit(count / max(0.1, time.time() - start))
-                info = "Mining now.. BlockDiff={} {}h/s {}".format(
+                info = "Generating(POW) now.. BlockDiff={} {}h/s {}".format(
                     float2unit(mining_block.difficulty), hashrate,
                     '(Saved)' if power_save else '')
                 pipe.send((False, hashrate, info))

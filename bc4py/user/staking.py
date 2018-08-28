@@ -70,6 +70,7 @@ def staking_process(pipe, params):
                     tx.height = staking_block.height
                 info = "Staked yay!! Diff={} ({}hash/s)"\
                     .format(float2unit(staking_block.difficulty), len(proof_txs))
+                print("Staaaking!", info)
                 pipe.send((True, staking_block, info))
                 # Clear
                 staking_block = None
@@ -84,7 +85,7 @@ def staking_process(pipe, params):
                 if staking_time % 300 == 0:
                     hashrate = len(proof_txs)
                     margin = round(remain * 100, 1)
-                    info = "Staking now ..Diff={}, ({}hash/s, margin{}%)" \
+                    info = "Generating(POS) now ..Diff={}, ({}hash/s, margin{}%)" \
                         .format(float2unit(staking_block.difficulty), hashrate, margin)
                     pipe.send((False, (hashrate, margin), info))
                 elif staking_time % 10 == 0:
