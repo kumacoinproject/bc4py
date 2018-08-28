@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 from bc4py import __chain_version__
-from bc4py.chain.utils import bits2target
 from bc4py.config import C, V, BlockChainError
 from hashlib import sha256
 from binascii import hexlify
@@ -143,20 +142,18 @@ class TX:
             s += len(pk) // 2 + len(sign)
         return s
 
-    def get_pos_hash(self, previous_hash, pos_bias):
+    def get_pos_hash(self, previous_hash):
         # staked => sha256(txhash + previous_hash) / amount < 256^32 / diff
         pos_work_hash = sha256(self.hash + previous_hash).digest()
         work = int.from_bytes(pos_work_hash, 'big')
         work //= self.pos_amount
-        work *= bits2target(pos_bias)
         return work.to_bytes(32, 'big')
 
-    def pos_check(self, previous_hash, pos_bias, pos_target_hash):
+    def pos_check(self, previous_hash, pos_target_hash):
         # staked => sha256(txhash + previous_hash) / amount < 256^32 / diff
         pos_work_hash = sha256(self.hash + previous_hash).digest()
         work = int.from_bytes(pos_work_hash, 'big')
         work //= self.pos_amount
-        work *= bits2target(pos_bias)
         return work < int.from_bytes(pos_target_hash, 'big')
 
     def update_time(self, retention=10800):

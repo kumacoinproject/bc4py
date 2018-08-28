@@ -11,15 +11,15 @@ import struct
 import time
 
 
-struct_block = struct.Struct('>32s32sIII4s')
+struct_block = struct.Struct('>I32s32sII4s')
 
 
 class Block:
     __slots__ = (
         "b", "hash", "next_hash", "target_hash", "work_hash",
         "height", "difficulty", "work_difficulty", "create_time", "delete_time",
-        "flag", "f_orphan", "f_on_memory",
-        "merkleroot", "time", "previous_hash", "bits", "pos_bias", "nonce", "txs",
+        "flag", "f_orphan", "f_on_memory", "_bias",
+        "version", "previous_hash", "merkleroot", "time", "bits", "nonce", "txs",
         "__weakref__")
 
     def __eq__(self, other):
@@ -50,12 +50,13 @@ class Block:
         self.flag = None  # mined consensus number
         self.f_orphan = None
         self.f_on_memory = None
+        self._bias = None  # bias 4bytes float
         # block header
+        self.version = None  # ver 4bytes int
+        self.previous_hash = None  # previous header sha256 hash
         self.merkleroot = None  # txs root hash 32bytes bin
         self.time = None  # time 4bytes int
-        self.previous_hash = None  # previous header sha256 hash
         self.bits = None  # diff 4bytes int
-        self.pos_bias = None  # fix for POS 4bytes int
         self.nonce = None  # nonce 4bytes bin
         # block body
         self.txs = None  # tx object list
@@ -64,11 +65,12 @@ class Block:
             self.b = binary
             self.deserialize()
         elif block:
+            self.version = block.get('version', 0)
+            self.previous_hash = block['previous_hash']
             self.merkleroot = block['merkleroot']
             self.time = block['time']
-            self.previous_hash = block['previous_hash']
             self.bits = block['bits']
-            self.pos_bias = block['pos_bias']
+            assert 'pos_bias' not in block, "'pos_bias' include!"
             self.nonce = block['nonce']
             self.serialize()
         self.txs = list()
@@ -76,10 +78,10 @@ class Block:
 
     def serialize(self):
         self.b = struct_block.pack(
-            self.merkleroot,
+            self.version,
             self.previous_hash,
+            self.merkleroot,
             self.bits,
-            self.pos_bias,
             self.time,
             self.nonce)
         self.hash = sha256(self.b).digest()
@@ -87,7 +89,7 @@ class Block:
 
     def deserialize(self):
         assert len(self.b) == 80, 'Not correct header size [{}!={}]'.format(len(self.b), 80)
-        self.merkleroot, self.previous_hash, self.bits, self.pos_bias, self.time, \
+        self.version, self.previous_hash, self.merkleroot, self.bits, self.time, \
             self.nonce = struct_block.unpack(self.b)
         self.hash = sha256(self.b).digest()
 
@@ -116,10 +118,20 @@ class Block:
         r['merkleroot'] = hexlify(self.merkleroot).decode() if self.merkleroot else None
         r['time'] = V.BLOCK_GENESIS_TIME + self.time
         r['bits'] = self.bits
-        r['pos_bias'] = self.pos_bias
+        r['bias'] = self.bias
         r['nonce'] = hexlify(self.nonce).decode() if self.nonce else None
         r['txs'] = [hexlify(tx.hash).decode() for tx in self.txs]
         return r
+
+    @property
+    def bias(self):
+        from bc4py.chain.difficulty import get_bias_by_hash  # not good?
+        if not self.difficulty:
+            self.bits2target()
+            self.target2diff()
+        if not self._bias:
+            self._bias = get_bias_by_hash(self.previous_hash, self.flag)
+        return self._bias
 
     def getsize(self):
         tx_sizes = sum(tx.getsize() for tx in self.txs)

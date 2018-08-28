@@ -1,7 +1,6 @@
 from bc4py.config import C, V, Debug, BlockChainError
 from bc4py.database.builder import builder
 from bc4py.chain.utils import bits2target, target2bits
-from math import log2
 import time
 from binascii import hexlify
 
@@ -137,40 +136,40 @@ def get_bits_by_hash(previous_hash, consensus):
     return new_bits, new_target
 
 
-MAX_BIAS_TARGET = 0xffffffffffffffff
-MAX_BIAS_BITS = target2bits(MAX_BIAS_TARGET)
-MIN_BIAS_TARGET = 0x5f5e100
-MIN_BIAS_BITS = target2bits(MIN_BIAS_TARGET)
+def get_bias_by_hash(previous_hash, consensus):
+    N = 30  # target blocks
+    base_consensus = C.BLOCK_POW  # base consensus
 
-
-def get_pos_bias_by_hash(previous_hash):
-    if previous_hash in cashe:
-        return cashe[previous_hash]
+    if consensus == base_consensus:
+        return 1.0
+    elif consensus == C.BLOCK_GENESIS:
+        return 1.0
+    elif consensus == C.HYBRID:
+        raise BlockChainError('C.HYBRID is not consensus.')
+    if (previous_hash, consensus) in cashe:
+        return cashe[(previous_hash, consensus)]
     if previous_hash == GENESIS_PREVIOUS_HASH:
-        return MIN_BIAS_BITS, MIN_BIAS_TARGET
-    # POSのDiffが高すぎる→pos target は小さい→bias を大きくしたい→
+        return 1.0
     if V.BLOCK_CONSENSUS != C.HYBRID:
-        return MIN_BIAS_BITS, MIN_BIAS_TARGET
+        return 1.0
 
-    # pow pos の target が小さいほど掘りにくい
-    pow_target = get_bits_by_hash(previous_hash=previous_hash, consensus=C.BLOCK_POW)[1]
-    pos_target = get_bits_by_hash(previous_hash=previous_hash, consensus=C.BLOCK_POS)[1]
+    base_diffs = list()
+    target_diffs = list()
+    target_hash = previous_hash
+    while True:
+        target_block = builder.get_block(target_hash)
+        if target_block is None:
+            return 1.0
+        target_hash = target_block.previous_hash
+        if target_hash == GENESIS_PREVIOUS_HASH:
+            return 1.0
+        elif target_block.flag == base_consensus:
+            base_diffs.append(bits2target(target_block.bits) * (N-len(base_diffs)))
+        elif target_block.flag == consensus:
+            target_diffs.append(bits2target(target_block.bits) * (N-len(target_diffs)))
+        if len(base_diffs) >= N and len(target_diffs) >= N:
+            break
 
-    previous_block = builder.get_block(previous_hash)
-    bias_target = bits2target(bits=previous_block.pos_bias)
-
-    # POSのDiffが大きすぎるとBiasが1より大きくになる
-    # new_target が大きくなりCoinの評価が小さくなる
-    # 急激な変化はDifficultyに任せる為、変化は0.8％以内
-    bias = log2(pow_target) / log2(pos_target)
-    # 他に移植しやすくする為、全ての型は Double
-    new_target = int(float(bias_target) * min(1.01, max(0.99, bias)))
-
-    if Debug.F_SHOW_DIFFICULTY:
-        print("Bias", bias_target, new_target, bias, min(1.01, max(0.99, bias)))
-
-    # 範囲を調整
-    new_target = max(MIN_BIAS_TARGET, min(MAX_BIAS_TARGET, new_target))
-    new_bias = target2bits(target=new_target)
-    cashe[previous_hash] = (new_bias, new_target)
-    return new_bias, new_target
+    bias = sum(base_diffs) / sum(target_diffs)
+    cashe[(previous_hash, consensus)] = bias
+    return bias

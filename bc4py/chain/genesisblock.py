@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from bc4py import __chain_version__
-from bc4py.chain.difficulty import MAX_BITS, MIN_BIAS_BITS
+from bc4py.chain.difficulty import MAX_BITS
 from bc4py.config import C, V, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
@@ -115,7 +115,6 @@ def create_genesis_block(all_supply, block_span, prefix=b'\x98', contract_prefix
         'time': 0,
         'previous_hash': b'\xff'*32,
         'bits': MAX_BITS,
-        'pos_bias': MIN_BIAS_BITS,
         'nonce': b'\xff'*4})
     # block params
     genesis_block.height = 0

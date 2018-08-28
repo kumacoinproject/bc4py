@@ -447,7 +447,7 @@ class ChainBuilder:
             if not block.difficulty:
                 block.bits2target()
                 block.target2diff()
-            tmp_best_diff = block.difficulty
+            tmp_best_diff = block.difficulty * block.bias
             tmp_best_block = block
             tmp_best_chain = [block]
             while block.previous_hash in self.chain:
@@ -455,7 +455,7 @@ class ChainBuilder:
                 if not block.difficulty:
                     block.bits2target()
                     block.target2diff()
-                tmp_best_diff += block.difficulty
+                tmp_best_diff += block.difficulty * block.bias
                 tmp_best_chain.append(block)
             else:
                 if self.root_block.hash != block.previous_hash:
