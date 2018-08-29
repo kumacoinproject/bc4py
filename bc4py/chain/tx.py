@@ -146,14 +146,14 @@ class TX:
         # staked => sha256(txhash + previous_hash) / amount < 256^32 / diff
         pos_work_hash = sha256(self.hash + previous_hash).digest()
         work = int.from_bytes(pos_work_hash, 'big')
-        work //= self.pos_amount
+        work //= (self.pos_amount // 100000000)
         return work.to_bytes(32, 'big')
 
     def pos_check(self, previous_hash, pos_target_hash):
         # staked => sha256(txhash + previous_hash) / amount < 256^32 / diff
         pos_work_hash = sha256(self.hash + previous_hash).digest()
         work = int.from_bytes(pos_work_hash, 'big')
-        work //= self.pos_amount
+        work //= (self.pos_amount // 100000000)
         return work < int.from_bytes(pos_target_hash, 'big')
 
     def update_time(self, retention=10800):

@@ -11,12 +11,12 @@ import bjson
 
 def _get_best_chain_all(best_block):
     # MemoryにおけるBestBlockまでのChainを返す
-    dummy, best_chain = builder.get_best_chain(best_block=best_block)
+    dummy, best_chain = builder.get_best_chain(best_block)
     # best_chain = [<height=n>, <height=n-1>,.. <height=n-m>]
     return best_chain
 
 
-def get_mintcoin(mint_id, best_block=None):
+def get_mintcoin(mint_id, best_block=None, best_chain=None):
     if mint_id < 0:
         raise MintCoinError('coinID is more than 0.')
     elif mint_id == 0:
@@ -33,7 +33,7 @@ def get_mintcoin(mint_id, best_block=None):
         mint_coin_new.check_sign()
         mint_coin_old = mint_coin_new
     # Memoryより
-    best_chain = _get_best_chain_all(best_block)
+    best_chain = best_chain or _get_best_chain_all(best_block)
     for block in reversed(best_chain):
         for tx in block.txs:
             if tx.type != C.TX_MINT_COIN:
@@ -60,7 +60,7 @@ def get_mintcoin(mint_id, best_block=None):
     return mint_coin_old
 
 
-def get_contract_binary(c_address, best_block=None):
+def get_contract_binary(c_address, best_block=None, best_chain=None):
     assert V.CONTRACT_VALIDATOR_ADDRESS, 'Not found validator address.'
     if c_address == V.CONTRACT_VALIDATOR_ADDRESS:
         return contract2binary(Contract)
@@ -70,7 +70,7 @@ def get_contract_binary(c_address, best_block=None):
         dummy, c_bin, c_cs = bjson.loads(start_tx.message)
         return c_bin
     # Memoryより
-    best_chain = _get_best_chain_all(best_block)
+    best_chain = best_chain or _get_best_chain_all(best_block)
     for block in reversed(best_chain):
         for tx in block.txs:
             if tx.type == C.TX_CREATE_CONTRACT:
@@ -85,9 +85,9 @@ def get_contract_binary(c_address, best_block=None):
     return None
 
 
-def get_validator_info(best_block=None):
+def get_validator_info(best_block=None, best_chain=None):
     assert V.CONTRACT_VALIDATOR_ADDRESS, 'Not found validator address.'
-    cs = get_contract_storage(V.CONTRACT_VALIDATOR_ADDRESS, best_block)
+    cs = get_contract_storage(V.CONTRACT_VALIDATOR_ADDRESS, best_block, best_chain)
     validator_cks = set()
     for ck, uuid in cs.items():
         if len(ck) != 40:
@@ -98,14 +98,14 @@ def get_validator_info(best_block=None):
     return validator_cks, required_num
 
 
-def get_contract_history_iter(c_address, best_block=None):
+def get_contract_history_iter(c_address, best_block=None, best_chain=None):
     # DataBaseより
     last_index = 0
     for dummy, index, start_hash, finish_hash in builder.db.read_contract_iter(c_address):
         yield index, start_hash, finish_hash, None, False
         last_index += 1
     # Memoryより
-    best_chain = _get_best_chain_all(best_block)
+    best_chain = best_chain or _get_best_chain_all(best_block)
     for block in reversed(best_chain):
         for tx in block.txs:
             if tx.type == C.TX_CREATE_CONTRACT:
@@ -149,7 +149,7 @@ def get_contract_history_iter(c_address, best_block=None):
     # index, start_hash, finish_hash, height, on_memory
 
 
-def get_contract_storage(c_address, best_block=None):
+def get_contract_storage(c_address, best_block=None, best_chain=None):
     # DataBaseより
     cs = ContractStorage()
     for dummy, index, start_hash, finish_hash in builder.db.read_contract_iter(c_address):
@@ -162,7 +162,7 @@ def get_contract_storage(c_address, best_block=None):
             c_status, dummy, c_diff = bjson.loads(finish_tx.message)
             cs.marge(c_diff)
     # Memoryより
-    best_chain = _get_best_chain_all(best_block)
+    best_chain = best_chain or _get_best_chain_all(best_block)
     for block in reversed(best_chain):
         for tx in block.txs:
             if tx.type == C.TX_CREATE_CONTRACT:
@@ -194,15 +194,15 @@ def get_contract_storage(c_address, best_block=None):
     return cs
 
 
-def get_utxo_iter(target_address, best_block=None):
+def get_utxo_iter(target_address, best_block=None, best_chain=None):
     assert isinstance(target_address, set), 'TargetAddress is set.'
-    best_chain = _get_best_chain_all(best_block)
+    best_chain = best_chain or _get_best_chain_all(best_block)
     allow_mined_height = best_chain[0].height - C.MATURE_HEIGHT
     # DataBaseより
     for address in target_address:
         for dummy, txhash, txindex, coin_id, amount, f_used in builder.db.read_address_idx_iter(address):
             if f_used is False:
-                if txindex in get_usedindex(txhash, best_block):
+                if txindex in get_usedindex(txhash=txhash, best_block=best_block, best_chain=best_chain):
                     continue  # Used
                 tx = tx_builder.get_tx(txhash)
                 if tx.type in (C.TX_POW_REWARD, C.TX_POS_REWARD) and tx.height < allow_mined_height:
@@ -212,7 +212,7 @@ def get_utxo_iter(target_address, best_block=None):
     # Memoryより
     for block in reversed(best_chain):
         for tx in block.txs:
-            used_index = get_usedindex(tx.hash, best_block)
+            used_index = get_usedindex(txhash=tx.hash, best_block=best_block, best_chain=best_chain)
             for index, (address, coin_id, amount) in enumerate(tx.outputs):
                 if index in used_index:
                     continue  # Used
@@ -224,7 +224,7 @@ def get_utxo_iter(target_address, best_block=None):
     # Unconfirmedより
     if best_block is None:
         for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.time):
-            used_index = get_usedindex(tx.hash, best_block)
+            used_index = get_usedindex(txhash=tx.hash, best_block=best_block, best_chain=best_chain)
             for index, (address, coin_id, amount) in enumerate(tx.outputs):
                 if index in used_index:
                     continue  # Used
@@ -234,18 +234,18 @@ def get_utxo_iter(target_address, best_block=None):
     # address, height, txhash, index, coin_id, amount
 
 
-def get_unspents_iter(outer_cur=None):
+def get_unspents_iter(outer_cur=None, best_chain=None):
     target_address = set()
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         cur = outer_cur or db.cursor()
         for (uuid, address, user) in read_pooled_address_iter(cur):
             target_address.add(address)
-    return get_utxo_iter(target_address)
+    return get_utxo_iter(target_address=target_address, best_chain=best_chain)
 
 
-def get_usedindex(txhash, best_block=None):
+def get_usedindex(txhash, best_block=None, best_chain=None):
     assert builder.best_block, 'Not DataBase init.'
-    best_chain = _get_best_chain_all(best_block)
+    best_chain = best_chain or _get_best_chain_all(best_block)
     # Memoryより
     usedindex = set()
     for block in best_chain:

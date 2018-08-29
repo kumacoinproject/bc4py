@@ -125,11 +125,11 @@ class Block:
 
     @property
     def bias(self):
-        from bc4py.chain.difficulty import get_bias_by_hash  # not good?
         if not self.difficulty:
             self.bits2target()
             self.target2diff()
         if not self._bias:
+            from bc4py.chain.difficulty import get_bias_by_hash  # not good?
             self._bias = get_bias_by_hash(self.previous_hash, self.flag)
         return self._bias
 

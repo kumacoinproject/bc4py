@@ -260,7 +260,7 @@ class Staking:
                 continue
             elif not is_address(address, prefix=V.BLOCK_PREFIX):
                 continue
-            elif amount < pow(10, V.COIN_DIGIT):
+            elif amount < 100000000:
                 continue
             proof_tx = TX(tx={
                 'version': __chain_version__,
