@@ -3,7 +3,7 @@ from bc4py.config import C, V, BlockChainError
 from bc4py.utils import set_blockchain_params, set_database_path
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
-from bc4py.chain.difficulty import get_bits_by_hash, get_pos_bias_by_hash
+from bc4py.chain.difficulty import get_bits_by_hash
 from bc4py.chain.utils import GompertzCurve
 from bc4py.database.tools import get_unspents_iter
 from bc4py.user import float2unit
@@ -49,7 +49,6 @@ def staking_process(pipe, params):
                 proof_tx.update_time()
                 if not proof_tx.pos_check(
                         previous_hash=staking_block.previous_hash,
-                        pos_bias=staking_block.pos_bias,
                         pos_target_hash=staking_block.target_hash):
                     continue
                 proof_tx.signature = [message2signature(proof_tx.b, proof_tx.outputs[0][0])]
@@ -70,7 +69,6 @@ def staking_process(pipe, params):
                     tx.height = staking_block.height
                 info = "Staked yay!! Diff={} ({}hash/s)"\
                     .format(float2unit(staking_block.difficulty), len(proof_txs))
-                print("Staaaking!", info)
                 pipe.send((True, staking_block, info))
                 # Clear
                 staking_block = None
@@ -223,7 +221,6 @@ class Staking:
             'time': 0,
             'previous_hash': base_block.hash,
             'bits': get_bits_by_hash(previous_hash=base_block.hash, consensus=C.BLOCK_POS)[0],
-            'pos_bias': get_pos_bias_by_hash(previous_hash=base_block.hash)[0],
             'nonce': b'\xff' * 4})
         staking_block.height = base_block.height + 1
         staking_block.flag = C.BLOCK_POS
@@ -263,7 +260,7 @@ class Staking:
                 continue
             elif not is_address(address, prefix=V.BLOCK_PREFIX):
                 continue
-            elif amount < pow(10, V.COIN_DIGIT):
+            elif amount < 100000000:
                 continue
             proof_tx = TX(tx={
                 'version': __chain_version__,

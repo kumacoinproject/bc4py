@@ -6,9 +6,6 @@ from binascii import hexlify
 
 def _best_info():
     best_block = builder.best_block
-    if not best_block.difficulty:
-        best_block.bits2target()
-        best_block.target2diff()
     txs = [{
             'tx': tx.b,
             'sign': tx.signature}
@@ -36,9 +33,6 @@ def _block_by_hash(blockhash):
     block = builder.get_block(blockhash)
     if block is None:
         return 'Not found blockhash {}.'.format(hexlify(blockhash).decode())
-    if not block.difficulty:
-        block.bits2target()
-        block.target2diff()
     txs = [{
         'tx': tx.b,
         'sign': tx.signature}
