@@ -4,7 +4,7 @@ from bc4py.utils import set_database_path, set_blockchain_params
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.chain.workhash import update_work_hash
-from bc4py.chain.difficulty import get_bits_by_hash, get_pos_bias_by_hash
+from bc4py.chain.difficulty import get_bits_by_hash
 from bc4py.chain.utils import GompertzCurve
 from bc4py.database.create import create_db, closing
 from bc4py.database.account import create_new_user_keypair
@@ -248,7 +248,6 @@ class Mining:
             'time': 0,
             'previous_hash': base_block.hash,
             'bits': get_bits_by_hash(previous_hash=base_block.hash, consensus=C.BLOCK_POW)[0],
-            'pos_bias': get_pos_bias_by_hash(previous_hash=base_block.hash)[0],
             'nonce': b'\xff' * 4})
         mining_block.height = base_block.height + 1
         mining_block.flag = C.BLOCK_POW

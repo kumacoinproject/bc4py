@@ -56,7 +56,7 @@ pow_generator = PowGenerator()
 def update_work_hash(block):
     if block.flag == C.BLOCK_POS:
         proof_tx = block.txs[0]
-        block.work_hash = proof_tx.get_pos_hash(block.previous_hash, block.pos_bias)
+        block.work_hash = proof_tx.get_pos_hash(block.previous_hash)
     elif block.flag == C.BLOCK_POW:
         block.work_hash = yescryptr16.getPoWHash(block.b)
     elif block.flag == C.BLOCK_GENESIS:
