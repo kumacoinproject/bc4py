@@ -17,7 +17,7 @@ struct_block = struct.Struct('>I32s32sII4s')
 class Block:
     __slots__ = (
         "b", "hash", "next_hash", "target_hash", "work_hash",
-        "height", "difficulty", "work_difficulty", "create_time", "delete_time",
+        "height", "_difficulty", "_work_difficulty", "create_time", "delete_time",
         "flag", "f_orphan", "f_on_memory", "_bias",
         "version", "previous_hash", "merkleroot", "time", "bits", "nonce", "txs",
         "__weakref__")
@@ -43,8 +43,8 @@ class Block:
         self.work_hash = None  # proof of work hash
         # block params
         self.height = None
-        self.difficulty = None
-        self.work_difficulty = None
+        self._difficulty = None
+        self._work_difficulty = None
         self.create_time = None  # Objectの生成日時
         self.delete_time = None  # Objectの削除日時
         self.flag = None  # mined consensus number
@@ -110,9 +110,6 @@ class Block:
         r['f_orphan'] = self.f_orphan
         r['f_on_memory'] = self.f_on_memory
         r['height'] = self.height
-        if self.difficulty is None:
-            self.bits2target()
-            self.target2diff()
         r['difficulty'] = self.difficulty
         r['flag'] = C.consensus2name[self.flag]
         r['merkleroot'] = hexlify(self.merkleroot).decode() if self.merkleroot else None
@@ -125,13 +122,23 @@ class Block:
 
     @property
     def bias(self):
-        if not self.difficulty:
-            self.bits2target()
-            self.target2diff()
         if not self._bias:
             from bc4py.chain.difficulty import get_bias_by_hash  # not good?
             self._bias = get_bias_by_hash(self.previous_hash, self.flag)
         return self._bias
+
+    @property
+    def difficulty(self):
+        if self._difficulty is None:
+            self.bits2target()
+            self.target2diff()
+        return self._difficulty
+
+    @property
+    def work_difficulty(self):
+        if self._work_difficulty is None:
+            self.work2diff()
+        return self._work_difficulty
 
     def getsize(self):
         tx_sizes = sum(tx.getsize() for tx in self.txs)
@@ -154,14 +161,14 @@ class Block:
         return int(MAX_256_INT / (difficulty*100000000)).to_bytes(32, 'big')
 
     def target2diff(self):
-        self.difficulty = round((MAX_256_INT // int.from_bytes(self.target_hash, 'big')) / 1000000, 6)
+        self._difficulty = round((MAX_256_INT // int.from_bytes(self.target_hash, 'big')) / 1000000, 6)
 
     def bits2target(self):
         target = bits2target(self.bits)
         self.target_hash = target.to_bytes(32, 'big')
 
     def work2diff(self):
-        self.work_difficulty = round((MAX_256_INT // int.from_bytes(self.work_hash, 'big')) / 1000000, 6)
+        self._work_difficulty = round((MAX_256_INT // int.from_bytes(self.work_hash, 'big')) / 1000000, 6)
 
     def pow_check(self):
         if not self.work_hash:

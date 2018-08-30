@@ -444,17 +444,11 @@ class ChainBuilder:
         for block in list(self.chain.values()):
             if block in best_chain:
                 continue
-            if not block.difficulty:
-                block.bits2target()
-                block.target2diff()
             tmp_best_diff = block.difficulty * block.bias
             tmp_best_block = block
             tmp_best_chain = [block]
             while block.previous_hash in self.chain:
                 block = self.chain[block.previous_hash]
-                if not block.difficulty:
-                    block.bits2target()
-                    block.target2diff()
                 tmp_best_diff += block.difficulty * block.bias
                 tmp_best_chain.append(block)
             else:
