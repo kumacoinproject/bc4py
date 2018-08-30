@@ -21,7 +21,7 @@ def create_boot_file(genesis_block, network_ver=None, connections=None):
         'network_ver': network_ver}
     boot_path = os.path.join(V.DB_HOME_DIR, 'boot.dat')
     with open(boot_path, mode='bw') as fp:
-        bjson.dump(data, fp, compress=False)
+        fp.write(b64encode(bjson.dumps(data)))
     logging.info("create new boot.dat!")
 
 
@@ -30,10 +30,10 @@ def load_boot_file():
     extra_path = os.path.join(V.DB_HOME_DIR, 'boot.dat')
     if os.path.exists(normal_path):
         with open(normal_path, mode='br') as fp:
-            data = bjson.load(fp=fp)
+            data = bjson.loads(b64decode(fp.read()))
     elif os.path.exists(extra_path):
         with open(extra_path, mode='br') as fp:
-            data = bjson.load(fp=fp)
+            data = bjson.loads(b64decode(fp.read()))
     else:
         raise FileNotFoundError('Cannot find boot.dat "{}" or "{}" ?'.format(normal_path, extra_path))
     genesis_block = Block(binary=data['block'])
