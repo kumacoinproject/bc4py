@@ -7,11 +7,13 @@ import os
 import bjson
 import logging
 import pickle
+import random
 from base64 import b64decode, b64encode
 
 
-def create_boot_file(genesis_block, network_ver, connections=None):
-    assert isinstance(network_ver, int) and abs(network_ver) <= 0xffffffff, 'network_ver ia int.'
+def create_boot_file(genesis_block, network_ver=None, connections=None):
+    network_ver = network_ver or random.randint(1000000, 0xffffffff)
+    assert isinstance(network_ver, int) and abs(network_ver) <= 0xffffffff, 'network_ver is int <=0xffffffff.'
     data = {
         'block': genesis_block.b,
         'txs': [tx.b for tx in genesis_block.txs],

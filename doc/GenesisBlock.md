@@ -28,5 +28,5 @@ genesis_block = create_genesis_block(
 # check genesis block
 set_blockchain_params(genesis_block)
 print(genesis_block.getinfo())
-create_boot_file(network_ver=110234, genesis_block=genesis_block)
+create_boot_file(genesis_block)
 ```

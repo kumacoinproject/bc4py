@@ -1,6 +1,7 @@
 from bc4py.config import C
-import yescryptr16
 import multiprocessing
+import yespower
+# import yescryptr16
 # import yescryptr64
 # import zny_yescrypt
 
@@ -10,7 +11,7 @@ def generator_process(pipe):
     while True:
         try:
             binary = pipe.recv()
-            pow_hash = yescryptr16.getPoWHash(binary)
+            pow_hash = yespower.hash(binary)
             pipe.send(pow_hash)
         except Exception as e:
             print("POW hash gene error:", e)
@@ -58,7 +59,7 @@ def update_work_hash(block):
         proof_tx = block.txs[0]
         block.work_hash = proof_tx.get_pos_hash(block.previous_hash, block.pos_bias)
     elif block.flag == C.BLOCK_POW:
-        block.work_hash = yescryptr16.getPoWHash(block.b)
+        block.work_hash = yespower.hash(block.b)
     elif block.flag == C.BLOCK_GENESIS:
         block.work_hash = b'\xff' * 32
 

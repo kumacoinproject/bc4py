@@ -7,7 +7,7 @@ p2p_python>=1.0.4
 dill
 psutil
 pysha3
-git+https://github.com/namuyan/yescryptR16-python@master
+git+https://github.com/namuyan/yespower-python@master
 xmltodict
 requests
 leveldb
