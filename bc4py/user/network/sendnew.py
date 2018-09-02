@@ -19,6 +19,7 @@ def mined_newblock(que, pc):
             elif new_insert_block(new_block, time_check=True):
                 logging.info("Mined new block {}".format(new_block.getinfo()))
             else:
+                update_mining_staking_all_info()
                 continue
             proof = new_block.txs[0]
             others = [tx.hash for tx in new_block.txs]

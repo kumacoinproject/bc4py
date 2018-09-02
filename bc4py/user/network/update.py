@@ -1,6 +1,6 @@
 from bc4py.config import C, V, P, Debug
 from bc4py.database.builder import builder, tx_builder
-from bc4py.database.tools import get_validator_info
+from bc4py.database.tools import get_validator_info, get_usedindex
 import logging
 from threading import Lock, Thread
 import time
@@ -53,7 +53,12 @@ def _update_unconfirmed_info():
     unconfirmed_txs = sorted(tx_builder.unconfirmed.values(), key=lambda x: x.gas_price, reverse=True)
     # reject tx (input tx is unconfirmed)
     limit_height = builder.best_block.height - C.MATURE_HEIGHT
+    best_block, best_chain = builder.get_best_chain()
     for tx in unconfirmed_txs.copy():
+        if tx.height is not None:
+            del tx_builder.unconfirmed[tx.hash]
+            unconfirmed_txs.remove(tx)
+            break
         for txhash, txindex in tx.inputs:
             input_tx = tx_builder.get_tx(txhash)
             if input_tx is None:
@@ -66,6 +71,11 @@ def _update_unconfirmed_info():
                     input_tx.height > limit_height:
                 unconfirmed_txs.remove(tx)
                 break
+            elif txindex in get_usedindex(txhash=txhash, best_chain=best_chain):
+                unconfirmed_txs.remove(tx)
+                break
+            else:
+                pass
     # limit per tx's in block
     if Debug.F_LIMIT_INCLUDE_TX_IN_BLOCK:
         unconfirmed_txs = unconfirmed_txs[:Debug.F_LIMIT_INCLUDE_TX_IN_BLOCK]
