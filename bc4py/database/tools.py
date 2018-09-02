@@ -266,6 +266,33 @@ def get_usedindex(txhash, best_block=None, best_chain=None):
     return usedindex
 
 
+def is_usedindex(txhash, txindex, except_txhash, best_block=None, best_chain=None):
+    assert builder.best_block, 'Not DataBase init.'
+    best_chain = best_chain or _get_best_chain_all(best_block)
+    # Memoryより
+    for block in best_chain:
+        if best_block and block == best_block:
+            continue
+        for tx in block.txs:
+            if tx.hash == except_txhash:
+                continue
+            for _txhash, _txindex in tx.inputs:
+                if _txhash == txhash and _txindex == txindex:
+                    return True
+    # DataBaseより
+    if txindex in builder.db.read_usedindex(txhash):
+        return True
+    # unconfirmedより
+    if best_block is None:
+        for tx in tx_builder.unconfirmed.values():
+            if tx.hash == except_txhash:
+                continue
+            for _txhash, _txindex in tx.inputs:
+                if _txhash == txhash and _txindex == txindex:
+                    return True
+    return False
+
+
 __all__ = [
     "get_mintcoin",
     "get_contract_binary",
@@ -274,5 +301,6 @@ __all__ = [
     "get_contract_storage",
     "get_utxo_iter",
     "get_unspents_iter",
-    "get_usedindex"
+    "get_usedindex",
+    "is_usedindex"
 ]

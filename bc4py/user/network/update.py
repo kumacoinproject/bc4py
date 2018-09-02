@@ -1,6 +1,6 @@
 from bc4py.config import C, V, P, Debug
 from bc4py.database.builder import builder, tx_builder
-from bc4py.database.tools import get_validator_info, get_usedindex
+from bc4py.database.tools import get_validator_info, is_usedindex
 import logging
 from threading import Lock, Thread
 import time
@@ -71,7 +71,7 @@ def _update_unconfirmed_info():
                     input_tx.height > limit_height:
                 unconfirmed_txs.remove(tx)
                 break
-            elif txindex in get_usedindex(txhash=txhash, best_chain=best_chain):
+            elif is_usedindex(txhash, txindex, tx.hash, best_block, best_chain):
                 unconfirmed_txs.remove(tx)
                 break
             else:
