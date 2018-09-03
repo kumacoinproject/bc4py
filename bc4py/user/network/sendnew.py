@@ -34,7 +34,7 @@ def mined_newblock(que, pc):
             try:
                 pc.send_command(cmd=ClientCmd.BROADCAST, data=data)
                 logging.info("Success broadcast new block {}".format(new_block))
-                update_mining_staking_all_info(f_force=True)
+                update_mining_staking_all_info()
             except TimeoutError:
                 logging.warning("Failed broadcast new block, other nodes don\'t accept {}"
                                 .format(new_block.getinfo()))

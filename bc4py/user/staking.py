@@ -244,9 +244,12 @@ class Staking:
             po.update_unconfirmed(unconfirmed)
 
     def update_unspent(self):
-        c = 10
+        c = 50
         while 0 == len(self.thread_pool) and 0 < c:
-            time.sleep(1)
+            time.sleep(0.2)
+            c -= 1
+        while self.previous_hash is None and 0 < c:
+            time.sleep(0.2)
             c -= 1
         assert 0 < len(self.thread_pool), "No staking thread found."
         assert self.previous_hash, "Setup block before."

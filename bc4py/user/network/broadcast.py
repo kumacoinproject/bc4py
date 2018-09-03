@@ -20,7 +20,7 @@ class BroadcastCmd:
         try:
             new_block = fill_newblock_info(data)
             if new_insert_block(new_block, time_check=True):
-                update_mining_staking_all_info(f_force=True)
+                update_mining_staking_all_info()
                 logging.info("Accept new block {}".format(new_block))
                 return True
             else:
