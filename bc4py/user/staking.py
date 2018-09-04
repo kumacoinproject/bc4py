@@ -9,7 +9,7 @@ from bc4py.database.tools import get_unspents_iter
 from bc4py.user import float2unit
 from bc4py.user.utils import message2signature
 from binascii import hexlify
-from multiprocessing import Process, Pipe, Lock
+from multiprocessing import Process, Queue
 import time
 import logging
 from threading import Thread
@@ -22,10 +22,9 @@ NEW_UNCONFIRMED = 1
 NEW_PROOF_TXS = 2
 
 
-def staking_process(pipe, lock, params):
+def staking_process(parent_que, child_que, params):
     def send(*args):
-        with lock:
-            pipe.send(args)
+        parent_que.put(args)
     set_database_path(sub_dir=params.get("sub_dir"))
     set_blockchain_params(genesis_block=params.get('genesis_block'))
     staking_block = None
@@ -33,9 +32,8 @@ def staking_process(pipe, lock, params):
     proof_txs = list()
     staking_time = 0
     while True:
-        if pipe.poll():
-            with lock:
-                cmd, obj = pipe.recv()
+        if not child_que.empty():
+            cmd, obj = child_que.get()
             if cmd == NEW_BLOCK:
                 staking_block = obj
             elif cmd == NEW_UNCONFIRMED:
@@ -99,11 +97,11 @@ def staking_process(pipe, lock, params):
 
 
 class ProcessObject:
-    def __init__(self, index, process, pipe, lock):
+    def __init__(self, index, process, parent_que, child_que):
         self.index = index
         self.process = process
-        self.pipe = pipe
-        self.lock = lock
+        self.parent_que = parent_que
+        self.child_que = child_que
         self.hashrate = 0
         self.margin = 100
 
@@ -112,9 +110,10 @@ class ProcessObject:
 
     def close(self):
         try:
-            self.pipe.close()
+            self.parent_que.close()
+            self.child_que.close()
         except OSError as e:
-            logging.error("Failed close Pipe: {}".format(e))
+            logging.error("Failed close Queue: {}".format(e))
         try:
             self.process.terminate()
         except OSError as e:
@@ -122,9 +121,8 @@ class ProcessObject:
 
     def check_mined_block(self):
         try:
-            if self.pipe.poll():
-                with self.lock:
-                    status, obj, info = self.pipe.recv()
+            if not self.parent_que.empty():
+                status, obj, info = self.parent_que.get()
                 if status:
                     logging.info(info)
                     return status, obj
@@ -141,16 +139,16 @@ class ProcessObject:
             logging.error("Error on pipe: {}".format(e))
 
     def update_new_block(self, new_block):
-        with self.lock:
-            self.pipe.send((NEW_BLOCK, new_block))
+        self._send(NEW_BLOCK, new_block)
 
     def update_unconfirmed(self, unconfirmed):
-        with self.lock:
-            self.pipe.send((NEW_UNCONFIRMED, unconfirmed))
+        self._send(NEW_UNCONFIRMED, unconfirmed)
 
     def update_proof_txs(self, proof_txs):
-        with self.lock:
-            self.pipe.send((NEW_PROOF_TXS, proof_txs))
+        self._send(NEW_PROOF_TXS, proof_txs)
+
+    def _send(self, *args):
+        self.child_que.put(args)
 
 
 class Staking:
@@ -185,16 +183,15 @@ class Staking:
         self.cores = threads
         for i in range(1, threads+1):
             try:
-                parent_conn, child_conn = Pipe()
-                lock = Lock()
+                parent_que, child_que = Queue(), Queue()
                 params = dict(genesis_block=self.genesis_block, sub_dir=V.SUB_DIR)
                 process = Process(
                     target=staking_process,
                     name="C-Staking {}".format(i),
-                    args=(child_conn, lock, params))
+                    args=(parent_que, child_que, params))
                 # process.daemon = True
                 process.start()
-                po = ProcessObject(index=i, pipe=parent_conn, process=process, lock=lock)
+                po = ProcessObject(index=i, process=process, parent_que=parent_que, child_que=child_que)
                 self.thread_pool.append(po)
                 logging.info("Staking process create number={}".format(i))
             except OSError as e:

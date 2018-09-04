@@ -10,7 +10,7 @@ from bc4py.database.create import create_db, closing
 from bc4py.database.account import create_new_user_keypair
 from bc4py.database.builder import builder
 from bc4py.user import float2unit
-from multiprocessing import Process, Pipe, Lock
+from multiprocessing import Process, Queue
 from threading import Thread
 import os
 import time
@@ -24,10 +24,9 @@ NEW_BLOCK = 1
 CLOSE_PROCESS = 2
 
 
-def mining_process(pipe, lock, params):
+def mining_process(parent_que, child_que, params):
     def send(*args):
-        with lock:
-            pipe.send(args)
+        parent_que.put(args)
     set_database_path(sub_dir=params.get("sub_dir"))
     set_blockchain_params(genesis_block=params.get('genesis_block'))
     power_save = params.get("power_save")
@@ -37,9 +36,8 @@ def mining_process(pipe, lock, params):
     start = int(time.time())
     while True:
         # コマンド受け取り
-        if pipe.poll():
-            with lock:
-                cmd, obj = pipe.recv()
+        if not child_que.empty():
+            cmd, obj = child_que.get()
             if cmd == NEW_UNCONFIRMED:
                 unconfirmed = obj
             elif cmd == NEW_BLOCK:
@@ -122,12 +120,12 @@ def new_key():
 
 
 class ProcessObject:
-    def __init__(self, index, pipe, process, lock):
+    def __init__(self, index, process, parent_que, child_que):
         assert V.BLOCK_CONSENSUS in (C.BLOCK_POW, C.HYBRID), 'Not pow mining chain.'
         self.time = time
         self.index = index
-        self.pipe = pipe
-        self.lock = lock
+        self.parent_que = parent_que
+        self.child_que = child_que
         self.que = queue.LifoQueue()
         self.process = process
         self.hashrate = "0.0"
@@ -136,18 +134,19 @@ class ProcessObject:
         return "<Mining {} {}h/s>".format(self.index, self.hashrate)
 
     def close(self):
-        try: self.pipe.close()
+        try:
+            self.parent_que.close()
+            self.child_que.close()
         except OSError as e:
-            logging.error("Failed close Pipe: {}".format(e))
+            logging.error("Failed close Queue: {}".format(e))
         try: self.process.terminate()
         except OSError as e:
             logging.error("Failed close Process: {}".format(e))
 
     def check_mined_block(self):
         try:
-            if self.pipe.poll():
-                with self.lock:
-                    status, obj, info = self.pipe.recv()
+            if not self.parent_que.empty():
+                status, obj, info = self.parent_que.get()
                 if status:
                     logging.info(info)
                     return status, obj
@@ -164,12 +163,13 @@ class ProcessObject:
             logging.error("Error on pipe: {}".format(e))
 
     def update_new_block(self, new_block):
-        with self.lock:
-            self.pipe.send((NEW_BLOCK, new_block))
+        self._send(NEW_BLOCK, new_block)
 
     def update_unconfirmed(self, unconfirmed):
-        with self.lock:
-            self.pipe.send((NEW_UNCONFIRMED, unconfirmed))
+        self._send(NEW_UNCONFIRMED, unconfirmed)
+
+    def _send(self, *args):
+        self.child_que.put(args)
 
 
 class Mining:
@@ -203,16 +203,15 @@ class Mining:
         logging.info("Start mining by {} cores.".format(self.cores))
         for i in range(1, self.cores+1):
             try:
-                parent_conn, child_conn = Pipe()
-                lock = Lock()
+                parent_que, child_que = Queue(), Queue()
                 params = dict(genesis_block=self.genesis_block, power_save=Debug.F_MINING_POWER_SAVE, sub_dir=V.SUB_DIR)
                 process = Process(
                     target=mining_process,
                     name="C-Mining {}".format(i),
-                    args=(child_conn, lock, params))
+                    args=(parent_que, child_que, params))
                 # process.daemon = True
                 process.start()
-                po = ProcessObject(index=i, pipe=parent_conn, process=process, lock=lock)
+                po = ProcessObject(index=i, process=process, parent_que=parent_que, child_que=child_que)
                 self.thread_pool.append(po)
                 logging.info("Mining process create number={}".format(i))
             except OSError as e:

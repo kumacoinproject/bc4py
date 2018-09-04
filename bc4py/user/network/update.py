@@ -5,7 +5,6 @@ import logging
 from threading import Lock, Thread
 import time
 import bjson
-import time
 
 update_count = 0
 block_lock = Lock()
