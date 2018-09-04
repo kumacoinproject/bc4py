@@ -30,7 +30,7 @@ class PowGenerator:
         self.pipe = pipe1
         self.lock = multiprocessing.Lock()
         self.p = multiprocessing.Process(target=generator_process, args=(pipe0,))
-        self.p.daemon = True
+        # self.p.daemon = True
         self.p.start()
 
     def calc(self, binary):

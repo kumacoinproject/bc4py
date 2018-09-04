@@ -206,7 +206,7 @@ class Mining:
             except OSError as e:
                 logging.error("Failed start mining process: {}".format(e))
                 time.sleep(60)
-        loop_thread = Thread(target=self.inner_check, name="P-Mining", daemon=True)
+        loop_thread = Thread(target=self.inner_check, name="P-Mining")
         loop_thread.start()
 
     def close(self):

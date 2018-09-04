@@ -58,9 +58,9 @@ def work(port, sub_dir=None):
     Debug.F_WS_FULL_ERROR_MSG = True
     Debug.F_MINING_POWER_SAVE = random.random() / 5 + 0.05
     # core = 1 if port <= 2001 else 0
-    Thread(target=mining.start, name='Mining', args=(1,), daemon=True).start()
-    Thread(target=staking.start, name='Staking', daemon=True).start()
-    Thread(target=mined_newblock, name='MinedBlock', args=(mining.que, pc), daemon=True).start()
+    Thread(target=mining.start, name='Mining', args=(1,)).start()
+    Thread(target=staking.start, name='Staking').start()
+    Thread(target=mined_newblock, name='MinedBlock', args=(mining.que, pc)).start()
     V.MINING_OBJ = mining
     V.STAKING_OBJ = staking
     logging.info("Finished all initialize.")
