@@ -201,7 +201,7 @@ class Mining:
         self.f_stop = False
         self.cores = core or os.cpu_count()
         logging.info("Start mining by {} cores.".format(self.cores))
-        for i in range(self.cores):
+        for i in range(1, self.cores+1):
             try:
                 parent_conn, child_conn = Pipe()
                 lock = Lock()
