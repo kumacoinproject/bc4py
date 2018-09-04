@@ -10,7 +10,7 @@ from bc4py.database.create import create_db, closing
 from bc4py.database.account import create_new_user_keypair
 from bc4py.database.builder import builder
 from bc4py.user import float2unit
-from multiprocessing import Process, Pipe
+from multiprocessing import Process, Pipe, Lock
 from threading import Thread
 import os
 import time
@@ -24,7 +24,10 @@ NEW_BLOCK = 1
 CLOSE_PROCESS = 2
 
 
-def mining_process(pipe, params):
+def mining_process(pipe, lock, params):
+    def send(*args):
+        with lock:
+            pipe.send(args)
     set_database_path(sub_dir=params.get("sub_dir"))
     set_blockchain_params(genesis_block=params.get('genesis_block'))
     power_save = params.get("power_save")
@@ -35,7 +38,8 @@ def mining_process(pipe, params):
     while True:
         # コマンド受け取り
         if pipe.poll():
-            cmd, obj = pipe.recv()
+            with lock:
+                cmd, obj = pipe.recv()
             if cmd == NEW_UNCONFIRMED:
                 unconfirmed = obj
             elif cmd == NEW_BLOCK:
@@ -76,7 +80,7 @@ def mining_process(pipe, params):
                             float2unit(mining_block.difficulty),
                             float2unit(mining_block.work_difficulty),
                             float2unit(count / max(0.1, time.time() - start)))
-                        pipe.send((True, mining_block, info))
+                        send(True, mining_block, info)
                         count = 0
                         start = int(time.time())
                         mining_block = None
@@ -101,10 +105,10 @@ def mining_process(pipe, params):
                 info = "Generating(POW) now.. BlockDiff={} {}h/s {}".format(
                     float2unit(mining_block.difficulty), hashrate,
                     '(Saved)' if power_save else '')
-                pipe.send((False, hashrate, info))
+                send(False, hashrate, info)
             elif mining_block.time % 10 == 0:
                 hashrate = float2unit(count / max(0.1, time.time() - start))
-                pipe.send((False, hashrate, None))
+                send(False, hashrate, None)
         else:
             time.sleep(1)
 
@@ -118,11 +122,12 @@ def new_key():
 
 
 class ProcessObject:
-    def __init__(self, index, pipe, process):
+    def __init__(self, index, pipe, process, lock):
         assert V.BLOCK_CONSENSUS in (C.BLOCK_POW, C.HYBRID), 'Not pow mining chain.'
         self.time = time
         self.index = index
         self.pipe = pipe
+        self.lock = lock
         self.que = queue.LifoQueue()
         self.process = process
         self.hashrate = "0.0"
@@ -141,7 +146,8 @@ class ProcessObject:
     def check_mined_block(self):
         try:
             if self.pipe.poll():
-                status, obj, info = self.pipe.recv()
+                with self.lock:
+                    status, obj, info = self.pipe.recv()
                 if status:
                     logging.info(info)
                     return status, obj
@@ -158,10 +164,12 @@ class ProcessObject:
             logging.error("Error on pipe: {}".format(e))
 
     def update_new_block(self, new_block):
-        self.pipe.send((NEW_BLOCK, new_block))
+        with self.lock:
+            self.pipe.send((NEW_BLOCK, new_block))
 
     def update_unconfirmed(self, unconfirmed):
-        self.pipe.send((NEW_UNCONFIRMED, unconfirmed))
+        with self.lock:
+            self.pipe.send((NEW_UNCONFIRMED, unconfirmed))
 
 
 class Mining:
@@ -196,11 +204,15 @@ class Mining:
         for i in range(self.cores):
             try:
                 parent_conn, child_conn = Pipe()
+                lock = Lock()
                 params = dict(genesis_block=self.genesis_block, power_save=Debug.F_MINING_POWER_SAVE, sub_dir=V.SUB_DIR)
-                process = Process(target=mining_process, name="C-Mining {}".format(i), args=(child_conn, params))
+                process = Process(
+                    target=mining_process,
+                    name="C-Mining {}".format(i),
+                    args=(child_conn, lock, params))
                 # process.daemon = True
                 process.start()
-                po = ProcessObject(index=i, pipe=parent_conn, process=process)
+                po = ProcessObject(index=i, pipe=parent_conn, process=process, lock=lock)
                 self.thread_pool.append(po)
                 logging.info("Mining process create number={}".format(i))
             except OSError as e:

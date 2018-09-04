@@ -9,7 +9,7 @@ from bc4py.database.tools import get_unspents_iter
 from bc4py.user import float2unit
 from bc4py.user.utils import message2signature
 from binascii import hexlify
-from multiprocessing import Process, Pipe
+from multiprocessing import Process, Pipe, Lock
 import time
 import logging
 from threading import Thread
@@ -22,7 +22,10 @@ NEW_UNCONFIRMED = 1
 NEW_PROOF_TXS = 2
 
 
-def staking_process(pipe, params):
+def staking_process(pipe, lock, params):
+    def send(*args):
+        with lock:
+            pipe.send(args)
     set_database_path(sub_dir=params.get("sub_dir"))
     set_blockchain_params(genesis_block=params.get('genesis_block'))
     staking_block = None
@@ -31,7 +34,8 @@ def staking_process(pipe, params):
     staking_time = 0
     while True:
         if pipe.poll():
-            cmd, obj = pipe.recv()
+            with lock:
+                cmd, obj = pipe.recv()
             if cmd == NEW_BLOCK:
                 staking_block = obj
             elif cmd == NEW_UNCONFIRMED:
@@ -69,7 +73,7 @@ def staking_process(pipe, params):
                     tx.height = staking_block.height
                 info = "Staked yay!! Diff={} ({}hash/s)"\
                     .format(float2unit(staking_block.difficulty), len(proof_txs))
-                pipe.send((True, staking_block, info))
+                send(True, staking_block, info)
                 # Clear
                 staking_block = None
                 unconfirmed.clear()
@@ -85,20 +89,21 @@ def staking_process(pipe, params):
                     margin = round(remain * 100, 1)
                     info = "Generating(POS) now ..Diff={}, ({}hash/s, margin{}%)" \
                         .format(float2unit(staking_block.difficulty), hashrate, margin)
-                    pipe.send((False, (hashrate, margin), info))
+                    send(False, (hashrate, margin), info)
                 elif staking_time % 10 == 0:
                     hashrate = len(proof_txs)
                     margin = round(remain * 100, 1)
-                    pipe.send((False, (hashrate, margin), None))
+                    send(False, (hashrate, margin), None)
         else:
             time.sleep(1)
 
 
 class ProcessObject:
-    def __init__(self, index, process, pipe):
+    def __init__(self, index, process, pipe, lock):
         self.index = index
         self.process = process
         self.pipe = pipe
+        self.lock = lock
         self.hashrate = 0
         self.margin = 100
 
@@ -118,7 +123,8 @@ class ProcessObject:
     def check_mined_block(self):
         try:
             if self.pipe.poll():
-                status, obj, info = self.pipe.recv()
+                with self.lock:
+                    status, obj, info = self.pipe.recv()
                 if status:
                     logging.info(info)
                     return status, obj
@@ -135,13 +141,16 @@ class ProcessObject:
             logging.error("Error on pipe: {}".format(e))
 
     def update_new_block(self, new_block):
-        self.pipe.send((NEW_BLOCK, new_block))
+        with self.lock:
+            self.pipe.send((NEW_BLOCK, new_block))
 
     def update_unconfirmed(self, unconfirmed):
-        self.pipe.send((NEW_UNCONFIRMED, unconfirmed))
+        with self.lock:
+            self.pipe.send((NEW_UNCONFIRMED, unconfirmed))
 
     def update_proof_txs(self, proof_txs):
-        self.pipe.send((NEW_PROOF_TXS, proof_txs))
+        with self.lock:
+            self.pipe.send((NEW_PROOF_TXS, proof_txs))
 
 
 class Staking:
@@ -174,15 +183,18 @@ class Staking:
         self.f_staking = True
         self.f_stop = False
         self.cores = threads
-        for i in range(threads):
+        for i in range(1, threads+1):
             try:
                 parent_conn, child_conn = Pipe()
+                lock = Lock()
                 params = dict(genesis_block=self.genesis_block, sub_dir=V.SUB_DIR)
                 process = Process(
-                    target=staking_process, name="C-Staking {}".format(i), args=(child_conn, params))
+                    target=staking_process,
+                    name="C-Staking {}".format(i),
+                    args=(child_conn, lock, params))
                 # process.daemon = True
                 process.start()
-                po = ProcessObject(index=i, pipe=parent_conn, process=process)
+                po = ProcessObject(index=i, pipe=parent_conn, process=process, lock=lock)
                 self.thread_pool.append(po)
                 logging.info("Staking process create number={}".format(i))
             except OSError as e:
