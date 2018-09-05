@@ -5,6 +5,7 @@ from bc4py.chain.checking import check_block, check_tx, check_tx_time
 from bc4py.database.builder import builder, tx_builder, user_account
 from bc4py.user.network import update_mining_staking_all_info
 from bc4py.user.network.directcmd import DirectCmd
+from bc4py.user.exit import system_exit
 import logging
 import random
 import collections
@@ -220,6 +221,7 @@ def sync_chain_loop(f_3_conn=True):
                     elif failed < 0:
                         exit_msg = 'Failed sync.'
                         builder.make_failemark(exit_msg)
+                        system_exit()
                         break
                     elif f_changed_status is False:
                         failed -= 1

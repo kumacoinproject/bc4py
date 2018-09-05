@@ -10,7 +10,7 @@ from .chaininfo import *
 from .websocket import *
 from .createtx import *
 from .contracttx import *
-from bc4py.config import Debug
+from bc4py.config import V
 from bc4py.user.api import web_base
 import threading
 import logging
@@ -35,6 +35,7 @@ def create_rest_server(f_local, port):
     threading.current_thread().setName("REST")
     app = web.Application()
     routes = web.RouteTableDef()
+    V.API_OBJ = app
 
     @routes.post("/api/test")
     async def test_page0(request):

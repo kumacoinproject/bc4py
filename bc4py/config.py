@@ -97,6 +97,7 @@ class V:  # 起動時に設定される変数
     MINING_OBJ = None
     STAKING_OBJ = None
     PC_OBJ = None
+    API_OBJ = None
 
 
 class P:  # 起動中もダイナミックに変化
