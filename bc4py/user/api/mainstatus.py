@@ -1,4 +1,4 @@
-from bc4py import __version__, __chain_version__
+from bc4py import __version__, __chain_version__, __message__
 from bc4py.config import C, V, P
 from bc4py.chain.utils import GompertzCurve
 from bc4py.chain.difficulty import get_bits_by_hash, get_bias_by_hash
@@ -47,6 +47,7 @@ async def system_info(request):
             'system_ver': __version__,
             'api_ver': __api_version__,
             'chain_ver': __chain_version__,
+            'message': __message__,
             'booting': P.F_NOW_BOOTING,
             'connections': len(V.PC_OBJ.p2p.user),
             'unconfirmed': [hexlify(txhash).decode() for txhash in tx_builder.unconfirmed.keys()],
