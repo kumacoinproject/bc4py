@@ -6,9 +6,20 @@ from bc4py.database.builder import builder, tx_builder
 from bc4py.user.network.update import update_mining_staking_all_info
 from bc4py.user.network.directcmd import DirectCmd
 import logging
-from threading import Thread
 from binascii import hexlify
 import random
+from collections import deque
+import time
+
+failed_deque = deque([], maxlen=10)
+
+
+def add_failed_mark():
+    failed_deque.append(time.time())
+    if min(failed_deque) < time.time() - 7200:
+        return
+    elif len(failed_deque) >= 10:
+        builder.make_failemark("Too many broadcast fail.")
 
 
 class BroadcastCmd:
@@ -27,9 +38,11 @@ class BroadcastCmd:
                 return False
         except BlockChainError as e:
             logging.error('Failed accept new block "{}"'.format(e))
+            add_failed_mark()
             return False
         except BaseException:
             logging.error("Failed accept new block", exc_info=True)
+            add_failed_mark()
             return False
 
     @staticmethod
@@ -45,9 +58,11 @@ class BroadcastCmd:
             return True
         except BlockChainError as e:
             logging.error('Failed accept new tx "{}"'.format(e))
+            add_failed_mark()
             return False
         except BaseException:
             logging.error("Failed accept new tx", exc_info=True)
+            add_failed_mark()
             return False
 
 
@@ -118,4 +133,5 @@ def ask_node(cmd, data=None, f_continue_asking=False):
         except IndexError:
             raise BlockChainError('No node found.')
         return r
+    add_failed_mark()
     raise BlockChainError('Too many retry ask_node.')

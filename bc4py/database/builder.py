@@ -26,6 +26,7 @@ struct_address_idx = struct.Struct('>IQ?')
 
 
 ZERO_FILLED_HASH = b'\x00' * 32
+STARTER_NUM = 3
 
 
 class DataBase:
@@ -399,7 +400,7 @@ class ChainBuilder:
                      .format(before_block, round(time.time()-t, 3)))
 
     def save_starter(self):
-        for index in reversed(range(3)):
+        for index in reversed(range(STARTER_NUM)):
             target_path = os.path.join(V.DB_HOME_DIR, 'db', 'starter.{}.dat'.format(index))
             if os.path.exists(target_path):
                 old_file_path = os.path.join(V.DB_HOME_DIR, 'db', 'starter.{}.dat'.format(index+1))
@@ -410,8 +411,9 @@ class ChainBuilder:
             pickle.dump(self.best_chain, fp, protocol=4)
 
     def load_starter(self, root_block):
+        self.failmark_file_check()
         memorized_blocks = list()
-        for index in range(3):
+        for index in range(STARTER_NUM+1):
             target_path = os.path.join(V.DB_HOME_DIR, 'db', 'starter.{}.dat'.format(index))
             if os.path.exists(target_path):
                 with open(target_path, mode='br') as fp:
@@ -423,6 +425,29 @@ class ChainBuilder:
                 logging.debug("Load {} blocks, best={}".format(len(memorized_blocks), root_block))
                 return memorized_blocks, root_block
         raise BlockBuilderError("Failed load block from file, cannot find starter.n.dat?")
+
+    def failmark_file_check(self):
+        mark_file = os.path.join(V.DB_HOME_DIR, 'db', 'starter.failed.dat')
+        if not os.path.exists(mark_file):
+            return
+        for index in range(STARTER_NUM+1):
+            target_path = os.path.join(V.DB_HOME_DIR, 'db', 'starter.{}.dat'.format(index))
+            if os.path.exists(target_path):
+                os.remove(target_path)
+                os.remove(mark_file)
+                logging.debug("Removed starter.{}.dat".format(index))
+                return
+        logging.critical('System is in fork chain, so we delete "db" from "blockchain-py" '
+                         'folder and resync blockchain from 0 height.')
+        del self.db
+        os.removedirs(os.path.join(V.DB_HOME_DIR, 'db'))
+        exit(1)
+
+    def make_failemark(self, message=""):
+        mark_file = os.path.join(V.DB_HOME_DIR, 'db', 'starter.failed.dat')
+        with open(mark_file, mode='a') as fp:
+            fp.write("[{}] {}\n".format(time.asctime(), message))
+        logging.debug("Make failed mark.")
 
     def get_best_chain(self, best_block=None):
         assert self.root_block, 'Do not init.'

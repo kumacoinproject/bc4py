@@ -218,8 +218,8 @@ def sync_chain_loop(f_3_conn=True):
                         if builder.best_block:
                             update_mining_staking_all_info()
                     elif failed < 0:
-                        exit_msg = 'You may in fork chain. please delete "db" from "blockchain-py" folder,' \
-                                   ' and resync blockchain. Close resync now.'
+                        exit_msg = 'Failed sync.'
+                        builder.make_failemark(exit_msg)
                         break
                     elif f_changed_status is False:
                         failed -= 1
