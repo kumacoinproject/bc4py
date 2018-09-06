@@ -165,6 +165,12 @@ class Staking:
         self.genesis_block = genesis_block
         self.cores = 0
 
+    def close(self):
+        self.f_stop = True
+        for po in self.thread_pool:
+            po.close()
+        self.thread_pool.clear()
+
     def getinfo(self):
         return [str(po) for po in self.thread_pool]
 
@@ -263,16 +269,18 @@ class Staking:
         assert 0 < len(self.thread_pool), "No staking thread found."
         assert self.previous_hash, "Setup block before."
         proof_txs = list()
+        all_num = 0
         for address, height, txhash, txindex, coin_id, amount in get_unspents_iter():
+            all_num += 1
             if height is None:
                 continue
             if coin_id != 0:
                 continue
             if not (self.block_height > height + C.MATURE_HEIGHT):
                 continue
-            elif not is_address(address, prefix=V.BLOCK_PREFIX):
+            if not is_address(address, prefix=V.BLOCK_PREFIX):
                 continue
-            elif amount < 100000000:
+            if amount < 100000000:
                 continue
             proof_tx = TX(tx={
                 'version': __chain_version__,
@@ -290,4 +298,4 @@ class Staking:
         n = len(proof_txs) // len(self.thread_pool) + 1
         for i, po in enumerate(self.thread_pool):
             po.update_proof_txs(proof_txs[i*n:i*n+n])
-        return len(proof_txs)
+        return all_num, len(proof_txs)

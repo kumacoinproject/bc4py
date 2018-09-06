@@ -2,12 +2,23 @@ from bc4py.config import P
 from bc4py.chain.checking.checkblock import check_block, check_block_time
 from bc4py.chain.checking.checktx import check_tx, check_tx_time
 from bc4py.database.builder import builder, user_account
+from bc4py.user.exit import system_exit
 import threading
 import time
 import logging
-
+from collections import deque
 
 global_lock = threading.Lock()
+failed_deque = deque([], maxlen=10)
+
+
+def add_failed_mark():
+    failed_deque.append(time.time())
+    if min(failed_deque) < time.time() - 7200:
+        return
+    elif len(failed_deque) >= 10:
+        builder.make_failemark("Too many block check fail.")
+        system_exit()
 
 
 def new_insert_block(block, time_check=False):
@@ -34,7 +45,9 @@ def new_insert_block(block, time_check=False):
             logging.info("New block accepted {}Sec {}.".format(round(time.time()-t, 3), block))
             return True
         except BaseException as e:
-            logging.warning("New insert block error, \"{}\"".format(e), exc_info=True)
+            message = "New insert block error, \"{}\"".format(e)
+            logging.warning(message, exc_info=True)
+            add_failed_mark()
             return False
 
 

@@ -26,8 +26,8 @@ def update_mining_staking_all_info(u_block=True, u_unspent=True, u_unconfirmed=T
 def _update_unspent_info():
     with unspent_lock:
         if V.STAKING_OBJ:
-            next_num = V.STAKING_OBJ.update_unspent()
-            logging.debug("Update unspent={}".format(next_num))
+            all_num, next_num = V.STAKING_OBJ.update_unspent()
+            logging.debug("Update unspent={}/{}".format(next_num, all_num))
 
 
 def _update_block_info():
