@@ -104,6 +104,7 @@ class P:  # 起動中もダイナミックに変化
     VALIDATOR_OBJ = None  # Validation request
     F_NOW_BOOTING = True  # 起動中
     NEW_CHAIN_INFO_QUE = None  # API streaming
+    CONDITION = "Good"  # Inner condition
 
 
 class Debug:
