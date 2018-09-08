@@ -1,5 +1,4 @@
 from bc4py.config import V, P, BlockChainError
-from bc4py.database.create import create_db, closing
 from bc4py.database.builder import builder, tx_builder
 from binascii import hexlify
 
@@ -67,12 +66,28 @@ def _unconfirmed_tx():
     return send_data
 
 
+def _big_blocks(height):
+    data = list()
+    for i in range(20):
+        blockhash = builder.get_block_hash(height + i)
+        if blockhash is None:
+            break
+        block = builder.get_block(blockhash)
+        if block is None:
+            break
+        txs = [(tx.b, tx.signature) for tx in block.txs]
+        data.append((block.b, block.height, block.flag, txs))
+    # TODO:一度に送信できるBytesにチェック
+    return data
+
+
 class DirectCmd:
     BEST_INFO = 'cmd/best-info'
     BLOCK_BY_HEIGHT = 'cmd/block-by-height'
     BLOCK_BY_HASH = 'cmd/block-by-hash'
     TX_BY_HASH = 'cmd/tx-by-hash'
     UNCONFIRMED_TX = 'cmd/unconfirmed-tx'
+    BIG_BLOCKS = 'cmd/big-block'
 
     @staticmethod
     def best_info(data):
@@ -119,5 +134,12 @@ class DirectCmd:
     def unconfirmed_tx(data):
         try:
             return _unconfirmed_tx()
+        except BlockChainError as e:
+            return str(e)
+
+    @staticmethod
+    def big_blocks(data):
+        try:
+            return _big_blocks(height=data['height'])
         except BlockChainError as e:
             return str(e)
