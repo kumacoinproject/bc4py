@@ -19,7 +19,6 @@ best_hash_on_network = None
 best_height_on_network = None
 f_changed_status = False
 f_working = False
-f_new_sync = True
 
 
 def set_good_node():
@@ -60,7 +59,6 @@ def reset_good_node():
 
 
 def ask_node(cmd, data=None, f_continue_asking=False):
-    global f_new_sync
     count = 10
     pc = V.PC_OBJ
     while 0 < count:
@@ -88,9 +86,6 @@ def ask_node(cmd, data=None, f_continue_asking=False):
         except IndexError:
             raise BlockChainError('No node found.')
         return r
-    if cmd == DirectCmd.BIG_BLOCKS:
-        f_new_sync = False
-        logging.warning("Disabled fast sync mode.")
     raise BlockChainError('Too many retry ask_node.')
 
 
@@ -204,136 +199,16 @@ def fast_sync_chain():
         return False
 
 
-def normal_sync_chain():
-    assert V.PC_OBJ is not None, "Need PeerClient start before."
-    global f_changed_status
-    start = time.time()
-    # 内部の最新のBlock
-    try:
-        previous_hash = builder.best_block.hash
-        previous_height = builder.best_block.height
-    except BlockChainError as e:
-        logging.fatal('Failed by inner error, broken chain. "{}"'.format(e))
-        exit(1)
-        return False
-    # 外部Nodeに次のBlockを逐一尋ねる
-    count = 5
-    while count > 0:
-        r = ask_node(cmd=DirectCmd.BLOCK_BY_HEIGHT, data={'height': previous_height + 1})
-        if isinstance(r, str):
-            logging.debug("NewBlockInfoException1:{}".format(r))
-            previous_height -= 1
-            previous_hash = builder.get_block_hash(previous_height)
-            count -= 1
-            continue
-        r = ask_node(cmd=DirectCmd.BLOCK_BY_HASH, data=r, f_continue_asking=True)
-        if isinstance(r, str):
-            logging.debug("NewBlockInfoException2:{}".format(r))
-            count -= 1
-            continue
-        new_block = Block(binary=r['block'])
-        new_block.height = previous_height + 1
-        new_block.flag = r['flag']
-        if r['orphan']:
-            previous_height -= 1
-            previous_hash = builder.get_block_hash(previous_height)
-            count -= 1
-            continue
-        elif new_block.previous_hash != previous_hash:
-            previous_height -= 1
-            previous_hash = builder.get_block_hash(previous_height)
-            count -= 1
-            continue
-        elif builder.get_block(new_block.hash):
-            previous_height += 1
-            previous_hash = new_block.hash
-            count -= 1
-            continue
-        # TXを補充
-        for tx_dict in r['txs']:
-            tx = TX(binary=tx_dict['tx'])
-            tx.height = None
-            tx.signature = tx_dict['sign']
-            tx_from_database = tx_builder.get_tx(txhash=tx.hash)
-            if tx_from_database:
-                new_block.txs.append(tx_from_database)
-            elif tx.type in (C.TX_POS_REWARD, C.TX_POW_REWARD):
-                new_block.txs.append(tx)
-            else:
-                check_tx(tx, include_block=None)
-                tx_builder.put_unconfirmed(tx)
-                new_block.txs.append(tx)
-            # re set height
-            tx.height = new_block.height
-        # Block check
-        check_block(new_block)
-        # TX check
-        for tx in new_block.txs:
-            check_tx(tx, new_block)
-        # Chainに挿入
-        builder.new_block(new_block)
-        for tx in new_block.txs:
-            user_account.affect_new_tx(tx)
-        builder.batch_apply()
-        f_changed_status = True
-        # 次のBlock
-        count = 5
-        previous_height += 1
-        previous_hash = new_block.hash
-        # ロギング
-        if previous_height % 100 == 0:
-            logging.debug("Update block {} now...".format(previous_height+1))
-    # Unconfirmed txを取得
-    r = ask_node(cmd=DirectCmd.UNCONFIRMED_TX, f_continue_asking=True)
-    if isinstance(r, dict):
-        for txhash in r['txs']:
-            r = ask_node(cmd=DirectCmd.TX_BY_HASH, data={'txhash': txhash}, f_continue_asking=True)
-            tx = TX(binary=r['tx'])
-            try:
-                tx.signature = r['sign']
-                check_tx_time(tx)
-                check_tx(tx, include_block=None)
-                tx_builder.put_unconfirmed(tx)
-            except BlockChainError:
-                logging.debug("Failed get unconfirmed {}".format(tx))
-    elif isinstance(r, list):
-        for tx_dict in r:
-            tx = TX(binary=tx_dict['tx'])
-            try:
-                tx.signature = tx_dict['sign']
-                check_tx(tx, include_block=None)
-                tx_builder.put_unconfirmed(tx)
-            except BlockChainError:
-                logging.debug("Failed get unconfirmed {}".format(tx))
-    # 最終判断
-    reset_good_node()
-    set_good_node()
-    my_best_height = builder.best_block.height
-    if best_height_on_network <= my_best_height:
-        logging.info("Finish update chain data by network. {}Sec [{}<={}]"
-                     .format(round(time.time()-start, 1), best_height_on_network, my_best_height))
-        return True
-    else:
-        logging.debug("Continue update chain, {}<={}".format(best_height_on_network, my_best_height))
-        return False
-
-
 def sync_chain_loop(f_3_conn=True):
     global f_working
 
     def loop():
-        global f_changed_status, f_new_sync
+        global f_changed_status
         failed = 5
         while True:
             try:
                 if P.F_NOW_BOOTING:
-                    if f_new_sync and fast_sync_chain():
-                        f_new_sync = False
-                        logging.info("Disabled fast_sync mode.")
-                        P.F_NOW_BOOTING = False
-                        if builder.best_block:
-                            update_mining_staking_all_info()
-                    elif normal_sync_chain():
+                    if fast_sync_chain():
                         P.F_NOW_BOOTING = False
                         if builder.best_block:
                             update_mining_staking_all_info()
