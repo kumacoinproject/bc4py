@@ -37,12 +37,12 @@ def inputs_origin_check(tx, include_block):
         # 同一Block内で使用されていないかチェック
         if include_block:
             for input_tx in include_block.txs:
-                if input_tx.hash == txhash:
+                if input_tx == tx:
                     break
                 for input_hash, input_index in input_tx.inputs:
                     if input_hash == txhash and input_index == txindex:
-                        raise BlockChainError('2 Input of {} is already used! {}:{}'
-                                              .format(tx, hexlify(txhash).decode(), txindex))
+                        raise BlockChainError('2 Input of {} is already used by {}'
+                                              .format(tx, input_tx))
 
 
 def amount_check(tx, payfee_coin_id):

@@ -47,6 +47,7 @@ def _update_unconfirmed_info():
         # reject tx (input tx is unconfirmed)
         limit_height = builder.best_block.height - C.MATURE_HEIGHT
         best_block, best_chain = builder.get_best_chain()
+        used_pairs = set()
         for tx in unconfirmed_txs.copy():
             if tx.height is not None:
                 del tx_builder.unconfirmed[tx.hash]
@@ -67,8 +68,13 @@ def _update_unconfirmed_info():
                 elif is_usedindex(txhash, txindex, tx.hash, best_block, best_chain):
                     unconfirmed_txs.remove(tx)
                     break
-                else:
-                    pass
+                # check inputs used same unconfirmed_txs
+                input_pair = (txhash, txindex)
+                if input_pair in used_pairs:
+                    unconfirmed_txs.remove(tx)
+                    break
+                used_pairs.add(input_pair)
+
         # limit per tx's in block
         if Debug.F_LIMIT_INCLUDE_TX_IN_BLOCK:
             unconfirmed_txs = unconfirmed_txs[:Debug.F_LIMIT_INCLUDE_TX_IN_BLOCK]
