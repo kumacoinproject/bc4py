@@ -3,7 +3,7 @@ import asyncio
 
 
 def system_exit():
-    P.CONDITION = "Bad"
+    pass
     # Disabled
     #if V.MINING_OBJ:
     #    V.MINING_OBJ.close()

@@ -2,7 +2,6 @@ from bc4py.config import P
 from bc4py.chain.checking.checkblock import check_block, check_block_time
 from bc4py.chain.checking.checktx import check_tx, check_tx_time
 from bc4py.database.builder import builder, user_account
-from bc4py.user.exit import system_exit
 import threading
 import time
 import logging
@@ -18,7 +17,8 @@ def add_failed_mark():
         return
     elif len(failed_deque) >= 10:
         builder.make_failemark("Too many block check fail.")
-        system_exit()
+        failed_deque.clear()
+        P.F_NOW_BOOTING = True
 
 
 def new_insert_block(block, time_check=False):

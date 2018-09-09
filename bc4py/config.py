@@ -102,9 +102,8 @@ class V:  # 起動時に設定される変数
 
 class P:  # 起動中もダイナミックに変化
     VALIDATOR_OBJ = None  # Validation request
-    F_NOW_BOOTING = True  # 起動中
+    F_NOW_BOOTING = True  # Booting mode flag
     NEW_CHAIN_INFO_QUE = None  # API streaming
-    CONDITION = "Good"  # Inner condition
 
 
 class Debug:

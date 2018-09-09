@@ -447,7 +447,12 @@ class ChainBuilder:
         mark_file = os.path.join(V.DB_HOME_DIR, 'db', 'starter.failed.dat')
         with open(mark_file, mode='a') as fp:
             fp.write("[{}] {}\n".format(time.asctime(), message))
-        logging.debug("Make failed mark.")
+        logging.debug("Make failed mark '{}'".format(message))
+
+    def remove_failmark(self):
+        mark_file = os.path.join(V.DB_HOME_DIR, 'db', 'starter.failed.dat')
+        if os.path.exists(mark_file):
+            os.remove(mark_file)
 
     def get_best_chain(self, best_block=None):
         assert self.root_block, 'Do not init.'
@@ -764,7 +769,7 @@ class UserAccount:
                                 else:
                                     balance.add_coins(user, coin_id, amount)
             # Unconfirmed
-            for tx in tx_builder.unconfirmed.values():
+            for tx in list(tx_builder.unconfirmed.values()):
                 move_log = read_txhash2log(tx.hash, cur)
                 if move_log is None:
                     if tx.hash in self.memory_movement:

@@ -49,7 +49,6 @@ async def system_info(request):
             'chain_ver': __chain_version__,
             'message': __message__,
             'booting': P.F_NOW_BOOTING,
-            'condition': P.CONDITION,
             'connections': len(V.PC_OBJ.p2p.user),
             'unconfirmed': [hexlify(txhash).decode() for txhash in tx_builder.unconfirmed.keys()],
             'directory': V.DB_HOME_DIR,

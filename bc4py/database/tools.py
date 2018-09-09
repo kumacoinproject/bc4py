@@ -259,7 +259,7 @@ def get_usedindex(txhash, best_block=None, best_chain=None):
     usedindex.update(builder.db.read_usedindex(txhash))
     # unconfirmedより
     if best_block is None:
-        for tx in tx_builder.unconfirmed.values():
+        for tx in list(tx_builder.unconfirmed.values()):
             for _txhash, _txindex in tx.inputs:
                 if _txhash == txhash:
                     usedindex.add(_txindex)

@@ -5,7 +5,6 @@ from bc4py.chain.checking import new_insert_block, check_tx, check_tx_time
 from bc4py.database.builder import builder, tx_builder
 from bc4py.user.network.update import update_mining_staking_all_info
 from bc4py.user.network.directcmd import DirectCmd
-from bc4py.user.exit import system_exit
 import logging
 from binascii import hexlify
 import random
@@ -21,7 +20,8 @@ def add_failed_mark():
         return
     elif len(failed_deque) >= 10:
         builder.make_failemark("Too many broadcast fail.")
-        system_exit()
+        failed_deque.clear()
+        P.F_NOW_BOOTING = True
 
 
 class BroadcastCmd:
