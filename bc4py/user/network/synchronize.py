@@ -202,10 +202,19 @@ def fast_sync_chain():
 def sync_chain_loop(f_3_conn=True):
     global f_working
 
+    def check_connection():
+        c, need = 0,  3 if f_3_conn else 1
+        while len(V.PC_OBJ.p2p.user) < need:
+            if c % 10 == 0:
+                logging.debug("Waiting for new connections.. {}".format(len(V.PC_OBJ.p2p.user)))
+            time.sleep(15)
+            c += 1
+
     def loop():
         global f_changed_status
         failed = 5
         while True:
+            check_connection()
             try:
                 if P.F_NOW_BOOTING:
                     if fast_sync_chain():
@@ -226,7 +235,7 @@ def sync_chain_loop(f_3_conn=True):
                 time.sleep(5)
             except BlockChainError as e:
                 reset_good_node()
-                logging.warning('Update chain failed "{}"'.format(e), exc_info=True)
+                logging.warning('Update chain failed "{}"'.format(e))
                 time.sleep(5)
             except BaseException as e:
                 reset_good_node()
@@ -238,13 +247,5 @@ def sync_chain_loop(f_3_conn=True):
     if f_working:
         raise Exception('Already sync_chain_loop working.')
     f_working = True
-    P.F_NOW_BOOTING = True
-    c = 0
-    need = 3 if f_3_conn else 1
-    while len(V.PC_OBJ.p2p.user) < need:
-        if c % 10 == 0:
-            logging.debug("Waiting for new connections.. {}".format(len(V.PC_OBJ.p2p.user)))
-        time.sleep(15)
-        c += 1
     logging.info("Start sync now {} connections.".format(len(V.PC_OBJ.p2p.user)))
     threading.Thread(target=loop, name='Sync').start()

@@ -271,8 +271,6 @@ def is_usedindex(txhash, txindex, except_txhash, best_block=None, best_chain=Non
     best_chain = best_chain or _get_best_chain_all(best_block)
     # Memoryより
     for block in best_chain:
-        if best_block and block == best_block:
-            continue
         for tx in block.txs:
             if tx.hash == except_txhash:
                 continue
