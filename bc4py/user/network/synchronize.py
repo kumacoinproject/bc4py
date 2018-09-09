@@ -108,7 +108,7 @@ def fast_sync_chain():
             if isinstance(r, str):
                 logging.debug("NewBLockGetError:{}".format(r))
                 before_block = builder.get_block(before_block.previous_hash)
-                index_height = before_block + 1
+                index_height = before_block.height + 1
                 failed_num += 1
                 continue
             elif isinstance(r, list):
@@ -143,7 +143,7 @@ def fast_sync_chain():
         if before_block.hash != new_block.previous_hash:
             logging.debug("Not correct previous hash. {}".format(new_block.height))
             before_block = builder.get_block(before_block.previous_hash)
-            index_height = before_block + 1
+            index_height = before_block.height + 1
             failed_num += 1
             continue
         # Block check
