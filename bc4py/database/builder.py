@@ -680,12 +680,12 @@ class TransactionBuilder:
             # unconfirmedより
             tx = self.unconfirmed[txhash]
             tx.f_on_memory = True
-            assert tx.height is None, "Not unconfirmed. {}".format(tx)
+            if tx.height is not None: logging.warning("Not unconfirmed. {}".format(tx))
         elif txhash in self.chained_tx:
             # Memoryより
             tx = self.chained_tx[txhash]
             tx.f_on_memory = True
-            assert tx.height is not None, "Is unconfirmed. {}".format(tx)
+            if tx.height is None: logging.warning("Is unconfirmed. {}".format(tx))
         else:
             # Databaseより
             tx = builder.db.read_tx(txhash)

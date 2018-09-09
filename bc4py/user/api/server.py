@@ -92,8 +92,8 @@ def create_rest_server(f_local, port):
                                       '[account=Unknown]', 'create and send start contract.'),
 
             ('getblockbyheight', 'GET', '[height]', 'Get blockinfo by height.'),
-            ('getblockbyhash', 'GET', '[blockhash]', 'Get blockinfo by blockhash.'),
-            ('gettxbyhash', 'GET', '[txhash]', 'Get tx by txhash.'),
+            ('getblockbyhash', 'GET', '[hash]', 'Get blockinfo by blockhash.'),
+            ('gettxbyhash', 'GET', '[hash]', 'Get tx by txhash.'),
             ('getmintinfo', 'GET', '[mint_id]', 'Get mintcoin info.'),
         ]
         L = ["<TR><TH>URI</TH> <TH>Method</TH> <TH>Params</TH> <TH>Message</TH></TR>"]
