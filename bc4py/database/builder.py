@@ -719,10 +719,14 @@ class TransactionBuilder:
                     self.chained_tx[tx.hash] = tx
                 if tx.hash in self.unconfirmed:
                     del self.unconfirmed[tx.hash]
-        # 時間切れを起こしたUnconfirmedを消す
+
         limit = int(time.time() - V.BLOCK_GENESIS_TIME - C.ACCEPT_MARGIN_TIME)
         for txhash, tx in self.unconfirmed.copy().items():
+            # Remove expired unconfirmed tx
             if limit > tx.deadline:
+                del self.unconfirmed[txhash]
+            # Remove tx include by both best_chain & unconfirmed
+            elif txhash in self.chained_tx:
                 del self.unconfirmed[txhash]
 
 
