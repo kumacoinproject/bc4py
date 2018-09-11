@@ -1,4 +1,4 @@
-from bc4py.config import C, V
+from bc4py.config import C, V, BlockChainError
 from bc4py.chain.mintcoin import MintCoinObject, setup_base_currency_mint, MintCoinError
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.create import closing, create_db
@@ -13,6 +13,8 @@ def _get_best_chain_all(best_block):
     # MemoryにおけるBestBlockまでのChainを返す
     dummy, best_chain = builder.get_best_chain(best_block)
     # best_chain = [<height=n>, <height=n-1>,.. <height=n-m>]
+    if len(best_chain) == 0:
+        raise BlockChainError('Ignore, New block inserted on "_get_best_chain_all".')
     return best_chain
 
 
@@ -205,8 +207,9 @@ def get_utxo_iter(target_address, best_block=None, best_chain=None):
                 if txindex in get_usedindex(txhash=txhash, best_block=best_block, best_chain=best_chain):
                     continue  # Used
                 tx = tx_builder.get_tx(txhash)
-                if tx.type in (C.TX_POW_REWARD, C.TX_POS_REWARD) and tx.height < allow_mined_height:
-                    yield address, tx.height, txhash, txindex, coin_id, amount
+                if tx.type in (C.TX_POW_REWARD, C.TX_POS_REWARD):
+                    if tx.height is not None and tx.height < allow_mined_height:
+                        yield address, tx.height, txhash, txindex, coin_id, amount
                 else:
                     yield address, tx.height, txhash, txindex, coin_id, amount
     # Memoryより
@@ -217,8 +220,9 @@ def get_utxo_iter(target_address, best_block=None, best_chain=None):
                 if index in used_index:
                     continue  # Used
                 elif address in target_address:
-                    if tx.type in (C.TX_POW_REWARD, C.TX_POS_REWARD) and tx.height < allow_mined_height:
-                        yield address, tx.height, tx.hash, index, coin_id, amount
+                    if tx.type in (C.TX_POW_REWARD, C.TX_POS_REWARD):
+                        if tx.height is not None and tx.height < allow_mined_height:
+                            yield address, tx.height, tx.hash, index, coin_id, amount
                     else:
                         yield address, tx.height, tx.hash, index, coin_id, amount
     # Unconfirmedより
