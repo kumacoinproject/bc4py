@@ -11,6 +11,8 @@ import bjson
 
 def _get_best_chain_all(best_block):
     # MemoryにおけるBestBlockまでのChainを返す
+    if best_block is None:
+        return builder.best_chain
     dummy, best_chain = builder.get_best_chain(best_block)
     # best_chain = [<height=n>, <height=n-1>,.. <height=n-m>]
     if len(best_chain) == 0:

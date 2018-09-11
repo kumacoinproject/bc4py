@@ -2,7 +2,7 @@ from bc4py.config import C, V, P, BlockChainError
 from bc4py.chain.checking import new_insert_block, check_tx, check_tx_time
 from bc4py.user.network import BroadcastCmd
 from p2p_python.client import ClientCmd
-from bc4py.database.builder import tx_builder
+from bc4py.database.builder import tx_builder, builder
 from bc4py.user.network.update import update_mining_staking_all_info
 import logging
 import time
@@ -15,6 +15,10 @@ def mined_newblock(que, pc):
             new_block = que.get()
             new_block.create_time = int(time.time())
             if P.F_NOW_BOOTING:
+                logging.debug("Mined but now booting..")
+                continue
+            elif new_block.height != builder.best_block.height + 1:
+                logging.debug("Mined but its old block...")
                 continue
             elif new_insert_block(new_block, time_check=True):
                 logging.info("Mined new block {}".format(new_block.getinfo()))

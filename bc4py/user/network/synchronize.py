@@ -5,88 +5,14 @@ from bc4py.chain.checking import check_block, check_tx, check_tx_time
 from bc4py.database.builder import builder, tx_builder, user_account
 from bc4py.user.network import update_mining_staking_all_info
 from bc4py.user.network.directcmd import DirectCmd
+from bc4py.user.network.connection import *
 from bc4py.user.exit import system_exit
 import logging
-import random
-import collections
 import time
 import threading
 
 
-good_node = list()
-bad_node = list()
-best_hash_on_network = None
-best_height_on_network = None
-f_changed_status = False
 f_working = False
-
-
-def set_good_node():
-    _node = list()
-    pc = V.PC_OBJ
-    blockhash = collections.Counter()
-    blockheight = collections.Counter()
-    for _user in pc.p2p.user:
-        try:
-            dummy, r = pc.send_direct_cmd(cmd=DirectCmd.BEST_INFO, data=None, user=_user)
-            if isinstance(r, str):
-                continue
-        except TimeoutError:
-            continue
-        blockhash[r['hash']] += 1
-        blockheight[r['height']] += 1
-        _node.append((_user, r['hash'], r['height'], r['booting']))
-    global best_hash_on_network, best_height_on_network
-    best_hash_on_network, num0 = blockhash.most_common()[0]
-    best_height_on_network, num1 = blockheight.most_common()[0]
-    good_node.clear()
-    bad_node.clear()
-    if num0 <= 1 or num1 <= 1:
-        good_node.extend(_user for _user, _hash, _height, _booting in _node)
-    else:
-        for _user, _hash, _height, _booting in _node:
-            if _hash == best_hash_on_network or _height == best_height_on_network:
-                good_node.append(_user)
-            else:
-                bad_node.append(_user)
-
-
-def reset_good_node():
-    good_node.clear()
-    global best_hash_on_network, best_height_on_network
-    best_hash_on_network = None
-    best_height_on_network = None
-
-
-def ask_node(cmd, data=None, f_continue_asking=False):
-    count = 10
-    pc = V.PC_OBJ
-    while 0 < count:
-        try:
-            user = random.choice(pc.p2p.user)
-            if user in bad_node:
-                count -= 1
-                continue
-            elif user not in good_node:
-                set_good_node()
-                if len(good_node) == 0:
-                    raise BlockChainError('No good node found.')
-                else:
-                    logging.debug("Get good node {}".format(len(good_node)))
-                    continue
-            dummy, r = pc.send_direct_cmd(cmd=cmd, data=data, user=user)
-            if f_continue_asking and isinstance(r, str):
-                if count > 0:
-                    count -= 1
-                    continue
-                else:
-                    raise BlockChainError('Node return error "{}"'.format(r))
-        except TimeoutError:
-            continue
-        except IndexError:
-            raise BlockChainError('No node found.')
-        return r
-    raise BlockChainError('Too many retry ask_node.')
 
 
 def fast_sync_chain():
@@ -190,6 +116,7 @@ def fast_sync_chain():
     reset_good_node()
     set_good_node()
     my_best_height = builder.best_block.height
+    best_height_on_network, best_hash_on_network = get_best_conn_info()
     if best_height_on_network <= my_best_height:
         logging.info("Finish update chain data by network. {}Sec [{}<={}]"
                      .format(round(time.time() - start, 1), best_height_on_network, my_best_height))
@@ -202,19 +129,11 @@ def fast_sync_chain():
 def sync_chain_loop(f_3_conn=True):
     global f_working
 
-    def check_connection():
-        c, need = 0,  3 if f_3_conn else 1
-        while len(V.PC_OBJ.p2p.user) < need:
-            if c % 10 == 0:
-                logging.debug("Waiting for new connections.. {}".format(len(V.PC_OBJ.p2p.user)))
-            time.sleep(15)
-            c += 1
-
     def loop():
         global f_changed_status
         failed = 5
         while True:
-            check_connection()
+            check_connection(f_3_conn)
             try:
                 if P.F_NOW_BOOTING:
                     if fast_sync_chain():

@@ -5,6 +5,7 @@ from bc4py.chain.checking import new_insert_block, check_tx, check_tx_time
 from bc4py.database.builder import builder, tx_builder
 from bc4py.user.network.update import update_mining_staking_all_info
 from bc4py.user.network.directcmd import DirectCmd
+from bc4py.user.network.connection import ask_node
 import logging
 from binascii import hexlify
 import random
@@ -92,15 +93,15 @@ def fill_newblock_info(data):
     for txhash in data['txs'][1:]:
         tx = tx_builder.get_tx(txhash)
         if tx is None:
-            logging.debug("Unknown tx, try to download.")
-            r = ask_node(cmd=DirectCmd.TX_BY_HASH, data={'txhash': txhash})
-            # 一度で取得できないようなTXは取り込まない
-            if isinstance(r, str):
-                raise BlockChainError('Failed unknown tx download "{}"'.format(r))
-            tx = TX(binary=r['tx'])
-            tx.signature = r['sign']
-            check_tx(tx, include_block=None)
-            logging.debug("Success unknown tx download {}".format(tx))
+            raise BlockChainError('Ignore not checked before TX:{}'.format(hexlify(txhash).decode()))
+            # logging.debug("Unknown tx, try to download.")
+            # r = ask_node(cmd=DirectCmd.TX_BY_HASH, data={'txhash': txhash}, f_continue_asking=True)
+            # if isinstance(r, str):
+            #    raise BlockChainError('Failed unknown tx download "{}"'.format(r))
+            # tx = TX(binary=r['tx'])
+            # tx.signature = r['sign']
+            # check_tx(tx, include_block=None)
+            # logging.debug("Success unknown tx download {}".format(tx))
         tx.height = new_height
         new_block.txs.append(tx)
     return new_block
@@ -115,25 +116,3 @@ def broadcast_check(data):
         return BroadcastCmd.new_tx(data=data['data'])
     else:
         return False
-
-
-def ask_node(cmd, data=None, f_continue_asking=False):
-    count = 10
-    pc = V.PC_OBJ
-    while 0 < count:
-        try:
-            user = random.choice(pc.p2p.user)
-            dummy, r = pc.send_direct_cmd(cmd=cmd, data=data, user=user)
-            if f_continue_asking and isinstance(r, str):
-                if count > 0:
-                    count -= 1
-                    continue
-                else:
-                    raise BlockChainError('Node return error "{}"'.format(r))
-        except TimeoutError:
-            continue
-        except IndexError:
-            raise BlockChainError('No node found.')
-        return r
-    add_failed_mark()
-    raise BlockChainError('Too many retry ask_node.')
