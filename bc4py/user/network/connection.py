@@ -52,11 +52,14 @@ def reset_good_node():
 
 
 def ask_node(cmd, data=None, f_continue_asking=False):
+    check_connection()
     count = 10
     pc = V.PC_OBJ
+    user_list = pc.p2p.user.copy()
+    random.shuffle(user_list)
     while 0 < count:
         try:
-            user = random.choice(pc.p2p.user)
+            user = user_list.pop()
             if user in bad_node:
                 count -= 1
                 continue
@@ -89,9 +92,9 @@ def get_best_conn_info():
 def check_connection(f_3_conn=3):
     c, need = 0,  3 if f_3_conn else 1
     while len(V.PC_OBJ.p2p.user) < need:
-        if c % 10 == 0:
+        if c % 90 == 0:
             logging.debug("Waiting for new connections.. {}".format(len(V.PC_OBJ.p2p.user)))
-        time.sleep(15)
+        time.sleep(1)
         c += 1
 
 

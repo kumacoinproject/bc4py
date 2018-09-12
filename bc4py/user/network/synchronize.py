@@ -126,14 +126,14 @@ def fast_sync_chain():
         return False
 
 
-def sync_chain_loop(f_3_conn=True):
+def sync_chain_loop():
     global f_working
 
     def loop():
         global f_changed_status
         failed = 5
         while True:
-            check_connection(f_3_conn)
+            check_connection()
             try:
                 if P.F_NOW_BOOTING:
                     if fast_sync_chain():

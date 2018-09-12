@@ -8,7 +8,6 @@ from bc4py.user.network.directcmd import DirectCmd
 from bc4py.user.network.connection import ask_node
 import logging
 from binascii import hexlify
-import random
 from collections import deque
 import time
 
@@ -93,15 +92,15 @@ def fill_newblock_info(data):
     for txhash in data['txs'][1:]:
         tx = tx_builder.get_tx(txhash)
         if tx is None:
-            raise BlockChainError('Ignore not checked before TX:{}'.format(hexlify(txhash).decode()))
-            # logging.debug("Unknown tx, try to download.")
-            # r = ask_node(cmd=DirectCmd.TX_BY_HASH, data={'txhash': txhash}, f_continue_asking=True)
-            # if isinstance(r, str):
-            #    raise BlockChainError('Failed unknown tx download "{}"'.format(r))
-            # tx = TX(binary=r['tx'])
-            # tx.signature = r['sign']
-            # check_tx(tx, include_block=None)
-            # logging.debug("Success unknown tx download {}".format(tx))
+            # raise BlockChainError('Ignore not checked before TX:{}'.format(hexlify(txhash).decode()))
+            logging.debug("Unknown tx, try to download.")
+            r = ask_node(cmd=DirectCmd.TX_BY_HASH, data={'txhash': txhash}, f_continue_asking=True)
+            if isinstance(r, str):
+                raise BlockChainError('Failed unknown tx download "{}"'.format(r))
+            tx = TX(binary=r['tx'])
+            tx.signature = r['sign']
+            check_tx(tx, include_block=None)
+            logging.debug("Success unknown tx download {}".format(tx))
         tx.height = new_height
         new_block.txs.append(tx)
     return new_block

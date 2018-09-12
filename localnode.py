@@ -69,7 +69,7 @@ def work(port, sub_dir):
 
     # Update to newest blockchain
     builder.init(genesis_block)
-    sync_chain_loop(f_3_conn=False)
+    sync_chain_loop()
     setup_as_validator()
 
     # Mining/Staking setup
