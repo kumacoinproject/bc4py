@@ -705,6 +705,12 @@ class TransactionBuilder:
         return bool(self.get_tx(item.hash))
 
     def affect_new_chain(self, old_best_chain, new_best_chain):
+        def input_check(_tx):
+            for input_hash, input_index in _tx.inputs:
+                if input_index in builder.db.read_usedindex(input_hash):
+                    return True
+            return False
+
         # 状態を戻す
         for block in old_best_chain:
             for tx in block.txs:
@@ -722,12 +728,20 @@ class TransactionBuilder:
 
         limit = int(time.time() - V.BLOCK_GENESIS_TIME - C.ACCEPT_MARGIN_TIME)
         for txhash, tx in self.unconfirmed.copy().items():
+            if P.F_NOW_BOOTING:
+                break  # not delete on booting..
             # Remove expired unconfirmed tx
             if limit > tx.deadline:
                 del self.unconfirmed[txhash]
+                continue
             # Remove tx include by both best_chain & unconfirmed
-            elif txhash in self.chained_tx:
+            if txhash in self.chained_tx:
                 del self.unconfirmed[txhash]
+                continue
+            # check inputs usedindex on only database
+            if input_check(tx):
+                del self.unconfirmed[txhash]
+                continue
 
 
 class UserAccount:

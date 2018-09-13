@@ -10,6 +10,7 @@ from bc4py.user.exit import system_exit
 import logging
 import time
 import threading
+from binascii import hexlify
 
 
 f_working = False
@@ -92,27 +93,22 @@ def fast_sync_chain():
         if index_height % 100 == 0:
             logging.debug("Update block {} now...".format(index_height + 1))
     # Unconfirmed txを取得
-    r = ask_node(cmd=DirectCmd.UNCONFIRMED_TX, f_continue_asking=True)
-    if isinstance(r, dict):
-        for txhash in r['txs']:
+    logging.info("Finish get block, next get unconfirmed.")
+    r = None
+    while not isinstance(r, dict):
+        r = ask_node(cmd=DirectCmd.UNCONFIRMED_TX, f_continue_asking=True)
+    for txhash in r['txs']:
+        if txhash in tx_builder.unconfirmed:
+            continue
+        try:
             r = ask_node(cmd=DirectCmd.TX_BY_HASH, data={'txhash': txhash}, f_continue_asking=True)
             tx = TX(binary=r['tx'])
-            try:
-                tx.signature = r['sign']
-                check_tx_time(tx)
-                check_tx(tx, include_block=None)
-                tx_builder.put_unconfirmed(tx)
-            except BlockChainError:
-                logging.debug("Failed get unconfirmed {}".format(tx))
-    elif isinstance(r, list):
-        for tx_dict in r:
-            tx = TX(binary=tx_dict['tx'])
-            try:
-                tx.signature = tx_dict['sign']
-                check_tx(tx, include_block=None)
-                tx_builder.put_unconfirmed(tx)
-            except BlockChainError:
-                logging.debug("Failed get unconfirmed {}".format(tx))
+            tx.signature = r['sign']
+            check_tx_time(tx)
+            check_tx(tx, include_block=None)
+            tx_builder.put_unconfirmed(tx)
+        except BlockChainError:
+            logging.debug("Failed get unconfirmed {}".format(hexlify(txhash).decode()))
     # 最終判断
     reset_good_node()
     set_good_node()

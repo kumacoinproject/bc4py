@@ -58,6 +58,8 @@ def ask_node(cmd, data=None, f_continue_asking=False):
     random.shuffle(user_list)
     while 0 < count:
         try:
+            if len(user_list) == 0:
+                raise BlockChainError('Asked all nodes, no node to ask.')
             user = user_list.pop()
             if user in bad_node:
                 count -= 1
@@ -72,15 +74,13 @@ def ask_node(cmd, data=None, f_continue_asking=False):
             dummy, r = pc.send_direct_cmd(cmd=cmd, data=data, user=user)
             if f_continue_asking and isinstance(r, str):
                 if count > 0:
-                    logging.warning("Failed DirectCmd:{} to {} by \"{}\"".format(cmd, user, r))
+                    logging.warning("Failed DirectCmd:{} to {} by \"{}\"".format(cmd, user.name, r))
                     count -= 1
                     continue
                 else:
                     raise BlockChainError('Node return error "{}"'.format(r))
         except TimeoutError:
             continue
-        except IndexError:
-            raise BlockChainError('No node found.', exc_info=True)
         return r
     raise BlockChainError('Too many retry ask_node.')
 
