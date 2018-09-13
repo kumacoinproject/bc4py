@@ -10,7 +10,6 @@ good_node = list()
 bad_node = list()
 best_hash_on_network = None
 best_height_on_network = None
-f_changed_status = False
 
 
 def set_good_node():
@@ -73,6 +72,7 @@ def ask_node(cmd, data=None, f_continue_asking=False):
             dummy, r = pc.send_direct_cmd(cmd=cmd, data=data, user=user)
             if f_continue_asking and isinstance(r, str):
                 if count > 0:
+                    logging.warning("Failed DirectCmd:{} to {} by \"{}\"".format(cmd, user, r))
                     count -= 1
                     continue
                 else:
@@ -80,7 +80,7 @@ def ask_node(cmd, data=None, f_continue_asking=False):
         except TimeoutError:
             continue
         except IndexError:
-            raise BlockChainError('No node found.')
+            raise BlockChainError('No node found.', exc_info=True)
         return r
     raise BlockChainError('Too many retry ask_node.')
 

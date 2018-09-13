@@ -9,15 +9,26 @@ from bc4py.database.account import read_pooled_address_iter
 import bjson
 
 
+best_block_cashe = None
+best_chain_cashe = None
+
+
 def _get_best_chain_all(best_block):
+    global best_block_cashe, best_chain_cashe
     # MemoryにおけるBestBlockまでのChainを返す
     if best_block is None:
+        best_block_cashe = best_chain_cashe = None
         return builder.best_chain
-    dummy, best_chain = builder.get_best_chain(best_block)
-    # best_chain = [<height=n>, <height=n-1>,.. <height=n-m>]
-    if len(best_chain) == 0:
-        raise BlockChainError('Ignore, New block inserted on "_get_best_chain_all".')
-    return best_chain
+    elif best_block_cashe and best_block == best_block_cashe:
+        return best_chain_cashe
+    else:
+        dummy, best_chain = builder.get_best_chain(best_block)
+        # best_chain = [<height=n>, <height=n-1>,.. <height=n-m>]
+        if len(best_chain) == 0:
+            raise BlockChainError('Ignore, New block inserted on "_get_best_chain_all".')
+        best_block_cashe = best_block
+        best_chain_cashe = best_chain
+        return best_chain
 
 
 def get_mintcoin(mint_id, best_block=None, best_chain=None):

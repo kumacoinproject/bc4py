@@ -31,7 +31,7 @@ def inputs_origin_check(tx, include_block):
             # InputのOriginは既に取り込まれている
             pass  # OK
         # 使用済みかチェック
-        if txindex in get_usedindex(txhash, include_block):
+        if txindex in get_usedindex(txhash=txhash, best_block=include_block):
             raise BlockChainError('1 Input of {} is already used! {}:{}'
                                   .format(tx, hexlify(txhash).decode(), txindex))
         # 同一Block内で使用されていないかチェック

@@ -13,6 +13,7 @@ import threading
 
 
 f_working = False
+f_changed_status = False
 
 
 def fast_sync_chain():
