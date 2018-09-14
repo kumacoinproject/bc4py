@@ -15,6 +15,10 @@ from bc4py.user.api import web_base
 import threading
 import logging
 import os
+import asyncio
+
+
+runner = None
 
 
 def escape_cross_origin_block(app):
@@ -123,6 +127,7 @@ def create_rest_server(f_local, port):
     app.router.add_get('/api/getsysteminfo', system_info)
     app.router.add_get('/api/getchaininfo', chain_info)
     app.router.add_get('/api/validatorinfo', validator_info)
+    app.router.add_get('/api/stop', close_server)
     # Account
     app.router.add_get('/api/listbalance', list_balance)
     app.router.add_get('/api/listtransactions', list_transactions)
@@ -193,5 +198,31 @@ def create_rest_server(f_local, port):
 
     # Working
     host = '127.0.0.1' if f_local else '0.0.0.0'
+    # web.run_app(app=app, host=host, port=port)
+    global runner
+    runner = web.AppRunner(app)
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(non_blocking_start(host, port))
     logging.info("REST work on port={} mode={}.".format(port, 'Local' if f_local else 'Global'))
-    web.run_app(app=app, host=host, port=port)
+    loop.run_forever()
+    loop.close()
+    logging.info("Server closed now.")
+
+
+async def non_blocking_start(host, port):
+    # No blocking run https://docs.aiohttp.org/en/stable/web_advanced.html#application-runners
+    global runner
+    await runner.setup()
+    site = web.TCPSite(runner, host, port)
+    await site.start()
+
+
+async def close_server(request):
+    def _close():
+        loop.call_soon_threadsafe(loop.stop)
+        print("Closed!")
+    loop = asyncio.get_event_loop()
+    logging.info("Closing server...")
+    import threading
+    threading.Thread(target=_close).start()
+    raise web.GracefulExit("Close server manually.")

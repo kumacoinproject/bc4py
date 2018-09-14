@@ -13,6 +13,7 @@ from bc4py.database.create import make_account_db
 from bc4py.database.builder import builder
 from p2p_python.utils import setup_p2p_params
 from p2p_python.client import PeerClient
+from p2p_python.config import C
 from bc4py.for_debug import set_logger, f_already_bind
 from threading import Thread
 import logging
@@ -51,6 +52,7 @@ def work(port, sub_dir):
     pc.event.addevent(cmd=DirectCmd.TX_BY_HASH, f=DirectCmd.tx_by_hash)
     pc.event.addevent(cmd=DirectCmd.UNCONFIRMED_TX, f=DirectCmd.unconfirmed_tx)
     pc.event.addevent(cmd=DirectCmd.BIG_BLOCKS, f=DirectCmd.big_blocks)
+    C.MAX_RECEIVE_SIZE = 2000 * 1000  # 2Mb
     pc.start()
     V.PC_OBJ = pc
 

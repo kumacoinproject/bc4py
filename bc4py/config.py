@@ -56,9 +56,9 @@ class C:  # 起動中に変更してはいけない
     ANT_NAME_CONTRACT = '@Contract'
 
     # Block/TX/Fee limit
-    ACCEPT_MARGIN_TIME = 60  # 新規データ受け入れ時間マージンSec
-    SIZE_BLOCK_LIMIT = 1000*1000  # 1Mb block
-    SIZE_TX_LIMIT = 200*1000  # 200kb tx
+    ACCEPT_MARGIN_TIME = 120  # 新規データ受け入れ時間マージンSec
+    SIZE_BLOCK_LIMIT = 300*1000  # 300kb block
+    SIZE_TX_LIMIT = 100*1000  # 100kb tx
     CASHE_LIMIT = 100  # Memoryに置く最大Block数、実質Reorg制限
     BATCH_SIZE = 10
     MINTCOIN_FEE = 10 * 1000000  # 新規Mintcoin発行GasFee
