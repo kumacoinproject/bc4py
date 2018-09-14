@@ -6,13 +6,14 @@ from bc4py.database.builder import tx_builder, builder
 from bc4py.user.network.update import update_mining_staking_all_info
 import logging
 import time
+import queue
 
 
 def mined_newblock(que, pc):
     # 新規採掘BlockをP2Pに公開
     while True:
         try:
-            new_block = que.get()
+            new_block = que.get(timeout=1)
             new_block.create_time = int(time.time())
             if P.F_NOW_BOOTING:
                 logging.debug("Mined but now booting..")
@@ -43,6 +44,10 @@ def mined_newblock(que, pc):
                 logging.warning("Failed broadcast new block, other nodes don\'t accept {}"
                                 .format(new_block.getinfo()))
                 P.F_NOW_BOOTING = True
+        except queue.Empty:
+            if pc.f_stop:
+                logging.debug("Mined new block closed.")
+                break
         except BlockChainError as e:
             logging.error('Failed mined new block "{}"'.format(e))
 

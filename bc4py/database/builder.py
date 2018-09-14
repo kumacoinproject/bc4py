@@ -305,6 +305,10 @@ class ChainBuilder:
         # levelDBのStreamHandlerを削除
         logging.getLogger().handlers.clear()
 
+    def close(self):
+        self.save_starter()
+        del self.db
+
     def set_database_path(self):
         try:
             self.db = DataBase(os.path.join(V.DB_HOME_DIR, 'db'))

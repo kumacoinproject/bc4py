@@ -127,9 +127,9 @@ def sync_chain_loop():
     global f_working
 
     def loop():
-        global f_changed_status
+        global f_changed_status, f_working
         failed = 5
-        while True:
+        while f_working:
             check_connection()
             try:
                 if P.F_NOW_BOOTING:
@@ -141,8 +141,9 @@ def sync_chain_loop():
                     elif failed < 0:
                         exit_msg = 'Failed sync.'
                         builder.make_failemark(exit_msg)
+                        logging.critical(exit_msg)
                         system_exit()
-                        break
+                        f_working = False
                     elif f_changed_status is False:
                         failed -= 1
                     elif f_changed_status is True:
@@ -158,7 +159,7 @@ def sync_chain_loop():
                 logging.error('Update chain failed "{}"'.format(e), exc_info=True)
                 time.sleep(5)
         # out of loop
-        logging.critical(exit_msg)
+        logging.debug("Close sync loop.")
 
     if f_working:
         raise Exception('Already sync_chain_loop working.')

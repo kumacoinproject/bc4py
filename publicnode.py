@@ -7,6 +7,7 @@ from bc4py.user.mining import Mining
 from bc4py.user.staking import Staking
 from bc4py.user.boot import *
 from bc4py.user.network import broadcast_check, mined_newblock, DirectCmd, sync_chain_loop
+import bc4py.user.network.synchronize as sync
 from bc4py.user.api import create_rest_server
 from bc4py.database.create import make_account_db
 from bc4py.database.builder import builder
@@ -70,6 +71,11 @@ def work(port, sub_dir=None):
 
     try:
         create_rest_server(f_local=True, port=port + 1000)
+        pc.close()
+        mining.close()
+        staking.close()
+        builder.close()
+        sync.f_working = False
     except KeyboardInterrupt:
         logging.debug("KeyboardInterrupt.")
 

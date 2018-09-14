@@ -209,7 +209,7 @@ class Mining:
                     target=mining_process,
                     name="C-Mining {}".format(i),
                     args=(parent_que, child_que, params))
-                # process.daemon = True
+                process.daemon = True
                 process.start()
                 po = ProcessObject(index=i, process=process, parent_que=parent_que, child_que=child_que)
                 self.thread_pool.append(po)
@@ -231,7 +231,7 @@ class Mining:
         self.que = staking.que
 
     def inner_check(self):
-        while True:
+        while not self.f_stop:
             for po in self.thread_pool:
                 status, new_block = po.check_mined_block()
                 if status:
@@ -239,9 +239,6 @@ class Mining:
             else:
                 time.sleep(0.5)
                 continue
-            if self.f_stop:
-                logging.info("Mining stopped.")
-                return
             logging.info("Mined block yay!! {}".format(new_block))
             # 処理
             if new_block is None:
