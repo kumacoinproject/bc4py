@@ -58,7 +58,9 @@ def create_rest_server(f_local, port):
             ('test', 'GET or POST', '*args', 'echo GET or POST parameters.'),
             ('getsysteminfo', 'GET', '', 'System info'),
             ('getchaininfo', 'GET', '', 'Chain info'),
+            ('getnetworkinfo', "GET", 'Network info'),
             ('validatorinfo', 'GET', '', 'Validator info.'),
+            # ('stop', 'GET', '', 'stop client.'),
             ('listbalance', 'GET', '[confirm=6]', 'All account balance.'),
             ('listtransactions', 'GET', '[page=0 limit=25]', 'Get account transactions.'),
             ('listunspents', 'GET', '', 'Get all unspent and orphan txhash:txindex pairs.'),
@@ -126,6 +128,7 @@ def create_rest_server(f_local, port):
     # Base
     app.router.add_get('/api/getsysteminfo', system_info)
     app.router.add_get('/api/getchaininfo', chain_info)
+    app.router.add_get('/api/getnetworkinfo', network_info)
     app.router.add_get('/api/validatorinfo', validator_info)
     app.router.add_get('/api/stop', close_server)
     # Account

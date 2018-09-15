@@ -94,7 +94,7 @@ def finish_contract_tx(start_tx, f_limit=True):
     return finish_tx, estimate_gas
 
 
-def fill_inputs_outputs(finish_tx, c_address, start_hash, redeem_gas, dust_percent=0.8):
+def fill_inputs_outputs(finish_tx, c_address, start_hash, redeem_gas, dust_percent=0.8, utxo_cashe=None):
     assert finish_tx.gas_price > 0, "Gas params is none zero."
     # outputsの合計を取得
     output_coins = CoinObject()
@@ -111,7 +111,16 @@ def fill_inputs_outputs(finish_tx, c_address, start_hash, redeem_gas, dust_perce
     need_coins = output_coins + fee_coins
     input_coins = CoinObject()
     f_dust_skipped = False
-    for dummy, height, txhash, txindex, coin_id, amount in get_utxo_iter({c_address}):
+    if utxo_cashe is None:
+        utxo_iter = get_utxo_iter({c_address})
+        utxo_cashe = list()
+        f_put_cashe = True
+    else:
+        utxo_iter = utxo_cashe
+        f_put_cashe = False
+    for dummy, height, txhash, txindex, coin_id, amount in utxo_iter:
+        if f_put_cashe:
+            utxo_cashe.append((dummy, height, txhash, txindex, coin_id, amount))
         if coin_id not in need_coins:
             continue
         elif need_coins[coin_id] * dust_percent > amount:
@@ -123,13 +132,17 @@ def fill_inputs_outputs(finish_tx, c_address, start_hash, redeem_gas, dust_perce
         if need_coins.is_all_minus_amount():
             break
     else:
-        if f_dust_skipped and dust_percent > 0.1:
-            new_dust_percent = round(dust_percent * 0.8, 4)
+        if f_dust_skipped and dust_percent > 0.00001:
+            new_dust_percent = round(dust_percent * 0.7, 6)
             logging.debug("Retry by lower dust percent. {}=>{}".format(dust_percent, new_dust_percent))
             return fill_inputs_outputs(finish_tx, c_address, start_hash, redeem_gas, new_dust_percent)
-        # 失敗に変更
-        logging.debug('Insufficient balance. inputs={} needs={}'.format(input_coins, need_coins))
-        return False
+        elif len(finish_tx.inputs) > 255:
+            logging.debug('Too many inputs, unspent tx\'s amount is too small.')
+            return False
+        else:
+            # 失敗に変更
+            logging.debug('Insufficient balance. inputs={} needs={}'.format(input_coins, need_coins))
+            return False
     # redeemを計算
     redeem_coins = input_coins - output_coins - fee_coins
     for coin_id, amount in redeem_coins:
@@ -149,7 +162,7 @@ def fill_inputs_outputs(finish_tx, c_address, start_hash, redeem_gas, dust_perce
         logging.debug("Retry calculate tx fee. [{}=>{}+{}={}]".format(
             finish_tx.gas_amount, finish_tx.getsize(), redeem_gas, need_gas_amount))
         finish_tx.gas_amount = need_gas_amount
-        return fill_inputs_outputs(finish_tx, c_address, start_hash, redeem_gas, dust_percent)
+        return fill_inputs_outputs(finish_tx, c_address, start_hash, redeem_gas, dust_percent, utxo_cashe)
 
 
 def replace_redeem_dummy_address(tx, c_address):

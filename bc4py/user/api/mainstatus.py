@@ -10,6 +10,8 @@ from bc4py.user.utils import im_a_validator
 from bc4py.user.api import web_base
 from binascii import hexlify
 import time
+import p2p_python
+
 
 MAX_256_INT = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 start_time = int(time.time())
@@ -67,6 +69,14 @@ async def system_info(request):
     return web_base.json_res(data)
 
 
+async def network_info(request):
+    data = {
+        'p2p_ver': p2p_python.__version__,
+        'status': V.PC_OBJ.p2p.get_server_header(),
+        'networks': [user.getinfo() for user in V.PC_OBJ.p2p.user]}
+    return web_base.json_res(data)
+
+
 async def validator_info(request):
     try:
         validator_cks, required_num = get_validator_info()
@@ -81,5 +91,5 @@ async def validator_info(request):
 
 
 __all__ = [
-    "chain_info", "system_info", "validator_info"
+    "chain_info", "system_info", "network_info", "validator_info"
 ]
