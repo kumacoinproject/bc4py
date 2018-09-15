@@ -58,7 +58,7 @@ def create_rest_server(f_local, port):
             ('test', 'GET or POST', '*args', 'echo GET or POST parameters.'),
             ('getsysteminfo', 'GET', '', 'System info'),
             ('getchaininfo', 'GET', '', 'Chain info'),
-            ('getnetworkinfo', "GET", 'Network info'),
+            ('getnetworkinfo', "GET", '', 'Network info'),
             ('validatorinfo', 'GET', '', 'Validator info.'),
             # ('stop', 'GET', '', 'stop client.'),
             ('listbalance', 'GET', '[confirm=6]', 'All account balance.'),
