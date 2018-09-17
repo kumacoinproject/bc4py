@@ -51,12 +51,13 @@ def _update_unconfirmed_info():
         used_pairs = set()
         for tx in unconfirmed_txs.copy():
             if tx.height is not None:
-                del tx_builder.unconfirmed[tx.hash]
+                if tx.hash in tx_builder.unconfirmed:
+                    del tx_builder.unconfirmed[tx.hash]
                 unconfirmed_txs.remove(tx)
-                break
+                continue
             if Debug.F_STICKY_TX_REJECTION and tx.hash in sticky_failed_txhash:
                 unconfirmed_txs.remove(tx)
-                break
+                continue
             for txhash, txindex in tx.inputs:
                 input_tx = tx_builder.get_tx(txhash)
                 if input_tx is None:
