@@ -61,6 +61,7 @@ def work(port, sub_dir=None):
     mining.share_que(staking)
     Debug.F_WS_FULL_ERROR_MSG = True
     Debug.F_MINING_POWER_SAVE = random.random() / 5 + 0.05
+    # Debug.F_STICKY_TX_REJECTION = False  # for debug
     # core = 1 if port <= 2001 else 0
     Thread(target=mining.start, name='Mining', args=(1,)).start()
     Thread(target=staking.start, name='Staking').start()
@@ -71,10 +72,11 @@ def work(port, sub_dir=None):
 
     try:
         create_rest_server(f_local=True, port=port + 1000)
+        builder.db.batch_create()
+        builder.close()
         pc.close()
         mining.close()
         staking.close()
-        builder.close()
         sync.f_working = False
     except KeyboardInterrupt:
         logging.debug("KeyboardInterrupt.")

@@ -112,6 +112,7 @@ class Debug:
     F_MINING_POWER_SAVE = 0.0
     F_SHOW_DIFFICULTY = False
     F_CONSTANT_DIFF = False
+    F_STICKY_TX_REJECTION = True
 
 
 class BlockChainError(Exception):

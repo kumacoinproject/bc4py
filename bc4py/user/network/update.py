@@ -1,6 +1,7 @@
 from bc4py.config import C, V, P, Debug
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.tools import get_validator_info, is_usedindex
+from bc4py.chain.checking.utils import sticky_failed_txhash
 import logging
 from threading import Lock, Thread
 import time
@@ -51,6 +52,9 @@ def _update_unconfirmed_info():
         for tx in unconfirmed_txs.copy():
             if tx.height is not None:
                 del tx_builder.unconfirmed[tx.hash]
+                unconfirmed_txs.remove(tx)
+                break
+            if Debug.F_STICKY_TX_REJECTION and tx.hash in sticky_failed_txhash:
                 unconfirmed_txs.remove(tx)
                 break
             for txhash, txindex in tx.inputs:

@@ -878,7 +878,7 @@ class UserAccount:
                         self.db_balance += move_log.movement
                         if tx.hash in self.memory_movement:
                             del self.memory_movement[tx.hash]
-                        logging.debug("Already recoded log {}".format(tx))
+                        # logging.debug("Already recoded log {}".format(tx))
                     elif tx.hash in self.memory_movement:
                         # db_balanceに追加
                         _type, movement, _time = self.memory_movement[tx.hash].get_tuple_data()
