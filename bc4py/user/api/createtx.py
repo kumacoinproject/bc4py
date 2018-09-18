@@ -16,6 +16,7 @@ import time
 
 
 async def send_from_user(request):
+    start = time.time()
     if P.F_NOW_BOOTING:
         return web.Response(text='Now booting...', status=403)
     post = await web_base.content_type_json_check(request)
@@ -39,7 +40,9 @@ async def send_from_user(request):
             if not send_newtx(new_tx=new_tx, outer_cur=cur):
                 raise BaseException('Failed to send new tx.')
             db.commit()
-            return web_base.json_res({'txhash': hexlify(new_tx.hash).decode()})
+            return web_base.json_res({
+                'txhash': hexlify(new_tx.hash).decode(),
+                'time': round(time.time()-start, 3)})
         except Exception as e:
             db.rollback()
             return web_base.error_res()

@@ -23,7 +23,7 @@ Install
 or  
 `pip install git+https://github.com/namuyan/bc4py`  
 and  
-`pip install git+https://github.com/namuyan/yescryptR16-python.git`
+`pip install git+https://github.com/namuyan/yespower-python.git`
 
 Create genesis block
 --------------------

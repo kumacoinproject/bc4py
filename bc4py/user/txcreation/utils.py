@@ -10,7 +10,7 @@ import logging
 DUMMY_REDEEM_ADDRESS = '_____DUMMY______REDEEM______ADDRESS_____'  # 40letters
 
 
-def fill_inputs_outputs(tx, cur, fee_coin_id=0, additional_fee=0, dust_percent=0.8):
+def fill_inputs_outputs(tx, cur, fee_coin_id=0, additional_fee=0, dust_percent=0.8, utxo_cashe=None):
     assert tx.gas_price > 0, "Gas params is none zero."
     # outputsの合計を取得
     output_coins = CoinObject()
@@ -28,7 +28,16 @@ def fill_inputs_outputs(tx, cur, fee_coin_id=0, additional_fee=0, dust_percent=0
     input_coins = CoinObject()
     input_address = set()
     f_dust_skipped = False
-    for address, height, txhash, txindex, coin_id, amount in get_unspents_iter(cur):
+    if utxo_cashe is None:
+        utxo_iter = get_unspents_iter(cur)
+        utxo_cashe = list()
+        f_put_cashe = True
+    else:
+        utxo_iter = utxo_cashe
+        f_put_cashe = False
+    for address, height, txhash, txindex, coin_id, amount in utxo_iter:
+        if f_put_cashe:
+            utxo_cashe.append((address, height, txhash, txindex, coin_id, amount))
         if coin_id not in need_coins:
             continue
         elif need_coins[coin_id] * dust_percent > amount:
@@ -41,11 +50,14 @@ def fill_inputs_outputs(tx, cur, fee_coin_id=0, additional_fee=0, dust_percent=0
         if need_coins.is_all_minus_amount():
             break
     else:
-        if f_dust_skipped and dust_percent > 0.1:
-            new_dust_percent = round(dust_percent * 0.8, 4)
+        if f_dust_skipped and dust_percent > 0.00001:
+            new_dust_percent = round(dust_percent * 0.7, 6)
             logging.debug("Retry by lower dust percent. {}=>{}".format(dust_percent, new_dust_percent))
-            return fill_inputs_outputs(tx, cur, fee_coin_id, additional_fee, new_dust_percent)
-        raise BlockChainError('Insufficient balance. inputs={} needs={}'.format(input_coins, need_coins))
+            return fill_inputs_outputs(tx, cur, fee_coin_id, additional_fee, new_dust_percent, utxo_cashe)
+        elif len(tx.inputs) > 255:
+            raise BlockChainError('Too many inputs, unspent tx\'s amount is too small.')
+        else:
+            raise BlockChainError('Insufficient balance. inputs={} needs={}'.format(input_coins, need_coins))
     # redeemを計算
     redeem_coins = input_coins - output_coins - fee_coins
     for coin_id, amount in redeem_coins:
@@ -61,7 +73,7 @@ def fill_inputs_outputs(tx, cur, fee_coin_id=0, additional_fee=0, dust_percent=0
         logging.debug("Retry calculate tx fee. [{}=>{}+{}={}]".format(
             tx.gas_amount, tx.getsize()+len(input_address) * 96, additional_fee, need_gas_amount))
         tx.gas_amount = need_gas_amount
-        return fill_inputs_outputs(tx, cur, fee_coin_id, additional_fee, dust_percent)
+        return fill_inputs_outputs(tx, cur, fee_coin_id, additional_fee, dust_percent, utxo_cashe)
 
 
 def replace_redeem_dummy_address(tx, cur):

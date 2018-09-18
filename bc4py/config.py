@@ -56,9 +56,9 @@ class C:  # 起動中に変更してはいけない
     ANT_NAME_CONTRACT = '@Contract'
 
     # Block/TX/Fee limit
-    ACCEPT_MARGIN_TIME = 60  # 新規データ受け入れ時間マージンSec
-    SIZE_BLOCK_LIMIT = 1000*1000  # 1Mb block
-    SIZE_TX_LIMIT = 200*1000  # 200kb tx
+    ACCEPT_MARGIN_TIME = 120  # 新規データ受け入れ時間マージンSec
+    SIZE_BLOCK_LIMIT = 300*1000  # 300kb block
+    SIZE_TX_LIMIT = 100*1000  # 100kb tx
     CASHE_LIMIT = 100  # Memoryに置く最大Block数、実質Reorg制限
     BATCH_SIZE = 10
     MINTCOIN_FEE = 10 * 1000000  # 新規Mintcoin発行GasFee
@@ -97,11 +97,12 @@ class V:  # 起動時に設定される変数
     MINING_OBJ = None
     STAKING_OBJ = None
     PC_OBJ = None
+    API_OBJ = None
 
 
 class P:  # 起動中もダイナミックに変化
     VALIDATOR_OBJ = None  # Validation request
-    F_NOW_BOOTING = True  # 起動中
+    F_NOW_BOOTING = True  # Booting mode flag
     NEW_CHAIN_INFO_QUE = None  # API streaming
 
 
@@ -111,6 +112,7 @@ class Debug:
     F_MINING_POWER_SAVE = 0.0
     F_SHOW_DIFFICULTY = False
     F_CONSTANT_DIFF = False
+    F_STICKY_TX_REJECTION = True
 
 
 class BlockChainError(Exception):

@@ -1,7 +1,6 @@
 from bc4py import __chain_version__
 from bc4py.config import C, BlockChainError
 from bc4py.chain.utils import GompertzCurve
-from bc4py.chain.difficulty import get_pos_bias_by_hash
 from bc4py.database.builder import tx_builder
 from binascii import hexlify
 
@@ -52,7 +51,6 @@ def check_tx_pos_reward(tx, include_block):
     tx.pos_amount = input_amount
     output_address, output_coin_id, output_amount = tx.outputs[0]
     reward = GompertzCurve.calc_block_reward(tx.height)
-    pos_bias = get_pos_bias_by_hash(previous_hash=include_block.previous_hash)[0]
     include_block.bits2target()
 
     if input_address != output_address:
@@ -68,7 +66,7 @@ def check_tx_pos_reward(tx, include_block):
                               .format(tx.height, base_tx.height, C.MATURE_HEIGHT))
     elif not (include_block.time == tx.time == tx.deadline - 10800):
         raise BlockChainError('TX time is wrong 1. [{}={}={}-10800]'.format(include_block.time, tx.time, tx.deadline))
-    elif not tx.pos_check(include_block.previous_hash, pos_bias, include_block.target_hash):
+    elif not tx.pos_check(include_block.previous_hash, include_block.target_hash):
         raise BlockChainError('Proof of stake check is failed.')
 
 

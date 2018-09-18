@@ -1,7 +1,7 @@
-from bc4py import __version__, __chain_version__
+from bc4py import __version__, __chain_version__, __message__
 from bc4py.config import C, V, P
 from bc4py.chain.utils import GompertzCurve
-from bc4py.chain.difficulty import get_bits_by_hash, get_pos_bias_by_hash
+from bc4py.chain.difficulty import get_bits_by_hash, get_bias_by_hash
 from bc4py.database.create import closing, create_db
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.keylock import is_locked_database
@@ -10,6 +10,8 @@ from bc4py.user.utils import im_a_validator
 from bc4py.user.api import web_base
 from binascii import hexlify
 import time
+import p2p_python
+
 
 MAX_256_INT = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 start_time = int(time.time())
@@ -22,14 +24,16 @@ async def chain_info(request):
     best_block = builder.best_block
     old_block_height = builder.best_chain[0].height - 1
     old_block_hash = hexlify(builder.get_block_hash(old_block_height)).decode()
-    data = best_block.getinfo()
-    pos_bias = get_pos_bias_by_hash(previous_hash=best_block.previous_hash)[1]
-    pos_target = get_bits_by_hash(previous_hash=best_block.previous_hash, consensus=C.BLOCK_POS)[1]
-    pow_target = get_bits_by_hash(previous_hash=best_block.previous_hash, consensus=C.BLOCK_POW)[1]
+    data = {'best': best_block.getinfo()}
+    pos_bias = get_bias_by_hash(previous_hash=best_block.previous_hash, consensus=C.BLOCK_POS)
+    pow_bias = get_bias_by_hash(previous_hash=best_block.previous_hash, consensus=C.BLOCK_POW)
+    pos_target = get_bits_by_hash(previous_hash=best_block.hash, consensus=C.BLOCK_POS)[1]
+    pow_target = get_bits_by_hash(previous_hash=best_block.hash, consensus=C.BLOCK_POW)[1]
     data['difficulty'] = {
-        'pos': round(MAX_256_INT / pos_target / 100000000, 6),
-        'pow': round(MAX_256_INT / pow_target / 100000000, 6),
-        'bias': pos_bias,
+        'pos_diff': round(MAX_256_INT / pos_target / 100000000, 6),
+        'pow_doff': round(MAX_256_INT / pow_target / 100000000, 6),
+        'pos_bias': pos_bias,
+        'pow_bias': pow_bias,
         'hashrate(Mh/s)': round(MAX_256_INT/pow_target/V.BLOCK_TIME_SPAN/1000000, 3)}
     data['size'] = best_block.getsize()
     data['checkpoint'] = {'height': old_block_height, 'blockhash': old_block_hash}
@@ -45,6 +49,7 @@ async def system_info(request):
             'system_ver': __version__,
             'api_ver': __api_version__,
             'chain_ver': __chain_version__,
+            'message': __message__,
             'booting': P.F_NOW_BOOTING,
             'connections': len(V.PC_OBJ.p2p.user),
             'unconfirmed': [hexlify(txhash).decode() for txhash in tx_builder.unconfirmed.keys()],
@@ -64,6 +69,23 @@ async def system_info(request):
     return web_base.json_res(data)
 
 
+async def network_info(request):
+    try:
+        data = {
+            'p2p_ver': p2p_python.__version__,
+            'status': V.PC_OBJ.p2p.get_server_header(),
+            'networks': list()}
+        for user in V.PC_OBJ.p2p.user:
+            info = user.getinfo()
+            del info['aeskey'], info['sock']
+            info['neers'] = ["{}:{}".format(*conn) for conn in info['neers']]
+            info['host_port'] = "{}:{}".format(*info['host_port'])
+            data['networks'].append(info)
+        return web_base.json_res(data)
+    except BaseException:
+        return web_base.error_res()
+
+
 async def validator_info(request):
     try:
         validator_cks, required_num = get_validator_info()
@@ -78,5 +100,5 @@ async def validator_info(request):
 
 
 __all__ = [
-    "chain_info", "system_info", "validator_info"
+    "chain_info", "system_info", "network_info", "validator_info"
 ]

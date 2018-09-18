@@ -3,13 +3,13 @@ from bc4py.config import C, V, BlockChainError
 from bc4py.utils import set_blockchain_params, set_database_path
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
-from bc4py.chain.difficulty import get_bits_by_hash, get_pos_bias_by_hash
+from bc4py.chain.difficulty import get_bits_by_hash
 from bc4py.chain.utils import GompertzCurve
 from bc4py.database.tools import get_unspents_iter
 from bc4py.user import float2unit
 from bc4py.user.utils import message2signature
 from binascii import hexlify
-from multiprocessing import Process, Pipe
+from multiprocessing import Process, Queue
 import time
 import logging
 from threading import Thread
@@ -22,7 +22,9 @@ NEW_UNCONFIRMED = 1
 NEW_PROOF_TXS = 2
 
 
-def staking_process(pipe, params):
+def staking_process(parent_que, child_que, params):
+    def send(*args):
+        parent_que.put(args)
     set_database_path(sub_dir=params.get("sub_dir"))
     set_blockchain_params(genesis_block=params.get('genesis_block'))
     staking_block = None
@@ -30,8 +32,8 @@ def staking_process(pipe, params):
     proof_txs = list()
     staking_time = 0
     while True:
-        if pipe.poll():
-            cmd, obj = pipe.recv()
+        if not child_que.empty():
+            cmd, obj = child_que.get()
             if cmd == NEW_BLOCK:
                 staking_block = obj
             elif cmd == NEW_UNCONFIRMED:
@@ -49,7 +51,6 @@ def staking_process(pipe, params):
                 proof_tx.update_time()
                 if not proof_tx.pos_check(
                         previous_hash=staking_block.previous_hash,
-                        pos_bias=staking_block.pos_bias,
                         pos_target_hash=staking_block.target_hash):
                     continue
                 proof_tx.signature = [message2signature(proof_tx.b, proof_tx.outputs[0][0])]
@@ -70,7 +71,7 @@ def staking_process(pipe, params):
                     tx.height = staking_block.height
                 info = "Staked yay!! Diff={} ({}hash/s)"\
                     .format(float2unit(staking_block.difficulty), len(proof_txs))
-                pipe.send((True, staking_block, info))
+                send(True, staking_block, info)
                 # Clear
                 staking_block = None
                 unconfirmed.clear()
@@ -84,22 +85,23 @@ def staking_process(pipe, params):
                 if staking_time % 300 == 0:
                     hashrate = len(proof_txs)
                     margin = round(remain * 100, 1)
-                    info = "Staking now ..Diff={}, ({}hash/s, margin{}%)" \
+                    info = "Generating(POS) now ..Diff={}, ({}hash/s, margin{}%)" \
                         .format(float2unit(staking_block.difficulty), hashrate, margin)
-                    pipe.send((False, (hashrate, margin), info))
+                    send(False, (hashrate, margin), info)
                 elif staking_time % 10 == 0:
                     hashrate = len(proof_txs)
                     margin = round(remain * 100, 1)
-                    pipe.send((False, (hashrate, margin), None))
+                    send(False, (hashrate, margin), None)
         else:
             time.sleep(1)
 
 
 class ProcessObject:
-    def __init__(self, index, process, pipe):
+    def __init__(self, index, process, parent_que, child_que):
         self.index = index
         self.process = process
-        self.pipe = pipe
+        self.parent_que = parent_que
+        self.child_que = child_que
         self.hashrate = 0
         self.margin = 100
 
@@ -108,9 +110,10 @@ class ProcessObject:
 
     def close(self):
         try:
-            self.pipe.close()
+            self.parent_que.close()
+            self.child_que.close()
         except OSError as e:
-            logging.error("Failed close Pipe: {}".format(e))
+            logging.error("Failed close Queue: {}".format(e))
         try:
             self.process.terminate()
         except OSError as e:
@@ -118,8 +121,8 @@ class ProcessObject:
 
     def check_mined_block(self):
         try:
-            if self.pipe.poll():
-                status, obj, info = self.pipe.recv()
+            if not self.parent_que.empty():
+                status, obj, info = self.parent_que.get()
                 if status:
                     logging.info(info)
                     return status, obj
@@ -136,13 +139,16 @@ class ProcessObject:
             logging.error("Error on pipe: {}".format(e))
 
     def update_new_block(self, new_block):
-        self.pipe.send((NEW_BLOCK, new_block))
+        self._send(NEW_BLOCK, new_block)
 
     def update_unconfirmed(self, unconfirmed):
-        self.pipe.send((NEW_UNCONFIRMED, unconfirmed))
+        self._send(NEW_UNCONFIRMED, unconfirmed)
 
     def update_proof_txs(self, proof_txs):
-        self.pipe.send((NEW_PROOF_TXS, proof_txs))
+        self._send(NEW_PROOF_TXS, proof_txs)
+
+    def _send(self, *args):
+        self.child_que.put(args)
 
 
 class Staking:
@@ -158,6 +164,12 @@ class Staking:
         self.block_height = None
         self.genesis_block = genesis_block
         self.cores = 0
+
+    def close(self):
+        self.f_stop = True
+        for po in self.thread_pool:
+            po.close()
+        self.thread_pool.clear()
 
     def getinfo(self):
         return [str(po) for po in self.thread_pool]
@@ -175,28 +187,30 @@ class Staking:
         self.f_staking = True
         self.f_stop = False
         self.cores = threads
-        for i in range(threads):
+        for i in range(1, threads+1):
             try:
-                parent_conn, child_conn = Pipe()
+                parent_que, child_que = Queue(), Queue()
                 params = dict(genesis_block=self.genesis_block, sub_dir=V.SUB_DIR)
                 process = Process(
-                    target=staking_process, name="C-Staking {}".format(i), args=(child_conn, params))
-                # process.daemon = True
+                    target=staking_process,
+                    name="C-Staking {}".format(i),
+                    args=(parent_que, child_que, params))
+                process.daemon = True
                 process.start()
-                po = ProcessObject(index=i, pipe=parent_conn, process=process)
+                po = ProcessObject(index=i, process=process, parent_que=parent_que, child_que=child_que)
                 self.thread_pool.append(po)
                 logging.info("Staking process create number={}".format(i))
             except OSError as e:
                 logging.error("Failed start mining process: {}".format(e))
                 time.sleep(60)
-        loop_thread = Thread(target=self.inner_check, name="P-Staking", daemon=True)
+        loop_thread = Thread(target=self.inner_check, name="P-Staking")
         loop_thread.start()
 
     def share_que(self, mining):
         self.que = mining.que
 
     def inner_check(self):
-        while True:
+        while not self.f_stop:
             for po in self.thread_pool:
                 status, new_block = po.check_mined_block()
                 if status:
@@ -204,9 +218,6 @@ class Staking:
             else:
                 time.sleep(0.5)
                 continue
-            if self.f_stop:
-                logging.info("Staking stopped.")
-                return
             logging.info("Staked block yay!! {}".format(new_block))
             # 処理
             if new_block is None:
@@ -222,7 +233,6 @@ class Staking:
             'time': 0,
             'previous_hash': base_block.hash,
             'bits': get_bits_by_hash(previous_hash=base_block.hash, consensus=C.BLOCK_POS)[0],
-            'pos_bias': get_pos_bias_by_hash(previous_hash=base_block.hash)[0],
             'nonce': b'\xff' * 4})
         staking_block.height = base_block.height + 1
         staking_block.flag = C.BLOCK_POS
@@ -246,23 +256,28 @@ class Staking:
             po.update_unconfirmed(unconfirmed)
 
     def update_unspent(self):
-        c = 10
+        c = 50
         while 0 == len(self.thread_pool) and 0 < c:
-            time.sleep(1)
+            time.sleep(0.2)
+            c -= 1
+        while self.previous_hash is None and 0 < c:
+            time.sleep(0.2)
             c -= 1
         assert 0 < len(self.thread_pool), "No staking thread found."
         assert self.previous_hash, "Setup block before."
         proof_txs = list()
+        all_num = 0
         for address, height, txhash, txindex, coin_id, amount in get_unspents_iter():
+            all_num += 1
             if height is None:
                 continue
             if coin_id != 0:
                 continue
             if not (self.block_height > height + C.MATURE_HEIGHT):
                 continue
-            elif not is_address(address, prefix=V.BLOCK_PREFIX):
+            if not is_address(address, prefix=V.BLOCK_PREFIX):
                 continue
-            elif amount < pow(10, V.COIN_DIGIT):
+            if amount < 100000000:
                 continue
             proof_tx = TX(tx={
                 'version': __chain_version__,
@@ -280,4 +295,4 @@ class Staking:
         n = len(proof_txs) // len(self.thread_pool) + 1
         for i, po in enumerate(self.thread_pool):
             po.update_proof_txs(proof_txs[i*n:i*n+n])
-        return len(proof_txs)
+        return all_num, len(proof_txs)

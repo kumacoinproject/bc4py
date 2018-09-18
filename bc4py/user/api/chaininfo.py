@@ -19,7 +19,7 @@ async def get_block_by_height(request):
 
 async def get_block_by_hash(request):
     try:
-        blockhash = request.query.get('blockhash')
+        blockhash = request.query.get('hash')
         blockhash = unhexlify(blockhash.encode())
         block = builder.get_block(blockhash)
         if block is None:
@@ -34,7 +34,7 @@ async def get_block_by_hash(request):
 
 async def get_tx_by_hash(request):
     try:
-        txhash = request.query.get('txhash')
+        txhash = request.query.get('hash')
         txhash = unhexlify(txhash.encode())
         tx = tx_builder.get_tx(txhash)
         if tx is None:

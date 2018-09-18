@@ -4,13 +4,13 @@ from bc4py.utils import set_database_path, set_blockchain_params
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.chain.workhash import update_work_hash
-from bc4py.chain.difficulty import get_bits_by_hash, get_pos_bias_by_hash
+from bc4py.chain.difficulty import get_bits_by_hash
 from bc4py.chain.utils import GompertzCurve
 from bc4py.database.create import create_db, closing
 from bc4py.database.account import create_new_user_keypair
 from bc4py.database.builder import builder
 from bc4py.user import float2unit
-from multiprocessing import Process, Pipe
+from multiprocessing import Process, Queue
 from threading import Thread
 import os
 import time
@@ -24,7 +24,9 @@ NEW_BLOCK = 1
 CLOSE_PROCESS = 2
 
 
-def mining_process(pipe, params):
+def mining_process(parent_que, child_que, params):
+    def send(*args):
+        parent_que.put(args)
     set_database_path(sub_dir=params.get("sub_dir"))
     set_blockchain_params(genesis_block=params.get('genesis_block'))
     power_save = params.get("power_save")
@@ -34,8 +36,8 @@ def mining_process(pipe, params):
     start = int(time.time())
     while True:
         # コマンド受け取り
-        if pipe.poll():
-            cmd, obj = pipe.recv()
+        if not child_que.empty():
+            cmd, obj = child_que.get()
             if cmd == NEW_UNCONFIRMED:
                 unconfirmed = obj
             elif cmd == NEW_BLOCK:
@@ -76,7 +78,7 @@ def mining_process(pipe, params):
                             float2unit(mining_block.difficulty),
                             float2unit(mining_block.work_difficulty),
                             float2unit(count / max(0.1, time.time() - start)))
-                        pipe.send((True, mining_block, info))
+                        send(True, mining_block, info)
                         count = 0
                         start = int(time.time())
                         mining_block = None
@@ -98,13 +100,13 @@ def mining_process(pipe, params):
                 continue
             if mining_block.time % 300 == 0:
                 hashrate = float2unit(count / max(0.1, time.time() - start))
-                info = "Mining now.. BlockDiff={} {}h/s {}".format(
+                info = "Generating(POW) now.. BlockDiff={} {}h/s {}".format(
                     float2unit(mining_block.difficulty), hashrate,
                     '(Saved)' if power_save else '')
-                pipe.send((False, hashrate, info))
+                send(False, hashrate, info)
             elif mining_block.time % 10 == 0:
                 hashrate = float2unit(count / max(0.1, time.time() - start))
-                pipe.send((False, hashrate, None))
+                send(False, hashrate, None)
         else:
             time.sleep(1)
 
@@ -118,11 +120,12 @@ def new_key():
 
 
 class ProcessObject:
-    def __init__(self, index, pipe, process):
+    def __init__(self, index, process, parent_que, child_que):
         assert V.BLOCK_CONSENSUS in (C.BLOCK_POW, C.HYBRID), 'Not pow mining chain.'
         self.time = time
         self.index = index
-        self.pipe = pipe
+        self.parent_que = parent_que
+        self.child_que = child_que
         self.que = queue.LifoQueue()
         self.process = process
         self.hashrate = "0.0"
@@ -131,17 +134,19 @@ class ProcessObject:
         return "<Mining {} {}h/s>".format(self.index, self.hashrate)
 
     def close(self):
-        try: self.pipe.close()
+        try:
+            self.parent_que.close()
+            self.child_que.close()
         except OSError as e:
-            logging.error("Failed close Pipe: {}".format(e))
+            logging.error("Failed close Queue: {}".format(e))
         try: self.process.terminate()
         except OSError as e:
             logging.error("Failed close Process: {}".format(e))
 
     def check_mined_block(self):
         try:
-            if self.pipe.poll():
-                status, obj, info = self.pipe.recv()
+            if not self.parent_que.empty():
+                status, obj, info = self.parent_que.get()
                 if status:
                     logging.info(info)
                     return status, obj
@@ -158,10 +163,13 @@ class ProcessObject:
             logging.error("Error on pipe: {}".format(e))
 
     def update_new_block(self, new_block):
-        self.pipe.send((NEW_BLOCK, new_block))
+        self._send(NEW_BLOCK, new_block)
 
     def update_unconfirmed(self, unconfirmed):
-        self.pipe.send((NEW_UNCONFIRMED, unconfirmed))
+        self._send(NEW_UNCONFIRMED, unconfirmed)
+
+    def _send(self, *args):
+        self.child_que.put(args)
 
 
 class Mining:
@@ -193,20 +201,23 @@ class Mining:
         self.f_stop = False
         self.cores = core or os.cpu_count()
         logging.info("Start mining by {} cores.".format(self.cores))
-        for i in range(self.cores):
+        for i in range(1, self.cores+1):
             try:
-                parent_conn, child_conn = Pipe()
+                parent_que, child_que = Queue(), Queue()
                 params = dict(genesis_block=self.genesis_block, power_save=Debug.F_MINING_POWER_SAVE, sub_dir=V.SUB_DIR)
-                process = Process(target=mining_process, name="C-Mining {}".format(i), args=(child_conn, params))
-                # process.daemon = True
+                process = Process(
+                    target=mining_process,
+                    name="C-Mining {}".format(i),
+                    args=(parent_que, child_que, params))
+                process.daemon = True
                 process.start()
-                po = ProcessObject(index=i, pipe=parent_conn, process=process)
+                po = ProcessObject(index=i, process=process, parent_que=parent_que, child_que=child_que)
                 self.thread_pool.append(po)
                 logging.info("Mining process create number={}".format(i))
             except OSError as e:
                 logging.error("Failed start mining process: {}".format(e))
                 time.sleep(60)
-        loop_thread = Thread(target=self.inner_check, name="P-Mining", daemon=True)
+        loop_thread = Thread(target=self.inner_check, name="P-Mining")
         loop_thread.start()
 
     def close(self):
@@ -220,7 +231,7 @@ class Mining:
         self.que = staking.que
 
     def inner_check(self):
-        while True:
+        while not self.f_stop:
             for po in self.thread_pool:
                 status, new_block = po.check_mined_block()
                 if status:
@@ -228,9 +239,6 @@ class Mining:
             else:
                 time.sleep(0.5)
                 continue
-            if self.f_stop:
-                logging.info("Mining stopped.")
-                return
             logging.info("Mined block yay!! {}".format(new_block))
             # 処理
             if new_block is None:
@@ -248,7 +256,6 @@ class Mining:
             'time': 0,
             'previous_hash': base_block.hash,
             'bits': get_bits_by_hash(previous_hash=base_block.hash, consensus=C.BLOCK_POW)[0],
-            'pos_bias': get_pos_bias_by_hash(previous_hash=base_block.hash)[0],
             'nonce': b'\xff' * 4})
         mining_block.height = base_block.height + 1
         mining_block.flag = C.BLOCK_POW

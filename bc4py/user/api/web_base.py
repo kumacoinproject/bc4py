@@ -9,7 +9,8 @@ CONTENT_TYPE_JSON = {'Content-Type': 'application/json'}
 
 def content_type_json_check(request):
     if request.content_type != 'application/json':
-        raise TypeError('Content-Type is application/json')
+        raise TypeError('Content-Type is application/json,'
+                        ' not {}'.format(request.content_type))
     else:
         return request.json()
 

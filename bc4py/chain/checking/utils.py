@@ -5,6 +5,11 @@ from bc4py.user import CoinObject
 from nem_ed25519.base import Encryption
 from nem_ed25519.key import is_address
 from binascii import hexlify
+from collections import deque
+
+
+# Count failed insert txs
+sticky_failed_txhash = deque(maxlen=20)
 
 
 def inputs_origin_check(tx, include_block):
@@ -31,9 +36,20 @@ def inputs_origin_check(tx, include_block):
             # InputのOriginは既に取り込まれている
             pass  # OK
         # 使用済みかチェック
-        if txindex in get_usedindex(txhash, include_block):
-            raise BlockChainError('Input of {} is already used! {}:{}'
+        if txindex in get_usedindex(txhash=txhash, best_block=include_block):
+            sticky_failed_txhash.append(tx.hash)
+            raise BlockChainError('1 Input of {} is already used! {}:{}'
                                   .format(tx, hexlify(txhash).decode(), txindex))
+        # 同一Block内で使用されていないかチェック
+        if include_block:
+            for input_tx in include_block.txs:
+                if input_tx == tx:
+                    break
+                for input_hash, input_index in input_tx.inputs:
+                    if input_hash == txhash and input_index == txindex:
+                        sticky_failed_txhash.append(tx.hash)
+                        raise BlockChainError('2 Input of {} is already used by {}'
+                                              .format(tx, input_tx))
 
 
 def amount_check(tx, payfee_coin_id):
@@ -116,6 +132,7 @@ def validator_check(tx, include_block):
 
 
 __all__ = [
+    "sticky_failed_txhash",
     "inputs_origin_check",
     "amount_check",
     "signature_check",

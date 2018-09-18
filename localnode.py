@@ -7,12 +7,15 @@ from bc4py.user.mining import Mining
 from bc4py.user.staking import Staking
 from bc4py.user.boot import *
 from bc4py.user.network import broadcast_check, mined_newblock, DirectCmd, sync_chain_loop
+import bc4py.user.network.synchronize as sync
 from bc4py.user.api import create_rest_server
 from bc4py.user.validator import setup_as_validator
 from bc4py.database.create import make_account_db
 from bc4py.database.builder import builder
+from bc4py.chain.workhash import start_work_hash, close_work_hash
 from p2p_python.utils import setup_p2p_params
 from p2p_python.client import PeerClient
+from p2p_python.config import C
 from bc4py.for_debug import set_logger, f_already_bind
 from threading import Thread
 import logging
@@ -39,6 +42,7 @@ def work(port, sub_dir):
     builder.set_database_path()
     copy_boot(port)
     make_account_db()
+    start_work_hash()
     genesis_block, network_ver, connections = load_boot_file()
     logging.info("Start p2p network-ver{} .".format(network_ver))
 
@@ -50,6 +54,8 @@ def work(port, sub_dir):
     pc.event.addevent(cmd=DirectCmd.BLOCK_BY_HASH, f=DirectCmd.block_by_hash)
     pc.event.addevent(cmd=DirectCmd.TX_BY_HASH, f=DirectCmd.tx_by_hash)
     pc.event.addevent(cmd=DirectCmd.UNCONFIRMED_TX, f=DirectCmd.unconfirmed_tx)
+    pc.event.addevent(cmd=DirectCmd.BIG_BLOCKS, f=DirectCmd.big_blocks)
+    C.MAX_RECEIVE_SIZE = 2000 * 1000  # 2Mb
     pc.start()
     V.PC_OBJ = pc
 
@@ -68,7 +74,7 @@ def work(port, sub_dir):
 
     # Update to newest blockchain
     builder.init(genesis_block)
-    sync_chain_loop(f_3_conn=False)
+    sync_chain_loop()
     setup_as_validator()
 
     # Mining/Staking setup
@@ -79,16 +85,24 @@ def work(port, sub_dir):
     # Debug.F_CONSTANT_DIFF = True
     Debug.F_SHOW_DIFFICULTY = True
     Debug.F_MINING_POWER_SAVE = random.random() / 2 + 0.05
+    # Debug.F_STICKY_TX_REJECTION = False  # for debug
     # core = 1 if port <= 2001 else 0
-    Thread(target=mining.start, name='Mining', args=(1,), daemon=True).start()
-    Thread(target=staking.start, name='Staking', daemon=True).start()
-    Thread(target=mined_newblock, name='MinedBlock', args=(mining.que, pc), daemon=True).start()
+    Thread(target=mining.start, name='Mining', args=(1,)).start()
+    Thread(target=staking.start, name='Staking').start()
+    Thread(target=mined_newblock, name='MinedBlock', args=(mining.que, pc)).start()
     V.MINING_OBJ = mining
     V.STAKING_OBJ = staking
     logging.info("Finished all initialize.")
 
     try:
         create_rest_server(f_local=True, port=port+1000)
+        builder.db.batch_create()
+        builder.close()
+        pc.close()
+        mining.close()
+        staking.close()
+        close_work_hash()
+        sync.f_working = False
     except KeyboardInterrupt:
         logging.debug("KeyboardInterrupt.")
 

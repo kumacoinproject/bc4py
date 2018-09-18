@@ -10,11 +10,15 @@ from .chaininfo import *
 from .websocket import *
 from .createtx import *
 from .contracttx import *
-from bc4py.config import Debug
+from bc4py.config import V
 from bc4py.user.api import web_base
 import threading
 import logging
 import os
+import asyncio
+
+
+runner = None
 
 
 def escape_cross_origin_block(app):
@@ -35,6 +39,7 @@ def create_rest_server(f_local, port):
     threading.current_thread().setName("REST")
     app = web.Application()
     routes = web.RouteTableDef()
+    V.API_OBJ = app
 
     @routes.post("/api/test")
     async def test_page0(request):
@@ -53,7 +58,9 @@ def create_rest_server(f_local, port):
             ('test', 'GET or POST', '*args', 'echo GET or POST parameters.'),
             ('getsysteminfo', 'GET', '', 'System info'),
             ('getchaininfo', 'GET', '', 'Chain info'),
+            ('getnetworkinfo', "GET", '', 'Network info'),
             ('validatorinfo', 'GET', '', 'Validator info.'),
+            # ('stop', 'GET', '', 'stop client.'),
             ('listbalance', 'GET', '[confirm=6]', 'All account balance.'),
             ('listtransactions', 'GET', '[page=0 limit=25]', 'Get account transactions.'),
             ('listunspents', 'GET', '', 'Get all unspent and orphan txhash:txindex pairs.'),
@@ -91,8 +98,8 @@ def create_rest_server(f_local, port):
                                       '[account=Unknown]', 'create and send start contract.'),
 
             ('getblockbyheight', 'GET', '[height]', 'Get blockinfo by height.'),
-            ('getblockbyhash', 'GET', '[blockhash]', 'Get blockinfo by blockhash.'),
-            ('gettxbyhash', 'GET', '[txhash]', 'Get tx by txhash.'),
+            ('getblockbyhash', 'GET', '[hash]', 'Get blockinfo by blockhash.'),
+            ('gettxbyhash', 'GET', '[hash]', 'Get tx by txhash.'),
             ('getmintinfo', 'GET', '[mint_id]', 'Get mintcoin info.'),
         ]
         L = ["<TR><TH>URI</TH> <TH>Method</TH> <TH>Params</TH> <TH>Message</TH></TR>"]
@@ -121,7 +128,9 @@ def create_rest_server(f_local, port):
     # Base
     app.router.add_get('/api/getsysteminfo', system_info)
     app.router.add_get('/api/getchaininfo', chain_info)
+    app.router.add_get('/api/getnetworkinfo', network_info)
     app.router.add_get('/api/validatorinfo', validator_info)
+    app.router.add_get('/api/stop', close_server)
     # Account
     app.router.add_get('/api/listbalance', list_balance)
     app.router.add_get('/api/listtransactions', list_transactions)
@@ -192,5 +201,31 @@ def create_rest_server(f_local, port):
 
     # Working
     host = '127.0.0.1' if f_local else '0.0.0.0'
+    # web.run_app(app=app, host=host, port=port)
+    global runner
+    runner = web.AppRunner(app)
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(non_blocking_start(host, port))
     logging.info("REST work on port={} mode={}.".format(port, 'Local' if f_local else 'Global'))
-    web.run_app(app=app, host=host, port=port)
+    loop.run_forever()
+    loop.close()
+    logging.info("Server closed now.")
+
+
+async def non_blocking_start(host, port):
+    # No blocking run https://docs.aiohttp.org/en/stable/web_advanced.html#application-runners
+    global runner
+    await runner.setup()
+    site = web.TCPSite(runner, host, port)
+    await site.start()
+
+
+async def close_server(request):
+    def _close():
+        loop.call_soon_threadsafe(loop.stop)
+        print("Closed!")
+    loop = asyncio.get_event_loop()
+    logging.info("Closing server...")
+    import threading
+    threading.Thread(target=_close).start()
+    raise web.GracefulExit("Close server manually.")

@@ -1,6 +1,6 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.chain.block import Block
-from bc4py.chain.difficulty import get_bits_by_hash, get_pos_bias_by_hash
+from bc4py.chain.difficulty import get_bits_by_hash
 import logging
 import time
 
@@ -14,11 +14,8 @@ def check_block(block: Block):
     elif block.getsize() > C.SIZE_BLOCK_LIMIT:
         raise BlockChainError('Block size is too large [{}b>{}b]'.format(block.getsize(), C.SIZE_BLOCK_LIMIT))
     bits = get_bits_by_hash(previous_hash=block.previous_hash, consensus=block.flag)[0]
-    pos_bias = get_pos_bias_by_hash(previous_hash=block.previous_hash)[0]
     if block.bits != bits:
         raise BlockChainError('Block bits differ from calc. [{}!={}]'.format(block.bits, bits))
-    elif block.pos_bias != pos_bias:
-        raise BlockChainError('Block pos_bias differ from calc. [{}!={}]'.format(block.pos_bias, pos_bias))
     logging.debug("Checked block {}.".format(block))
 
 
