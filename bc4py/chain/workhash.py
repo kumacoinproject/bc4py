@@ -27,7 +27,9 @@ def _generator(pipe):
 
 def start_work_hash():
     global parent_conn, child_conn, generator, lock
-    if len(mp.active_children()) == 0:
+    if mp.cpu_count() < 2:
+        logging.warning("Only one cpu you have. disabled hashing thread.")
+    elif len(mp.active_children()) == 0:
         logging.debug("Hashing module start.")
         parent_conn, child_conn = mp.Pipe()
         generator = mp.Process(target=_generator, name="Hashing", args=(child_conn,))
