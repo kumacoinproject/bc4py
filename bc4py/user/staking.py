@@ -203,7 +203,7 @@ class Staking:
             except OSError as e:
                 logging.error("Failed start mining process: {}".format(e))
                 time.sleep(60)
-        loop_thread = Thread(target=self.inner_check, name="P-Staking")
+        loop_thread = Thread(target=self.inner_check, name="Staking", daemon=True)
         loop_thread.start()
 
     def share_que(self, mining):

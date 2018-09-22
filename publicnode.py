@@ -73,7 +73,7 @@ def work(port, sub_dir=None):
     logging.info("Finished all initialize.")
 
     try:
-        create_rest_server(f_local=True, port=port + 1000)
+        create_rest_server(f_local=True, port=port + 1000, user='user', pwd='password')
         builder.db.batch_create()
         builder.close()
         pc.close()

@@ -2,6 +2,7 @@
 # https://blockexplorer.com/api-ref
 
 from aiohttp import web
+from aiohttp_basicauth_middleware import basic_auth_middleware
 import aiohttp_cors
 from .mainstatus import *
 from .accountinfo import *
@@ -35,7 +36,12 @@ def escape_cross_origin_block(app):
         cors.add(resource)
 
 
-def create_rest_server(f_local, port):
+def setup_basic_auth(app, user, pwd):
+    app.middlewares.append(basic_auth_middleware(('/api/',), {user: pwd}))
+    logging.info("Enabled basic auth.")
+
+
+def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None):
     threading.current_thread().setName("REST")
     app = web.Application()
     routes = web.RouteTableDef()
@@ -199,6 +205,14 @@ def create_rest_server(f_local, port):
     # オリジン間リソース共有
     escape_cross_origin_block(app)
 
+    # setup basic auth
+    if user and pwd:
+        assert isinstance(user, str) and len(user) > 5
+        assert isinstance(pwd, str) and len(pwd) > 5
+        setup_basic_auth(app, user, pwd)
+    else:
+        assert f_local is False, 'You open API without basic auth.'
+
     # Working
     host = '127.0.0.1' if f_local else '0.0.0.0'
     # web.run_app(app=app, host=host, port=port)
@@ -207,9 +221,13 @@ def create_rest_server(f_local, port):
     loop = asyncio.get_event_loop()
     loop.run_until_complete(non_blocking_start(host, port))
     logging.info("REST work on port={} mode={}.".format(port, 'Local' if f_local else 'Global'))
-    loop.run_forever()
-    loop.close()
-    logging.info("Server closed now.")
+
+    if f_blocking:
+        loop.run_forever()
+        loop.close()
+        logging.info("REST Server closed now.")
+    else:
+        logging.info("Create REST Server.")
 
 
 async def non_blocking_start(host, port):
