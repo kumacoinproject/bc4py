@@ -41,27 +41,24 @@ def setup_basic_auth(app, user, pwd):
     logging.info("Enabled basic auth.")
 
 
-def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None):
+def setup_ssl_context(cert, private, hostname=False):
+    import ssl
+    ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+    ssl_context.load_cert_chain(cert, private)
+    ssl_context.check_hostname = hostname
+    return ssl_context
+
+
+def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None, ssl_context=None):
     threading.current_thread().setName("REST")
     app = web.Application()
     routes = web.RouteTableDef()
     V.API_OBJ = app
 
-    @routes.post("/api/test")
-    async def test_page0(request):
-        post = await web_base.content_type_json_check(request)
-        return web.json_response(data=post)
-
-    @routes.get("/api/test")
-    async def test_page1(request):
-        get = dict(request.query)
-        return web.json_response(data=get)
-
     @routes.get("/")
     async def help_page(request):
         header = "<H>Help page</H><BR>"
         rest = [
-            ('test', 'GET or POST', '*args', 'echo GET or POST parameters.'),
             ('getsysteminfo', 'GET', '', 'System info'),
             ('getchaininfo', 'GET', '', 'Chain info'),
             ('getnetworkinfo', "GET", '', 'Network info'),
@@ -127,10 +124,6 @@ def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None):
               ".table4 th, .table4 td {  border: 1px solid gray;}</style>"
         return web.Response(text=header+message+css+comment, headers=web_base.CONTENT_TYPE_HTML)
 
-    @routes.get("/api/stop")
-    async def stop_system(request):
-        return web.Response(text='Not found method.', status=400)
-
     # Base
     app.router.add_get('/api/getsysteminfo', system_info)
     app.router.add_get('/api/getchaininfo', chain_info)
@@ -142,6 +135,7 @@ def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None):
     app.router.add_get('/api/listtransactions', list_transactions)
     app.router.add_get('/api/listunspents', list_unspents)
     app.router.add_get('/api/listaccountaddress', list_account_address)
+    app.router.add_post('/api/lock', lock_database)
     app.router.add_post('/api/unlock', unlock_database)
     app.router.add_post('/api/changepassword', change_password)
     app.router.add_post('/api/move', move_one)
@@ -221,7 +215,7 @@ def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None):
     global runner
     runner = web.AppRunner(app)
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(non_blocking_start(host, port))
+    loop.run_until_complete(non_blocking_start(host, port, ssl_context))
     logging.info("REST work on port={} mode={}.".format(port, 'Local' if f_local else 'Global'))
 
     if f_blocking:
@@ -232,11 +226,11 @@ def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None):
         logging.info("Create REST Server.")
 
 
-async def non_blocking_start(host, port):
+async def non_blocking_start(host, port, ssl_context):
     # No blocking run https://docs.aiohttp.org/en/stable/web_advanced.html#application-runners
     global runner
     await runner.setup()
-    site = web.TCPSite(runner, host, port)
+    site = web.TCPSite(runner, host=host, port=port, ssl_context=ssl_context)
     await site.start()
 
 
