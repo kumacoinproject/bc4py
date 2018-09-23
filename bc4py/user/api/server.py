@@ -207,11 +207,13 @@ def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None):
 
     # setup basic auth
     if user and pwd:
-        assert isinstance(user, str) and len(user) > 5
-        assert isinstance(pwd, str) and len(pwd) > 5
+        assert isinstance(user, str) and len(user) > 2
+        assert isinstance(pwd, str) and len(pwd) > 7
         setup_basic_auth(app, user, pwd)
+    elif f_local:
+        logging.debug('non basic auth.')
     else:
-        assert f_local is False, 'You open API without basic auth.'
+        logging.error('Accept 0.0.0.0 without basic auth!')
 
     # Working
     host = '127.0.0.1' if f_local else '0.0.0.0'
