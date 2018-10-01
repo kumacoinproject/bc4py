@@ -2,13 +2,15 @@
 # -*- coding: utf-8 -*-
 
 from bc4py import __chain_version__
-from bc4py.chain.difficulty import MAX_BITS, MIN_BIAS_BITS
-from bc4py.config import C, BlockChainError
+from bc4py.chain.difficulty import MAX_BITS
+from bc4py.config import C, V, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
-from bc4py.contract.utils import contract2binary
-from bc4py.contract.c_validator import contract
-from nem_ed25519.base import Encryption
+from bc4py.database.create import closing, create_db
+from bc4py.database.account import create_new_user_keypair
+from bc4py.contract.tools import contract2binary
+from bc4py.contract.c_validator import Contract
+from nem_ed25519.key import convert_address
 import time
 import logging
 import bjson
@@ -43,9 +45,49 @@ def create_genesis_block(all_supply, block_span, prefix=b'\x98', contract_prefix
     """params"""
     assert isinstance(minimum_price, int), 'minimum_price is INT'
     genesis_time = int(time.time())
+    # premine
+    premine_txs = list()
+    for index, chunk in enumerate(chunked(premine or list(), 256)):
+        tx = TX(tx={
+            'version': __chain_version__,
+            'type': C.TX_TRANSFER,
+            'time': 0,
+            'deadline': 10800,
+            'inputs': list(),
+            'outputs': chunk,
+            'gas_price': 0,
+            'gas_amount': 0,
+            'message_type': C.MSG_PLAIN,
+            'message': 'Premine {}'.format(index).encode()})
+        tx.height = 0
+        premine_txs.append(tx)
+    # validator
+    V.BLOCK_GENESIS_TIME = int(time.time())
+    with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+        ck = create_new_user_keypair(C.ANT_CONTRACT, db.cursor())
+        db.commit()
+    c_address = convert_address(ck, contract_prefix)
+    c_bin = contract2binary(Contract)
+    c_cs = {
+        ck.encode(): b'\x00\x00\x00\x00',
+        b'\x00'+b'\x00\x00\x00\x00': b'\x01'
+    }  # TODO:　初期値どうする？
+    validator_tx = TX(tx={
+            'version': __chain_version__,
+            'type': C.TX_CREATE_CONTRACT,
+            'time': 0,
+            'deadline': 10800,
+            'inputs': list(),
+            'outputs': list(),
+            'gas_price': 0,
+            'gas_amount': 0,
+            'message_type': C.MSG_BYTE,
+            'message': bjson.dumps((c_address, c_bin, c_cs), compress=False)})
+    validator_tx.height = 0
     params = {
         'prefix': prefix,  # CompressedKey prefix
         'contract_prefix': contract_prefix,  # ContractKey prefix
+        'validator_address': c_address,
         'genesis_time': genesis_time,  # GenesisBlockの採掘時間
         'all_supply': all_supply,  # 全採掘量
         'block_span': block_span,  # ブロックの採掘間隔
@@ -67,48 +109,12 @@ def create_genesis_block(all_supply, block_span, prefix=b'\x98', contract_prefix
         'message_type': C.MSG_BYTE,
         'message': bjson.dumps(params, compress=False)})
     setting_tx.height = 0
-    # premine
-    premine_txs = list()
-    for index, chunk in enumerate(chunked(premine or list(), 256)):
-        tx = TX(tx={
-            'version': __chain_version__,
-            'type': C.TX_TRANSFER,
-            'time': 0,
-            'deadline': 10800,
-            'inputs': list(),
-            'outputs': chunk,
-            'gas_price': 0,
-            'gas_amount': 0,
-            'message_type': C.MSG_PLAIN,
-            'message': 'Premine {}'.format(index).encode()})
-        tx.height = 0
-        premine_txs.append(tx)
-    # validator
-    ecc = Encryption(prefix=prefix)
-    ecc.secret_key()
-    ecc.public_key()
-    c_address = ecc.get_address()
-    c_bin = contract2binary(contract)
-    c_cs = {b'': b''}  # TODO:　初期値どうする？
-    validator_tx = TX(tx={
-            'version': __chain_version__,
-            'type': C.TX_CREATE_CONTRACT,
-            'time': 0,
-            'deadline': 10800,
-            'inputs': list(),
-            'outputs': list(),
-            'gas_price': 0,
-            'gas_amount': 0,
-            'message_type': C.MSG_BYTE,
-            'message': bjson.dumps((c_address, c_bin, c_cs), compress=False)})
-    validator_tx.height = 0
     # height0のBlock生成
     genesis_block = Block(block={
         'merkleroot': b'\x00'*32,
         'time': 0,
         'previous_hash': b'\xff'*32,
         'bits': MAX_BITS,
-        'pos_bias': MIN_BIAS_BITS,
         'nonce': b'\xff'*4})
     # block params
     genesis_block.height = 0

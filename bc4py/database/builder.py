@@ -26,6 +26,7 @@ struct_address_idx = struct.Struct('>IQ?')
 
 
 ZERO_FILLED_HASH = b'\x00' * 32
+STARTER_NUM = 3
 
 
 class DataBase:
@@ -106,7 +107,8 @@ class DataBase:
         block.height = height
         block.work_hash = work
         block.flag = flag
-        block.txs = [self.read_tx(b[idx+32*i:idx+32*i+32]) for i in range(tx_len//32)]
+        # block.txs = [self.read_tx(b[idx+32*i:idx+32*i+32]) for i in range(tx_len//32)]
+        block.txs = [tx_builder.get_tx(b[idx+32*i:idx+32*i+32]) for i in range(tx_len//32)]
         return block
 
     def read_block_hash(self, height):
@@ -303,6 +305,10 @@ class ChainBuilder:
         # levelDBのStreamHandlerを削除
         logging.getLogger().handlers.clear()
 
+    def close(self):
+        self.save_starter()
+        del self.db
+
     def set_database_path(self):
         try:
             self.db = DataBase(os.path.join(V.DB_HOME_DIR, 'db'))
@@ -380,10 +386,17 @@ class ChainBuilder:
                 logging.debug("UserAccount batched at {} height.".format(block.height))
         # import from starter.dat
         self.root_block = before_block
-        self.load_starter()
-        batch_blocks.append(self.best_block)
-        self.chain[self.best_block.hash] = self.best_block
-        self.best_chain = [self.best_block]
+        memorized_blocks, self.best_block = self.load_starter(before_block)
+        # Memory化されたChainを直接復元
+        for block in memorized_blocks:
+            batch_blocks.append(block)
+            self.chain[block.hash] = block
+            for tx in block.txs:
+                if tx.hash not in tx_builder.chained_tx:
+                    tx_builder.chained_tx[tx.hash] = tx
+                if tx.hash in tx_builder.unconfirmed:
+                    del tx_builder.unconfirmed[tx.hash]
+        self.best_chain = list(reversed(memorized_blocks))
         # UserAccount update
         user_account.new_batch_apply(batch_blocks)
         user_account.init()
@@ -391,20 +404,59 @@ class ChainBuilder:
                      .format(before_block, round(time.time()-t, 3)))
 
     def save_starter(self):
-        with open(os.path.join(V.DB_HOME_DIR, 'db', 'starter.dat'), mode='bw') as fp:
+        for index in reversed(range(STARTER_NUM)):
+            target_path = os.path.join(V.DB_HOME_DIR, 'db', 'starter.{}.dat'.format(index))
+            if os.path.exists(target_path):
+                old_file_path = os.path.join(V.DB_HOME_DIR, 'db', 'starter.{}.dat'.format(index+1))
+                if os.path.exists(old_file_path):
+                    os.remove(old_file_path)
+                os.rename(target_path, old_file_path)
+        with open(os.path.join(V.DB_HOME_DIR, 'db', 'starter.0.dat'), mode='bw') as fp:
             pickle.dump(self.best_chain, fp, protocol=4)
 
-    def load_starter(self):
-        try:
-            with open(os.path.join(V.DB_HOME_DIR, 'db', 'starter.dat'), mode='br') as fp:
-                for block in pickle.load(fp):
-                    if self.root_block.hash == block.previous_hash:
-                        self.best_block = block
-                        break
-                else:
-                    raise Exception('Cannot init, not found next block. root={}'.format(self.root_block))
-        except FileNotFoundError:
-            return list()
+    def load_starter(self, root_block):
+        self.failmark_file_check()
+        memorized_blocks = list()
+        for index in range(STARTER_NUM+1):
+            target_path = os.path.join(V.DB_HOME_DIR, 'db', 'starter.{}.dat'.format(index))
+            if os.path.exists(target_path):
+                with open(target_path, mode='br') as fp:
+                    for block in reversed(pickle.load(fp)):
+                        if root_block.hash == block.previous_hash:
+                            memorized_blocks.append(block)
+                            root_block = block
+            if len(memorized_blocks) > 0:
+                logging.debug("Load {} blocks, best={}".format(len(memorized_blocks), root_block))
+                return memorized_blocks, root_block
+        raise BlockBuilderError("Failed load block from file, cannot find starter.n.dat?")
+
+    def failmark_file_check(self):
+        mark_file = os.path.join(V.DB_HOME_DIR, 'db', 'starter.failed.dat')
+        if not os.path.exists(mark_file):
+            return
+        for index in range(STARTER_NUM+1):
+            target_path = os.path.join(V.DB_HOME_DIR, 'db', 'starter.{}.dat'.format(index))
+            if os.path.exists(target_path):
+                os.remove(target_path)
+                os.remove(mark_file)
+                logging.debug("Removed starter.{}.dat".format(index))
+                return
+        logging.critical('System is in fork chain, so we delete "db" from "blockchain-py" '
+                         'folder and resync blockchain from 0 height.')
+        del self.db
+        os.removedirs(os.path.join(V.DB_HOME_DIR, 'db'))
+        exit(1)
+
+    def make_failemark(self, message=""):
+        mark_file = os.path.join(V.DB_HOME_DIR, 'db', 'starter.failed.dat')
+        with open(mark_file, mode='a') as fp:
+            fp.write("[{}] {}\n".format(time.asctime(), message))
+        logging.debug("Make failed mark '{}'".format(message))
+
+    def remove_failmark(self):
+        mark_file = os.path.join(V.DB_HOME_DIR, 'db', 'starter.failed.dat')
+        if os.path.exists(mark_file):
+            os.remove(mark_file)
 
     def get_best_chain(self, best_block=None):
         assert self.root_block, 'Do not init.'
@@ -423,21 +475,15 @@ class ChainBuilder:
         best_diff = 0.0
         best_block = None
         best_chain = list()
-        for block in self.chain.values():
+        for block in list(self.chain.values()):
             if block in best_chain:
                 continue
-            if not block.difficulty:
-                block.bits2target()
-                block.target2diff()
-            tmp_best_diff = block.difficulty
+            tmp_best_diff = block.difficulty * block.bias
             tmp_best_block = block
             tmp_best_chain = [block]
             while block.previous_hash in self.chain:
                 block = self.chain[block.previous_hash]
-                if not block.difficulty:
-                    block.bits2target()
-                    block.target2diff()
-                tmp_best_diff += block.difficulty
+                tmp_best_diff += block.difficulty * block.bias
                 tmp_best_chain.append(block)
             else:
                 if self.root_block.hash != block.previous_hash:
@@ -471,6 +517,7 @@ class ChainBuilder:
                 block = best_chain.pop()  # 古いものから順に
                 batched_blocks.append(block)
                 self.db.write_block(block)  # Block
+                assert len(block.txs) > 0, "found no tx in {}".format(block)
                 for tx in block.txs:
                     self.db.write_tx(tx)  # TX
                     # inputs
@@ -528,9 +575,9 @@ class ChainBuilder:
                                 break
                         else:
                             raise BlockBuilderError('Not found start tx. {}'.format(tx))
-                        c_address, c_data, c_redeem = bjson.loads(start_tx.message)
+                        c_address, c_data, c_args, c_redeem = bjson.loads(start_tx.message)
                         # 次のIndexを取得する
-                        for c_address, index, _start_hash, finish_hash in self.db.read_contract_iter(c_address):
+                        for dummy, index, _start_hash, finish_hash in self.db.read_contract_iter(c_address):
                             if start_hash == _start_hash and finish_hash == ZERO_FILLED_HASH:
                                 break  # STARTで既に挿入されているはず
                         else:
@@ -642,12 +689,12 @@ class TransactionBuilder:
             # unconfirmedより
             tx = self.unconfirmed[txhash]
             tx.f_on_memory = True
-            assert tx.height is None, "Not unconfirmed. {}".format(tx)
+            if tx.height is not None: logging.warning("Not unconfirmed. {}".format(tx))
         elif txhash in self.chained_tx:
             # Memoryより
             tx = self.chained_tx[txhash]
             tx.f_on_memory = True
-            assert tx.height is not None, "Is unconfirmed. {}".format(tx)
+            if tx.height is None: logging.warning("Is unconfirmed. {}".format(tx))
         else:
             # Databaseより
             tx = builder.db.read_tx(txhash)
@@ -662,6 +709,12 @@ class TransactionBuilder:
         return bool(self.get_tx(item.hash))
 
     def affect_new_chain(self, old_best_chain, new_best_chain):
+        def input_check(_tx):
+            for input_hash, input_index in _tx.inputs:
+                if input_index in builder.db.read_usedindex(input_hash):
+                    return True
+            return False
+
         # 状態を戻す
         for block in old_best_chain:
             for tx in block.txs:
@@ -676,11 +729,23 @@ class TransactionBuilder:
                     self.chained_tx[tx.hash] = tx
                 if tx.hash in self.unconfirmed:
                     del self.unconfirmed[tx.hash]
-        # 時間切れを起こしたUnconfirmedを消す
+
         limit = int(time.time() - V.BLOCK_GENESIS_TIME - C.ACCEPT_MARGIN_TIME)
         for txhash, tx in self.unconfirmed.copy().items():
+            if P.F_NOW_BOOTING:
+                break  # not delete on booting..
+            # Remove expired unconfirmed tx
             if limit > tx.deadline:
                 del self.unconfirmed[txhash]
+                continue
+            # Remove tx include by both best_chain & unconfirmed
+            if txhash in self.chained_tx:
+                del self.unconfirmed[txhash]
+                continue
+            # check inputs usedindex on only database
+            if input_check(tx):
+                del self.unconfirmed[txhash]
+                continue
 
 
 class UserAccount:
@@ -698,7 +763,7 @@ class UserAccount:
                 if builder.db.read_tx(move_log.txhash):
                     memory_sum += move_log.movement
                 else:
-                    logging.warning("need to delete unknown log {}".format(move_log))
+                    logging.warning("It's unknown log {}".format(move_log))
                     # delete_log(move_log.txhash, cur)
             self.db_balance += memory_sum
 
@@ -726,7 +791,7 @@ class UserAccount:
                                 else:
                                     balance.add_coins(user, coin_id, amount)
             # Unconfirmed
-            for tx in tx_builder.unconfirmed.values():
+            for tx in list(tx_builder.unconfirmed.values()):
                 move_log = read_txhash2log(tx.hash, cur)
                 if move_log is None:
                     if tx.hash in self.memory_movement:
@@ -813,7 +878,7 @@ class UserAccount:
                         self.db_balance += move_log.movement
                         if tx.hash in self.memory_movement:
                             del self.memory_movement[tx.hash]
-                        logging.debug("Already recoded log {}".format(tx))
+                        # logging.debug("Already recoded log {}".format(tx))
                     elif tx.hash in self.memory_movement:
                         # db_balanceに追加
                         _type, movement, _time = self.memory_movement[tx.hash].get_tuple_data()

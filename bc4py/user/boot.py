@@ -7,19 +7,24 @@ import os
 import bjson
 import logging
 import pickle
+import random
 from base64 import b64decode, b64encode
 
 
-def create_boot_file(genesis_block, network_ver, connections=None):
-    assert isinstance(network_ver, int) and abs(network_ver) <= 0xffffffff, 'network_ver ia int.'
+def create_boot_file(genesis_block, network_ver=None, connections=None):
+    network_ver = network_ver or random.randint(1000000, 0xffffffff)
+    assert isinstance(network_ver, int) and abs(network_ver) <= 0xffffffff, 'network_ver is int <=0xffffffff.'
     data = {
         'block': genesis_block.b,
         'txs': [tx.b for tx in genesis_block.txs],
         'connections': connections or list(),
         'network_ver': network_ver}
     boot_path = os.path.join(V.DB_HOME_DIR, 'boot.dat')
+    data = b64encode(bjson.dumps(data))
     with open(boot_path, mode='bw') as fp:
-        bjson.dump(data, fp, compress=False)
+        while len(data) > 0:
+            write, data = data[:60], data[60:]
+            fp.write(write+b'\n')
     logging.info("create new boot.dat!")
 
 
@@ -28,10 +33,10 @@ def load_boot_file():
     extra_path = os.path.join(V.DB_HOME_DIR, 'boot.dat')
     if os.path.exists(normal_path):
         with open(normal_path, mode='br') as fp:
-            data = bjson.load(fp=fp)
+            data = bjson.loads(b64decode(fp.read().replace(b'\n', b'').replace(b'\r', b'')))
     elif os.path.exists(extra_path):
         with open(extra_path, mode='br') as fp:
-            data = bjson.load(fp=fp)
+            data = bjson.loads(b64decode(fp.read().replace(b'\n', b'').replace(b'\r', b'')))
     else:
         raise FileNotFoundError('Cannot find boot.dat "{}" or "{}" ?'.format(normal_path, extra_path))
     genesis_block = Block(binary=data['block'])

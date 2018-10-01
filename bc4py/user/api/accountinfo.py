@@ -114,6 +114,20 @@ async def new_address(request):
     return web_base.json_res({'account': user_name, 'user_id': user_id, 'address': address})
 
 
+async def get_keypair(request):
+    with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+        cur = db.cursor()
+        try:
+            address = request.query.get('address')
+            uuid, sk, pk = read_address2keypair(address, cur)
+            return web_base.json_res({
+                'uuid': uuid,
+                'address': address,
+                'private_key': sk,
+                'public_key': pk})
+        except BlockChainError as e:
+            return web.Response(text=str(e), status=400)
+
 __all__ = [
     "list_balance",
     "list_transactions",
@@ -121,5 +135,6 @@ __all__ = [
     "list_account_address",
     "move_one",
     "move_many",
-    "new_address"
+    "new_address",
+    "get_keypair"
 ]

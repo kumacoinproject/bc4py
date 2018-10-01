@@ -19,9 +19,20 @@ class GompertzCurve:
     def calc_block_reward(height):
         g = GompertzCurve
         x = g.x0 + height / g.ybnum / 10.0
+        # print("{} = {} + {} / {} / 10.0".format(x, g.x0, height, g.ybnum))
         e = math.exp(-g.c * x)
-        r = -g.k * g.c * math.log(g.b) * e * pow(g.b, e) / g.ybnum / 10.0
-        return round(r) if 0 < r else 0
+        # print("{} = math.exp(-{} * {})".format(e, g.c, x))
+        r = g.c * math.log(g.b) * e * pow(g.b, e) / g.ybnum / 10.0
+        # print("{} = {} * math.log({}) * {} * pow({}, {}) / {} / 10.0".format(r, g.c, g.b, e, g.b, e, g.ybnum))
+        # print("round(-{} * {})".format(g.k, r))
+        return round(-g.k * r)
+
+    @staticmethod
+    def round(i):
+        integer = int(i)
+        if i - integer >= 0.5:
+            return integer + 1
+        return integer
 
     @staticmethod
     def base_total_supply():
@@ -55,15 +66,13 @@ def signature2bin(s):
 
 
 def bits2target(bits):
-    bitsN = (bits >> 24) & 0xff
-    if bitsN < 0x03 or bitsN > 0x1f:
-        print(hex(bits))
-        raise BaseException("First part of bits should be in [0x03, 0x1f] {}".format(hex(bitsN)))  # d=>f
-    bitsBase = bits & 0xffffff
-    if bitsBase < 0x008000 or bitsBase > 0x7fffff:
-        print(hex(bits))
-        raise BaseException("Second part of bits should be in [0x008000, 0x7fffff] {}".format(hex(bitsBase)))
-    return bitsBase << (8 * (bitsN - 3))
+    """ Convert bits to target """
+    exponent = ((bits >> 24) & 0xff)
+    assert 3 <= exponent, "[exponent>=3] but {}.".format(exponent)
+    mantissa = bits & 0x7fffff
+    if (bits & 0x800000) > 0:
+        mantissa *= -1
+    return mantissa * pow(256, exponent - 3)
 
 
 def target2bits(target):

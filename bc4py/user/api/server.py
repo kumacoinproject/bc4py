@@ -2,6 +2,7 @@
 # https://blockexplorer.com/api-ref
 
 from aiohttp import web
+from aiohttp_basicauth_middleware import basic_auth_middleware
 import aiohttp_cors
 from .mainstatus import *
 from .accountinfo import *
@@ -10,11 +11,15 @@ from .chaininfo import *
 from .websocket import *
 from .createtx import *
 from .contracttx import *
-from bc4py.config import Debug
+from bc4py.config import V
 from bc4py.user.api import web_base
 import threading
 import logging
 import os
+import asyncio
+
+
+runner = None
 
 
 def escape_cross_origin_block(app):
@@ -31,28 +36,34 @@ def escape_cross_origin_block(app):
         cors.add(resource)
 
 
-def create_rest_server(f_local, port):
+def setup_basic_auth(app, user, pwd):
+    app.middlewares.append(basic_auth_middleware(('/api/',), {user: pwd}))
+    logging.info("Enabled basic auth.")
+
+
+def setup_ssl_context(cert, private, hostname=False):
+    import ssl
+    ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+    ssl_context.load_cert_chain(cert, private)
+    ssl_context.check_hostname = hostname
+    return ssl_context
+
+
+def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None, ssl_context=None):
     threading.current_thread().setName("REST")
     app = web.Application()
     routes = web.RouteTableDef()
-
-    @routes.post("/api/test")
-    async def test_page0(request):
-        post = await web_base.content_type_json_check(request)
-        return web.json_response(data=post)
-
-    @routes.get("/api/test")
-    async def test_page1(request):
-        get = dict(request.query)
-        return web.json_response(data=get)
+    V.API_OBJ = app
 
     @routes.get("/")
     async def help_page(request):
         header = "<H>Help page</H><BR>"
         rest = [
-            ('test', 'GET or POST', '*args', 'echo GET or POST parameters.'),
             ('getsysteminfo', 'GET', '', 'System info'),
             ('getchaininfo', 'GET', '', 'Chain info'),
+            ('getnetworkinfo', "GET", '', 'Network info'),
+            ('validatorinfo', 'GET', '', 'Validator info.'),
+            ('stop', 'GET', '', 'stop client.'),
             ('listbalance', 'GET', '[confirm=6]', 'All account balance.'),
             ('listtransactions', 'GET', '[page=0 limit=25]', 'Get account transactions.'),
             ('listunspents', 'GET', '', 'Get all unspent and orphan txhash:txindex pairs.'),
@@ -71,6 +82,7 @@ def create_rest_server(f_local, port):
             ('changeminttx', 'POST', '[mint_id] [amount=0] [message=None] [image=None]<BR>\n'
                                      '[additional_issue=None] [group=Unknown]', 'Chainge mintcoin.'),
             ('newaddress', 'GET', '[account=Unknown]', 'Get new bind account address.'),
+            ('getkeypair', 'GET', '[address]', 'Get priKey:pubKey by address.'),
 
             ('createrawtx', 'POST', '[version=1] [type=TRANSFER] [time=now] [deadline=now+10800] <BR>\n'
                                     '[inputs:list((txhash, txindex),..)] <BR>\n'
@@ -82,14 +94,15 @@ def create_rest_server(f_local, port):
 
             ('contracthistory', 'GET', '[address]', 'Get contract related txhash(start:finish) pairs.'),
             ('contractdetail', 'GET', '[address]', 'Get contract detail by address.'),
+            ('contractstorage', 'GET', '[address]', 'Get contract storage.'),
             ('sourcecompile', 'POST', '[source OR path] [name=None]', 'Python code to hexstr.'),
             ('contractcreate', 'POST', '[hex] [account=Unknown]', 'register contract to blockchain.'),
-            ('contractstart', 'POST', '[address] [data=None] [gas_limit=100000000] [outputs=list()] <BR>\n'
+            ('contractstart', 'POST', '[address] [method] [args=None] [gas_limit=100000000] [outputs=list()] <BR>\n'
                                       '[account=Unknown]', 'create and send start contract.'),
 
             ('getblockbyheight', 'GET', '[height]', 'Get blockinfo by height.'),
-            ('getblockbyhash', 'GET', '[blockhash]', 'Get blockinfo by blockhash.'),
-            ('gettxbyhash', 'GET', '[txhash]', 'Get tx by txhash.'),
+            ('getblockbyhash', 'GET', '[hash]', 'Get blockinfo by blockhash.'),
+            ('gettxbyhash', 'GET', '[hash]', 'Get tx by txhash.'),
             ('getmintinfo', 'GET', '[mint_id]', 'Get mintcoin info.'),
         ]
         L = ["<TR><TH>URI</TH> <TH>Method</TH> <TH>Params</TH> <TH>Message</TH></TR>"]
@@ -111,23 +124,24 @@ def create_rest_server(f_local, port):
               ".table4 th, .table4 td {  border: 1px solid gray;}</style>"
         return web.Response(text=header+message+css+comment, headers=web_base.CONTENT_TYPE_HTML)
 
-    @routes.get("/api/stop")
-    async def stop_system(request):
-        return web.Response(text='Not found method.', status=400)
-
     # Base
-    app.router.add_get('/api/getsysteminfo', get_system_info)
-    app.router.add_get('/api/getchaininfo', get_chain_info)
+    app.router.add_get('/api/getsysteminfo', system_info)
+    app.router.add_get('/api/getchaininfo', chain_info)
+    app.router.add_get('/api/getnetworkinfo', network_info)
+    app.router.add_get('/api/validatorinfo', validator_info)
+    app.router.add_get('/api/stop', close_server)
     # Account
     app.router.add_get('/api/listbalance', list_balance)
     app.router.add_get('/api/listtransactions', list_transactions)
     app.router.add_get('/api/listunspents', list_unspents)
     app.router.add_get('/api/listaccountaddress', list_account_address)
+    app.router.add_post('/api/lock', lock_database)
     app.router.add_post('/api/unlock', unlock_database)
     app.router.add_post('/api/changepassword', change_password)
     app.router.add_post('/api/move', move_one)
     app.router.add_post('/api/movemany', move_many)
     app.router.add_get('/api/newaddress', new_address)
+    app.router.add_get('/api/getkeypair', get_keypair)
     # Sending
     app.router.add_post('/api/createrawtx', create_raw_tx)
     app.router.add_post('/api/signrawtx', sign_raw_tx)
@@ -139,6 +153,7 @@ def create_rest_server(f_local, port):
     # Contract
     app.router.add_get('/api/contracthistory', contract_history)
     app.router.add_get('/api/contractdetail', contract_detail)
+    app.router.add_get('/api/contractstorage', contract_storage)
     app.router.add_post('/api/sourcecompile', source_compile)
     app.router.add_post('/api/contractcreate', contract_create)
     app.router.add_post('/api/contractstart', contract_start)
@@ -184,7 +199,47 @@ def create_rest_server(f_local, port):
     # オリジン間リソース共有
     escape_cross_origin_block(app)
 
+    # setup basic auth
+    if user and pwd:
+        assert isinstance(user, str) and len(user) > 2
+        assert isinstance(pwd, str) and len(pwd) > 7
+        setup_basic_auth(app, user, pwd)
+    elif f_local:
+        logging.debug('non basic auth.')
+    else:
+        logging.error('Accept 0.0.0.0 without basic auth!')
+
     # Working
     host = '127.0.0.1' if f_local else '0.0.0.0'
+    # web.run_app(app=app, host=host, port=port)
+    global runner
+    runner = web.AppRunner(app)
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(non_blocking_start(host, port, ssl_context))
     logging.info("REST work on port={} mode={}.".format(port, 'Local' if f_local else 'Global'))
-    web.run_app(app=app, host=host, port=port)
+
+    if f_blocking:
+        loop.run_forever()
+        loop.close()
+        logging.info("REST Server closed now.")
+    else:
+        logging.info("Create REST Server.")
+
+
+async def non_blocking_start(host, port, ssl_context):
+    # No blocking run https://docs.aiohttp.org/en/stable/web_advanced.html#application-runners
+    global runner
+    await runner.setup()
+    site = web.TCPSite(runner, host=host, port=port, ssl_context=ssl_context)
+    await site.start()
+
+
+async def close_server(request):
+    def _close():
+        loop.call_soon_threadsafe(loop.stop)
+        print("Closed!")
+    loop = asyncio.get_event_loop()
+    logging.info("Closing server...")
+    import threading
+    threading.Timer(1, _close).start()
+    return web.Response(text='Close')

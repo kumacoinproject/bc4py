@@ -1,12 +1,11 @@
 from bc4py.config import C, V
-from bc4py.contract.utils import *
+from bc4py.contract.tools import *
 from bc4py.user.txcreation import *
 from bc4py.database.create import closing, create_db
 from bc4py.database.tools import *
 from bc4py.database.account import *
 from bc4py.user.network.sendnew import send_newtx
 from bc4py.user.api import web_base
-from aiohttp import web
 from binascii import hexlify, unhexlify
 
 
@@ -24,14 +23,12 @@ async def contract_detail(request):
         c_cs = get_contract_storage(c_address)
         c_cs_data = {k.decode(errors='ignore'): v.decode(errors='ignore')
                      for k, v in c_cs.key_value.items()}
-        pickle_dis = binary2dis(c_bin)
         c_obj = binary2contract(c_bin)
         contract_dis = contract2dis(c_obj)
         data = {
             'c_address': c_address,
             'c_cs_data': c_cs_data,
             'c_cs_ver': c_cs.version,
-            'pickle_dis': pickle_dis,
             'contract_dis': contract_dis,
             'c_bin': hexlify(c_bin).decode()}
         return web_base.json_res(data)
@@ -43,12 +40,25 @@ async def contract_history(request):
     try:
         c_address = request.query['address']
         data = list()
-        for index, start_hash, finish_hash, is_unconfirmed in get_contract_history_iter(c_address):
+        for index, start_hash, finish_hash, height, on_memory in get_contract_history_iter(c_address):
             data.append({
                 'index': index,
-                'unconfirmed': is_unconfirmed,
+                'height': height,
+                'on_memory': on_memory,
                 'start_hash': hexlify(start_hash).decode(),
                 'finish_hash': hexlify(finish_hash).decode()})
+        return web_base.json_res(data)
+    except BaseException:
+        return web_base.error_res()
+
+
+async def contract_storage(request):
+    try:
+        c_address = request.query['address']
+        cs = get_contract_storage(c_address)
+        data = {
+            'storage': {k.decode(errors='ignore'): v.decode(errors='ignore') for k, v in cs.items()},
+            'version': cs.version}
         return web_base.json_res(data)
     except BaseException:
         return web_base.error_res()
@@ -57,13 +67,11 @@ async def contract_history(request):
 async def source_compile(request):
     post = await web_base.content_type_json_check(request)
     try:
-        # TODO:仕様変更の対応
         if 'source' in post:
             source = str(post['source'])
-            name = str(post.get('name', None))
-            c_obj = string2contract(source, name, limited=False)
+            c_obj = string2contract(source, limit_global=False)
         elif 'path' in post:
-            c_obj = filepath2contract(path=post['path'])
+            c_obj = path2contract(path=post['path'], limit_global=False)
         else:
             raise BaseException('You need set "source" or "path".')
         c_bin = contract2binary(c_obj)
@@ -85,15 +93,20 @@ async def contract_create(request):
             c_cs = {k.encode(errors='ignore'): v.encode(errors='ignore')
                     for k, v in post.get('c_cs', dict()).items()}
             binary2contract(c_bin)  # can compile?
-            sender_name = post.get('account', C.ANT_UNKNOWN)
+            sender_name = post.get('account', C.ANT_NAME_UNKNOWN)
             sender_id = read_name2user(sender_name, cur)
             c_address, c_tx = create_contract_tx(c_bin, cur, sender_id, c_cs)
             if not send_newtx(new_tx=c_tx, outer_cur=cur):
                 raise BaseException('Failed to send new tx.')
             db.commit()
-            data = c_tx.getinfo()
-            data['c_address'] = c_address
-            data['fee'] = c_tx.gas_price * c_tx.gas_amount
+            data = {
+                'txhash': hexlify(c_tx.hash).decode(),
+                'c_address': c_address,
+                'time': c_tx.time,
+                'fee': {
+                    'gas_price': c_tx.gas_price,
+                    'gas_amount': c_tx.gas_amount,
+                    'total': c_tx.gas_price * c_tx.gas_amount}}
             return web_base.json_res(data)
         except BaseException:
             return web_base.error_res()
@@ -105,21 +118,30 @@ async def contract_start(request):
         cur = db.cursor()
         try:
             c_address = post['address']
-            c_data = post.get('data', None)
+            c_method = post['method']
+            c_args = post.get('args', None)
             outputs = post.get('outputs', list())
-            account = post.get('account', C.ANT_UNKNOWN)
+            account = post.get('account', C.ANT_NAME_UNKNOWN)
             user_id = read_name2user(account, cur)
             # TX作成
             outputs = [(address, coin_id, amount) for address, coin_id, amount in outputs]
-            start_tx = start_contract_tx(c_address, c_data, cur, outputs, user_id)
+            start_tx = start_contract_tx(c_address, c_method, cur, c_args, outputs, user_id)
             # 送信
             if not send_newtx(new_tx=start_tx, outer_cur=cur):
                 raise BaseException('Failed to send new tx.')
             db.commit()
-            data = start_tx.getinfo()
-            data['c_address'] = c_address
-            data['fee'] = start_tx.gas_price * start_tx.gas_amount
-            data['c_data'] = c_data
+            data = {
+                'txhash': hexlify(start_tx.hash).decode(),
+                'time': start_tx.time,
+                'c_address': c_address,
+                'fee': {
+                    'gas_price': start_tx.gas_price,
+                    'gas_amount': start_tx.gas_amount,
+                    'total': start_tx.gas_price * start_tx.gas_amount},
+                'params': {
+                    'method': c_method,
+                    'args': c_args}
+            }
             return web_base.json_res(data)
         except BaseException:
             return web_base.error_res()
@@ -128,6 +150,7 @@ async def contract_start(request):
 __all__ = [
     "contract_detail",
     "contract_history",
+    "contract_storage",
     "source_compile",
     "contract_create",
     "contract_start",

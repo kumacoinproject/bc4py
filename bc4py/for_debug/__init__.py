@@ -18,6 +18,8 @@ def f_already_bind(port):
 
 def set_logger(level, prefix=''):
     logger = logging.getLogger()
+    for sh in logger.handlers:
+        logger.removeHandler(sh)
     logger.propagate = False
     logger.setLevel(logging.DEBUG)
     formatter = logging.Formatter('[%(levelname)-6s] [%(threadName)-10s] [%(asctime)-24s] %(message)s')
