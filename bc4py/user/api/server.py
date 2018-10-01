@@ -63,7 +63,7 @@ def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None, ssl_
             ('getchaininfo', 'GET', '', 'Chain info'),
             ('getnetworkinfo', "GET", '', 'Network info'),
             ('validatorinfo', 'GET', '', 'Validator info.'),
-            # ('stop', 'GET', '', 'stop client.'),
+            ('stop', 'GET', '', 'stop client.'),
             ('listbalance', 'GET', '[confirm=6]', 'All account balance.'),
             ('listtransactions', 'GET', '[page=0 limit=25]', 'Get account transactions.'),
             ('listunspents', 'GET', '', 'Get all unspent and orphan txhash:txindex pairs.'),
@@ -241,5 +241,5 @@ async def close_server(request):
     loop = asyncio.get_event_loop()
     logging.info("Closing server...")
     import threading
-    threading.Thread(target=_close).start()
-    raise web.GracefulExit("Close server manually.")
+    threading.Timer(1, _close).start()
+    return web.Response(text='Close')
