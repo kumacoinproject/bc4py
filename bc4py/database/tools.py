@@ -257,7 +257,7 @@ def get_unspents_iter(outer_cur=None, best_chain=None):
         cur = outer_cur or db.cursor()
         for (uuid, address, user) in read_pooled_address_iter(cur):
             target_address.add(address)
-    return get_utxo_iter(target_address=target_address, best_chain=best_chain)
+    return get_utxo_iter(target_address=target_address, best_block=None, best_chain=best_chain)
 
 
 def get_usedindex(txhash, best_block=None, best_chain=None):

@@ -9,7 +9,7 @@ import time
 from collections import deque
 
 
-signature_cashe = deque([], maxlen=1000)
+signature_cashe = deque([], maxlen=2000)
 
 
 def check_tx(tx, include_block):
@@ -76,8 +76,7 @@ def check_tx(tx, include_block):
         raise BlockChainError('Unknown tx type "{}"'.format(tx.type))
 
     # Inputs origin チェック
-    if include_block:
-        inputs_origin_check(tx=tx, include_block=include_block)
+    inputs_origin_check(tx=tx, include_block=include_block)
 
     # 残高移動チェック
     if f_amount_check:
