@@ -15,23 +15,66 @@ from binascii import hexlify
 
 f_working = False
 f_changed_status = False
+block_stack = dict()
+f_staking = threading.Event()
+f_staking.set()
+
+
+def fill_block_stack():
+    if len(block_stack) == 0:
+        return
+    f_staking.clear()
+    height = max(block_stack.keys())+1
+    logging.debug("Stack blocks on back form {}".format(height))
+    r = ask_node(cmd=DirectCmd.BIG_BLOCKS, data={'height': height})
+    if isinstance(r, str):
+        logging.debug("NewBLockGetError:{}".format(r))
+    elif isinstance(r, list):
+        block_tmp = dict()
+        for block_b, block_height, block_flag, txs in r:
+            _block = Block(binary=block_b)
+            _block.height = block_height
+            _block.flag = block_flag
+            for tx_b, tx_signature in txs:
+                tx = TX(binary=tx_b)
+                tx.height = None
+                tx.signature = tx_signature
+                tx_from_database = tx_builder.get_tx(txhash=tx.hash)
+                if tx_from_database:
+                    _block.txs.append(tx_from_database)
+                elif tx.type in (C.TX_POS_REWARD, C.TX_POW_REWARD):
+                    _block.txs.append(tx)
+                else:
+                    check_tx(tx, include_block=None)
+                    tx_builder.put_unconfirmed(tx)
+                    _block.txs.append(tx)
+                # re set height
+                tx.height = _block.height
+            block_tmp[block_height] = _block
+        block_stack.update(block_tmp)
+    else:
+        logging.debug("Not correct format BIG_BLOCKS.")
+    f_staking.set()
 
 
 def fast_sync_chain():
     assert V.PC_OBJ is not None, "Need PeerClient start before."
     global f_changed_status
     start = time.time()
-    block_container = dict()
+
     # 外部Nodeに次のBlockを逐一尋ねる
     failed_num = 0
     before_block = builder.best_block
     index_height = before_block.height + 1
     logging.debug("Start sync by {}".format(before_block))
     while failed_num < 5:
-        if index_height in block_container:
-            new_block = block_container[index_height]
+        if index_height in block_stack:
+            new_block = block_stack[index_height]
         else:
-            block_container.clear()
+            if f_staking.wait(30) and index_height in block_stack:
+                continue  # Get on back
+            block_stack.clear()
+            logging.debug("Stack blocks on front form {}".format(index_height))
             r = ask_node(cmd=DirectCmd.BIG_BLOCKS, data={'height': index_height})
             if isinstance(r, str):
                 logging.debug("NewBLockGetError:{}".format(r))
@@ -59,10 +102,16 @@ def fast_sync_chain():
                             _block.txs.append(tx)
                         # re set height
                         tx.height = _block.height
-                    block_container[block_height] = _block
-                if len(block_container) == 0:
+                    block_stack[block_height] = _block
+                if len(block_stack) == 0:
                     break
-                new_block = block_container[index_height]
+                new_block = block_stack[index_height]
+                # Get blocks on back
+                if f_staking.wait(30):
+                    threading.Thread(target=fill_block_stack, name='StackBlocks', daemon=True).start()
+                else:
+                    logging.error("Something wrong on back.")
+                    f_staking.set()
             else:
                 failed_num += 1
                 logging.debug("Not correct format BIG_BLOCKS.")
