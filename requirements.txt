@@ -14,5 +14,5 @@ git+https://github.com/namuyan/hmq-hash@master
 x11_hash
 xmltodict
 requests
-leveldb
 more_itertools
+leveldb  # you need install manually on windows

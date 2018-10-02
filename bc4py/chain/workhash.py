@@ -1,69 +1,157 @@
-from bc4py.config import C
+from bc4py.config import C, BlockChainError
 import multiprocessing as mp
 import threading
 import logging
-import yespower
-# import yescryptr16
-# import yescryptr64
-# import zny_yescrypt
-# import hmq_hash
-
-generator = None
-parent_conn = None
-child_conn = None
-lock = None
+from psutil import cpu_count
+from os import urandom
+from yespower import hash as yespower_hash  # for CPU
+from x11_hash import getPoWHash as x11_hash  # for ASIC
+from hmq_hash import getPoWHash as hmq_hash  # for GPU
 
 
-def _generator(pipe):
-    while True:
-        b = h = None
-        try:
-            b = pipe.recv_bytes()
-            h = yespower.hash(b)
-            pipe.send_bytes(h)
-        except BaseException:
-            logging.error("Hashing failed {}".format(b))
+mp_generator = list()
 
 
-def start_work_hash():
-    global parent_conn, child_conn, generator, lock
-    if mp.cpu_count() < 2:
-        logging.warning("Only one cpu you have. disabled hashing thread.")
-    elif len(mp.active_children()) == 0:
-        logging.debug("Hashing module start.")
-        parent_conn, child_conn = mp.Pipe()
-        generator = mp.Process(target=_generator, name="Hashing", args=(child_conn,))
-        generator.daemon = True
-        generator.start()
-        lock = threading.Lock()
+def proof_of_work_decoder(flag):
+    if flag == C.BLOCK_POW:
+        return yespower_hash
+    elif flag == 'X11_POW':  # TODO: dummy
+        return x11_hash
+    elif flag == 'HMQ_POW':  # TODO: dummy
+        return hmq_hash
+    elif flag in C.consensus2name:
+        raise Exception('Not found block flag {}'.format(C.consensus2name[flag]))
     else:
-        raise BaseException('Some multiprocess already working.')
+        raise Exception('Not found block flag {}'.format(flag))
 
 
-def update_work_hash(block):
+def update_work_hash(block, how_many=0):
+    if block.flag == C.BLOCK_GENESIS:
+        block.work_hash = b'\xff' * 32
     if block.flag == C.BLOCK_POS:
         proof_tx = block.txs[0]
         block.work_hash = proof_tx.get_pos_hash(block.previous_hash)
-    elif block.flag == C.BLOCK_POW:
-        if parent_conn is None:
-            block.work_hash = yespower.hash(block.b)
+    elif len(mp_generator) == 0:
+        # Only 1 CPU or subprocess
+        hash_fnc = proof_of_work_decoder(block.flag)
+        block.work_hash = hash_fnc(block.b)
+    elif how_many == 0:
+        # only one gene blockhash
+        for hash_generator in mp_generator:
+            if hash_generator.lock.locked():
+                continue
+            hash_generator.generate(block, how_many)
+            dummy, block.work_hash = hash_generator.result()
+            return
         else:
-            with lock:
-                parent_conn.send_bytes(block.b)
-                block.work_hash = parent_conn.recv_bytes()
-    elif block.flag == C.BLOCK_GENESIS:
-        block.work_hash = b'\xff' * 32
+            hash_fnc = proof_of_work_decoder(block.flag)
+            block.work_hash = hash_fnc(block.b)
+    else:
+        # hash generating with multi-core
+        free_process = list()
+        for hash_generator in mp_generator:
+            if not hash_generator.lock.locked():
+                free_process.append(hash_generator)
+        request_num = how_many // max(1, len(free_process))
+        for hash_generator in free_process:
+            hash_generator.generate(block, request_num)
+        block_b = None
+        work_hash = None
+        work_hash_int = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+        for hash_generator in free_process:
+            tmp_block_b, check_hash = hash_generator.result()
+            check_int = int.from_bytes(check_hash, 'big')
+            if check_int < work_hash_int:
+                block_b = tmp_block_b
+                work_hash = check_hash
+                work_hash_int = check_int
+        block.b = block_b
+        block.work_hash = work_hash
+        block.deserialize()
+
+
+def start_work_hash():
+    if cpu_count(logical=False) < 2:
+        logging.warning("Only one cpu you have. disabled hashing thread.")
+    elif len(mp.active_children()) == 0:
+        logging.debug("Hashing module start.")
+        for index in range(1, cpu_count(logical=False)):
+            # Want to use 1 core for main-thread
+            hash_generator = HashGenerator(index)
+            hash_generator.start()
+            mp_generator.append(hash_generator)
+    else:
+        raise Exception('You try to create mp on subprocess.')
 
 
 def close_work_hash():
-    global generator, parent_conn, child_conn
-    generator.terminate()
-    parent_conn.close()
-    child_conn.close()
+    for hash_generator in mp_generator:
+        hash_generator.close()
     logging.debug("Close hashing process.")
 
 
+def _pow_generator(pipe):
+    binary = None
+    while True:
+        try:
+            binary, block_flag, how_many = pipe.recv()
+            hash_fnc = proof_of_work_decoder(block_flag)
+            hashed = hash_fnc(binary)
+            minimum_num = int.from_bytes(hashed, 'big')
+            new_binary = binary
+            for i in range(how_many):
+                new_binary = new_binary[:-4] + urandom(4)
+                new_hash = hash_fnc(new_binary)
+                new_num = int.from_bytes(new_hash, 'big')
+                if minimum_num > new_num:
+                    binary = new_binary
+                    hashed = new_hash
+                    minimum_num = new_num
+            pipe.send((binary, hashed))
+        except Exception as e:
+            msg = "Hashing failed {} by \"{}\"".format(binary, e)
+            try:
+                pipe.send(msg)
+            except Exception as e:
+                logging.info("Close by pipe error, {}".format(e))
+                return
+
+
+class HashGenerator:
+    def __init__(self, index):
+        self.index = index
+        parent_conn, child_conn = mp.Pipe()
+        self.process = mp.Process(target=_pow_generator,
+                                  name="Hashing{}".format(index),
+                                  args=(child_conn,))
+        self.process.daemon = True
+        self.parent_conn = parent_conn
+        self.lock = threading.Lock()
+
+    def start(self):
+        self.process.start()
+        logging.info("Start work hash gene {}".format(self.index))
+
+    def close(self):
+        if self.process.is_alive():
+            self.process.terminate()
+        self.parent_conn.close()
+
+    def generate(self, block, how_many):
+        self.lock.acquire()
+        self.parent_conn.send((block.b, block.flag, how_many))
+
+    def result(self):
+        data = self.parent_conn.recv()
+        self.lock.release()
+        if isinstance(data, tuple):
+            return data
+        else:
+            raise BlockChainError('Unknown status on pipe {}'.format(data))
+
+
 __all__ = [
+    "proof_of_work_decoder",
     "start_work_hash",
     "update_work_hash",
     "close_work_hash"
