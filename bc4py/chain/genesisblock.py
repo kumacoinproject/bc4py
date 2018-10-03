@@ -18,8 +18,7 @@ from more_itertools import chunked
 
 
 def create_genesis_block(all_supply, block_span, prefix=b'\x98', contract_prefix=b'\x12',
-                         digit_number=8, minimum_price=100, consensus=C.BLOCK_POW,
-                         pow_ratio=100, premine=None):
+                         digit_number=8, minimum_price=100, consensus=None, premine=None):
     """
     Height0のGenesisBlockを作成する
     :param all_supply: PoW/POS合わせた全採掘量、プリマインを除く
@@ -28,21 +27,27 @@ def create_genesis_block(all_supply, block_span, prefix=b'\x98', contract_prefix
     :param contract_prefix: コントラクトの頭文字、b'\x98'=C
     :param digit_number: コインの分解能
     :param minimum_price: 最小gas_price
-    :param consensus: 採掘アルゴ、C.BLOCK_POS, C.BLOCK_POW, C.HYBRID の三つ
-    :param pow_ratio: C.HYBRID指定時、POWで採掘するBlockの割合を100分率で
+    :param consensus: 採掘アルゴ {consensus: ratio(0~100), ..}
     :param premine: プリマイン [(address, coin_id, amount), ...]
     """
-    if consensus == C.BLOCK_POS:
-        assert premine is None, 'You need premine for POS'
-        pow_ratio = 0
-    elif consensus == C.BLOCK_POW:
-        pow_ratio = 100
-    elif consensus == C.HYBRID:
-        assert 0 < pow_ratio < 100, 'need, 0 < ratio < 100'
-    else:
-        raise BlockChainError('not found consensus \"%s\"' % consensus)
 
-    """params"""
+    # default: Yescript9割, Stake1割の分配
+    consensus = consensus or {C.BLOCK_YES_POW: 90, C.BLOCK_POS: 10}
+    if sum(consensus.values()) != 100:
+        raise BlockChainError('sum of consensus values is 100 [!={}]'.format(sum(consensus.values())))
+    elif not isinstance(sum(consensus.values()), int):
+        raise BlockChainError('value is int only.')
+    elif not (0 < min(consensus.values()) <= 100):
+        raise BlockChainError('out of range {}'.format(min(consensus.values())))
+    elif not (0 < max(consensus.values()) <= 100):
+        raise BlockChainError('out of range {}'.format(min(consensus.values())))
+    all_consensus = {C.BLOCK_POS, C.BLOCK_YES_POW, C.BLOCK_X11_POW, C.BLOCK_HMQ_POW}
+    if len(set(consensus.keys()) - all_consensus) > 0:
+        raise BlockChainError('Not found all_consensus number {}'.format(set(consensus.keys()) - all_consensus))
+    elif len(set(consensus.keys()) & all_consensus) == 0:
+        raise BlockChainError('No usable consensus found {}'.format(set(consensus.keys()) & all_consensus))
+
+    # params
     assert isinstance(minimum_price, int), 'minimum_price is INT'
     genesis_time = int(time.time())
     # premine
@@ -94,8 +99,7 @@ def create_genesis_block(all_supply, block_span, prefix=b'\x98', contract_prefix
         'digit_number': digit_number,  # 小数点以下の桁数
         'minimum_price': minimum_price,
         'contract_minimum_amount': pow(10, digit_number),
-        'consensus': consensus,  # Block承認のアルゴリズム
-        'pow_ratio': pow_ratio}  # POWによるBlock採掘割合
+        'consensus': consensus}  # Block承認のアルゴリズム
     # BLockChainの設定TX
     setting_tx = TX(tx={
         'version': __chain_version__,

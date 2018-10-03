@@ -10,10 +10,12 @@ class C:  # 起動中に変更してはいけない
 
     # consensus
     BLOCK_GENESIS = 0
-    BLOCK_POW = 1
+    BLOCK_YES_POW = 1
     BLOCK_POS = 2
-    HYBRID = 3
-    consensus2name = {0: 'GENESIS', 1: 'POW', 2: 'POS', 3: 'HYBRID'}
+    # HYBRID = 3
+    BLOCK_X11_POW = 4
+    BLOCK_HMQ_POW = 5
+    consensus2name = {0: 'GENESIS', 1: 'POW_YES', 2: 'POS', 4: 'POW_X11', 5: 'POW_HMQ'}
 
     # tx type
     TX_GENESIS = 0  # Height0の初期設定TX
@@ -38,7 +40,6 @@ class C:  # 起動中に変更してはいけない
 
     # difficulty
     DIFF_RETARGET = 20  # difficultyの計算Block数
-    DIFF_MULTIPLY = 2  # Diffの変化の急さ、採掘間隔が短いなら小さい方が良い
 
     # block params
     MATURE_HEIGHT = 20  # 採掘されたBlockのOutputsが成熟する期間
@@ -74,8 +75,8 @@ class V:  # 起動時に設定される変数
     BLOCK_TIME_SPAN = None
     BLOCK_ALL_SUPPLY = None
     BLOCK_REWARD = None
+    BLOCK_BASE_CONSENSUS = None
     BLOCK_CONSENSUS = None
-    BLOCK_POW_RATIO = None
 
     # base coin
     COIN_DIGIT = None

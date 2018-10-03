@@ -8,7 +8,6 @@ from bc4py.chain.difficulty import get_bits_by_hash
 from bc4py.chain.utils import GompertzCurve
 from bc4py.database.create import create_db, closing
 from bc4py.database.account import create_new_user_keypair
-from bc4py.database.builder import builder
 from bc4py.user import float2unit
 from multiprocessing import Process, Queue
 from threading import Thread
@@ -121,7 +120,6 @@ def new_key():
 
 class ProcessObject:
     def __init__(self, index, process, parent_que, child_que):
-        assert V.BLOCK_CONSENSUS in (C.BLOCK_POW, C.HYBRID), 'Not pow mining chain.'
         self.time = time
         self.index = index
         self.parent_que = parent_que
@@ -173,14 +171,17 @@ class ProcessObject:
 
 
 class Mining:
-    f_stop = False
-    f_mining = False
-
-    def __init__(self, genesis_block):
+    def __init__(self, genesis_block, consensus):
+        pow_sets = {C.BLOCK_YES_POW, C.BLOCK_HMQ_POW, C.BLOCK_X11_POW}
+        assert len(set(V.BLOCK_CONSENSUS) & pow_sets) > 0, 'Not pow mining chain.'
+        assert consensus in V.BLOCK_CONSENSUS, 'is not consensus of this chain.'
+        self.f_stop = False
+        self.f_mining = False
         self.thread_pool = list()
         self.que = queue.LifoQueue()
         self.mining_address = None
         self.previous_hash = None
+        self.consensus = consensus
         self.genesis_block = genesis_block
         self.cores = 0
 
@@ -207,7 +208,7 @@ class Mining:
                 params = dict(genesis_block=self.genesis_block, power_save=Debug.F_MINING_POWER_SAVE, sub_dir=V.SUB_DIR)
                 process = Process(
                     target=mining_process,
-                    name="C-Mining {}".format(i),
+                    name="Mining{} {}".format(i, C.consensus2name[self.consensus]),
                     args=(parent_que, child_que, params))
                 process.daemon = True
                 process.start()
@@ -251,14 +252,15 @@ class Mining:
 
     def update_block(self, base_block):
         self.previous_hash = None
+        bits, target = get_bits_by_hash(previous_hash=base_block.hash, consensus=self.consensus)
         mining_block = Block(block={
             'merkleroot': b'\xff' * 32,
             'time': 0,
             'previous_hash': base_block.hash,
-            'bits': get_bits_by_hash(previous_hash=base_block.hash, consensus=C.BLOCK_POW)[0],
+            'bits': bits,
             'nonce': b'\xff' * 4})
         mining_block.height = base_block.height + 1
-        mining_block.flag = C.BLOCK_POW
+        mining_block.flag = self.consensus
         self.setup_prooftx(mining_block)
         mining_block.bits2target()
         mining_block.target2diff()

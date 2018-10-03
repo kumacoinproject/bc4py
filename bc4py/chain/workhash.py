@@ -4,6 +4,7 @@ import threading
 import logging
 from psutil import cpu_count
 from os import urandom
+from time import time
 from yespower import hash as yespower_hash  # for CPU
 from x11_hash import getPoWHash as x11_hash  # for ASIC
 from hmq_hash import getPoWHash as hmq_hash  # for GPU
@@ -13,11 +14,11 @@ mp_generator = list()
 
 
 def proof_of_work_decoder(flag):
-    if flag == C.BLOCK_POW:
+    if flag == C.BLOCK_YES_POW:
         return yespower_hash
-    elif flag == 'X11_POW':  # TODO: dummy
+    elif flag == C.BLOCK_X11_POW:
         return x11_hash
-    elif flag == 'HMQ_POW':  # TODO: dummy
+    elif flag == C.BLOCK_HMQ_POW:
         return hmq_hash
     elif flag in C.consensus2name:
         raise Exception('Not found block flag {}'.format(C.consensus2name[flag]))
@@ -48,6 +49,7 @@ def update_work_hash(block, how_many=0):
             block.work_hash = hash_fnc(block.b)
     else:
         # hash generating with multi-core
+        start = time()
         free_process = list()
         for hash_generator in mp_generator:
             if not hash_generator.lock.locked():
@@ -68,12 +70,14 @@ def update_work_hash(block, how_many=0):
         block.b = block_b
         block.work_hash = work_hash
         block.deserialize()
+        logging.debug("{} mining... {}kh/S by {}Core".format(
+            C.consensus2name[block.flag], round(how_many/(time()-start)/1000, 3), len(free_process)))
 
 
 def start_work_hash():
     if cpu_count(logical=False) < 2:
         logging.warning("Only one cpu you have. disabled hashing thread.")
-    elif len(mp.active_children()) == 0:
+    elif mp.current_process().daemon is False:
         logging.debug("Hashing module start.")
         for index in range(1, cpu_count(logical=False)):
             # Want to use 1 core for main-thread
@@ -87,6 +91,7 @@ def start_work_hash():
 def close_work_hash():
     for hash_generator in mp_generator:
         hash_generator.close()
+    mp_generator.clear()
     logging.debug("Close hashing process.")
 
 

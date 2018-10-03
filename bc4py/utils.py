@@ -1,7 +1,7 @@
 #!/user/env python3
 # -*- coding: utf-8 -*-
 
-from bc4py.config import V, BlockChainError
+from bc4py.config import C, V
 from bc4py.chain.utils import GompertzCurve
 from Cryptodome.Cipher import AES
 from Cryptodome import Random
@@ -41,8 +41,15 @@ def set_blockchain_params(genesis_block):
     V.COIN_DIGIT = params.get('digit_number')
     V.COIN_MINIMUM_PRICE = params.get('minimum_price')
     V.CONTRACT_MINIMUM_AMOUNT = params.get('contract_minimum_amount')
-    V.BLOCK_CONSENSUS = params.get('consensus')
-    V.BLOCK_POW_RATIO = params.get('pow_ratio')
+    consensus = params.get('consensus')
+    if isinstance(consensus, dict):
+        V.BLOCK_CONSENSUS = consensus
+        V.BLOCK_BASE_CONSENSUS = min(consensus.keys())
+    else:
+        # TODO: remove after test
+        pow_ratio = params.get('pow_ratio')
+        V.BLOCK_CONSENSUS = {C.BLOCK_YES_POW: pow_ratio, C.BLOCK_POS: 100 - pow_ratio}
+        V.BLOCK_BASE_CONSENSUS = C.BLOCK_YES_POW
     GompertzCurve.setup_params()
 
 

@@ -13,6 +13,13 @@ from bc4py.user.boot import create_boot_file
 set_database_path()
 make_account_db()
  
+# consensus
+consensus = {
+    C.BLOCK_POS: 10,  # Staking algo
+    C.BLOCK_YES_POW: 30,  # Specified for CPU algo
+    C.BLOCK_X11_POW: 30,  # Specified for ASIC algo
+    C.BLOCK_HMQ_POW: 30}  # Specified for GPU algo
+ 
 # create first block
 genesis_block = create_genesis_block(
     all_supply=10000000000 * 100000000,  # 10 billion total supply
@@ -21,8 +28,7 @@ genesis_block = create_genesis_block(
     contract_prefix=b'\x12',  # contract address prefix "C"
     digit_number=8,  # base currency digit
     minimum_price=100,  # minimum gas price
-    consensus=C.HYBRID,  # mining consensus POW/POS/HYBRID
-    pow_ratio=90,  # POW mining ratio 0~100
+    consensus=consensus,  # mining consensus, key is algo value is ratio
     premine=None)  # premine [(address, coin_id, amount), ...]
   
 # check genesis block

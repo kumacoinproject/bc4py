@@ -156,7 +156,7 @@ class Staking:
     f_staking = False
 
     def __init__(self, genesis_block):
-        assert V.BLOCK_CONSENSUS in (C.BLOCK_POS, C.HYBRID), 'Not pos mining chain.'
+        assert C.BLOCK_POS in V.BLOCK_CONSENSUS, 'Not pos mining chain.'
         self.thread_pool = list()
         self.que = queue.LifoQueue()
         self.previous_hash = None

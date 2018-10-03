@@ -1,7 +1,7 @@
 #!/user/env python3
 # -*- coding: utf-8 -*-
 
-from bc4py.config import Debug
+from bc4py.config import C, Debug
 from bc4py.utils import set_database_path, set_blockchain_params
 from bc4py.user.mining import Mining
 from bc4py.user.staking import Staking
@@ -14,7 +14,7 @@ from bc4py.database.builder import builder
 from bc4py.chain.workhash import start_work_hash, close_work_hash
 from p2p_python.utils import setup_p2p_params
 from p2p_python.client import PeerClient
-from p2p_python.config import C
+from p2p_python import config
 from bc4py.for_debug import set_logger
 from threading import Thread
 import logging
@@ -39,7 +39,7 @@ def work(port, sub_dir=None):
     pc.event.addevent(cmd=DirectCmd.TX_BY_HASH, f=DirectCmd.tx_by_hash)
     pc.event.addevent(cmd=DirectCmd.UNCONFIRMED_TX, f=DirectCmd.unconfirmed_tx)
     pc.event.addevent(cmd=DirectCmd.BIG_BLOCKS, f=DirectCmd.big_blocks)
-    C.MAX_RECEIVE_SIZE = 2000 * 1000  # 2Mb
+    config.C.MAX_RECEIVE_SIZE = 2000 * 1000  # 2Mb
     pc.start()
     V.PC_OBJ = pc
 
@@ -58,7 +58,7 @@ def work(port, sub_dir=None):
     sync_chain_loop()
 
     # Mining/Staking setup
-    mining = Mining(genesis_block)
+    mining = Mining(genesis_block, C.BLOCK_YES_POW)
     staking = Staking(genesis_block)
     mining.share_que(staking)
     Debug.F_WS_FULL_ERROR_MSG = True

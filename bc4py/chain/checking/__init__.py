@@ -1,4 +1,4 @@
-from bc4py.config import P, BlockChainError
+from bc4py.config import V, P, BlockChainError
 from bc4py.chain.checking.checkblock import check_block, check_block_time
 from bc4py.chain.checking.checktx import check_tx, check_tx_time
 from bc4py.database.builder import builder, user_account
@@ -46,7 +46,7 @@ def new_insert_block(block, time_check=False):
             return True
         except BlockChainError as e:
             logging.warning("Reject new block by \"{}\"".format(e))
-            delay = time.time() - builder.best_block.time
+            delay = time.time() - builder.best_block.time - V.BLOCK_GENESIS_TIME
             if delay > 10800:  # 3hours
                 logging.warning("{}Min before block inserted, too old on DB!".format(delay//60))
                 P.F_NOW_BOOTING = True
