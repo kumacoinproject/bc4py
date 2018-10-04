@@ -16,6 +16,9 @@ Requirement
 * Python3 (3.5, 3.6~)
 * [nem-ed25519](https://github.com/namuyan/nem-ed25519)
 * [p2p-python](https://github.com/namuyan/p2p-python)
+* LevelDB
+    * [plyvel](https://github.com/wbolster/plyvel) for linux and ARM
+    * [python-leveldb](https://github.com/happynear/py-leveldb-windows) for linux and windows
 
 Install
 -------

@@ -15,4 +15,5 @@ x11_hash
 xmltodict
 requests
 more_itertools
-leveldb  # you need install manually on windows
+# leveldb  # for linux and windows
+# plyvel  # for linux and arm
