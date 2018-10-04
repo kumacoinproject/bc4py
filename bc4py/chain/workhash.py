@@ -11,6 +11,7 @@ from hmq_hash import getPoWHash as hmq_hash  # for GPU
 
 
 mp_generator = list()
+cpu_num = cpu_count(logical=False) or cpu_count(logical=True)
 
 
 def proof_of_work_decoder(flag):
@@ -75,11 +76,11 @@ def update_work_hash(block, how_many=0):
 
 
 def start_work_hash():
-    if cpu_count(logical=False) < 2:
+    if cpu_num < 2:
         logging.warning("Only one cpu you have. disabled hashing thread.")
     elif mp.current_process().daemon is False:
         logging.debug("Hashing module start.")
-        for index in range(1, cpu_count(logical=False)):
+        for index in range(1, cpu_num):
             # Want to use 1 core for main-thread
             hash_generator = HashGenerator(index)
             hash_generator.start()
