@@ -92,7 +92,6 @@ def fill_newblock_info(data):
     for txhash in data['txs'][1:]:
         tx = tx_builder.get_tx(txhash)
         if tx is None:
-            # raise BlockChainError('Ignore not checked before TX:{}'.format(hexlify(txhash).decode()))
             logging.debug("Unknown tx, try to download.")
             r = ask_node(cmd=DirectCmd.TX_BY_HASH, data={'txhash': txhash}, f_continue_asking=True)
             if isinstance(r, str):
@@ -100,6 +99,7 @@ def fill_newblock_info(data):
             tx = TX(binary=r['tx'])
             tx.signature = r['sign']
             check_tx(tx, include_block=None)
+            tx_builder.put_unconfirmed(tx)
             logging.debug("Success unknown tx download {}".format(tx))
         tx.height = new_height
         new_block.txs.append(tx)
