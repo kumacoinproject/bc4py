@@ -2,6 +2,7 @@ from bc4py.config import C, V, P, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.chain.checking import check_block, check_tx, check_tx_time
+from bc4py.chain.checking.signature import batch_sign_cashe
 from bc4py.database.builder import builder, tx_builder, user_account
 from bc4py.user.network import update_mining_staking_all_info
 from bc4py.user.network.directcmd import DirectCmd
@@ -20,6 +21,38 @@ f_staking = threading.Event()
 f_staking.set()
 
 
+def put_to_block_stack(r):
+    block_tmp = dict()
+    batch_txs = list()
+    for block_b, block_height, block_flag, txs in r:
+        block = Block(binary=block_b)
+        block.height = block_height
+        block.flag = block_flag
+        for tx_b, tx_signature in txs:
+            tx = TX(binary=tx_b)
+            tx.height = None
+            tx.signature = tx_signature
+            tx_from_database = tx_builder.get_tx(txhash=tx.hash)
+            if tx_from_database:
+                block.txs.append(tx_from_database)
+            else:
+                block.txs.append(tx)
+        block_tmp[block_height] = block
+        batch_txs.extend(block.txs)
+    # check
+    batch_sign_cashe(batch_txs)
+    for tx in batch_txs:
+        if tx.type in (C.TX_POS_REWARD, C.TX_POW_REWARD):
+            continue
+        check_tx(tx, include_block=None)
+        tx_builder.put_unconfirmed(tx)
+    # reset height
+    for height, block in block_tmp.items():
+        for tx in block.txs:
+            tx.height = height
+    block_stack.update(block_tmp)
+
+
 def fill_block_stack():
     if len(block_stack) == 0:
         return
@@ -30,28 +63,7 @@ def fill_block_stack():
     if isinstance(r, str):
         logging.debug("NewBLockGetError:{}".format(r))
     elif isinstance(r, list):
-        block_tmp = dict()
-        for block_b, block_height, block_flag, txs in r:
-            _block = Block(binary=block_b)
-            _block.height = block_height
-            _block.flag = block_flag
-            for tx_b, tx_signature in txs:
-                tx = TX(binary=tx_b)
-                tx.height = None
-                tx.signature = tx_signature
-                tx_from_database = tx_builder.get_tx(txhash=tx.hash)
-                if tx_from_database:
-                    _block.txs.append(tx_from_database)
-                elif tx.type in (C.TX_POS_REWARD, C.TX_POW_REWARD):
-                    _block.txs.append(tx)
-                else:
-                    check_tx(tx, include_block=None)
-                    tx_builder.put_unconfirmed(tx)
-                    _block.txs.append(tx)
-                # re set height
-                tx.height = _block.height
-            block_tmp[block_height] = _block
-        block_stack.update(block_tmp)
+        put_to_block_stack(r)
     else:
         logging.debug("Not correct format BIG_BLOCKS.")
     f_staking.set()
@@ -72,6 +84,7 @@ def fast_sync_chain():
             new_block = block_stack[index_height]
         else:
             if f_staking.wait(30) and index_height in block_stack:
+                logging.debug("Retry from f_staking wait...")
                 continue  # Get on back
             block_stack.clear()
             logging.debug("Stack blocks on front form {}".format(index_height))
@@ -83,26 +96,7 @@ def fast_sync_chain():
                 failed_num += 1
                 continue
             elif isinstance(r, list):
-                for block_b, block_height, block_flag, txs in r:
-                    _block = Block(binary=block_b)
-                    _block.height = block_height
-                    _block.flag = block_flag
-                    for tx_b, tx_signature in txs:
-                        tx = TX(binary=tx_b)
-                        tx.height = None
-                        tx.signature = tx_signature
-                        tx_from_database = tx_builder.get_tx(txhash=tx.hash)
-                        if tx_from_database:
-                            _block.txs.append(tx_from_database)
-                        elif tx.type in (C.TX_POS_REWARD, C.TX_POW_REWARD):
-                            _block.txs.append(tx)
-                        else:
-                            check_tx(tx, include_block=None)
-                            tx_builder.put_unconfirmed(tx)
-                            _block.txs.append(tx)
-                        # re set height
-                        tx.height = _block.height
-                    block_stack[block_height] = _block
+                put_to_block_stack(r)
                 if len(block_stack) == 0:
                     break
                 new_block = block_stack[index_height]
@@ -110,18 +104,28 @@ def fast_sync_chain():
                 if f_staking.wait(30):
                     threading.Thread(target=fill_block_stack, name='StackBlocks', daemon=True).start()
                 else:
-                    logging.error("Something wrong on back.")
+                    logging.error("Something wrong on fill_block_stack()")
                     f_staking.set()
             else:
                 failed_num += 1
                 logging.debug("Not correct format BIG_BLOCKS.")
                 continue
         # Base check
+        base_check_failed_msg = None
         if before_block.hash != new_block.previous_hash:
-            logging.debug("Not correct previous hash. {}".format(new_block.height))
+            base_check_failed_msg = "Not correct previous hash {}".format(new_block)
+        # proof of work check
+        if not new_block.pow_check():
+            base_check_failed_msg = "Not correct work hash {}".format(new_block)
+        # rollback
+        if base_check_failed_msg is not None:
             before_block = builder.get_block(before_block.previous_hash)
             index_height = before_block.height + 1
             failed_num += 1
+            for height in tuple(block_stack.keys()):
+                if height >= index_height:
+                    del block_stack[height]
+            logging.debug(base_check_failed_msg)
             continue
         # Block check
         check_block(new_block)

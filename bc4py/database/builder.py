@@ -554,7 +554,7 @@ class ChainBuilder:
     def batch_apply(self, force=False):
         # 無チェックで挿入するから要注意
         if not force and self.cashe_limit > len(self.chain):
-            return
+            return list()
         # cashe許容量を上回っているので記録
         self.db.batch_create()
         logging.debug("Start batch apply. chain={} force={}".format(len(self.chain), force))
@@ -651,7 +651,7 @@ class ChainBuilder:
         except BaseException as e:
             self.db.batch_rollback()
             logging.warning("Failed batch block builder. '{}'".format(e), exc_info=True)
-            return None
+            return list()
 
     def new_block(self, block):
         # とりあえず新規に挿入

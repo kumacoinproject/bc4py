@@ -1,6 +1,7 @@
 from bc4py.config import V, P, BlockChainError
 from bc4py.chain.checking.checkblock import check_block, check_block_time
 from bc4py.chain.checking.checktx import check_tx, check_tx_time
+from bc4py.chain.checking.signature import batch_sign_cashe, delete_signed_cashe
 from bc4py.database.builder import builder, user_account
 import threading
 import time
@@ -30,6 +31,7 @@ def new_insert_block(block, time_check=False):
             if time_check:
                 check_block_time(block, fixed_delay)
             check_block(block)
+            batch_sign_cashe(block.txs)
             for tx in block.txs:
                 check_tx(tx=tx, include_block=block)
                 if time_check:
@@ -38,7 +40,12 @@ def new_insert_block(block, time_check=False):
             builder.new_block(block)
             for tx in block.txs:
                 user_account.affect_new_tx(tx)
-            builder.batch_apply()
+            # Delete from sign-cashe
+            delete_txhash_set = set()
+            batched_blocks = builder.batch_apply()
+            for del_block in batched_blocks:
+                delete_txhash_set.update({tx.hash for tx in del_block.txs})
+            delete_signed_cashe(delete_txhash_set)
             # WebSocket apiに通知
             if P.NEW_CHAIN_INFO_QUE:
                 P.NEW_CHAIN_INFO_QUE.put_nowait(('block', block.getinfo()))

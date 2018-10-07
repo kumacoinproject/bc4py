@@ -14,12 +14,12 @@ import time
 failed_deque = deque([], maxlen=10)
 
 
-def add_failed_mark():
+def add_failed_mark(error=None):
     failed_deque.append(time.time())
     if min(failed_deque) < time.time() - 7200:
         return
     elif len(failed_deque) >= 10:
-        builder.make_failemark("Too many broadcast fail.")
+        builder.make_failemark(error)
         failed_deque.clear()
         P.F_NOW_BOOTING = True
 
@@ -39,12 +39,14 @@ class BroadcastCmd:
             else:
                 return False
         except BlockChainError as e:
-            logging.error('Failed accept new block "{}"'.format(e))
-            add_failed_mark()
+            error = 'Failed accept new block "{}"'.format(e)
+            logging.error(error, exc_info=True)
+            add_failed_mark(error)
             return False
         except BaseException:
-            logging.error("Failed accept new block", exc_info=True)
-            add_failed_mark()
+            error = "error on accept new block"
+            logging.error(error, exc_info=True)
+            add_failed_mark(error)
             return False
 
     @staticmethod
@@ -59,12 +61,14 @@ class BroadcastCmd:
             logging.info("Accept new tx {}".format(new_tx))
             return True
         except BlockChainError as e:
-            logging.error('Failed accept new tx "{}"'.format(e))
-            add_failed_mark()
+            error = 'Failed accept new tx "{}"'.format(e)
+            logging.error(error)
+            add_failed_mark(error)
             return False
         except BaseException:
-            logging.error("Failed accept new tx", exc_info=True)
-            add_failed_mark()
+            error = "Failed accept new tx"
+            logging.error(error, exc_info=True)
+            add_failed_mark(error)
             return False
 
 

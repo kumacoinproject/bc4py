@@ -8,13 +8,14 @@ from time import time
 from yespower import hash as yespower_hash  # for CPU
 from x11_hash import getPoWHash as x11_hash  # for ASIC
 from hmq_hash import getPoWHash as hmq_hash  # for GPU
+from pooled_multiprocessing import mp_map
 
 
 mp_generator = list()
 cpu_num = cpu_count(logical=False) or cpu_count(logical=True)
 
 
-def proof_of_work_decoder(flag):
+def get_workhash_fnc(flag):
     if flag == C.BLOCK_YES_POW:
         return yespower_hash
     elif flag == C.BLOCK_X11_POW:
@@ -27,52 +28,51 @@ def proof_of_work_decoder(flag):
         raise Exception('Not found block flag {}'.format(flag))
 
 
-def update_work_hash(block, how_many=0):
+def update_work_hash(block):
     if block.flag == C.BLOCK_GENESIS:
         block.work_hash = b'\xff' * 32
     if block.flag == C.BLOCK_POS:
         proof_tx = block.txs[0]
+        if proof_tx.pos_amount is None:
+            from bc4py.database.builder import tx_builder
+            txhash, txindex = proof_tx.inputs[0]
+            output_tx = tx_builder.get_tx(txhash)
+            address, coin_id, amount = output_tx.outputs[txindex]
+            proof_tx.pos_amount = amount
         block.work_hash = proof_tx.get_pos_hash(block.previous_hash)
-    elif len(mp_generator) == 0:
-        # Only 1 CPU or subprocess
-        hash_fnc = proof_of_work_decoder(block.flag)
-        block.work_hash = hash_fnc(block.b)
-    elif how_many == 0:
-        # only one gene blockhash
-        for hash_generator in mp_generator:
-            if hash_generator.lock.locked():
-                continue
-            hash_generator.generate(block, how_many)
-            dummy, block.work_hash = hash_generator.result()
-            return
-        else:
-            hash_fnc = proof_of_work_decoder(block.flag)
-            block.work_hash = hash_fnc(block.b)
     else:
-        # hash generating with multi-core
-        start = time()
-        free_process = list()
-        for hash_generator in mp_generator:
-            if not hash_generator.lock.locked():
-                free_process.append(hash_generator)
-        request_num = how_many // max(1, len(free_process))
-        for hash_generator in free_process:
-            hash_generator.generate(block, request_num)
-        block_b = None
-        work_hash = None
-        work_hash_int = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-        for hash_generator in free_process:
-            tmp_block_b, check_hash = hash_generator.result()
-            check_int = int.from_bytes(check_hash, 'big')
-            if check_int < work_hash_int:
-                block_b = tmp_block_b
-                work_hash = check_hash
-                work_hash_int = check_int
-        block.b = block_b
-        block.work_hash = work_hash
-        block.deserialize()
-        logging.debug("{} mining... {}kh/S by {}Core".format(
-            C.consensus2name[block.flag], round(how_many/(time()-start)/1000, 3), len(free_process)))
+        # POW_???
+        hash_fnc = get_workhash_fnc(block.flag)
+        block.work_hash = hash_fnc(block.b)
+
+
+def generate_many_hash(block, how_many=100):
+    assert block.flag != C.BLOCK_POS and block.flag != C.BLOCK_GENESIS
+    assert how_many > 0
+    # hash generating with multi-core
+    start = time()
+    free_process = list()
+    for hash_generator in mp_generator:
+        if not hash_generator.lock.locked():
+            free_process.append(hash_generator)
+    request_num = how_many // max(1, len(free_process))
+    for hash_generator in free_process:
+        hash_generator.generate(block, request_num)
+    block_b = None
+    work_hash = None
+    work_hash_int = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+    for hash_generator in free_process:
+        tmp_block_b, check_hash = hash_generator.result()
+        check_int = int.from_bytes(check_hash, 'big')
+        if check_int < work_hash_int:
+            block_b = tmp_block_b
+            work_hash = check_hash
+            work_hash_int = check_int
+    block.b = block_b
+    block.work_hash = work_hash
+    block.deserialize()
+    logging.debug("{} mining... {}kh/S by {}Core".format(
+        C.consensus2name[block.flag], round(how_many / (time() - start) / 1000, 3), len(free_process)))
 
 
 def start_work_hash():
@@ -101,7 +101,7 @@ def _pow_generator(pipe):
     while True:
         try:
             binary, block_flag, how_many = pipe.recv()
-            hash_fnc = proof_of_work_decoder(block_flag)
+            hash_fnc = get_workhash_fnc(block_flag)
             hashed = hash_fnc(binary)
             minimum_num = int.from_bytes(hashed, 'big')
             new_binary = binary
@@ -157,8 +157,9 @@ class HashGenerator:
 
 
 __all__ = [
-    "proof_of_work_decoder",
+    "get_workhash_fnc",
     "start_work_hash",
     "update_work_hash",
+    "generate_many_hash",
     "close_work_hash"
 ]

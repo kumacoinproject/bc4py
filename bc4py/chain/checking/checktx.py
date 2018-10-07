@@ -6,10 +6,6 @@ from bc4py.chain.checking.utils import *
 import logging
 from binascii import hexlify
 import time
-from collections import deque
-
-
-signature_cashe = deque([], maxlen=2000)
 
 
 def check_tx(tx, include_block):
@@ -84,9 +80,7 @@ def check_tx(tx, include_block):
 
     # 署名チェック
     if f_signature_check:
-        if tx.hash not in signature_cashe:
-            signature_check(tx=tx)
-            signature_cashe.append(tx.hash)
+        signature_check(tx=tx)
 
     # Feeチェック
     if f_minimum_fee_check:

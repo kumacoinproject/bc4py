@@ -4,20 +4,25 @@ from binascii import hexlify
 
 
 def _best_info():
-    best_block = builder.best_block
-    txs = [{
-            'tx': tx.b,
-            'sign': tx.signature}
-        for tx in best_block.txs]
-    send_data = {
-        'hash': best_block.hash,
-        'block': best_block.b,
-        'height': best_block.height,
-        'flag': best_block.flag,
-        'difficulty': best_block.difficulty,
-        'txs': txs,
-        'booting': P.F_NOW_BOOTING}
-    return send_data
+    if builder.best_block:
+        txs = [{'tx': tx.b, 'sign': tx.signature} for tx in builder.best_block.txs]
+        return {
+            'hash': builder.best_block.hash,
+            'block': builder.best_block.b,
+            'height': builder.best_block.height,
+            'flag': builder.best_block.flag,
+            'difficulty': builder.best_block.difficulty,
+            'txs': txs,
+            'booting': P.F_NOW_BOOTING}
+    else:
+        return {
+            'hash': None,
+            'block': None,
+            'height': None,
+            'flag': None,
+            'difficulty': None,
+            'txs': [],
+            'booting': True}
 
 
 def _block_by_height(height):
