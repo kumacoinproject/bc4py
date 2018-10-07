@@ -1,4 +1,4 @@
-import multiprocessing
+from multiprocessing import get_context
 import threading
 from bc4py.database.builder import builder, tx_builder
 import bc4py.database.tools as tools
@@ -13,7 +13,7 @@ number = 0
 
 def create_remote_conn(timeout=None):
     global number
-    queue = multiprocessing.Queue()
+    queue = get_context('spawn').Queue()
     threading.Thread(
         target=_accept, name="Remote {}".format(number),
         args=(queue, timeout)).start()

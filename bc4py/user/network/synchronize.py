@@ -4,6 +4,7 @@ from bc4py.chain.tx import TX
 from bc4py.chain.checking import check_block, check_tx, check_tx_time
 from bc4py.chain.checking.signature import batch_sign_cashe
 from bc4py.database.builder import builder, tx_builder, user_account
+from bc4py.database.create import closing, create_db
 from bc4py.user.network import update_mining_staking_all_info
 from bc4py.user.network.directcmd import DirectCmd
 from bc4py.user.network.connection import *
@@ -119,11 +120,15 @@ def fast_sync_chain():
             logging.debug(base_check_failed_msg)
             continue
         # TX check
-        for tx in new_block.txs:
-            if tx.type in (C.TX_POS_REWARD, C.TX_POW_REWARD):
-                continue
-            check_tx(tx=tx, include_block=None)
-            tx_builder.put_unconfirmed(tx)
+        if len(new_block.txs) > 1:
+            with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+                cur = db.cursor()
+                for tx in new_block.txs:
+                    if tx.type in (C.TX_POS_REWARD, C.TX_POW_REWARD):
+                        continue
+                    check_tx(tx=tx, include_block=None)
+                    tx_builder.put_unconfirmed(tx=tx, outer_cur=cur)
+                db.commit()
         # Block check
         check_block(new_block)
         for tx in new_block.txs:

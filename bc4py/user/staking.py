@@ -9,7 +9,7 @@ from bc4py.database.tools import get_unspents_iter
 from bc4py.user import float2unit
 from bc4py.user.utils import message2signature
 from binascii import hexlify
-from multiprocessing import Process, Queue
+from multiprocessing import get_context
 import time
 import logging
 from threading import Thread
@@ -187,11 +187,12 @@ class Staking:
         self.f_staking = True
         self.f_stop = False
         self.cores = threads
+        cxt = get_context('spawn')
         for i in range(1, threads+1):
             try:
-                parent_que, child_que = Queue(), Queue()
+                parent_que, child_que = cxt.Queue(), cxt.Queue()
                 params = dict(genesis_block=self.genesis_block, sub_dir=V.SUB_DIR)
-                process = Process(
+                process = cxt.Process(
                     target=staking_process,
                     name="C-Staking {}".format(i),
                     args=(parent_que, child_que, params))

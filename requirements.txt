@@ -15,6 +15,6 @@ x11_hash
 xmltodict
 requests
 more_itertools
-pooled_multiprocessing
+pooled_multiprocessing>=0.0.3
 # leveldb  # for linux and windows
 # plyvel  # for linux and arm

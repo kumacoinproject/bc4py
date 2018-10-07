@@ -1,5 +1,5 @@
 from bc4py.config import C, BlockChainError
-import multiprocessing as mp
+from multiprocessing import get_context, current_process
 import threading
 import logging
 from psutil import cpu_count
@@ -78,7 +78,7 @@ def generate_many_hash(block, how_many=100):
 def start_work_hash():
     if cpu_num < 2:
         logging.warning("Only one cpu you have. disabled hashing thread.")
-    elif mp.current_process().daemon is False:
+    elif current_process().name == 'MainProcess':
         logging.debug("Hashing module start.")
         for index in range(1, cpu_num):
             # Want to use 1 core for main-thread
@@ -126,8 +126,9 @@ def _pow_generator(pipe):
 class HashGenerator:
     def __init__(self, index):
         self.index = index
-        parent_conn, child_conn = mp.Pipe()
-        self.process = mp.Process(target=_pow_generator,
+        cxt = get_context('spawn')
+        parent_conn, child_conn = cxt.Pipe()
+        self.process = cxt.Process(target=_pow_generator,
                                   name="Hashing{}".format(index),
                                   args=(child_conn,))
         self.process.daemon = True

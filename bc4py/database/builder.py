@@ -43,10 +43,10 @@ database_tuple = ("_block", "_tx", "_used_index", "_block_index",
 
 
 class DataBase:
-    def __init__(self, dirs, sync=True, timeout=None):
+    def __init__(self, dirs):
         self.dirs = dirs
-        self.sync = sync
-        self.timeout = timeout
+        self.sync = True
+        self.timeout = None
         self.event = threading.Event()
         self.event.set()
         # already used => LevelDBError

@@ -27,7 +27,7 @@ def set_database_path(sub_dir=None):
 
 
 def set_blockchain_params(genesis_block):
-    multiprocessing.set_start_method('spawn', force=True)
+    assert 'spawn' in multiprocessing.get_all_start_methods(), 'Not found spawn method.'
     setting_tx = genesis_block.txs[0]
     params = bjson.loads(setting_tx.message)
     V.BLOCK_GENESIS_HASH = genesis_block.hash

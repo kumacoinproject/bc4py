@@ -9,7 +9,7 @@ from bc4py.chain.utils import GompertzCurve
 from bc4py.database.create import create_db, closing
 from bc4py.database.account import create_new_user_keypair
 from bc4py.user import float2unit
-from multiprocessing import Process, Queue
+from multiprocessing import get_context
 from threading import Thread
 import os
 import time
@@ -202,11 +202,12 @@ class Mining:
         self.f_stop = False
         self.cores = core or os.cpu_count()
         logging.info("Start mining by {} cores.".format(self.cores))
+        cxt = get_context('spawn')
         for i in range(1, self.cores+1):
             try:
-                parent_que, child_que = Queue(), Queue()
+                parent_que, child_que = cxt.Queue(), cxt.Queue()
                 params = dict(genesis_block=self.genesis_block, power_save=Debug.F_MINING_POWER_SAVE, sub_dir=V.SUB_DIR)
-                process = Process(
+                process = cxt.Process(
                     target=mining_process,
                     name="Mining{} {}".format(i, C.consensus2name[self.consensus]),
                     args=(parent_que, child_que, params))
