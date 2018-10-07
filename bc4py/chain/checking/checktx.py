@@ -93,7 +93,10 @@ def check_tx(tx, include_block):
         if tx.getsize() > C.SIZE_TX_LIMIT:
             raise BlockChainError('TX size is too large. [{}>{}]'.format(tx.getsize(), C.SIZE_TX_LIMIT))
 
-    logging.debug("Checked tx {} {}".format(C.txtype2name[tx.type], hexlify(tx.hash).decode()))
+    if include_block:
+        logging.info("Checked tx {}".format(tx))
+    else:
+        logging.debug("Check unconfirmed tx {}".format(hexlify(tx.hash).decode()))
 
 
 def check_tx_time(tx):

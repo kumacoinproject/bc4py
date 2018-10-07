@@ -41,15 +41,6 @@ def put_to_block_stack(r):
         batch_txs.extend(block.txs)
     # check
     batch_sign_cashe(batch_txs)
-    for tx in batch_txs:
-        if tx.type in (C.TX_POS_REWARD, C.TX_POW_REWARD):
-            continue
-        check_tx(tx, include_block=None)
-        tx_builder.put_unconfirmed(tx)
-    # reset height
-    for height, block in block_tmp.items():
-        for tx in block.txs:
-            tx.height = height
     block_stack.update(block_tmp)
 
 
@@ -127,11 +118,17 @@ def fast_sync_chain():
                     del block_stack[height]
             logging.debug(base_check_failed_msg)
             continue
-        # Block check
-        check_block(new_block)
         # TX check
         for tx in new_block.txs:
-            check_tx(tx, new_block)
+            if tx.type in (C.TX_POS_REWARD, C.TX_POW_REWARD):
+                continue
+            check_tx(tx=tx, include_block=None)
+            tx_builder.put_unconfirmed(tx)
+        # Block check
+        check_block(new_block)
+        for tx in new_block.txs:
+            tx.height = new_block.height
+            check_tx(tx=tx, include_block=new_block)
         # Chainに挿入
         builder.new_block(new_block)
         for tx in new_block.txs:

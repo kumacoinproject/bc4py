@@ -4,7 +4,7 @@ from bc4py.database.tools import get_validator_info, is_usedindex
 from bc4py.chain.checking.utils import sticky_failed_txhash
 import logging
 from threading import Lock, Thread
-import time
+from time import time
 import bjson
 
 update_count = 0
@@ -26,23 +26,27 @@ def update_mining_staking_all_info(u_block=True, u_unspent=True, u_unconfirmed=T
 
 def _update_unspent_info():
     with unspent_lock:
+        s = time()
         if V.STAKING_OBJ:
             all_num, next_num = V.STAKING_OBJ.update_unspent()
-            logging.debug("Update unspent={}/{}".format(next_num, all_num))
+            logging.debug("Update unspent={}/{} {}Sec".format(next_num, all_num, round(time()-s, 3)))
 
 
 def _update_block_info():
     with block_lock:
+        s = time()
         if V.MINING_OBJ:
             V.MINING_OBJ.update_block(builder.best_block)
         if V.STAKING_OBJ:
             V.STAKING_OBJ.update_block(builder.best_block)
         if V.MINING_OBJ or V.STAKING_OBJ:
-            logging.debug('Update generating height={}'.format(builder.best_block.height+1))
+            logging.debug('Update generating height={} {}Sec'
+                          .format(builder.best_block.height+1, round(time()-s, 3)))
 
 
 def _update_unconfirmed_info():
     with unconfirmed_lock:
+        s = time()
         # sort unconfirmed txs
         unconfirmed_txs = sorted(tx_builder.unconfirmed.values(), key=lambda x: x.gas_price, reverse=True)
         # reject tx (input tx is unconfirmed)
@@ -121,5 +125,5 @@ def _update_unconfirmed_info():
         if V.STAKING_OBJ:
             V.STAKING_OBJ.update_unconfirmed(unconfirmed_txs)
         if V.MINING_OBJ or V.STAKING_OBJ:
-            logging.debug("Update unconfirmed={}/{}"
-                          .format(len(unconfirmed_txs), len(tx_builder.unconfirmed)))
+            logging.debug("Update unconfirmed={}/{} {}Sec"
+                          .format(len(unconfirmed_txs), len(tx_builder.unconfirmed), round(time()-s, 3)))
