@@ -51,6 +51,7 @@ def work(port, sub_dir=None):
 
     # Update to newest blockchain
     builder.init(genesis_block)
+    # builder.db.sync = False  # more fast
     sync_chain_loop()
 
     # Mining/Staking setup (nothing)

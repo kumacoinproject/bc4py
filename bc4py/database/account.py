@@ -5,9 +5,10 @@ from bc4py.database.create import closing, create_db
 import time
 import os
 from binascii import hexlify, unhexlify
-import multiprocessing
+from pooled_multiprocessing import mp_map_async
 from nem_ed25519.base import Encryption
 from weakref import ref
+import logging
 
 
 def read_txhash2log(txhash, cur):
@@ -86,28 +87,6 @@ def update_keypair_user(uuid, user, cur):
     cur.execute("UPDATE `pool` SET `user`=? WHERE `id`=?", (user, uuid))
 
 
-def _insert(limit, encrypt_key, prefix, account_path, genesis_time, _cur=None):
-    pairs = list()
-    ecc = Encryption(prefix=prefix)
-    while len(pairs) < limit:
-        sk = unhexlify(ecc.secret_key().encode())
-        if encrypt_key:
-            sk = AESCipher.encrypt(key=encrypt_key, raw=sk)
-        pk = unhexlify(ecc.public_key().encode())
-        ck = ecc.get_address()
-        pairs.append((sk, pk, ck, C.ANT_RESERVED, int(time.time() - genesis_time)))
-    with closing(create_db(account_path)) as db:
-        insert_keypairs(pairs, _cur or db.cursor())
-        db.commit()
-
-
-def auto_insert_keypairs(cur):
-    multiprocessing.Process(
-        target=_insert, args=(5, V.ENCRYPT_KEY, V.BLOCK_PREFIX, V.DB_ACCOUNT_PATH, V.BLOCK_GENESIS_TIME)
-    ).start()
-    _insert(1, V.ENCRYPT_KEY, V.BLOCK_PREFIX, V.DB_ACCOUNT_PATH, V.BLOCK_GENESIS_TIME, cur)
-
-
 def insert_keypairs(pairs, cur):
     sk, pk, ck, user, _time = pairs[0]
     assert isinstance(sk, bytes) and isinstance(pk, bytes) and isinstance(ck, str) and isinstance(user, int)
@@ -165,17 +144,52 @@ def create_account(name, cur, description="", _time=None):
     return d[0]
 
 
+def _generate(data_list, **kwards):
+    encrypt_key = kwards['encrypt_key']
+    prefix = kwards['prefix']
+    genesis_time = kwards['genesis_time']
+    pairs = list()
+    ecc = Encryption(prefix=prefix)
+    for i in data_list:
+        sk = unhexlify(ecc.secret_key().encode())
+        if encrypt_key:
+            sk = AESCipher.encrypt(key=encrypt_key, raw=sk)
+        pk = unhexlify(ecc.public_key().encode())
+        ck = ecc.get_address()
+        pairs.append((sk, pk, ck, C.ANT_RESERVED, int(time.time() - genesis_time)))
+    return pairs
+
+
+def _callback(data_list):
+    with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+        insert_keypairs(data_list, db.cursor())
+        db.commit()
+    logging.debug("Generate {} keypairs.".format(len(data_list)))
+
+
+def auto_insert_keypairs(num):
+    kwards = {
+        'encrypt_key': V.ENCRYPT_KEY,
+        'prefix': V.BLOCK_PREFIX,
+        'genesis_time': V.BLOCK_GENESIS_TIME}
+    mp_map_async(_generate, range(num), callback=_callback, **kwards)
+
+
 def create_new_user_keypair(name, cur):
-    def get_pairs():
+    def get_all_keys():
         return cur.execute("""
             SELECT `id`,`sk`,`pk`,`ck` FROM `pool` WHERE `user`=?
         """, (C.ANT_RESERVED,)).fetchall()
     # ReservedKeypairを１つ取得
-    d = get_pairs()
-    if len(d) < 100:
-        auto_insert_keypairs(cur)
-        d = get_pairs()
-    uuid, sk, pk, ck = d[0]
+    all_reserved_keys = get_all_keys()
+    if len(all_reserved_keys) == 0:
+        pairs = _generate(range(4), encrypt_key=V.ENCRYPT_KEY,
+                          prefix=V.BLOCK_PREFIX, genesis_time=V.BLOCK_GENESIS_TIME)
+        insert_keypairs(pairs, cur)
+        all_reserved_keys = get_all_keys()
+    elif len(all_reserved_keys) < 200:
+        auto_insert_keypairs(250-len(all_reserved_keys))
+    uuid, sk, pk, ck = all_reserved_keys[0]
     user = read_name2user(name, cur)
     if user is None:
         # 新規にユーザー作成
