@@ -157,7 +157,7 @@ def _single_generate(index, **kwargs):
 
 
 def _callback(data_list):
-    if len(data_list) == 1:
+    if isinstance(data_list[0], str):
         logging.error("Callback error, {}".format(data_list[0]))
         return
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:

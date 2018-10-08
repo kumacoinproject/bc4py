@@ -3,14 +3,16 @@ from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.chain.checking import check_block, check_tx, check_tx_time
 from bc4py.chain.checking.signature import batch_sign_cashe
+from bc4py.chain.workhash import get_workhash_fnc
 from bc4py.database.builder import builder, tx_builder, user_account
 from bc4py.database.create import closing, create_db
 from bc4py.user.network import update_mining_staking_all_info
 from bc4py.user.network.directcmd import DirectCmd
 from bc4py.user.network.connection import *
 from bc4py.user.exit import system_exit
+from pooled_multiprocessing import mp_map_async
 import logging
-import time
+from time import time
 import threading
 from binascii import hexlify
 
@@ -20,6 +22,40 @@ f_changed_status = False
 block_stack = dict()
 f_staking = threading.Event()
 f_staking.set()
+
+
+def _generate_workhash(height, block_flag, block_b, **kwargs):
+    # TODO: warning, check memory leak
+    return height, get_workhash_fnc(block_flag)(block_b)
+
+
+def _callback_workhash(data_list):
+    if isinstance(data_list[0], str):
+        logging.error("error on _callback_workhash(), {}".format(data_list[0]))
+        return
+    block_stack_copy = block_stack.copy()
+    for height, workhash in data_list:
+        if height in block_stack_copy:
+            block_stack_copy[height].work_hash = workhash
+    logging.debug("_callback_workhash() workhash={}".format(len(data_list)))
+
+
+def batch_workhash(blocks):
+    data_list = list()
+    s = time()
+    for block in blocks:
+        if block.flag in (C.BLOCK_YES_POW, C.BLOCK_HMQ_POW, C.BLOCK_X11_POW):
+            data_list.append((block.height, block.flag, block.b))
+    if len(data_list) == 0:
+        return
+    elif len(data_list) == 1:
+        height, block_flag, block_b = data_list[0]
+        workhash = get_workhash_fnc(block_flag)(block_b)
+        block_stack[height].work_hash = workhash
+    else:
+        event, result = mp_map_async(_generate_workhash, data_list, callback=_callback_workhash)
+        event.wait()
+        logging.debug("Success batch workhash {} {}Sec".format(len(data_list), round(time()-s, 3)))
 
 
 def put_to_block_stack(r):
@@ -43,6 +79,7 @@ def put_to_block_stack(r):
     # check
     batch_sign_cashe(batch_txs)
     block_stack.update(block_tmp)
+    batch_workhash(tuple(block_tmp.values()))
 
 
 def fill_block_stack():
@@ -64,7 +101,7 @@ def fill_block_stack():
 def fast_sync_chain():
     assert V.PC_OBJ is not None, "Need PeerClient start before."
     global f_changed_status
-    start = time.time()
+    start = time()
 
     # 外部Nodeに次のBlockを逐一尋ねる
     failed_num = 0
@@ -171,7 +208,7 @@ def fast_sync_chain():
     best_height_on_network, best_hash_on_network = get_best_conn_info()
     if best_height_on_network <= my_best_height:
         logging.info("Finish update chain data by network. {}Sec [{}<={}]"
-                     .format(round(time.time() - start, 1), best_height_on_network, my_best_height))
+                     .format(round(time() - start, 1), best_height_on_network, my_best_height))
         return True
     else:
         logging.debug("Continue update chain, {}<={}".format(best_height_on_network, my_best_height))
