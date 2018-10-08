@@ -6,7 +6,7 @@ import time
 import os
 from binascii import hexlify, unhexlify
 from pooled_multiprocessing import mp_map_async
-from nem_ed25519.base import Encryption
+from nem_ed25519.key import secret_key, public_key, get_address
 from weakref import ref
 import logging
 
@@ -144,23 +144,22 @@ def create_account(name, cur, description="", _time=None):
     return d[0]
 
 
-def _generate(data_list, **kwards):
-    encrypt_key = kwards['encrypt_key']
-    prefix = kwards['prefix']
-    genesis_time = kwards['genesis_time']
-    pairs = list()
-    ecc = Encryption(prefix=prefix)
-    for i in data_list:
-        sk = unhexlify(ecc.secret_key().encode())
-        if encrypt_key:
-            sk = AESCipher.encrypt(key=encrypt_key, raw=sk)
-        pk = unhexlify(ecc.public_key().encode())
-        ck = ecc.get_address()
-        pairs.append((sk, pk, ck, C.ANT_RESERVED, int(time.time() - genesis_time)))
-    return pairs
+def _single_generate(index, **kwargs):
+    sk_hex = secret_key()
+    sk = unhexlify(sk_hex.encode())
+    if kwargs['encrypt_key']:
+        sk = AESCipher.encrypt(key=kwargs['encrypt_key'], raw=sk)
+    pk_hex = public_key(sk_hex)
+    pk = unhexlify(pk_hex.encode())
+    ck = get_address(pk=pk_hex, prefix=kwargs['prefix'])
+    t = int(time.time() - kwargs['genesis_time'])
+    return sk, pk, ck, C.ANT_RESERVED, t
 
 
 def _callback(data_list):
+    if len(data_list) == 1:
+        logging.error("Callback error, {}".format(data_list[0]))
+        return
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         insert_keypairs(data_list, db.cursor())
         db.commit()
@@ -172,7 +171,7 @@ def auto_insert_keypairs(num):
         'encrypt_key': V.ENCRYPT_KEY,
         'prefix': V.BLOCK_PREFIX,
         'genesis_time': V.BLOCK_GENESIS_TIME}
-    mp_map_async(_generate, range(num), callback=_callback, **kwards)
+    mp_map_async(_single_generate, range(num), callback=_callback, **kwards)
 
 
 def create_new_user_keypair(name, cur):
@@ -183,8 +182,10 @@ def create_new_user_keypair(name, cur):
     # ReservedKeypairを１つ取得
     all_reserved_keys = get_all_keys()
     if len(all_reserved_keys) == 0:
-        pairs = _generate(range(4), encrypt_key=V.ENCRYPT_KEY,
-                          prefix=V.BLOCK_PREFIX, genesis_time=V.BLOCK_GENESIS_TIME)
+        pairs = list()
+        for i in range(5):
+            pairs.append(_single_generate(i, encrypt_key=V.ENCRYPT_KEY,
+                                          prefix=V.BLOCK_PREFIX, genesis_time=V.BLOCK_GENESIS_TIME))
         insert_keypairs(pairs, cur)
         all_reserved_keys = get_all_keys()
     elif len(all_reserved_keys) < 200:
