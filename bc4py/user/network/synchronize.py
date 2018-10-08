@@ -12,7 +12,7 @@ from bc4py.user.network.connection import *
 from bc4py.user.exit import system_exit
 from pooled_multiprocessing import mp_map_async
 import logging
-from time import time
+from time import time, sleep
 import threading
 from binascii import hexlify
 
@@ -241,15 +241,15 @@ def sync_chain_loop():
                     elif f_changed_status is True:
                         f_changed_status = False
                     reset_good_node()
-                time.sleep(5)
+                sleep(5)
             except BlockChainError as e:
                 reset_good_node()
                 logging.warning('Update chain failed "{}"'.format(e))
-                time.sleep(5)
+                sleep(5)
             except BaseException as e:
                 reset_good_node()
                 logging.error('Update chain failed "{}"'.format(e), exc_info=True)
-                time.sleep(5)
+                sleep(5)
         # out of loop
         logging.debug("Close sync loop.")
 
