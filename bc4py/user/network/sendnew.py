@@ -34,6 +34,7 @@ def mined_newblock(que, pc):
                     'block': new_block.b,
                     'txs': others,
                     'proof': proof.b,
+                    'block_flag': new_block.flag,
                     'sign': proof.signature}
             }
             try:
