@@ -10,18 +10,18 @@ from bc4py.user.network import update_mining_staking_all_info
 from bc4py.user.network.directcmd import DirectCmd
 from bc4py.user.network.connection import *
 from bc4py.user.exit import system_exit
-from pooled_multiprocessing import mp_map_async
+from pooled_multiprocessing import mp_map_async, Waiter
 import logging
 from time import time, sleep
-import threading
+from threading import Thread, Lock
 from binascii import hexlify
 
 
 f_working = False
 f_changed_status = False
 block_stack = dict()
-f_staking = threading.Event()
-f_staking.set()
+backend_processing_lock = Lock()
+write_protect_lock = Lock()
 
 
 def _generate_workhash(height, block_flag, block_b, **kwargs):
@@ -31,13 +31,13 @@ def _generate_workhash(height, block_flag, block_b, **kwargs):
 
 def _callback_workhash(data_list):
     if isinstance(data_list[0], str):
-        logging.error("error on _callback_workhash(), {}".format(data_list[0]))
+        logging.error("error on callback_workhash(), {}".format(data_list[0]))
         return
     block_stack_copy = block_stack.copy()
     for height, workhash in data_list:
         if height in block_stack_copy:
             block_stack_copy[height].work_hash = workhash
-    logging.debug("_callback_workhash() workhash={}".format(len(data_list)))
+    logging.debug("callback_workhash() workhash={}".format(len(data_list)))
 
 
 def batch_workhash(blocks):
@@ -46,19 +46,17 @@ def batch_workhash(blocks):
     for block in blocks:
         if block.flag in (C.BLOCK_YES_POW, C.BLOCK_HMQ_POW, C.BLOCK_X11_POW):
             data_list.append((block.height, block.flag, block.b))
-    if len(data_list) == 0:
-        return
-    elif len(data_list) == 1:
-        height, block_flag, block_b = data_list[0]
-        workhash = get_workhash_fnc(block_flag)(block_b)
-        block_stack[height].work_hash = workhash
+    if len(data_list) > 0:
+        waiter, result = mp_map_async(_generate_workhash, data_list, callback=_callback_workhash)
+        logging.debug("Success batch workhash {} by {}Sec".format(len(data_list), round(time()-s, 3)))
+        return waiter
     else:
-        event, result = mp_map_async(_generate_workhash, data_list, callback=_callback_workhash)
-        event.wait()
-        logging.debug("Success batch workhash {} {}Sec".format(len(data_list), round(time()-s, 3)))
+        waiter = Waiter(0)
+        waiter.set()
+        return waiter
 
 
-def put_to_block_stack(r):
+def put_to_block_stack(r, before_waiter):
     block_tmp = dict()
     batch_txs = list()
     for block_b, block_height, block_flag, txs in r:
@@ -77,30 +75,57 @@ def put_to_block_stack(r):
         block_tmp[block_height] = block
         batch_txs.extend(block.txs)
     # check
+    if len(block_tmp) == 0:
+        return None
     batch_sign_cashe(batch_txs)
-    block_stack.update(block_tmp)
-    batch_workhash(tuple(block_tmp.values()))
+    before_waiter.wait()
+    with write_protect_lock:
+        block_stack.update(block_tmp)
+    return batch_workhash(tuple(block_tmp.values()))
 
 
-def fill_block_stack():
+def fill_block_stack(before_waiter):
     if len(block_stack) == 0:
-        return
-    f_staking.clear()
-    height = max(block_stack.keys())+1
+        return None
+    height = max(block_stack) + 1
     logging.debug("Stack blocks on back form {}".format(height))
-    r = ask_node(cmd=DirectCmd.BIG_BLOCKS, data={'height': height})
+    r = ask_node(cmd=DirectCmd.BIG_BLOCKS, data={'height': height}, f_continue_asking=True)
     if isinstance(r, str):
         logging.debug("NewBLockGetError:{}".format(r))
     elif isinstance(r, list):
-        put_to_block_stack(r)
+        return put_to_block_stack(r, before_waiter)
     else:
         logging.debug("Not correct format BIG_BLOCKS.")
-    f_staking.set()
+    return None
+
+
+def background_sync_chain():
+    waiter = Waiter(0)
+    waiter.set()
+    sleep_count = 500
+    while True:
+        if sleep_count < 0:
+            logging.info("Close background_sync_chain() by timeout.")
+            return
+        if len(block_stack) == 0:
+            sleep(0.1)
+            sleep_count -= 1
+        elif 400 < len(block_stack):
+            sleep(0.1)
+        else:
+            sleep_count = 500
+            with backend_processing_lock:
+                waiter = fill_block_stack(waiter)
+            if waiter is None:
+                logging.info("Close background_sync_chain() by finish.")
+                return
 
 
 def fast_sync_chain():
     assert V.PC_OBJ is not None, "Need PeerClient start before."
     global f_changed_status
+    back_thread = Thread(target=background_sync_chain, name='BackSync', daemon=True)
+    back_thread.start()
     start = time()
 
     # 外部Nodeに次のBlockを逐一尋ねる
@@ -111,34 +136,34 @@ def fast_sync_chain():
     while failed_num < 5:
         if index_height in block_stack:
             new_block = block_stack[index_height]
+            with write_protect_lock:
+                del block_stack[index_height]
+        elif backend_processing_lock.locked():
+            sleep(0.1)
+            continue
         else:
-            if f_staking.wait(30) and index_height in block_stack:
-                logging.debug("Retry from f_staking wait...")
-                continue  # Get on back
-            block_stack.clear()
-            logging.debug("Stack blocks on front form {}".format(index_height))
-            r = ask_node(cmd=DirectCmd.BIG_BLOCKS, data={'height': index_height})
-            if isinstance(r, str):
-                logging.debug("NewBLockGetError:{}".format(r))
-                before_block = builder.get_block(before_block.previous_hash)
-                index_height = before_block.height + 1
-                failed_num += 1
-                continue
-            elif isinstance(r, list):
-                put_to_block_stack(r)
-                if len(block_stack) == 0:
-                    break
-                new_block = block_stack[index_height]
-                # Get blocks on back
-                if f_staking.wait(30):
-                    threading.Thread(target=fill_block_stack, name='StackBlocks', daemon=True).start()
+            with backend_processing_lock:
+                logging.debug("Stack blocks on front form {}".format(index_height))
+                r = ask_node(cmd=DirectCmd.BIG_BLOCKS, data={'height': index_height})
+                if isinstance(r, str):
+                    logging.debug("NewBLockGetError:{}".format(r))
+                    before_block = builder.get_block(before_block.previous_hash)
+                    index_height = before_block.height + 1
+                    failed_num += 1
+                    continue
+                elif isinstance(r, list):
+                    waiter = Waiter(0)
+                    waiter.set()
+                    waiter = put_to_block_stack(r, waiter)
+                    if waiter is None or len(block_stack) == 0:
+                        break
+                    else:
+                        waiter.wait()
+                        continue
                 else:
-                    logging.error("Something wrong on fill_block_stack()")
-                    f_staking.set()
-            else:
-                failed_num += 1
-                logging.debug("Not correct format BIG_BLOCKS.")
-                continue
+                    failed_num += 1
+                    logging.debug("Not correct format BIG_BLOCKS.")
+                    continue
         # Base check
         base_check_failed_msg = None
         if before_block.hash != new_block.previous_hash:
@@ -257,4 +282,4 @@ def sync_chain_loop():
         raise Exception('Already sync_chain_loop working.')
     f_working = True
     logging.info("Start sync now {} connections.".format(len(V.PC_OBJ.p2p.user)))
-    threading.Thread(target=loop, name='Sync').start()
+    Thread(target=loop, name='Sync').start()
