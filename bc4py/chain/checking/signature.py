@@ -2,10 +2,9 @@ from bc4py.config import V
 from nem_ed25519.key import get_address
 from nem_ed25519.signature import verify
 from binascii import hexlify, unhexlify
-from psutil import cpu_count
 from threading import Event, Lock
 from time import time
-import pooled_multiprocessing
+from pooled_multiprocessing import mp_map_async
 import logging
 
 
@@ -15,7 +14,6 @@ verify_cashe = dict()  # {(pubkey, signature, txhash): address, ...}
 limit_time = time()
 limit_delete_set = set()
 lock = Lock()
-cpu_num = cpu_count(logical=False) or cpu_count(logical=True)
 
 
 def _verify(pubkey, signature, txhash, tx_b, prefix):
@@ -79,7 +77,7 @@ def batch_sign_cashe(txs):
             verify_cashe[(pubkey, signature, txhash)] = address
         else:
             waiting += 1
-            pooled_multiprocessing.mp_map_async(_verify, generate_list, callback=_callback, prefix=V.BLOCK_PREFIX)
+            mp_map_async(_verify, generate_list, callback=_callback, prefix=V.BLOCK_PREFIX)
             logging.debug("Put task {}sign to pool.".format(len(generate_list)))
 
 
@@ -107,15 +105,15 @@ def get_signed_cks(tx):
 
 
 def delete_signed_cashe(txhash_set):
-    want_delete = set()
-    for pubkey, signature, txhash in verify_cashe:
-        if txhash in txhash_set:
-            want_delete.add((pubkey, signature, txhash))
+    want_delete_num = 0
     with lock:
-        for pairs in want_delete:
-            del verify_cashe[pairs]
-    if len(want_delete) > 0:
-        logging.debug("VerifyCash delete [{}/{}]".format(len(want_delete), len(verify_cashe)))
+        for pair in verify_cashe.copy():
+            pubkey, signature, txhash = pair
+            if txhash in txhash_set and pair in verify_cashe:
+                del verify_cashe[pair]
+                want_delete_num += 1
+    if want_delete_num > 0:
+        logging.debug("VerifyCash delete [{}/{}]".format(want_delete_num, len(verify_cashe)))
     if limit_time < time() - 10800:
         _delete_cashe()
 

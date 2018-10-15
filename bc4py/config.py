@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 
-class C:  # 起動中に変更してはいけない
+class C:  # Constant
     # base currency info
     BASE_CURRENCY_NAME = 'PyCoin'
     BASE_CURRENCY_UNIT = 'PC'
@@ -36,7 +36,7 @@ class C:  # 起動中に変更してはいけない
     MSG_NONE = 0  # no message
     MSG_PLAIN = 1  # 明示的にunicode
     MSG_BYTE = 2  # 明示的にbinary
-    msgtype2name = {0: 'NONE', 1: 'PLAIN', 2: 'BYTE'}
+    msg_type2name = {0: 'NONE', 1: 'PLAIN', 2: 'BYTE'}
 
     # difficulty
     DIFF_RETARGET = 20  # difficultyの計算Block数
