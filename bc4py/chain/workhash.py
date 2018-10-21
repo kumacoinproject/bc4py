@@ -25,13 +25,13 @@ def get_workhash_fnc(flag):
     elif flag in C.consensus2name:
         raise Exception('Not found block flag {}'.format(C.consensus2name[flag]))
     else:
-        raise Exception('Not found block flag {}'.format(flag))
+        raise Exception('Not found block flag {}?'.format(flag))
 
 
 def update_work_hash(block):
     if block.flag == C.BLOCK_GENESIS:
         block.work_hash = b'\xff' * 32
-    if block.flag == C.BLOCK_POS:
+    elif block.flag == C.BLOCK_POS:
         proof_tx = block.txs[0]
         if proof_tx.pos_amount is None:
             from bc4py.database.builder import tx_builder
