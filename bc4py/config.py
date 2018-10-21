@@ -2,6 +2,9 @@
 # -*- coding: utf-8 -*-
 
 
+import configparser
+
+
 class C:  # Constant
     # base currency info
     BASE_CURRENCY_NAME = 'PyCoin'
@@ -114,6 +117,60 @@ class Debug:
     F_SHOW_DIFFICULTY = False
     F_CONSTANT_DIFF = False
     F_STICKY_TX_REJECTION = True
+
+
+class MyConfigParser(configparser.ConfigParser):
+    """
+    config = MyConfigParser()
+    config.param('section', 'name', str, 'Bob')
+    config.param('section', 'number', int, 3)
+    """
+    def __init__(self, file='./config.ini'):
+        super(MyConfigParser, self).__init__()
+        self.file = file
+        try:
+            self.read(file, 'UTF-8')
+        except UnicodeEncodeError:
+            self.read(file)
+        except FileNotFoundError:
+            pass
+
+    def __repr__(self):
+        config = ""
+        for k, v in self._sections.items():
+            config += "[{}]\n".format(k)
+            for _k, _v in v.items():
+                config += "{}={}\n".format(_k, _v)
+        return config
+
+    def _write_file(self):
+        with open(self.file, mode='w') as fp:
+            self.write(fp)
+
+    def param(self, section, name, dtype=str, default=None):
+        try:
+            if dtype is bool:
+                data = self.getboolean(section, name)
+            elif dtype is int:
+                data = self.getint(section, name)
+            elif dtype is float:
+                data = self.getfloat(section, name)
+            elif dtype is str:
+                data = self.get(section, name)
+            else:
+                raise configparser.Error('Not found type {}'.format(type(dtype)))
+        except ValueError:
+            return default
+        except configparser.NoSectionError:
+            data = default
+            self.add_section(section)
+            self.set(section, name, str(data))
+            self._write_file()
+        except configparser.NoOptionError:
+            data = default
+            self.set(section, name, str(data))
+            self._write_file()
+        return data
 
 
 class BlockChainError(Exception):
