@@ -64,6 +64,7 @@ def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None, ssl_
             ('getnetworkinfo', "GET", '', 'Network info'),
             ('validatorinfo', 'GET', '', 'Validator info.'),
             ('stop', 'GET', '', 'stop client.'),
+            ('resync', 'GET', '', 'set True resync flag.'),
             ('listbalance', 'GET', '[confirm=6]', 'All account balance.'),
             ('listtransactions', 'GET', '[page=0 limit=25]', 'Get account transactions.'),
             ('listunspents', 'GET', '', 'Get all unspent and orphan txhash:txindex pairs.'),
@@ -129,6 +130,7 @@ def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None, ssl_
     app.router.add_get('/api/getchaininfo', chain_info)
     app.router.add_get('/api/getnetworkinfo', network_info)
     app.router.add_get('/api/validatorinfo', validator_info)
+    app.router.add_get('/api/resync', resync)
     app.router.add_get('/api/stop', close_server)
     # Account
     app.router.add_get('/api/listbalance', list_balance)
@@ -243,3 +245,9 @@ async def close_server(request):
     import threading
     threading.Timer(1, _close).start()
     return web.Response(text='Close')
+
+
+async def resync(request):
+    from bc4py.config import P
+    P.F_NOW_BOOTING = True
+    return web.Response(text='Resync')

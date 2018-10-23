@@ -62,7 +62,7 @@ def generate_many_hash(block, how_many):
             else:
                 logging.debug("Wait for free_process...")
                 sleep(0.1)
-        request_num = how_many // max(1, len(free_process))
+        request_num = how_many // len(free_process)
         # throw task
         for hash_generator in free_process:
             hash_generator.generate(block, request_num)

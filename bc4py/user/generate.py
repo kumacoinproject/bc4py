@@ -18,7 +18,7 @@ from nem_ed25519.key import is_address
 
 
 generating_threads = list()
-output_que = queue.LifoQueue(maxsize=20)
+output_que = queue.LifoQueue()
 # mining share info
 mining_address = None
 previous_block = None
