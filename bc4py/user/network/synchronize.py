@@ -283,3 +283,8 @@ def sync_chain_loop():
     f_working = True
     logging.info("Start sync now {} connections.".format(len(V.PC_OBJ.p2p.user)))
     Thread(target=loop, name='Sync').start()
+
+
+def close_sync():
+    global f_working
+    f_working = False

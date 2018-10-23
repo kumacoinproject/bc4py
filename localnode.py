@@ -6,8 +6,7 @@ from bc4py.utils import set_database_path, set_blockchain_params
 from bc4py.user.mining import Mining
 from bc4py.user.staking import Staking
 from bc4py.user.boot import *
-from bc4py.user.network import broadcast_check, mined_newblock, DirectCmd, sync_chain_loop
-import bc4py.user.network.synchronize as sync
+from bc4py.user.network import broadcast_check, mined_newblock, DirectCmd, sync_chain_loop, close_sync
 from bc4py.user.api import create_rest_server
 from bc4py.user.validator import setup_as_validator
 from bc4py.database.create import make_account_db
@@ -103,7 +102,7 @@ def work(port, sub_dir):
         mining.close()
         staking.close()
         close_work_hash()
-        sync.f_working = False
+        close_sync()
     except KeyboardInterrupt:
         logging.debug("KeyboardInterrupt.")
 

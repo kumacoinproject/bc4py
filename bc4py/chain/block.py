@@ -183,4 +183,3 @@ class Block:
             h.update(tx.hash)
         self.merkleroot = h.digest()
         self.serialize()
-        self.hash = sha256(self.b).digest()
