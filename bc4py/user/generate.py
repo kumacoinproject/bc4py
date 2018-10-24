@@ -8,6 +8,7 @@ from bc4py.chain.utils import GompertzCurve
 from bc4py.database.create import create_db, closing
 from bc4py.database.account import create_new_user_keypair
 from bc4py.database.tools import get_unspents_iter
+from bc4py.user.utils import message2signature
 from threading import Thread, Event
 from time import time, sleep
 import logging
@@ -24,6 +25,7 @@ mining_address = None
 previous_block = None
 unconfirmed_txs = None
 unspents_txs = None
+staking_limit = 50000
 
 
 def new_key():
@@ -41,31 +43,40 @@ class Generate(Thread):
             daemon=True)
         self.consensus = consensus
         self.power_limit = min(1.0, max(0.01, power_limit))
-        self.hashrate = (0, time())  # [hash/s, update_time]
+        self.hashrate = (0, 0.0)  # [hash/s, update_time]
         self.event_close = Event()
         generating_threads.append(self)
 
     def __repr__(self):
         hashrate, _time = self.hashrate
         if time()-_time > 120:
-            data = "NotActive"
+            data = "NotActive ({}minutes before updated)".format(round((time()-_time)/60, 1))
         elif hashrate < 1000 * 10:
-            data = "{}hash/s".format(self.hashrate)
+            data = "{}hash/s".format(hashrate)
         elif hashrate < 1000 * 1000 * 10:
-            data = "{}kh/s".format(round(hashrate // 1000, 1))
+            data = "{}kh/s".format(round(hashrate / 1000, 2))
         else:
-            data = "{}Mh/s".format(round(hashrate // 1000000, 3))
-        return "<Generate {} {}>".format(C.consensus2name[self.consensus], data)
+            data = "{}Mh/s".format(round(hashrate / 1000000, 3))
+        return "<Generate {} {} limit={}>".format(C.consensus2name[self.consensus], data, self.power_limit)
 
     def close(self, timeout=120):
         self.event_close.clear()
         return self.event_close.wait(timeout)
 
     def run(self):
-        if self.consensus == C.BLOCK_POS:
-            self.proof_of_stake()
-        else:
-            self.proof_of_work()
+        self.event_close.set()
+        while self.event_close.is_set():
+            logging.info("Start {} generating!".format(C.consensus2name[self.consensus]))
+            try:
+                if self.consensus == C.BLOCK_POS:
+                    self.proof_of_stake()
+                else:
+                    self.proof_of_work()
+            except BlockChainError as e:
+                logging.warning(e)
+            except Exception:
+                logging.error("GeneratingError wait60s...", exc_info=True)
+                sleep(60)
 
     def proof_of_work(self):
         global mining_address
@@ -77,14 +88,14 @@ class Generate(Thread):
         self.event_close.set()
         while self.event_close.is_set():
             # check start mining
-            if not (previous_block and unconfirmed_txs):
+            if previous_block is None or unconfirmed_txs is None:
                 sleep(0.1)
                 continue
             now = int(time() - V.BLOCK_GENESIS_TIME)
             # create proof_tx
             mining_address = mining_address or V.MINING_ADDRESS or new_key()
             reward = GompertzCurve.calc_block_reward(previous_block.height + 1)
-            fees = sum(tx.gas_amount * tx.gas_price for tx in unconfirmed_txs.txs)
+            fees = sum(tx.gas_amount * tx.gas_price for tx in unconfirmed_txs)
             proof_tx = TX(tx={
                 'version': __chain_version__,
                 'type': C.TX_POW_REWARD,
@@ -99,11 +110,15 @@ class Generate(Thread):
             # create mining block
             bits, target = get_bits_by_hash(
                 previous_hash=previous_block.hash, consensus=self.consensus)
-            mining_block = Block()
+            mining_block = Block(block={
+                'merkleroot': b'\xff' * 32,
+                'time': 0,
+                'previous_hash': previous_block.hash,
+                'bits': bits,
+                'nonce': b'\xff\xff\xff\xff'})
             mining_block.height = previous_block.height + 1
-            mining_block.previous_hash = previous_block.hash
-            mining_block.bits = bits
-            mining_block.nonce = b'\xff' * 4
+            mining_block.flag = self.consensus
+            mining_block.bits2target()
             mining_block.txs.append(proof_tx)
             mining_block.txs.extend(unconfirmed_txs)
             mining_block.update_merkleroot()
@@ -112,67 +127,100 @@ class Generate(Thread):
             new_span = generate_many_hash(mining_block, how_many)
             spans_deque.append(new_span)
             # check block
-            if not (previous_block and unconfirmed_txs):
+            if previous_block is None or unconfirmed_txs is None:
                 logging.debug("Not confirmed new block by \"nothing params\"")
             elif previous_block.hash != mining_block.previous_hash:
                 logging.debug("Not confirmed new block by \"no match previous hash\"")
             elif not mining_block.pow_check():
-                logging.debug("Not confirmed new block by \"proof of work\"")
+                if int(time()) % 60 == 0:
+                    logging.debug("Not confirmed new block by \"proof of work unsatisfied\"")
             else:
                 # Mined yay!!!
                 confirmed_generating_block(mining_block)
             # generate next mining how_many
             self.hashrate = (how_many * len(spans_deque) // sum(spans_deque), time())
-            bias = (len(spans_deque) * work_span) / sum(spans_deque)
+            bias = sum(work_span * max(1, i) for i, span in enumerate(spans_deque))
+            bias /= sum(span * max(1, i) for i, span in enumerate(spans_deque))
             bias = min(2.0, max(0.5, bias))
             how_many = max(100, int(how_many * bias))
+            if int(time()) % 60 == 0:
+                logging.info("Mining... Next target how_many is {}{}"
+                             .format(how_many, "↑" if bias > 1 else "↓"))
             sleep(sleep_span)
         self.event_close.set()
         logging.info("Close signal")
 
     def proof_of_stake(self):
+        global staking_limit
         self.event_close.set()
         while self.event_close.is_set():
             # check start mining
-            if not (previous_block and unconfirmed_txs and unspents_txs):
+            if previous_block is None or unconfirmed_txs is None or unspents_txs is None:
                 sleep(0.1)
                 continue
-            assert previous_block.next_hash is not None, "previous_block.next_hash needed!"
+            if len(unspents_txs) == 0:
+                logging.info("No unspents for staking, wait 180s..")
+                sleep(180)
+                continue
             start = time()
-            now = int(start - V.BLOCK_GENESIS_TIME)
             # create staking block
             bits, target = get_bits_by_hash(
-                previous_hash=previous_block.next_hash, consensus=C.BLOCK_POS)
-            staking_block = Block()
-            staking_block.previous_hash = previous_block.next_hash
-            staking_block.bits = bits
-            staking_block.nonce = b'\xff' * 4
-            staking_block.height = previous_block.height + 2
+                previous_hash=previous_block.hash, consensus=C.BLOCK_POS)
+            reward = GompertzCurve.calc_block_reward(previous_block.height + 1)
+            staking_block = Block(block={
+                'merkleroot': b'\xff' * 32,
+                'time': 0,
+                'previous_hash': previous_block.hash,
+                'bits': bits,
+                'nonce': b'\xff\xff\xff\xff'})
+            staking_block.height = previous_block.height + 1
             staking_block.flag = C.BLOCK_POS
             staking_block.bits2target()
             staking_block.txs.append(None)  # Dummy proof tx
             staking_block.txs.extend(unconfirmed_txs)
+            calculate_nam = 0
             for proof_tx in unspents_txs.copy():
+                address = proof_tx.outputs[0][0]
+                proof_tx.outputs[0] = (address, 0, proof_tx.pos_amount + reward)
                 proof_tx.update_time()
-                if not proof_tx.pos_check(
-                        previous_hash=previous_block.next_hash,
+                calculate_nam += 1
+                # next check block
+                if previous_block is None or unconfirmed_txs is None or unspents_txs is None:
+                    logging.debug("Reset by \"nothing params found\"")
+                    sleep(1)
+                    break
+                elif previous_block.hash != staking_block.previous_hash:
+                    logging.debug("Reset by \"Don't match previous_hash\"")
+                    sleep(1)
+                    break
+                elif not proof_tx.pos_check(
+                        previous_hash=previous_block.hash,
                         pos_target_hash=staking_block.target_hash):
                     continue
-                # next check block
-                if not (previous_block and unconfirmed_txs and unspents_txs):
-                    logging.debug("Not confirmed new block by \"nothing params\"")
-                elif previous_block.next_hash != staking_block.previous_hash:
-                    logging.debug("Not confirmed new block by \"no match previous hash\"")
                 else:
                     # Staked yay!!
+                    proof_tx.signature = [message2signature(proof_tx.b, proof_tx.outputs[0][0])]
                     staking_block.txs[0] = proof_tx
+                    # Fit block size
+                    while staking_block.getsize() > C.SIZE_BLOCK_LIMIT:
+                        tx = staking_block.txs.pop()
+                        if tx.type == C.TX_FINISH_CONTRACT:
+                            staking_block.txs.pop()
                     staking_block.update_time(proof_tx.time)
                     staking_block.update_merkleroot()
                     confirmed_generating_block(staking_block)
                     break
-            # check time
-            remain = 1.0 - (time() - start)
-            sleep(max(0.0, remain))
+            else:
+                # check time
+                used = time() - start
+                remain = 1.0 - used
+                max_limit = int(calculate_nam / used)
+                new_staking_limit = int(max_limit * self.power_limit)
+                if int(time()) % 60 == 0:
+                    logging.info("Staking... margin={}% limit={}".format(round(remain*100, 1), new_staking_limit))
+                staking_limit = new_staking_limit
+                self.hashrate = (calculate_nam, time())
+                sleep(max(0.0, remain))
         self.event_close.set()
         logging.info("Close signal")
 
@@ -197,41 +245,57 @@ def update_unconfirmed_txs(new_unconfirmed_txs):
     unconfirmed_txs = new_unconfirmed_txs
 
 
-def update_unspents_txs(limit=2000):
+def update_unspents_txs():
     global unspents_txs
     c = 50
     while previous_block is None and 0 < c:
         sleep(0.2)
         c -= 1
+    previous_height = previous_block.height
     proof_txs = list()
-    reward = GompertzCurve.calc_block_reward(previous_block.height + 1)
     all_num = 0
     for address, height, txhash, txindex, coin_id, amount in get_unspents_iter():
-        all_num += 1
         if height is None:
             continue
         if coin_id != 0:
             continue
-        if not (previous_block.height + 1 > height + C.MATURE_HEIGHT):
+        if not (previous_height + 1 > height + C.MATURE_HEIGHT):
             continue
         if not is_address(address, prefix=V.BLOCK_PREFIX):
             continue
         if amount < 100000000:
             continue
-        if limit < all_num:
-            continue
+        if staking_limit < all_num:
+            logging.debug("Unspents limit reached, skip at {} limits.".format(staking_limit))
+            break
+        all_num += 1
         proof_tx = TX(tx={
             'version': __chain_version__,
             'type': C.TX_POS_REWARD,
             'time': 0, 'deadline': 0,
             'inputs': [(txhash, txindex)],
-            'outputs': [(address, 0, amount + reward)],
+            'outputs': [(address, 0, 0)],
             'gas_price': 0,
             'gas_amount': 0,
             'message_type': C.MSG_NONE,
             'message': b''})
-        proof_tx.height = previous_block.height + 1
+        proof_tx.height = previous_height + 1
         proof_tx.pos_amount = amount
         proof_txs.append(proof_tx)
     unspents_txs = proof_txs
     return all_num, len(proof_txs)
+
+
+def close_generate():
+    for t in generating_threads:
+        t.close()
+
+
+__all__ = [
+    "output_que",
+    "Generate",
+    "update_previous_block",
+    "update_unconfirmed_txs",
+    "update_unspents_txs",
+    "close_generate"
+]

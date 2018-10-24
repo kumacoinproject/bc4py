@@ -3,8 +3,7 @@
 
 from bc4py.config import C, Debug
 from bc4py.utils import set_database_path, set_blockchain_params
-from bc4py.user.mining import Mining
-from bc4py.user.staking import Staking
+from bc4py.user.generate import *
 from bc4py.user.boot import *
 from bc4py.user.network import broadcast_check, mined_newblock, DirectCmd, sync_chain_loop, close_sync
 from bc4py.user.api import create_rest_server
@@ -25,7 +24,6 @@ def work(port, sub_dir=None):
     set_database_path(sub_dir=sub_dir)
     builder.set_database_path()
     make_account_db()
-    start_work_hash()
     genesis_block, network_ver, connections = load_boot_file()
     logging.info("Start p2p network-ver{} .".format(network_ver))
 
@@ -58,18 +56,14 @@ def work(port, sub_dir=None):
     sync_chain_loop()
 
     # Mining/Staking setup
-    mining = Mining(genesis_block, C.BLOCK_YES_POW)
-    staking = Staking(genesis_block)
-    mining.share_que(staking)
+    start_work_hash()
     Debug.F_WS_FULL_ERROR_MSG = True
-    Debug.F_MINING_POWER_SAVE = random.random() / 5 + 0.05
+    # Debug.F_CONSTANT_DIFF = True
+    # Debug.F_SHOW_DIFFICULTY = True
     # Debug.F_STICKY_TX_REJECTION = False  # for debug
-    # core = 1 if port <= 2001 else 0
-    Thread(target=mining.start, name='Mining', args=(1,)).start()
-    Thread(target=staking.start, name='Staking').start()
-    Thread(target=mined_newblock, name='MinedBlock', args=(mining.que, pc)).start()
-    V.MINING_OBJ = mining
-    V.STAKING_OBJ = staking
+    Generate(consensus=C.BLOCK_YES_POW, power_limit=0.2).start()
+    Generate(consensus=C.BLOCK_POS, power_limit=0.2).start()
+    Thread(target=mined_newblock, name='GeneBlock', args=(output_que, pc)).start()
     logging.info("Finished all initialize.")
 
     try:
@@ -77,8 +71,7 @@ def work(port, sub_dir=None):
         builder.db.batch_create()
         builder.close()
         pc.close()
-        mining.close()
-        staking.close()
+        close_generate()
         close_work_hash()
         close_sync()
     except KeyboardInterrupt:
