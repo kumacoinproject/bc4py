@@ -8,6 +8,7 @@ from bc4py.database.keylock import is_locked_database
 from bc4py.database.tools import get_validator_info
 from bc4py.user.utils import im_a_validator
 from bc4py.user.api import web_base
+from bc4py.user.generate import generating_threads
 from binascii import hexlify
 import time
 import p2p_python
@@ -56,14 +57,11 @@ async def system_info(request):
             'unconfirmed': [hexlify(txhash).decode() for txhash in tx_builder.unconfirmed.keys()],
             'directory': V.DB_HOME_DIR,
             'encryption': '*'*len(V.ENCRYPT_KEY) if V.ENCRYPT_KEY else V.ENCRYPT_KEY,
-            'mining': {
+            'generate': {
                 'address': V.MINING_ADDRESS,
                 'message': V.MINING_MESSAGE,
-                'status': bool(V.MINING_OBJ),
-                'threads': V.MINING_OBJ.getinfo() if V.MINING_OBJ else None},
-            'staking': {
-                'status': bool(V.STAKING_OBJ),
-                'threads': V.STAKING_OBJ.getinfo() if V.STAKING_OBJ else None},
+                'threads': [str(s) for s in generating_threads]
+            },
             'locked': is_locked_database(cur),
             'access_time': int(time.time()),
             'start_time': start_time}

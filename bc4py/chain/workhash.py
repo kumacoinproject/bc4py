@@ -4,15 +4,15 @@ import threading
 import logging
 from psutil import cpu_count
 from os import urandom
-from time import time
+from time import time, sleep
 from yespower import hash as yespower_hash  # for CPU
 from x11_hash import getPoWHash as x11_hash  # for ASIC
 from hmq_hash import getPoWHash as hmq_hash  # for GPU
-from pooled_multiprocessing import mp_map
+from pooled_multiprocessing import cpu_num
 
 
 mp_generator = list()
-cpu_num = cpu_count(logical=False) or cpu_count(logical=True)
+mp_lock = threading.Lock()
 
 
 def get_workhash_fnc(flag):
@@ -46,18 +46,26 @@ def update_work_hash(block):
         block.work_hash = hash_fnc(block.b)
 
 
-def generate_many_hash(block, how_many=100):
+def generate_many_hash(block, how_many):
     assert block.flag != C.BLOCK_POS and block.flag != C.BLOCK_GENESIS
     assert how_many > 0
     # hash generating with multi-core
     start = time()
-    free_process = list()
-    for hash_generator in mp_generator:
-        if not hash_generator.lock.locked():
-            free_process.append(hash_generator)
-    request_num = how_many // max(1, len(free_process))
-    for hash_generator in free_process:
-        hash_generator.generate(block, request_num)
+    with mp_lock:
+        while True:
+            free_process = list()
+            for hash_generator in mp_generator:
+                if not hash_generator.lock.locked():
+                    free_process.append(hash_generator)
+            if len(free_process) > 0:
+                break
+            else:
+                logging.debug("Wait for free_process...")
+                sleep(0.1)
+        request_num = how_many // len(free_process)
+        # throw task
+        for hash_generator in free_process:
+            hash_generator.generate(block, request_num)
     block_b = None
     work_hash = None
     work_hash_int = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
@@ -71,22 +79,21 @@ def generate_many_hash(block, how_many=100):
     block.b = block_b
     block.work_hash = work_hash
     block.deserialize()
-    logging.debug("{} mining... {}kh/S by {}Core".format(
-        C.consensus2name[block.flag], round(how_many / (time() - start) / 1000, 3), len(free_process)))
+    return time() - start
 
 
-def start_work_hash():
-    if cpu_num < 2:
-        logging.warning("Only one cpu you have. disabled hashing thread.")
-    elif current_process().name == 'MainProcess':
-        logging.debug("Hashing module start.")
-        for index in range(1, cpu_num):
-            # Want to use 1 core for main-thread
-            hash_generator = HashGenerator(index)
-            hash_generator.start()
-            mp_generator.append(hash_generator)
-    else:
-        raise Exception('You try to create mp on subprocess.')
+def start_work_hash(process=None):
+    if current_process().name != 'MainProcess':
+        raise Exception('Is not main process!')
+    if len(mp_generator) != 0:
+        raise Exception('Already mp_generator is filled.')
+    if process is None:
+        process = cpu_num
+    for index in range(1, process + 1):
+        # Want to use 1 core for main-thread
+        hash_generator = HashGenerator(index=index)
+        hash_generator.start()
+        mp_generator.append(hash_generator)
 
 
 def close_work_hash():
@@ -128,9 +135,8 @@ class HashGenerator:
         self.index = index
         cxt = get_context('spawn')
         parent_conn, child_conn = cxt.Pipe()
-        self.process = cxt.Process(target=_pow_generator,
-                                  name="Hashing{}".format(index),
-                                  args=(child_conn,))
+        self.process = cxt.Process(
+            target=_pow_generator, name="Hashing{}".format(index), args=(child_conn,))
         self.process.daemon = True
         self.parent_conn = parent_conn
         self.lock = threading.Lock()

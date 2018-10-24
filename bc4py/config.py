@@ -98,8 +98,6 @@ class V:  # 起動時に設定される変数
     # mining
     MINING_ADDRESS = None
     MINING_MESSAGE = None
-    MINING_OBJ = None
-    STAKING_OBJ = None
     PC_OBJ = None
     API_OBJ = None
 

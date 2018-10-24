@@ -4,12 +4,10 @@
 from bc4py.config import Debug
 from bc4py.utils import set_database_path, set_blockchain_params
 from bc4py.user.boot import *
-from bc4py.user.network import broadcast_check, DirectCmd, sync_chain_loop
-import bc4py.user.network.synchronize as sync
+from bc4py.user.network import broadcast_check, DirectCmd, sync_chain_loop, close_sync
 from bc4py.user.api import create_rest_server
 from bc4py.database.create import make_account_db
 from bc4py.database.builder import builder
-from bc4py.chain.workhash import start_work_hash, close_work_hash
 from p2p_python.utils import setup_p2p_params
 from p2p_python.client import PeerClient
 from p2p_python import config
@@ -22,7 +20,6 @@ def work(port, sub_dir=None):
     set_database_path(sub_dir=sub_dir)
     builder.set_database_path()
     make_account_db()
-    start_work_hash()
     genesis_block, network_ver, connections = load_boot_file()
     logging.info("Start p2p network-ver{} .".format(network_ver))
 
@@ -64,8 +61,7 @@ def work(port, sub_dir=None):
         builder.db.batch_create()
         builder.close()
         pc.close()
-        close_work_hash()
-        sync.f_working = False
+        close_sync()
     except KeyboardInterrupt:
         logging.debug("KeyboardInterrupt.")
 
