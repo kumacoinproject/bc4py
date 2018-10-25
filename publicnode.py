@@ -1,6 +1,7 @@
 #!/user/env python3
 # -*- coding: utf-8 -*-
 
+from bc4py import __version__, __chain_version__, __message__, __logo__
 from bc4py.config import C, Debug
 from bc4py.utils import set_database_path, set_blockchain_params
 from bc4py.user.generate import *
@@ -80,4 +81,6 @@ def work(port, sub_dir=None):
 
 if __name__ == '__main__':
     set_logger(level=logging.DEBUG)
+    logging.info("\n{}\n====\n{}, chain-ver={}\n{}\n"
+                 .format(__logo__, __version__, __chain_version__, __message__))
     work(port=2000)

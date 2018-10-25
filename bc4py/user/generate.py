@@ -38,6 +38,8 @@ def new_key():
 
 class Generate(Thread):
     def __init__(self, consensus, power_limit=1.0):
+        assert consensus in V.BLOCK_CONSENSUS, \
+            "{} is not used by blockchain.".format(C.consensus2name[consensus])
         super(Generate, self).__init__(
             name="Gene-{}".format(C.consensus2name[consensus]),
             daemon=True)
@@ -130,9 +132,9 @@ class Generate(Thread):
             if previous_block is None or unconfirmed_txs is None:
                 logging.debug("Not confirmed new block by \"nothing params\"")
             elif previous_block.hash != mining_block.previous_hash:
-                logging.debug("Not confirmed new block by \"no match previous hash\"")
+                logging.debug("Not confirmed new block by \"Don't match previous_hash\"")
             elif not mining_block.pow_check():
-                if int(time()) % 60 == 0:
+                if int(time()) % 90 == 0:
                     logging.debug("Not confirmed new block by \"proof of work unsatisfied\"")
             else:
                 # Mined yay!!!
@@ -143,7 +145,7 @@ class Generate(Thread):
             bias /= sum(span * max(1, i) for i, span in enumerate(spans_deque))
             bias = min(2.0, max(0.5, bias))
             how_many = max(100, int(how_many * bias))
-            if int(time()) % 60 == 0:
+            if int(time()) % 90 == 0:
                 logging.info("Mining... Next target how_many is {}{}"
                              .format(how_many, "↑" if bias > 1 else "↓"))
             sleep(sleep_span)
@@ -152,6 +154,7 @@ class Generate(Thread):
 
     def proof_of_stake(self):
         global staking_limit
+        limit_deque = deque(maxlen=10)
         self.event_close.set()
         while self.event_close.is_set():
             # check start mining
@@ -199,6 +202,7 @@ class Generate(Thread):
                     continue
                 else:
                     # Staked yay!!
+                    proof_tx.height = staking_block.height
                     proof_tx.signature = [message2signature(proof_tx.b, proof_tx.outputs[0][0])]
                     staking_block.txs[0] = proof_tx
                     # Fit block size
@@ -215,10 +219,10 @@ class Generate(Thread):
                 used = time() - start
                 remain = 1.0 - used
                 max_limit = int(calculate_nam / used)
-                new_staking_limit = int(max_limit * self.power_limit)
-                if int(time()) % 60 == 0:
-                    logging.info("Staking... margin={}% limit={}".format(round(remain*100, 1), new_staking_limit))
-                staking_limit = new_staking_limit
+                limit_deque.append(int(max_limit * self.power_limit))
+                staking_limit = sum(limit_deque) // len(limit_deque)
+                if int(time()) % 90 == 0:
+                    logging.info("Staking... margin={}% limit={}".format(round(remain*100, 1), staking_limit))
                 self.hashrate = (calculate_nam, time())
                 sleep(max(0.0, remain))
         self.event_close.set()
@@ -226,7 +230,7 @@ class Generate(Thread):
 
 
 def confirmed_generating_block(new_block):
-    logging.info("Generate yey!! {}".format(new_block))
+    logging.info("Generate block yey!! {}".format(new_block))
     global mining_address, previous_block, unconfirmed_txs, unspents_txs
     mining_address = None
     previous_block = None
@@ -246,6 +250,8 @@ def update_unconfirmed_txs(new_unconfirmed_txs):
 
 
 def update_unspents_txs():
+    if C.BLOCK_POS not in [t.consensus for t in generating_threads]:
+        return  # no staking thread
     global unspents_txs
     c = 50
     while previous_block is None and 0 < c:
@@ -266,7 +272,7 @@ def update_unspents_txs():
         if amount < 100000000:
             continue
         if staking_limit < all_num:
-            logging.debug("Unspents limit reached, skip at {} limits.".format(staking_limit))
+            logging.debug("Unspents limit reached, skip by {} limits.".format(staking_limit))
             break
         all_num += 1
         proof_tx = TX(tx={
@@ -292,6 +298,7 @@ def close_generate():
 
 
 __all__ = [
+    "generating_threads",
     "output_que",
     "Generate",
     "update_previous_block",
