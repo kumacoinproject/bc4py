@@ -1,0 +1,6 @@
+http-basic-auth  # need for aiohttp-basicauth-middleware
+git+https://github.com/namuyan/yespower-python@master
+git+https://github.com/namuyan/hmq-hash@master
+x11_hash
+# leveldb  # for linux and windows
+plyvel  # for linux and arm

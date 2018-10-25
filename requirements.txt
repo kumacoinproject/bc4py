@@ -1,20 +1,14 @@
-aiohttp>=3.0.0b0 # 2.3.10
+aiohttp>=3.0.0b0 # ver3 required
 aiohttp_cors
-http-basic-auth  # need for aiohttp-basicauth-middleware
 aiohttp-basicauth-middleware
 pycryptodomex
 bjson>=0.2.7
 nem-ed25519
-p2p_python>=1.0.13
+p2p_python>=1.0.14
 dill
 psutil
 pysha3
-git+https://github.com/namuyan/yespower-python@master
-git+https://github.com/namuyan/hmq-hash@master
-x11_hash
 xmltodict
 requests
 more_itertools
-pooled_multiprocessing>=0.0.6
-# leveldb  # for linux and windows
-# plyvel  # for linux and arm
+pooled_multiprocessing>=0.0.7
