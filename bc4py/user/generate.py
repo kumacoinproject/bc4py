@@ -25,7 +25,7 @@ mining_address = None
 previous_block = None
 unconfirmed_txs = None
 unspents_txs = None
-staking_limit = 50000
+staking_limit = 50
 
 
 def new_key():
@@ -250,8 +250,6 @@ def update_unconfirmed_txs(new_unconfirmed_txs):
 
 
 def update_unspents_txs():
-    if C.BLOCK_POS not in [t.consensus for t in generating_threads]:
-        return  # no staking thread
     global unspents_txs
     c = 50
     while previous_block is None and 0 < c:
