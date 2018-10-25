@@ -1,14 +1,13 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.tools import get_usedindex, get_validator_info
+from bc4py.chain.checking.signature import get_signed_cks
 from bc4py.user import CoinObject
-from nem_ed25519.base import Encryption
 from nem_ed25519.key import is_address
 from binascii import hexlify
 from collections import deque
 
 
-# Count failed insert txs
 sticky_failed_txhash = deque(maxlen=20)
 
 
@@ -90,36 +89,18 @@ def signature_check(tx):
             need_cks.add(address)  # 通常のアドレスのみ
         else:
             raise BlockChainError('Not common address {} {}.'.format(address, tx))
-    signed_cks = set()
-    ecc = Encryption(prefix=V.BLOCK_PREFIX)
-    for pubkey, signature in tx.signature:
-        try:
-            ecc.pk = pubkey
-            ecc.verify(msg=tx.b, signature=signature)
-            ecc.get_address()
-            signed_cks.add(ecc.ck)
-        except BaseException as e:
-            raise BlockChainError('Signature verification failed. "{}"'.format(e))
 
-    if need_cks != signed_cks:
-        raise BlockChainError('Signed list check is failed. [{}={}]'.format(need_cks, signed_cks))
+    signed_cks = get_signed_cks(tx)
+    if need_cks != set(signed_cks):
+        raise BlockChainError('Signature verification failed. [{}={}]'.format(need_cks, signed_cks))
 
 
 def validator_check(tx, include_block):
     assert tx.type == C.TX_FINISH_CONTRACT, 'validator_check is for FinishTX.'
     validator_cks, required_num = get_validator_info(include_block)
-    signed_cks = set()
     already_signed_num = tx.inner_params.get('signed_num', 0)
-    ecc = Encryption(prefix=V.BLOCK_PREFIX)
-    for pubkey, signature in tx.signature:
-        try:
-            ecc.pk = pubkey
-            ecc.verify(msg=tx.b, signature=signature)
-            ecc.get_address()
-            signed_cks.add(ecc.ck)
-        except BaseException as e:
-            raise BlockChainError('Signature verification failed. "{}"'.format(e))
 
+    signed_cks = get_signed_cks(tx)
     valid_num = len(validator_cks & signed_cks)
     if include_block:
         if required_num > valid_num:

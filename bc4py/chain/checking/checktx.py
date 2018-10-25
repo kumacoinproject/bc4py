@@ -6,10 +6,6 @@ from bc4py.chain.checking.utils import *
 import logging
 from binascii import hexlify
 import time
-from collections import deque
-
-
-signature_cashe = deque([], maxlen=1000)
 
 
 def check_tx(tx, include_block):
@@ -76,8 +72,7 @@ def check_tx(tx, include_block):
         raise BlockChainError('Unknown tx type "{}"'.format(tx.type))
 
     # Inputs origin チェック
-    if include_block:
-        inputs_origin_check(tx=tx, include_block=include_block)
+    inputs_origin_check(tx=tx, include_block=include_block)
 
     # 残高移動チェック
     if f_amount_check:
@@ -85,9 +80,7 @@ def check_tx(tx, include_block):
 
     # 署名チェック
     if f_signature_check:
-        if tx.hash not in signature_cashe:
-            signature_check(tx=tx)
-            signature_cashe.append(tx.hash)
+        signature_check(tx=tx)
 
     # Feeチェック
     if f_minimum_fee_check:
@@ -100,7 +93,10 @@ def check_tx(tx, include_block):
         if tx.getsize() > C.SIZE_TX_LIMIT:
             raise BlockChainError('TX size is too large. [{}>{}]'.format(tx.getsize(), C.SIZE_TX_LIMIT))
 
-    logging.debug("Checked tx {} {}".format(C.txtype2name[tx.type], hexlify(tx.hash).decode()))
+    if include_block:
+        logging.info("Checked tx {}".format(tx))
+    else:
+        logging.debug("Check unconfirmed tx {}".format(hexlify(tx.hash).decode()))
 
 
 def check_tx_time(tx):

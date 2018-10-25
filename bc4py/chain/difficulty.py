@@ -43,14 +43,6 @@ def params(block_span=600):
     return N, K
 
 
-def best_block_span():
-    # POS, POWブロック間隔
-    pow_ratio, pos_ratio = V.BLOCK_POW_RATIO, 100 - V.BLOCK_POW_RATIO
-    pow_target = round(V.BLOCK_TIME_SPAN / max(1, pow_ratio) * 100)
-    pos_target = round(V.BLOCK_TIME_SPAN / max(1, pos_ratio) * 100)
-    return pow_target, pos_target
-
-
 class Cashe:
     def __init__(self):
         self.data = dict()
@@ -90,8 +82,10 @@ def get_bits_by_hash(previous_hash, consensus):
     elif (previous_hash, consensus) in cashe:
         return cashe[(previous_hash, consensus)]
 
-    pow_target, pos_target = best_block_span()
-    N, K = params(pow_target if consensus == C.BLOCK_POW else pos_target)
+    # Get best block time
+    block_time = round(V.BLOCK_TIME_SPAN / V.BLOCK_CONSENSUS[consensus] * 100)
+    # Get N, K params
+    N, K = params(block_time)
 
     # Loop through N most recent blocks.  "< height", not "<=".
     # height-1 = most recently solved rblock
@@ -138,19 +132,14 @@ def get_bits_by_hash(previous_hash, consensus):
 
 def get_bias_by_hash(previous_hash, consensus):
     N = 30  # target blocks
-    base_consensus = C.BLOCK_POW  # base consensus
 
-    if consensus == base_consensus:
+    if consensus == V.BLOCK_BASE_CONSENSUS:
         return 1.0
     elif consensus == C.BLOCK_GENESIS:
         return 1.0
-    elif consensus == C.HYBRID:
-        raise BlockChainError('C.HYBRID is not consensus.')
-    if (consensus, previous_hash) in cashe:
+    elif (consensus, previous_hash) in cashe:
         return cashe[(consensus, previous_hash)]
-    if previous_hash == GENESIS_PREVIOUS_HASH:
-        return 1.0
-    if V.BLOCK_CONSENSUS != C.HYBRID:
+    elif previous_hash == GENESIS_PREVIOUS_HASH:
         return 1.0
 
     base_diffs = list()
@@ -163,7 +152,7 @@ def get_bias_by_hash(previous_hash, consensus):
         target_hash = target_block.previous_hash
         if target_hash == GENESIS_PREVIOUS_HASH:
             return 1.0
-        elif target_block.flag == base_consensus and N > len(base_diffs):
+        elif target_block.flag == V.BLOCK_BASE_CONSENSUS and N > len(base_diffs):
             base_diffs.append(bits2target(target_block.bits) * (N-len(base_diffs)))
         elif target_block.flag == consensus and N > len(target_diffs):
             target_diffs.append(bits2target(target_block.bits) * (N-len(target_diffs)))

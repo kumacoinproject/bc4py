@@ -8,6 +8,7 @@ from bc4py.database.keylock import is_locked_database
 from bc4py.database.tools import get_validator_info
 from bc4py.user.utils import im_a_validator
 from bc4py.user.api import web_base
+from bc4py.user.generate import generating_threads
 from binascii import hexlify
 import time
 import p2p_python
@@ -25,16 +26,17 @@ async def chain_info(request):
     old_block_height = builder.best_chain[0].height - 1
     old_block_hash = hexlify(builder.get_block_hash(old_block_height)).decode()
     data = {'best': best_block.getinfo()}
-    pos_bias = get_bias_by_hash(previous_hash=best_block.previous_hash, consensus=C.BLOCK_POS)
-    pow_bias = get_bias_by_hash(previous_hash=best_block.previous_hash, consensus=C.BLOCK_POW)
-    pos_target = get_bits_by_hash(previous_hash=best_block.hash, consensus=C.BLOCK_POS)[1]
-    pow_target = get_bits_by_hash(previous_hash=best_block.hash, consensus=C.BLOCK_POW)[1]
-    data['difficulty'] = {
-        'pos_diff': round(MAX_256_INT / pos_target / 100000000, 6),
-        'pow_doff': round(MAX_256_INT / pow_target / 100000000, 6),
-        'pos_bias': pos_bias,
-        'pow_bias': pow_bias,
-        'hashrate(Mh/s)': round(MAX_256_INT/pow_target/V.BLOCK_TIME_SPAN/1000000, 3)}
+    difficulty = dict()
+    for consensus, ratio in V.BLOCK_CONSENSUS.items():
+        name = C.consensus2name[consensus]
+        target = get_bits_by_hash(previous_hash=best_block.hash, consensus=consensus)[1]
+        block_time = round(V.BLOCK_TIME_SPAN / ratio * 100)
+        difficulty[name] = {
+            'diff': round((MAX_256_INT // target) / 100000000, 6),
+            'bias': get_bias_by_hash(previous_hash=best_block.previous_hash, consensus=consensus),
+            'hashrate(kh/s)': round((MAX_256_INT//target)/block_time/1000, 3)
+        }
+    data['mining'] = difficulty
     data['size'] = best_block.getsize()
     data['checkpoint'] = {'height': old_block_height, 'blockhash': old_block_hash}
     data['money_supply'] = GompertzCurve.calc_total_supply(best_height)
@@ -55,14 +57,11 @@ async def system_info(request):
             'unconfirmed': [hexlify(txhash).decode() for txhash in tx_builder.unconfirmed.keys()],
             'directory': V.DB_HOME_DIR,
             'encryption': '*'*len(V.ENCRYPT_KEY) if V.ENCRYPT_KEY else V.ENCRYPT_KEY,
-            'mining': {
+            'generate': {
                 'address': V.MINING_ADDRESS,
                 'message': V.MINING_MESSAGE,
-                'status': bool(V.MINING_OBJ),
-                'threads': V.MINING_OBJ.getinfo() if V.MINING_OBJ else None},
-            'staking': {
-                'status': bool(V.STAKING_OBJ),
-                'threads': V.STAKING_OBJ.getinfo() if V.STAKING_OBJ else None},
+                'threads': [str(s) for s in generating_threads]
+            },
             'locked': is_locked_database(cur),
             'access_time': int(time.time()),
             'start_time': start_time}

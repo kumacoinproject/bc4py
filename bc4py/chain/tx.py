@@ -127,7 +127,7 @@ class TX:
         r['outputs'] = self.outputs
         r['gas_price'] = self.gas_price
         r['gas_amount'] = self.gas_amount
-        r['message_type'] = C.msgtype2name.get(self.message_type) or self.message_type
+        r['message_type'] = C.msg_type2name.get(self.message_type) or self.message_type
         r['message'] = self.message.decode() if self.message_type == C.MSG_PLAIN else hexlify(self.message).decode()
         r['signature'] = [(pubkey, hexlify(signature).decode()) for pubkey, signature in self.signature]
         r['meta'] = self.meta

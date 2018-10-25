@@ -2,9 +2,10 @@ from bc4py.config import C, V, P, Debug
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.tools import get_validator_info, is_usedindex
 from bc4py.chain.checking.utils import sticky_failed_txhash
+from bc4py.user.generate import *
 import logging
 from threading import Lock, Thread
-import time
+from time import time
 import bjson
 
 update_count = 0
@@ -26,23 +27,23 @@ def update_mining_staking_all_info(u_block=True, u_unspent=True, u_unconfirmed=T
 
 def _update_unspent_info():
     with unspent_lock:
-        if V.STAKING_OBJ:
-            all_num, next_num = V.STAKING_OBJ.update_unspent()
-            logging.debug("Update unspent={}/{}".format(next_num, all_num))
+        s = time()
+        all_num, next_num = update_unspents_txs()
+        logging.debug("Update unspent={}/{} {}Sec".format(next_num, all_num, round(time()-s, 3)))
 
 
 def _update_block_info():
     with block_lock:
-        if V.MINING_OBJ:
-            V.MINING_OBJ.update_block(builder.best_block)
-        if V.STAKING_OBJ:
-            V.STAKING_OBJ.update_block(builder.best_block)
-        if V.MINING_OBJ or V.STAKING_OBJ:
-            logging.debug('Update generating height={}'.format(builder.best_block.height+1))
+        s = time()
+        if builder.best_block is not None:
+            update_previous_block(builder.best_block)
+            logging.debug('Update generating height={} {}Sec'
+                          .format(builder.best_block.height+1, round(time()-s, 3)))
 
 
 def _update_unconfirmed_info():
     with unconfirmed_lock:
+        s = time()
         # sort unconfirmed txs
         unconfirmed_txs = sorted(tx_builder.unconfirmed.values(), key=lambda x: x.gas_price, reverse=True)
         # reject tx (input tx is unconfirmed)
@@ -116,10 +117,6 @@ def _update_unconfirmed_info():
                     unconfirmed_txs.extend((start_tx, tx))
                     break
 
-        if V.MINING_OBJ:
-            V.MINING_OBJ.update_unconfirmed(unconfirmed_txs)
-        if V.STAKING_OBJ:
-            V.STAKING_OBJ.update_unconfirmed(unconfirmed_txs)
-        if V.MINING_OBJ or V.STAKING_OBJ:
-            logging.debug("Update unconfirmed={}/{}"
-                          .format(len(unconfirmed_txs), len(tx_builder.unconfirmed)))
+        update_unconfirmed_txs(unconfirmed_txs)
+        logging.debug("Update unconfirmed={}/{} {}Sec"
+                      .format(len(unconfirmed_txs), len(tx_builder.unconfirmed), round(time()-s, 3)))

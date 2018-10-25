@@ -5,7 +5,7 @@ from bc4py.database.tools import get_contract_binary
 from bc4py.contract.tools import *
 from bc4py.contract.libs import __price__
 from bc4py.contract import rpdb
-from multiprocessing import Process, Queue
+from multiprocessing import get_context
 import logging
 import socket
 import traceback
@@ -47,7 +47,8 @@ def _work(params, start_tx, que):
 
 def try_emulate(start_tx, gas_limit=None, out=None):
     start_time = time.time()
-    que = Queue()
+    cxt = get_context('spawn')
+    que = cxt.Queue()
     # out = out or io.StringIO()
     c_address, c_method, c_args, c_redeem = bjson.loads(start_tx.message)
     c_bin = get_contract_binary(c_address)
@@ -55,7 +56,7 @@ def try_emulate(start_tx, gas_limit=None, out=None):
     params = {
         'sub_dir': V.SUB_DIR, 'genesis_block': builder.get_block(builder.get_block_hash(0)),
         'c_bin': c_bin, 'c_address': c_address, 'c_method': c_method, 'args': c_args}
-    p = Process(target=_work, args=(params, start_tx, que))
+    p = cxt.Process(target=_work, args=(params, start_tx, que))
     p.start()
     que_cmd, port = que.get(timeout=10)
     if que_cmd != CMD_PORT:

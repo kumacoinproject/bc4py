@@ -2,7 +2,10 @@
 # -*- coding: utf-8 -*-
 
 
-class C:  # 起動中に変更してはいけない
+import configparser
+
+
+class C:  # Constant
     # base currency info
     BASE_CURRENCY_NAME = 'PyCoin'
     BASE_CURRENCY_UNIT = 'PC'
@@ -10,10 +13,12 @@ class C:  # 起動中に変更してはいけない
 
     # consensus
     BLOCK_GENESIS = 0
-    BLOCK_POW = 1
+    BLOCK_YES_POW = 1
     BLOCK_POS = 2
-    HYBRID = 3
-    consensus2name = {0: 'GENESIS', 1: 'POW', 2: 'POS', 3: 'HYBRID'}
+    # HYBRID = 3
+    BLOCK_X11_POW = 4
+    BLOCK_HMQ_POW = 5
+    consensus2name = {0: 'GENESIS', 1: 'POW_YES', 2: 'POS', 4: 'POW_X11', 5: 'POW_HMQ'}
 
     # tx type
     TX_GENESIS = 0  # Height0の初期設定TX
@@ -34,11 +39,10 @@ class C:  # 起動中に変更してはいけない
     MSG_NONE = 0  # no message
     MSG_PLAIN = 1  # 明示的にunicode
     MSG_BYTE = 2  # 明示的にbinary
-    msgtype2name = {0: 'NONE', 1: 'PLAIN', 2: 'BYTE'}
+    msg_type2name = {0: 'NONE', 1: 'PLAIN', 2: 'BYTE'}
 
     # difficulty
     DIFF_RETARGET = 20  # difficultyの計算Block数
-    DIFF_MULTIPLY = 2  # Diffの変化の急さ、採掘間隔が短いなら小さい方が良い
 
     # block params
     MATURE_HEIGHT = 20  # 採掘されたBlockのOutputsが成熟する期間
@@ -74,8 +78,8 @@ class V:  # 起動時に設定される変数
     BLOCK_TIME_SPAN = None
     BLOCK_ALL_SUPPLY = None
     BLOCK_REWARD = None
+    BLOCK_BASE_CONSENSUS = None
     BLOCK_CONSENSUS = None
-    BLOCK_POW_RATIO = None
 
     # base coin
     COIN_DIGIT = None
@@ -94,8 +98,6 @@ class V:  # 起動時に設定される変数
     # mining
     MINING_ADDRESS = None
     MINING_MESSAGE = None
-    MINING_OBJ = None
-    STAKING_OBJ = None
     PC_OBJ = None
     API_OBJ = None
 
@@ -113,6 +115,60 @@ class Debug:
     F_SHOW_DIFFICULTY = False
     F_CONSTANT_DIFF = False
     F_STICKY_TX_REJECTION = True
+
+
+class MyConfigParser(configparser.ConfigParser):
+    """
+    config = MyConfigParser()
+    config.param('section', 'name', str, 'Bob')
+    config.param('section', 'number', int, 3)
+    """
+    def __init__(self, file='./config.ini'):
+        super(MyConfigParser, self).__init__()
+        self.file = file
+        try:
+            self.read(file, 'UTF-8')
+        except UnicodeEncodeError:
+            self.read(file)
+        except FileNotFoundError:
+            pass
+
+    def __repr__(self):
+        config = ""
+        for k, v in self._sections.items():
+            config += "[{}]\n".format(k)
+            for _k, _v in v.items():
+                config += "{}={}\n".format(_k, _v)
+        return config
+
+    def _write_file(self):
+        with open(self.file, mode='w') as fp:
+            self.write(fp)
+
+    def param(self, section, name, dtype=str, default=None):
+        try:
+            if dtype is bool:
+                data = self.getboolean(section, name)
+            elif dtype is int:
+                data = self.getint(section, name)
+            elif dtype is float:
+                data = self.getfloat(section, name)
+            elif dtype is str:
+                data = self.get(section, name)
+            else:
+                raise configparser.Error('Not found type {}'.format(type(dtype)))
+        except ValueError:
+            return default
+        except configparser.NoSectionError:
+            data = default
+            self.add_section(section)
+            self.set(section, name, str(data))
+            self._write_file()
+        except configparser.NoOptionError:
+            data = default
+            self.set(section, name, str(data))
+            self._write_file()
+        return data
 
 
 class BlockChainError(Exception):
