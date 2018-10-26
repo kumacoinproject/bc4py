@@ -25,7 +25,7 @@ mining_address = None
 previous_block = None
 unconfirmed_txs = None
 unspents_txs = None
-staking_limit = 50
+staking_limit = 500
 
 
 def new_key():
@@ -218,7 +218,7 @@ class Generate(Thread):
                 # check time
                 used = time() - start
                 remain = 1.0 - used
-                max_limit = int(calculate_nam / used)
+                max_limit = max(50, int(calculate_nam / used))
                 limit_deque.append(int(max_limit * self.power_limit))
                 staking_limit = sum(limit_deque) // len(limit_deque)
                 if int(time()) % 90 == 0:

@@ -16,9 +16,10 @@ unconfirmed_lock = Lock()
 
 def update_mining_staking_all_info(u_block=True, u_unspent=True, u_unconfirmed=True):
     global update_count
+    consensus = tuple(t.consensus for t in generating_threads)
     if u_block and not block_lock.locked():
         Thread(target=_update_block_info, name="B-Update{}".format(update_count)).start()
-    if u_unspent and not unspent_lock.locked():
+    if u_unspent and (C.BLOCK_POS in consensus) and not unspent_lock.locked():
         Thread(target=_update_unspent_info, name="U-Update{}".format(update_count)).start()
     if u_unconfirmed and not unconfirmed_lock.locked():
         Thread(target=_update_unconfirmed_info, name="C-Update{}".format(update_count)).start()
