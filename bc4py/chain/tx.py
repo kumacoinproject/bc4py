@@ -63,8 +63,8 @@ class TX:
         elif tx:
             self.version = tx.get('version', __chain_version__)
             self.type = tx['type']
-            self.time = tx['time']
-            self.deadline = tx['deadline']
+            self.time = tx.get('time', 0)
+            self.deadline = tx.get('deadline', 0)
             self.inputs = tx.get('inputs', list())
             self.outputs = tx.get('outputs', list())
             self.gas_price = tx.get('gas_price', V.COIN_MINIMUM_PRICE)
@@ -90,11 +90,11 @@ class TX:
         # message
         self.b += self.message
         # txhash
-        self.hash = sha256(self.b).digest()
+        self.hash = sha256(sha256(self.b).digest()).digest()
 
     def deserialize(self):
         self.version, self.type, self.time, self.deadline, self.gas_price, self.gas_amount,\
-            self.message_type, input_len, outputs_len, msg_len = struct_block.unpack_from(self.b)
+            self.message_type, input_len, outputs_len, msg_len = struct_block.unpack_from(self.b, first_pos)
         # inputs
         pos = struct_block.size
         self.inputs = list()
@@ -145,16 +145,16 @@ class TX:
     def get_pos_hash(self, previous_hash):
         # staked => sha256(txhash + previous_hash) / amount < 256^32 / diff
         pos_work_hash = sha256(self.hash + previous_hash).digest()
-        work = int.from_bytes(pos_work_hash, 'big')
+        work = int.from_bytes(pos_work_hash, 'little')
         work //= (self.pos_amount // 100000000)
-        return work.to_bytes(32, 'big')
+        return work.to_bytes(32, 'little')
 
     def pos_check(self, previous_hash, pos_target_hash):
         # staked => sha256(txhash + previous_hash) / amount < 256^32 / diff
         pos_work_hash = sha256(self.hash + previous_hash).digest()
-        work = int.from_bytes(pos_work_hash, 'big')
+        work = int.from_bytes(pos_work_hash, 'little')
         work //= (self.pos_amount // 100000000)
-        return work < int.from_bytes(pos_target_hash, 'big')
+        return work < int.from_bytes(pos_target_hash, 'little')
 
     def update_time(self, retention=10800):
         if retention < 10800:

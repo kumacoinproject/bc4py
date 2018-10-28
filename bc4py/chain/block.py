@@ -84,14 +84,14 @@ class Block:
             self.bits,
             self.time,
             self.nonce)
-        self.hash = sha256(self.b).digest()
+        self.hash = sha256(sha256(self.b).digest()).digest()
         assert len(self.b) == 80, 'Not correct header size [{}!={}]'.format(len(self.b), 80)
 
     def deserialize(self):
         assert len(self.b) == 80, 'Not correct header size [{}!={}]'.format(len(self.b), 80)
         self.version, self.previous_hash, self.merkleroot, self.bits, self.time, \
             self.nonce = struct_block.unpack(self.b)
-        self.hash = sha256(self.b).digest()
+        self.hash = sha256(sha256(self.b).digest()).digest()
 
     def getinfo(self):
         r = dict()
@@ -145,10 +145,6 @@ class Block:
         header_size = len(self.b)
         return tx_sizes + header_size
 
-    def update_nonce(self):
-        self.nonce = urandom(4)
-        self.serialize()
-
     def update_time(self, blocktime):
         self.time = blocktime
         self.serialize()
@@ -158,28 +154,31 @@ class Block:
 
     def diff2targets(self, difficulty=None):
         difficulty = difficulty if difficulty else self.difficulty
-        return int(MAX_256_INT / (difficulty*100000000)).to_bytes(32, 'big')
+        return int(MAX_256_INT / (difficulty*100000000)).to_bytes(32, 'little')
 
     def target2diff(self):
-        self._difficulty = round((MAX_256_INT // int.from_bytes(self.target_hash, 'big')) / 1000000, 6)
+        self._difficulty = round((MAX_256_INT // int.from_bytes(self.target_hash, 'little')) / 1000000, 6)
 
     def bits2target(self):
         target = bits2target(self.bits)
-        self.target_hash = target.to_bytes(32, 'big')
+        self.target_hash = target.to_bytes(32, 'little')
 
     def work2diff(self):
-        self._work_difficulty = round((MAX_256_INT // int.from_bytes(self.work_hash, 'big')) / 1000000, 6)
+        self._work_difficulty = round((MAX_256_INT // int.from_bytes(self.work_hash, 'little')) / 1000000, 6)
 
     def pow_check(self):
         if not self.work_hash:
             update_work_hash(self)
         if not self.target_hash:
             self.bits2target()
-        return int.from_bytes(self.target_hash, 'big') > int.from_bytes(self.work_hash, 'big')
+        return int.from_bytes(self.target_hash, 'little') > int.from_bytes(self.work_hash, 'little')
 
     def update_merkleroot(self):
-        h = sha256()
-        for tx in self.txs:
-            h.update(tx.hash)
-        self.merkleroot = h.digest()
+        hash_list = [tx.hash for tx in self.txs]
+        while len(hash_list) > 1:
+            if len(hash_list) % 2:
+                hash_list.append(hash_list[-1])
+            hash_list = [sha256(sha256(hash_list[i] + hash_list[i + 1]).digest()).digest()
+                         for i in range(0, len(hash_list), 2)]
+        self.merkleroot = hash_list[0]
         self.serialize()
