@@ -92,11 +92,11 @@ class TX:
         # txhash
         self.hash = sha256(sha256(self.b).digest()).digest()
 
-    def deserialize(self):
+    def deserialize(self, first_pos=0, f_adjust=False):
         self.version, self.type, self.time, self.deadline, self.gas_price, self.gas_amount,\
             self.message_type, input_len, outputs_len, msg_len = struct_block.unpack_from(self.b, first_pos)
         # inputs
-        pos = struct_block.size
+        pos = first_pos + struct_block.size
         self.inputs = list()
         for i in range(input_len):
             self.inputs.append(struct_inputs.unpack_from(self.b, pos))
@@ -111,8 +111,11 @@ class TX:
         self.message = self.b[pos:pos+msg_len]
         pos += msg_len
         if len(self.b) != pos:
-            raise BlockChainError('Do not match len [{}!={}'.format(len(self.b), pos))
-        self.hash = sha256(self.b).digest()
+            if f_adjust:
+                raise BlockChainError('Do not match len [{}!={}'.format(len(self.b), pos))
+            else:
+                self.b = self.b[first_pos:pos]
+        self.hash = sha256(sha256(self.b).digest()).digest()
 
     def getinfo(self):
         r = dict()

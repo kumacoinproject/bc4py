@@ -93,22 +93,19 @@ class Generate(Thread):
             if previous_block is None or unconfirmed_txs is None:
                 sleep(0.1)
                 continue
-            now = int(time() - V.BLOCK_GENESIS_TIME)
             # create proof_tx
             mining_address = mining_address or V.MINING_ADDRESS or new_key()
             reward = GompertzCurve.calc_block_reward(previous_block.height + 1)
             fees = sum(tx.gas_amount * tx.gas_price for tx in unconfirmed_txs)
             proof_tx = TX(tx={
-                'version': __chain_version__,
                 'type': C.TX_POW_REWARD,
-                'time': now,
-                'deadline': now + 10800,
                 'inputs': list(),
                 'outputs': [(mining_address, 0, reward + fees)],
                 'gas_price': 0,
                 'gas_amount': 0,
                 'message_type': C.MSG_PLAIN if V.MINING_MESSAGE else C.MSG_NONE,
                 'message': V.MINING_MESSAGE if V.MINING_MESSAGE else b''})
+            proof_tx.update_time()
             # create mining block
             bits, target = get_bits_by_hash(
                 previous_hash=previous_block.hash, consensus=self.consensus)
@@ -274,9 +271,7 @@ def update_unspents_txs():
             break
         all_num += 1
         proof_tx = TX(tx={
-            'version': __chain_version__,
             'type': C.TX_POS_REWARD,
-            'time': 0, 'deadline': 0,
             'inputs': [(txhash, txindex)],
             'outputs': [(address, 0, 0)],
             'gas_price': 0,
@@ -299,6 +294,7 @@ __all__ = [
     "generating_threads",
     "output_que",
     "Generate",
+    "confirmed_generating_block",
     "update_previous_block",
     "update_unconfirmed_txs",
     "update_unspents_txs",
