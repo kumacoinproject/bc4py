@@ -92,7 +92,7 @@ class TX:
         # txhash
         self.hash = sha256(sha256(self.b).digest()).digest()
 
-    def deserialize(self, first_pos=0, f_adjust=False):
+    def deserialize(self, first_pos=0, f_adjust=True):
         self.version, self.type, self.time, self.deadline, self.gas_price, self.gas_amount,\
             self.message_type, input_len, outputs_len, msg_len = struct_tx_header.unpack_from(self.b, first_pos)
         # inputs
@@ -110,7 +110,7 @@ class TX:
         # msg
         self.message = self.b[pos:pos+msg_len]
         pos += msg_len
-        if len(self.b) != pos:
+        if len(self.b) != pos - first_pos:
             if f_adjust:
                 raise BlockChainError('Do not match len [{}!={}'.format(len(self.b), pos))
             else:

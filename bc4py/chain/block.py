@@ -81,15 +81,15 @@ class Block:
             self.version,
             self.previous_hash,
             self.merkleroot,
-            self.bits,
             self.time,
+            self.bits,
             self.nonce)
         self.hash = sha256(sha256(self.b).digest()).digest()
         assert len(self.b) == 80, 'Not correct header size [{}!={}]'.format(len(self.b), 80)
 
     def deserialize(self):
         assert len(self.b) == 80, 'Not correct header size [{}!={}]'.format(len(self.b), 80)
-        self.version, self.previous_hash, self.merkleroot, self.bits, self.time, \
+        self.version, self.previous_hash, self.merkleroot, self.time, self.bits, \
             self.nonce = struct_block.unpack(self.b)
         self.hash = sha256(sha256(self.b).digest()).digest()
 

@@ -28,10 +28,10 @@ unspents_txs = None
 staking_limit = 500
 
 
-def new_key():
+def new_key(user=C.ANT_NAME_UNKNOWN):
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         cur = db.cursor()
-        ck = create_new_user_keypair(C.ANT_NAME_UNKNOWN, cur)
+        ck = create_new_user_keypair(user, cur)
         db.commit()
     return ck
 
@@ -93,35 +93,7 @@ class Generate(Thread):
             if previous_block is None or unconfirmed_txs is None:
                 sleep(0.1)
                 continue
-            # create proof_tx
-            mining_address = mining_address or V.MINING_ADDRESS or new_key()
-            reward = GompertzCurve.calc_block_reward(previous_block.height + 1)
-            fees = sum(tx.gas_amount * tx.gas_price for tx in unconfirmed_txs)
-            proof_tx = TX(tx={
-                'type': C.TX_POW_REWARD,
-                'inputs': list(),
-                'outputs': [(mining_address, 0, reward + fees)],
-                'gas_price': 0,
-                'gas_amount': 0,
-                'message_type': C.MSG_PLAIN if V.MINING_MESSAGE else C.MSG_NONE,
-                'message': V.MINING_MESSAGE if V.MINING_MESSAGE else b''})
-            proof_tx.update_time()
-            # create mining block
-            bits, target = get_bits_by_hash(
-                previous_hash=previous_block.hash, consensus=self.consensus)
-            mining_block = Block(block={
-                'merkleroot': b'\xff' * 32,
-                'time': 0,
-                'previous_hash': previous_block.hash,
-                'bits': bits,
-                'nonce': b'\xff\xff\xff\xff'})
-            mining_block.height = previous_block.height + 1
-            mining_block.flag = self.consensus
-            mining_block.bits2target()
-            mining_block.txs.append(proof_tx)
-            mining_block.txs.extend(unconfirmed_txs)
-            mining_block.update_merkleroot()
-            mining_block.update_time(proof_tx.time)
+            mining_block = create_mining_block(self.consensus)
             # throw task
             new_span = generate_many_hash(mining_block, how_many)
             spans_deque.append(new_span)
@@ -215,7 +187,7 @@ class Generate(Thread):
                 # check time
                 used = time() - start
                 remain = 1.0 - used
-                max_limit = max(50, int(calculate_nam / used))
+                max_limit = max(50, int(calculate_nam / max(0.0001, used)))
                 limit_deque.append(int(max_limit * self.power_limit))
                 staking_limit = sum(limit_deque) // len(limit_deque)
                 if int(time()) % 90 == 0:
@@ -224,6 +196,40 @@ class Generate(Thread):
                 sleep(max(0.0, remain))
         self.event_close.set()
         logging.info("Close signal")
+
+
+def create_mining_block(consensus):
+    global mining_address
+    # create proof_tx
+    mining_address = mining_address or V.MINING_ADDRESS or new_key()
+    reward = GompertzCurve.calc_block_reward(previous_block.height + 1)
+    fees = sum(tx.gas_amount * tx.gas_price for tx in unconfirmed_txs)
+    proof_tx = TX(tx={
+        'type': C.TX_POW_REWARD,
+        'inputs': list(),
+        'outputs': [(mining_address, 0, reward + fees)],
+        'gas_price': 0,
+        'gas_amount': 0,
+        'message_type': C.MSG_PLAIN if V.MINING_MESSAGE else C.MSG_NONE,
+        'message': V.MINING_MESSAGE if V.MINING_MESSAGE else b''})
+    proof_tx.update_time()
+    # create mining block
+    bits, target = get_bits_by_hash(
+        previous_hash=previous_block.hash, consensus=consensus)
+    mining_block = Block(block={
+        'merkleroot': b'\xff' * 32,
+        'time': 0,
+        'previous_hash': previous_block.hash,
+        'bits': bits,
+        'nonce': b'\xff\xff\xff\xff'})
+    mining_block.height = previous_block.height + 1
+    mining_block.flag = consensus
+    mining_block.bits2target()
+    mining_block.txs.append(proof_tx)
+    mining_block.txs.extend(unconfirmed_txs)
+    mining_block.update_merkleroot()
+    mining_block.update_time(proof_tx.time)
+    return mining_block
 
 
 def confirmed_generating_block(new_block):
@@ -294,6 +300,7 @@ __all__ = [
     "generating_threads",
     "output_que",
     "Generate",
+    "create_mining_block",
     "confirmed_generating_block",
     "update_previous_block",
     "update_unconfirmed_txs",
