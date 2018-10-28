@@ -11,7 +11,7 @@ import struct
 import time
 
 
-struct_block = struct.Struct('>I32s32sII4s')
+struct_block = struct.Struct('<I32s32sII4s')
 
 
 class Block:

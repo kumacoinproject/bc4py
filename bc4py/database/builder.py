@@ -34,6 +34,10 @@ struct_block = struct.Struct('>II32s80sBI')
 struct_tx = struct.Struct('>4I')
 struct_address = struct.Struct('>40s32sB')
 struct_address_idx = struct.Struct('>IQ?')
+struct_coins = struct.Struct('>II')
+struct_construct_key = struct.Struct('>40sI')
+struct_construct_value = struct.Struct('>32s32s')
+ITER_ORDER = 'big'
 
 
 ZERO_FILLED_HASH = b'\x00' * 32
@@ -137,7 +141,7 @@ class DataBase:
         return block
 
     def read_block_hash(self, height):
-        b_height = height.to_bytes(4, 'little')
+        b_height = height.to_bytes(4, ITER_ORDER)
         if self.is_batch_thread() and b_height in self.batch['_block_index']:
             return self.batch['_block_index'][b_height]
         elif is_plyvel:
@@ -153,21 +157,21 @@ class DataBase:
         f_batch = self.is_batch_thread()
         batch_copy = self.batch['_block_index'].copy() if self.batch else dict()
         if is_plyvel:
-            block_iter = self._block_index.iterator(start=start_height.to_bytes(4, 'little'))
+            block_iter = self._block_index.iterator(start=start_height.to_bytes(4, ITER_ORDER))
         else:
-            block_iter = self._block_index.RangeIter(key_from=start_height.to_bytes(4, 'little'))
+            block_iter = self._block_index.RangeIter(key_from=start_height.to_bytes(4, ITER_ORDER))
         for b_height, blockhash in block_iter:
             # height, blockhash
             b_height = bytes(b_height)
             blockhash = bytes(blockhash)
             if f_batch and b_height in batch_copy:
-                yield int.from_bytes(b_height, 'little'), batch_copy[b_height]
+                yield int.from_bytes(b_height, ITER_ORDER), batch_copy[b_height]
                 del batch_copy[b_height]
             else:
-                yield int.from_bytes(b_height, 'little'), blockhash
+                yield int.from_bytes(b_height, ITER_ORDER), blockhash
         if f_batch:
             for b_height, blockhash in sorted(batch_copy.items(), key=lambda x: x[0]):
-                yield int.from_bytes(b_height, 'little'), blockhash
+                yield int.from_bytes(b_height, ITER_ORDER), blockhash
 
     def read_tx(self, txhash):
         if self.is_batch_thread() and txhash in self.batch['_tx']:
@@ -202,7 +206,7 @@ class DataBase:
             return set(b)
 
     def read_address_idx(self, address, txhash, index):
-        k = address.encode() + txhash + index.to_bytes(1, 'little')
+        k = address.encode() + txhash + index.to_bytes(1, ITER_ORDER)
         if self.is_batch_thread() and k in self.batch['_address_index']:
             b = self.batch['_address_index'][k]
         elif is_plyvel:
@@ -241,8 +245,7 @@ class DataBase:
     def read_coins_iter(self, coin_id):
         f_batch = self.is_batch_thread()
         batch_copy = self.batch['_coins'].copy() if self.batch else dict()
-        b_coin_id = coin_id.to_bytes(4, 'little')
-        struct_coins = struct.Struct('>II')
+        b_coin_id = coin_id.to_bytes(4, ITER_ORDER)
         start = b_coin_id + b'\x00'*4
         stop = b_coin_id + b'\xff'*4
         if is_plyvel:
@@ -266,8 +269,6 @@ class DataBase:
         f_batch = self.is_batch_thread()
         batch_copy = self.batch['_contract'].copy() if self.batch else dict()
         b_c_address = c_address.encode()
-        struct_construct_key = struct.Struct('>40sI')
-        struct_construct_value = struct.Struct('>32s32s')
         start = b_c_address + b'\x00'*4
         stop = b_c_address + b'\xff'*4
         if is_plyvel:
@@ -296,7 +297,7 @@ class DataBase:
         b = struct_block.pack(block.height, block.time, block.work_hash, block.b, block.flag, tx_len)
         b += b_tx
         self.batch['_block'][block.hash] = b
-        b_height = block.height.to_bytes(4, 'little')
+        b_height = block.height.to_bytes(4, ITER_ORDER)
         self.batch['_block_index'][b_height] = block.hash
         logging.debug("Insert new block {}".format(block))
 
@@ -317,20 +318,20 @@ class DataBase:
 
     def write_address_idx(self, address, txhash, index, coin_id, amount, f_used):
         assert self.is_batch_thread(), 'Not created batch.'
-        k = address.encode() + txhash + index.to_bytes(1, 'little')
+        k = address.encode() + txhash + index.to_bytes(1, ITER_ORDER)
         v = struct_address_idx.pack(coin_id, amount, f_used)
         self.batch['_address_index'][k] = v
         logging.debug("Insert new address idx {}".format(address))
 
     def write_coins(self, coin_id, index, txhash):
         assert self.is_batch_thread(), 'Not created batch.'
-        k = coin_id.to_bytes(4, 'little') + index.to_bytes(4, 'little')
+        k = coin_id.to_bytes(4, ITER_ORDER) + index.to_bytes(4, ITER_ORDER)
         self.batch['_coins'][k] = txhash
         logging.debug("Insert new coins id={}".format(coin_id))
 
     def write_contract(self, c_address, index, start_hash, finish_hash):
         assert self.is_batch_thread(), 'Not created batch.'
-        k = c_address.encode() + index.to_bytes(4, 'little')
+        k = c_address.encode() + index.to_bytes(4, ITER_ORDER)
         v = start_hash + finish_hash
         self.batch['_contract'][k] = v
         logging.debug("Insert new contract {} {}".format(c_address, index))

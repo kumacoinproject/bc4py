@@ -9,9 +9,9 @@ import time
 import struct
 
 
-struct_block = struct.Struct('>IIIIQqBBBI')
-struct_inputs = struct.Struct('>32sB')
-struct_outputs = struct.Struct('>40sIQ')
+struct_tx_header = struct.Struct('<IIIIQqBBBI')
+struct_inputs = struct.Struct('<32sB')
+struct_outputs = struct.Struct('<40sIQ')
 
 
 class TX:
@@ -78,7 +78,7 @@ class TX:
         # 構造
         # [version I]-[type I]-[time I]-[deadline I]-[gas_price Q]-[gas_amount q]-[msg_type B]-
         # -[input_len B]-[output_len B]-[msg_len I]-[inputs]-[outputs]-[msg]
-        self.b = struct_block.pack(
+        self.b = struct_tx_header.pack(
             self.version, self.type, self.time, self.deadline, self.gas_price, self.gas_amount,
             self.message_type, len(self.inputs), len(self.outputs), len(self.message))
         # inputs
@@ -94,9 +94,9 @@ class TX:
 
     def deserialize(self, first_pos=0, f_adjust=False):
         self.version, self.type, self.time, self.deadline, self.gas_price, self.gas_amount,\
-            self.message_type, input_len, outputs_len, msg_len = struct_block.unpack_from(self.b, first_pos)
+            self.message_type, input_len, outputs_len, msg_len = struct_tx_header.unpack_from(self.b, first_pos)
         # inputs
-        pos = first_pos + struct_block.size
+        pos = first_pos + struct_tx_header.size
         self.inputs = list()
         for i in range(input_len):
             self.inputs.append(struct_inputs.unpack_from(self.b, pos))
