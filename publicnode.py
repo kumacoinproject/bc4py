@@ -62,8 +62,13 @@ def work(port, sub_dir=None):
     # Debug.F_CONSTANT_DIFF = True
     # Debug.F_SHOW_DIFFICULTY = True
     # Debug.F_STICKY_TX_REJECTION = False  # for debug
-    Generate(consensus=C.BLOCK_YES_POW, power_limit=0.2).start()
-    Generate(consensus=C.BLOCK_POS, power_limit=0.2).start()
+    if port % 3 == 0 or port % 3 == 1:
+        Generate(consensus=C.BLOCK_YES_POW, power_limit=0.05).start()
+    if port % 3 == 1 or port % 3 == 2:
+        Generate(consensus=C.BLOCK_HMQ_POW, power_limit=0.05).start()
+    if port % 3 == 2 or port % 3 == 0:
+        Generate(consensus=C.BLOCK_X11_POW, power_limit=0.05).start()
+    Generate(consensus=C.BLOCK_POS, power_limit=0.3).start()
     Thread(target=mined_newblock, name='GeneBlock', args=(output_que, pc)).start()
     logging.info("Finished all initialize.")
 

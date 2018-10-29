@@ -64,9 +64,10 @@ Start node
 * `python publicnode.py` Node with mining/staking.
 * `python observenode.py` Node only accept blocks/txs.
 
-Create genesis block
+Documents
 ----
 * [Create genesis block](doc/GenesisBlock.md)
+* [Mining soft](doc/Mining.md)
 
 
 Build for windows

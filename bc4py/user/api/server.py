@@ -11,6 +11,7 @@ from .chaininfo import *
 from .websocket import *
 from .createtx import *
 from .contracttx import *
+from .jsonrpc import *
 from bc4py.config import V
 from bc4py.user.api import web_base
 import threading
@@ -158,7 +159,7 @@ def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None, ssl_
     app.router.add_post('/api/sourcecompile', source_compile)
     app.router.add_post('/api/contractcreate', contract_create)
     app.router.add_post('/api/contractstart', contract_start)
-    # BLockChain
+    # BlockChain
     app.router.add_get('/api/getblockbyheight', get_block_by_height)
     app.router.add_get('/api/getblockbyhash', get_block_by_hash)
     app.router.add_get('/api/gettxbyhash', get_tx_by_hash)
@@ -166,6 +167,8 @@ def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None, ssl_
     # Websocket
     init_ws_status(app)
     app.router.add_get('/streaming', ws_streaming)
+    # Json-RPC
+    app.router.add_post('/json-rpc', json_rpc)
     # WebPage
     base_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
 
