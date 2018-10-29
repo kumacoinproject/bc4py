@@ -44,10 +44,10 @@ async def json_rpc(request):
         result = await globals().get(method)(*params, **kwords)
         if F_HEAVY_DEBUG: logging.debug("RpcResponse: {}".format(result))
         return web_base.json_res({'error': None, 'result': result, 'id': post['id']})
-    except Exception:
+    except Exception as e:
         import traceback
         tb = traceback.format_exc()
-        logging.debug("JsonRpcError: {}".format(tb))
+        logging.debug("JsonRpcError: {}".format(e))
         return web.Response(
             text=json.dumps({'error': str(tb), 'result': None, 'id': post['id']}, indent=4),
             content_type='application/json',
@@ -74,7 +74,7 @@ async def getwork(*args, **kwargs):
                 break
         else:
             mining_block = await get_mining_block(**kwargs)
-            getwork_cashe[mining_block.merkleroot] = mining_block.txs
+            getwork_cashe[mining_block.merkleroot] = mining_block
             mining_block.bits2target()
         # Pre-processed SHA-2 input chunks
         data = mining_block.b  # 80 bytes
@@ -86,7 +86,7 @@ async def getwork(*args, **kwargs):
         return {
             "data": hexlify(new_data).decode(),
             "target": hexlify(mining_block.target_hash).decode(),
-            "noncerange": "000000001fffffff"}
+            "noncerange": "00000000ffffffff"}
     else:
         data = unhexlify(args[0].encode())
         new_data = b''
@@ -94,7 +94,7 @@ async def getwork(*args, **kwargs):
             new_data += data[i:i+4][::-1]
         block = Block(binary=new_data[:80])
         if block.merkleroot in getwork_cashe:
-            block.txs.extend(getwork_cashe[block.merkleroot])
+            block.txs.extend(getwork_cashe[block.merkleroot].txs)
             result = await submitblock(block, **kwargs)
             if result is None:
                 return True
@@ -171,7 +171,7 @@ async def submitblock(block_hex_or_obj, **kwargs):
         while len(block_bin) > pos:
             tx = TX()
             tx.b = block_bin
-            tx.deserialize(first_pos=pos, f_adjust=False)
+            tx.deserialize(first_pos=pos, f_raise=False)
             if tx.version != __chain_version__:
                 return 'tx_ver do not match [{}!={}]'.format(tx.version, __chain_version__)
             pos += len(tx.b)

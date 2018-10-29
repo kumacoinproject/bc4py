@@ -109,14 +109,17 @@ class Generate(Thread):
                 # Mined yay!!!
                 confirmed_generating_block(mining_block)
             # generate next mining how_many
-            self.hashrate = (how_many * len(spans_deque) // sum(spans_deque), time())
-            bias = sum(work_span * max(1, i) for i, span in enumerate(spans_deque))
-            bias /= sum(span * max(1, i) for i, span in enumerate(spans_deque))
-            bias = min(2.0, max(0.5, bias))
-            how_many = max(100, int(how_many * bias))
-            if int(time()) % 90 == 0:
-                logging.info("Mining... Next target how_many is {}{}"
-                             .format(how_many, "↑" if bias > 1 else "↓"))
+            try:
+                self.hashrate = (how_many * len(spans_deque) // sum(spans_deque), time())
+                bias = sum(work_span * (1+i) for i, span in enumerate(spans_deque))
+                bias /= sum(span * (1+i) for i, span in enumerate(spans_deque))
+                bias = min(2.0, max(0.5, bias))
+                how_many = max(100, int(how_many * bias))
+                if int(time()) % 90 == 0:
+                    logging.info("Mining... Next target how_many is {}{}"
+                                 .format(how_many, "↑" if bias > 1 else "↓"))
+            except ZeroDivisionError:
+                pass
             sleep(sleep_span)
         self.event_close.set()
         logging.info("Close signal")
