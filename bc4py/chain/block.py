@@ -111,6 +111,7 @@ class Block:
         r['f_on_memory'] = self.f_on_memory
         r['height'] = self.height
         r['difficulty'] = self.difficulty
+        r['fixed_difficulty'] = self.difficulty * self.bias
         r['flag'] = C.consensus2name[self.flag]
         r['merkleroot'] = hexlify(self.merkleroot).decode() if self.merkleroot else None
         r['time'] = V.BLOCK_GENESIS_TIME + self.time
@@ -157,14 +158,14 @@ class Block:
         return int(MAX_256_INT / (difficulty*100000000)).to_bytes(32, 'little')
 
     def target2diff(self):
-        self._difficulty = round((MAX_256_INT // int.from_bytes(self.target_hash, 'little')) / 1000000, 6)
+        self._difficulty = round((MAX_256_INT // int.from_bytes(self.target_hash, 'little')) / 1000000, 8)
 
     def bits2target(self):
         target = bits2target(self.bits)
         self.target_hash = target.to_bytes(32, 'little')
 
     def work2diff(self):
-        self._work_difficulty = round((MAX_256_INT // int.from_bytes(self.work_hash, 'little')) / 1000000, 6)
+        self._work_difficulty = round((MAX_256_INT // int.from_bytes(self.work_hash, 'little')) / 1000000, 8)
 
     def pow_check(self):
         if not self.work_hash:

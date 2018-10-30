@@ -4,6 +4,7 @@
 from bc4py import __version__, __chain_version__, __message__, __logo__
 from bc4py.config import P, Debug
 from bc4py.utils import set_database_path, set_blockchain_params
+# from bc4py.user.stratum import Stratum, start_stratum, close_stratum
 from bc4py.user.generate import *
 from bc4py.user.boot import *
 from bc4py.user.network import broadcast_check, mined_newblock, DirectCmd, sync_chain_loop, close_sync
@@ -19,7 +20,6 @@ from bc4py.for_debug import set_logger, f_already_bind
 from threading import Thread
 import logging
 import os
-import random
 
 
 def copy_boot(port):
@@ -83,19 +83,23 @@ def work(port, sub_dir):
     # Debug.F_SHOW_DIFFICULTY = True
     # Debug.F_STICKY_TX_REJECTION = False  # for debug
     if port % 3 == 0 or port % 3 == 1:
-        Generate(consensus=C.BLOCK_YES_POW, power_limit=0.05).start()
+        Generate(consensus=C.BLOCK_YES_POW, power_limit=0.01).start()
     if port % 3 == 1 or port % 3 == 2:
-        Generate(consensus=C.BLOCK_HMQ_POW, power_limit=0.05).start()
+        Generate(consensus=C.BLOCK_HMQ_POW, power_limit=0.01).start()
     if port % 3 == 2 or port % 3 == 0:
-        Generate(consensus=C.BLOCK_X11_POW, power_limit=0.05).start()
+        Generate(consensus=C.BLOCK_X11_POW, power_limit=0.01).start()
     Generate(consensus=C.BLOCK_POS, power_limit=0.3).start()
+    # Stratum
+    # Stratum(port=port+2000, consensus=C.BLOCK_HMQ_POW, first_difficulty=4)
     Thread(target=mined_newblock, name='GeneBlock', args=(output_que, pc)).start()
     logging.info("Finished all initialize.")
 
     try:
+        # start_stratum(f_blocking=False)
         create_rest_server(f_local=True, port=port+1000)
         builder.db.batch_create()
         builder.close()
+        # close_stratum()
         pc.close()
         close_generate()
         close_work_hash()

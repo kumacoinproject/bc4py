@@ -33,7 +33,7 @@ async def chain_info(request):
         block_time = round(V.BLOCK_TIME_SPAN / ratio * 100)
         difficulty[name] = {
             'number': consensus,
-            'diff': round((MAX_256_INT // target) / 100000000, 6),
+            'diff': round((MAX_256_INT // target) / 100000000, 8),
             'bias': get_bias_by_hash(previous_hash=best_block.previous_hash, consensus=consensus),
             'hashrate(kh/s)': round((MAX_256_INT//target)/block_time/1000, 3),
             'is_base': V.BLOCK_BASE_CONSENSUS == consensus,

@@ -93,6 +93,8 @@ async def getwork(*args, **kwargs):
             new_data += data[i:i+4][::-1]
         block = Block(binary=new_data[:80])
         if block.merkleroot in getwork_cashe:
+            if F_HEAVY_DEBUG:
+                logging.debug("GetWorkCashe {}Sec ago.".format(block.time - getwork_cashe[block.merkleroot].time))
             block.txs.extend(getwork_cashe[block.merkleroot].txs)
             result = await submitblock(block, **kwargs)
             if result is None:
