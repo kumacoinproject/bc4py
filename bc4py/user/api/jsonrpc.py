@@ -21,7 +21,7 @@ import asyncio
 
 
 F_HEAVY_DEBUG = False
-getwork_cashe = ExpiringDict(max_len=5000, max_age_seconds=1800)
+getwork_cashe = ExpiringDict(max_len=10000, max_age_seconds=1800)
 
 
 async def json_rpc(request):
@@ -85,8 +85,7 @@ async def getwork(*args, **kwargs):
             new_data += data[i:i+4][::-1]
         return {
             "data": hexlify(new_data).decode(),
-            "target": hexlify(mining_block.target_hash).decode(),
-            "noncerange": "00000000ffffffff"}
+            "target": hexlify(mining_block.target_hash).decode()}
     else:
         data = unhexlify(args[0].encode())
         new_data = b''
