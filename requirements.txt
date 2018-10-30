@@ -12,3 +12,4 @@ xmltodict
 requests
 more_itertools
 pooled_multiprocessing>=0.0.7
+expiringdict

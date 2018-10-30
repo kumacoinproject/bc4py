@@ -71,7 +71,7 @@ def generate_many_hash(block, how_many):
     work_hash_int = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
     for hash_generator in free_process:
         tmp_block_b, check_hash = hash_generator.result()
-        check_int = int.from_bytes(check_hash, 'big')
+        check_int = int.from_bytes(check_hash, 'little')
         if check_int < work_hash_int:
             block_b = tmp_block_b
             work_hash = check_hash
@@ -110,12 +110,12 @@ def _pow_generator(pipe):
             binary, block_flag, how_many = pipe.recv()
             hash_fnc = get_workhash_fnc(block_flag)
             hashed = hash_fnc(binary)
-            minimum_num = int.from_bytes(hashed, 'big')
+            minimum_num = int.from_bytes(hashed, 'little')
             new_binary = binary
             for i in range(how_many):
                 new_binary = new_binary[:-4] + urandom(4)
                 new_hash = hash_fnc(new_binary)
-                new_num = int.from_bytes(new_hash, 'big')
+                new_num = int.from_bytes(new_hash, 'little')
                 if minimum_num > new_num:
                     binary = new_binary
                     hashed = new_hash

@@ -11,6 +11,7 @@ from .chaininfo import *
 from .websocket import *
 from .createtx import *
 from .contracttx import *
+from .jsonrpc import *
 from bc4py.config import V
 from bc4py.user.api import web_base
 import threading
@@ -19,7 +20,7 @@ import os
 import asyncio
 
 
-runner = None
+loop = asyncio.get_event_loop()
 
 
 def escape_cross_origin_block(app):
@@ -131,7 +132,6 @@ def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None, ssl_
     app.router.add_get('/api/getnetworkinfo', network_info)
     app.router.add_get('/api/validatorinfo', validator_info)
     app.router.add_get('/api/resync', resync)
-    app.router.add_get('/api/stop', close_server)
     # Account
     app.router.add_get('/api/listbalance', list_balance)
     app.router.add_get('/api/listtransactions', list_transactions)
@@ -159,7 +159,7 @@ def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None, ssl_
     app.router.add_post('/api/sourcecompile', source_compile)
     app.router.add_post('/api/contractcreate', contract_create)
     app.router.add_post('/api/contractstart', contract_start)
-    # BLockChain
+    # BlockChain
     app.router.add_get('/api/getblockbyheight', get_block_by_height)
     app.router.add_get('/api/getblockbyhash', get_block_by_hash)
     app.router.add_get('/api/gettxbyhash', get_tx_by_hash)
@@ -167,8 +167,17 @@ def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None, ssl_
     # Websocket
     init_ws_status(app)
     app.router.add_get('/streaming', ws_streaming)
+    # Json-RPC
+    app.router.add_post('/json-rpc', json_rpc)
     # WebPage
     base_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
+
+    @routes.get('/api/stop')
+    async def close_server(request):
+        logging.info("Closing server...")
+        import threading
+        threading.Timer(5, loop.call_soon_threadsafe(loop.stop)).start()
+        return web.Response(text='Close after 5 seconds.')
 
     @routes.get('/{page_path:[^{}]+.}')
     async def web_page(request):
@@ -214,37 +223,26 @@ def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None, ssl_
     # Working
     host = '127.0.0.1' if f_local else '0.0.0.0'
     # web.run_app(app=app, host=host, port=port)
-    global runner
     runner = web.AppRunner(app)
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(non_blocking_start(host, port, ssl_context))
+    loop.run_until_complete(non_blocking_start(runner, host, port, ssl_context))
     logging.info("REST work on port={} mode={}.".format(port, 'Local' if f_local else 'Global'))
 
     if f_blocking:
-        loop.run_forever()
+        try:
+            loop.run_forever()
+        except KeyboardInterrupt:
+            pass
         loop.close()
         logging.info("REST Server closed now.")
     else:
         logging.info("Create REST Server.")
 
 
-async def non_blocking_start(host, port, ssl_context):
+async def non_blocking_start(runner, host, port, ssl_context):
     # No blocking run https://docs.aiohttp.org/en/stable/web_advanced.html#application-runners
-    global runner
     await runner.setup()
     site = web.TCPSite(runner, host=host, port=port, ssl_context=ssl_context)
     await site.start()
-
-
-async def close_server(request):
-    def _close():
-        loop.call_soon_threadsafe(loop.stop)
-        print("Closed!")
-    loop = asyncio.get_event_loop()
-    logging.info("Closing server...")
-    import threading
-    threading.Timer(1, _close).start()
-    return web.Response(text='Close')
 
 
 async def resync(request):
