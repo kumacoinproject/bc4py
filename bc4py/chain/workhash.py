@@ -2,17 +2,32 @@ from bc4py.config import C, BlockChainError
 from multiprocessing import get_context, current_process
 import threading
 import logging
-from psutil import cpu_count
 from os import urandom
 from time import time, sleep
 from yespower import hash as yespower_hash  # for CPU
 from x11_hash import getPoWHash as x11_hash  # for ASIC
 from hmq_hash import getPoWHash as hmq_hash  # for GPU
+from litecoin_scrypt import getPoWHash as ltc_hash  # for ASIC
 from pooled_multiprocessing import cpu_num
 
 
 mp_generator = list()
 mp_lock = threading.Lock()
+
+
+def self_check_hash_fnc():
+    check_hash = b'\x00' * 80
+    check_list = [
+        (yespower_hash, b'z\x1b\xde\x0c\x01\xec\xc1\xd3\xdf\x86{\xb2;\x97>\xee\xbc\x96\xfd'
+                        b'\x83[\x14sv\xca\xe9\xf9\xa7\x04t\xe0F'),
+        (x11_hash, b'\x83(\x84a\x80\x96[\xceV\xf6\x1e\x01]\xb6*\xf5b\xa6\x11\xd8^^r\x1d\x85L\x8d\x97\xe4z>\xa3'),
+        (hmq_hash, b'\xf9\xf2~\xbc\x96=\xe0\xed\xff\xd0\xd3&\xe5\xab&\xea\xe1\xec'
+                   b'\x0f\x031\n\xdf\x12\xf1b zT\xeb\xd6\x86'),
+        (ltc_hash, b'\x16\x1d\x08v\xf3\xb9;\x10H\xcd\xa1\xbd\xea\xa73.\xe2\x10\xf7'
+                   b'\x13\x1bB\x01<\xb49\x13\xa6U:Ki')]
+    for hash_fnc, correct_hash in check_list:
+        if hash_fnc(check_hash) != correct_hash:
+            raise Exception('self check failed, hash module "{}".'.format(hash_fnc.__module__))
 
 
 def get_workhash_fnc(flag):
@@ -22,6 +37,8 @@ def get_workhash_fnc(flag):
         return x11_hash
     elif flag == C.BLOCK_HMQ_POW:
         return hmq_hash
+    elif flag == C.BLOCK_LTC_POW:
+        return ltc_hash
     elif flag in C.consensus2name:
         raise Exception('Not found block flag {}'.format(C.consensus2name[flag]))
     else:
@@ -52,6 +69,7 @@ def generate_many_hash(block, how_many):
     # hash generating with multi-core
     start = time()
     with mp_lock:
+        f_first = True
         while True:
             free_process = list()
             for hash_generator in mp_generator:
@@ -59,9 +77,12 @@ def generate_many_hash(block, how_many):
                     free_process.append(hash_generator)
             if len(free_process) > 0:
                 break
+            elif f_first:
+                logging.debug("Wait for free_process for mining...")
+                f_first = False
+                sleep(0.05)
             else:
-                logging.debug("Wait for free_process...")
-                sleep(0.1)
+                sleep(0.05)
         request_num = how_many // len(free_process)
         # throw task
         for hash_generator in free_process:
@@ -161,6 +182,9 @@ class HashGenerator:
             return data
         else:
             raise BlockChainError('Unknown status on pipe {}'.format(data))
+
+
+self_check_hash_fnc()
 
 
 __all__ = [

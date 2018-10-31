@@ -57,7 +57,7 @@ class DataBase:
         if os.path.exists(dirs):
             f_create = False
         else:
-            logging.debug('Oh, create database first.')
+            logging.debug('No db dir, create database first.')
             os.mkdir(dirs)
             f_create = True
         self._block = create_level_db(os.path.join(dirs, 'block'), create_if_missing=f_create)

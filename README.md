@@ -23,6 +23,7 @@ Requirement
     * [yespower-python](https://github.com/namuyan/yespower-python) for CPU only
     * [hmq-hash](https://github.com/namuyan/hmq-hash) for GPU only
     * [x11_hash](https://pypi.org/project/x11_hash/) for ASIC only
+    * [litecoin_scrypt](https://pypi.org/project/litecoin_scrypt/) for ASIC
 
 Install
 ----
@@ -67,7 +68,7 @@ Start node
 Documents
 ----
 * [Create genesis block](doc/GenesisBlock.md)
-* [Mining soft](doc/Mining.md)
+* [Ho to mining](doc/Mining.md)
 
 
 Build for windows

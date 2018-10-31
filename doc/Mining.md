@@ -16,7 +16,7 @@ About Mining
 
 Example for Yespower
 ----
-Yespoer's version is `0.9` or `1.0`, so can't use Bitzeny7s miner. 
+Yespoer's version is `0.9` or `1.0`, so can't use Bitzeny(`0.5`) miner. 
 You need to use [cpuminer-opt](https://github.com/bellflower2015/cpuminer-opt),
 [Binary](https://github.com/bellflower2015/cpuminer-opt/releases).
 Thank to bellflower2015!
