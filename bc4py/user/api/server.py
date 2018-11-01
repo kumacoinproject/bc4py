@@ -11,7 +11,7 @@ from .chaininfo import *
 from .websocket import *
 from .createtx import *
 from .contracttx import *
-from .jsonrpc import *
+from .jsonrpc import json_rpc
 from bc4py.config import V
 from bc4py.user.api import web_base
 import threading
@@ -21,6 +21,8 @@ import asyncio
 
 
 loop = asyncio.get_event_loop()
+base_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
+markdown_template = open(os.path.join(base_path, 'md_renderer.html'), mode='r', encoding='utf8').read()
 
 
 def escape_cross_origin_block(app):
@@ -169,8 +171,6 @@ def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None, ssl_
     app.router.add_get('/streaming', ws_streaming)
     # Json-RPC
     app.router.add_post('/json-rpc', json_rpc)
-    # WebPage
-    base_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
 
     @routes.get('/api/stop')
     async def close_server(request):
@@ -184,9 +184,15 @@ def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None, ssl_
         page_path = request.match_info.get('page_path', "index.html")
         try:
             req_path = page_path.split("/")
-            abs_path = os.path.join(base_path, os.path.join(*req_path))
-            print("access to", page_path)
-            if not os.path.exists(abs_path):
+            abs_path = os.path.join(base_path, *req_path)
+            if page_path.endswith('.md'):
+                markdown_title = req_path[-1]
+                markdown_body = open(abs_path, mode='r', encoding='utf8').read()
+                markdown_body = markdown_body.replace("\n", "\\n").replace("\"", "\\\"")
+                return web.Response(
+                    text=markdown_template % (markdown_title, markdown_body),
+                    headers=web_base.CONTENT_TYPE_HTML)
+            elif not os.path.exists(abs_path):
                 return "Not found Request page.", 404
             elif os.path.isfile(abs_path):
                 return web.Response(
