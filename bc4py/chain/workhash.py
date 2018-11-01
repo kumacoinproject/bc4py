@@ -69,7 +69,7 @@ def generate_many_hash(block, how_many):
     # hash generating with multi-core
     start = time()
     with mp_lock:
-        f_first = True
+        f_wait = False
         while True:
             free_process = list()
             for hash_generator in mp_generator:
@@ -77,12 +77,12 @@ def generate_many_hash(block, how_many):
                     free_process.append(hash_generator)
             if len(free_process) > 0:
                 break
-            elif f_first:
-                logging.debug("Wait for free_process for mining...")
-                f_first = False
-                sleep(0.05)
             else:
+                f_wait = True
                 sleep(0.05)
+        if f_wait:
+            logging.debug("Wait for free_process for mining... {}mSec"
+                          .format(int((time()-start)*1000)))
         request_num = how_many // len(free_process)
         # throw task
         for hash_generator in free_process:

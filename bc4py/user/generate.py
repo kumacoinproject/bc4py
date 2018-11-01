@@ -111,13 +111,13 @@ class Generate(Thread):
             # generate next mining how_many
             try:
                 self.hashrate = (how_many * len(spans_deque) // sum(spans_deque), time())
-                bias = sum(work_span * (1+i) for i, span in enumerate(spans_deque))
-                bias /= sum(span * (1+i) for i, span in enumerate(spans_deque))
+                bias = sum(work_span * i for i, span in enumerate(spans_deque))
+                bias /= sum(span * i for i, span in enumerate(spans_deque))
                 bias = min(2.0, max(0.5, bias))
                 how_many = max(100, int(how_many * bias))
                 if int(time()) % 90 == 0:
-                    logging.info("Mining... Next target how_many is {}{}"
-                                 .format(how_many, "↑" if bias > 1 else "↓"))
+                    logging.info("Mining... Next target how_many is {} {}"
+                                 .format(how_many, "Up" if bias > 1 else "Down"))
             except ZeroDivisionError:
                 pass
             sleep(sleep_span)
