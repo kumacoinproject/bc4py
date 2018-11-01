@@ -111,12 +111,12 @@ class Block:
         r['f_on_memory'] = self.f_on_memory
         r['height'] = self.height
         r['difficulty'] = self.difficulty
-        r['fixed_difficulty'] = self.difficulty * self.bias
+        r['fixed_difficulty'] = round(self.difficulty / self.bias, 8)
         r['flag'] = C.consensus2name[self.flag]
         r['merkleroot'] = hexlify(self.merkleroot).decode() if self.merkleroot else None
         r['time'] = V.BLOCK_GENESIS_TIME + self.time
         r['bits'] = self.bits
-        r['bias'] = self.bias
+        r['bias'] = round(self.bias, 8)
         r['nonce'] = hexlify(self.nonce).decode() if self.nonce else None
         r['txs'] = [hexlify(tx.hash).decode() for tx in self.txs]
         return r
