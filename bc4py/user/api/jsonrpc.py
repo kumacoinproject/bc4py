@@ -36,7 +36,7 @@ async def json_rpc(request):
     post = await web_base.content_type_json_check(request)
     try:
         if F_HEAVY_DEBUG: logging.debug("PostRequest: {}".format(post))
-        method, params = post['method'], post['params']
+        method, params = post['method'], post.get('params', tuple())
         if F_HEAVY_DEBUG: logging.debug("RpcRequest: {}".format(params))
         if not isinstance(params, list):
             return web.Response(text='Params is list. not {}'.format(type(params)), status=400)
