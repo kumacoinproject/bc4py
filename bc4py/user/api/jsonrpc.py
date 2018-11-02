@@ -36,7 +36,7 @@ async def json_rpc(request):
     post = await web_base.content_type_json_check(request)
     try:
         if F_HEAVY_DEBUG: logging.debug("PostRequest: {}".format(post))
-        method, params = post['method'], post.get('params', tuple())
+        method, params = post['method'], post.get('params', list())
         if F_HEAVY_DEBUG: logging.debug("RpcRequest: {}".format(params))
         if not isinstance(params, list):
             return web.Response(text='Params is list. not {}'.format(type(params)), status=400)
@@ -106,16 +106,15 @@ async def getwork(*args, **kwargs):
             return 'Not found merkleroot.'
 
 
-async def getblocktemplate(capabilities, **kwargs):
+async def getblocktemplate(*args, **kwargs):
     # capabilities = {"capabilities": ["coinbasetxn", "workid", "coinbase/append"]}
-    if "coinbasetxn" not in capabilities['capabilities']:
-        return 'coinbasetxn is required!'
     mining_block = await get_mining_block(**kwargs)
     mining_block.bits2target()
     template = {
         "version": mining_block.version,
         "previousblockhash": bin2hex(mining_block.previous_hash),
         "coinbasetxn": {
+            # sgminer say, FAILED to decipher work from 127.0.0.1
             "data": hexlify(mining_block.txs[0].b).decode()
         },  # 採掘報酬TX
         "transactions": list(),
