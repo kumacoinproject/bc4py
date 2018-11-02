@@ -18,7 +18,6 @@ import threading
 import logging
 import os
 import asyncio
-from markdown import markdown
 
 
 loop = asyncio.get_event_loop()
@@ -189,7 +188,7 @@ def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None, ssl_
             if page_path.endswith('.md'):
                 markdown_title = req_path[-1]
                 markdown_body = open(abs_path, mode='r', encoding='utf8').read()
-                markdown_body = markdown(markdown_body, output_format='html5')
+                markdown_body = markdown_body.replace('\\', '\\\\').replace('\"', '\\\"').replace("\n", "\\n")
                 return web.Response(
                     text=markdown_template % (markdown_title, markdown_body),
                     headers=web_base.CONTENT_TYPE_HTML)
@@ -204,7 +203,8 @@ def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None, ssl_
                     body=open(os.path.join(abs_path, 'index.html'), mode='rb').read(),
                     headers=web_base.CONTENT_TYPE_HTML)
         except Exception as e:
-            return web.Response(text=str(e), status=400)
+            logging.error(e)
+            return web.Response(text="Error: {}".format(page_path), status=400)
 
     @routes.post('/{page_path:[^{}]+.}')
     async def dummy_page(request):
