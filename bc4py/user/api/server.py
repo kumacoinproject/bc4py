@@ -18,6 +18,7 @@ import threading
 import logging
 import os
 import asyncio
+from markdown import markdown
 
 
 loop = asyncio.get_event_loop()
@@ -188,7 +189,7 @@ def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None, ssl_
             if page_path.endswith('.md'):
                 markdown_title = req_path[-1]
                 markdown_body = open(abs_path, mode='r', encoding='utf8').read()
-                markdown_body = markdown_body.replace("\n", "\\n").replace("\"", "\\\"")
+                markdown_body = markdown(markdown_body, output_format='html5')
                 return web.Response(
                     text=markdown_template % (markdown_title, markdown_body),
                     headers=web_base.CONTENT_TYPE_HTML)
