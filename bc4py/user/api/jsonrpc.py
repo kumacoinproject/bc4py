@@ -26,33 +26,43 @@ getwork_cashe = ExpiringDict(max_len=10000, max_age_seconds=1800)
 
 async def json_rpc(request):
     if 'Authorization' not in request.headers:
-        return web.Response(text='"Not found Authorization."', status=400)
+        return res_failed("Not found Authorization.", None)
     authorization = request.headers['Authorization']
     auth_type, auth_data = authorization.split()
     if auth_type != 'Basic':
-        return web.Response(text='"Not Basic Authorization."', status=400)
-    if P.F_NOW_BOOTING:
-        return web.Response(text='"Busy status."', status=400)
+        return res_failed("Not Basic Authorization.", None)
     user, password = b64decode(auth_data.encode()).decode().split(':')
     # user_agent = request.headers['User-Agent']
     post = await web_base.content_type_json_check(request)
     try:
         if F_HEAVY_DEBUG: logging.debug("PostRequest: {}".format(post))
         method, params = post['method'], post.get('params', list())
+        if P.F_NOW_BOOTING:
+            return res_failed("Busy status.", post.get('id'))
         if F_HEAVY_DEBUG: logging.debug("RpcRequest: {}".format(params))
         if not isinstance(params, list):
-            return web.Response(text='"Params is list. not {}"'.format(type(params)), status=400)
+            return res_failed("Params is list. not {}".format(type(params)), post.get('id'))
         kwords = dict(user=user, password=password)
         result = await globals().get(method)(*params, **kwords)
         if F_HEAVY_DEBUG: logging.debug("RpcResponse: {}".format(result))
-        return web_base.json_res(
-            data={'error': None, 'result': result, 'id': post['id']}, indent=None)
+        return res_success(result, post.get('id'))
     except Exception as e:
         import traceback
         tb = traceback.format_exc()
         logging.debug("JsonRpcError: {}".format(e))
-        return web_base.error_res(
-            json.dumps({'error': str(tb), 'result': None, 'id': post['id']}))
+        return res_failed(str(tb), post.get('id'))
+
+
+def res_failed(error, id):
+    return web.Response(
+        text=json.dumps({'id': id, 'result': None, 'error': error}),
+        content_type='application/json')
+
+
+def res_success(result, id):
+    return web.Response(
+        text=json.dumps({'id': id, 'result': result, 'error': None}),
+        content_type='application/json')
 
 
 async def get_mining_block(**kwargs):
