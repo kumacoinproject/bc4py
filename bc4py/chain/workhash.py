@@ -8,7 +8,7 @@ from yespower import hash as yespower_hash  # for CPU
 from x11_hash import getPoWHash as x11_hash  # for ASIC
 from hmq_hash import getPoWHash as hmq_hash  # for GPU
 from litecoin_scrypt import getPoWHash as ltc_hash  # for ASIC
-from x16r_hash import getPoWHash as x16r_hash  # for GPU
+from shield_x16s_hash import getPoWHash as x16s_hash  # for GPU
 from pooled_multiprocessing import cpu_num
 
 
@@ -41,7 +41,7 @@ def get_workhash_fnc(flag):
     elif flag == C.BLOCK_LTC_POW:
         return ltc_hash
     elif flag == C.BLOCK_X16_POW:
-        return x16r_hash
+        return x16s_hash
     elif flag in C.consensus2name:
         raise Exception('Not found block flag {}'.format(C.consensus2name[flag]))
     else:

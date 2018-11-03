@@ -25,7 +25,7 @@ Requirement
         * [~~yescryptR64~~](https://github.com/namuyan/yescryptR64-python) CPU resistance?
     * For GPU
         * [hmq-hash](https://github.com/namuyan/hmq-hash)
-        * [x16r_hash](https://github.com/namuyan/x16r_hash)
+        * [x16s-hash](https://pypi.org/project/shield-x16s-hash/)
     * For ASIC
         * [x11_hash](https://pypi.org/project/x11_hash/)
         * [litecoin_scrypt](https://pypi.org/project/litecoin_scrypt/)
