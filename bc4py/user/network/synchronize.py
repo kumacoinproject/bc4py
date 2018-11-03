@@ -44,7 +44,7 @@ def batch_workhash(blocks):
     data_list = list()
     s = time()
     for block in blocks:
-        if block.flag in (C.BLOCK_YES_POW, C.BLOCK_HMQ_POW, C.BLOCK_X11_POW, C.BLOCK_LTC_POW):
+        if block.flag in (C.BLOCK_YES_POW, C.BLOCK_HMQ_POW, C.BLOCK_X11_POW, C.BLOCK_LTC_POW, C.BLOCK_X16_POW):
             data_list.append((block.height, block.flag, block.b))
     if len(data_list) > 0:
         waiter, result = mp_map_async(_generate_workhash, data_list, callback=_callback_workhash)

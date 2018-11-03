@@ -20,10 +20,15 @@ Requirement
     * [plyvel](https://github.com/wbolster/plyvel) for linux and ARM
     * [python-leveldb](https://github.com/happynear/py-leveldb-windows) for linux and windows
 * Mining algorithm
-    * [yespower-python](https://github.com/namuyan/yespower-python) for CPU only
-    * [hmq-hash](https://github.com/namuyan/hmq-hash) for GPU only
-    * [x11_hash](https://pypi.org/project/x11_hash/) for ASIC only
-    * [litecoin_scrypt](https://pypi.org/project/litecoin_scrypt/) for ASIC
+    * For CPU
+        * [yespower-python](https://github.com/namuyan/yespower-python)
+        * [~~yescryptR64~~](https://github.com/namuyan/yescryptR64-python) CPU resistance?
+    * For GPU
+        * [hmq-hash](https://github.com/namuyan/hmq-hash)
+        * [x16r_hash](https://github.com/namuyan/x16r_hash)
+    * For ASIC
+        * [x11_hash](https://pypi.org/project/x11_hash/)
+        * [litecoin_scrypt](https://pypi.org/project/litecoin_scrypt/)
 
 Install
 ----
