@@ -26,13 +26,13 @@ getwork_cashe = ExpiringDict(max_len=10000, max_age_seconds=1800)
 
 async def json_rpc(request):
     if 'Authorization' not in request.headers:
-        return '"Not found Authorization."', 400
+        return web.Response(text='"Not found Authorization."', status=400)
     authorization = request.headers['Authorization']
     auth_type, auth_data = authorization.split()
     if auth_type != 'Basic':
-        return '"Not Basic Authorization."', 400
+        return web.Response(text='"Not Basic Authorization."', status=400)
     if P.F_NOW_BOOTING:
-        return '"Busy status."', 400
+        return web.Response(text='"Busy status."', status=400)
     user, password = b64decode(auth_data.encode()).decode().split(':')
     # user_agent = request.headers['User-Agent']
     post = await web_base.content_type_json_check(request)
@@ -41,7 +41,7 @@ async def json_rpc(request):
         method, params = post['method'], post.get('params', list())
         if F_HEAVY_DEBUG: logging.debug("RpcRequest: {}".format(params))
         if not isinstance(params, list):
-            return '"Params is list. not {}"'.format(type(params)), 400
+            return web.Response(text='"Params is list. not {}"'.format(type(params)), status=400)
         kwords = dict(user=user, password=password)
         result = await globals().get(method)(*params, **kwords)
         if F_HEAVY_DEBUG: logging.debug("RpcResponse: {}".format(result))
