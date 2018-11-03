@@ -21,7 +21,7 @@ import asyncio
 
 
 F_HEAVY_DEBUG = False
-getwork_cashe = ExpiringDict(max_len=10000, max_age_seconds=1800)
+getwork_cashe = ExpiringDict(max_len=100, max_age_seconds=300)
 
 
 async def json_rpc(request):
@@ -80,6 +80,8 @@ async def getwork(*args, **kwargs):
     if len(args) == 0:
         now = int(time() - V.BLOCK_GENESIS_TIME)
         for block in getwork_cashe.values():
+            if block.previous_hash != builder.best_block.hash:
+                continue
             if now - block.time < 10:
                 mining_block = block
                 break
@@ -103,9 +105,9 @@ async def getwork(*args, **kwargs):
         for i in range(0, 128, 4):
             new_data += data[i:i+4][::-1]
         block = Block(binary=new_data[:80])
+        if block.previous_hash != builder.best_block.hash:
+            return 'PreviousHash don\'t match.'
         if block.merkleroot in getwork_cashe:
-            if F_HEAVY_DEBUG:
-                logging.debug("GetWorkCashe {}Sec ago.".format(block.time - getwork_cashe[block.merkleroot].time))
             block.txs.extend(getwork_cashe[block.merkleroot].txs)
             result = await submitblock(block, **kwargs)
             if result is None:
