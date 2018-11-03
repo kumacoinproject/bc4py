@@ -12,6 +12,8 @@ About Mining
     * and etc..
 * **important**
     * Miner notify server algo by `password` integer, please check [config.py](/bc4py/config.py).
+    * You can use general mining tools by mimicking a structure of Blockchain of Bitcoin.
+    it is logically possible to mine by all, but it depends on program, because coinbase transaction is differ from Bitcoin's.
     * Please at your own risk about using binaries.
 
 Example for Yespower
@@ -30,10 +32,11 @@ Example for HMQ1725
 ----
 **HMQ1725** has been famous for [ESP](https://github.com/CryptoCoderz/Espers).
 You can mine by [cpuminer-hmq1725](https://github.com/CryptoCoderz/cpuminer-hmq1725) or
-[sgminer_HMQ1725](https://github.com/CryptoCoderz/sgminer_HMQ1725),
-please look [HMQ1725 algorithm – List of HMQ1725 coins and mining software’s](https://coinguides.org/hmq1725-algorithm-coins-miner/)
+[tpruvot-ccminer](https://github.com/tpruvot/ccminer).
 
-For cpuminer-hmq1725, hmq1725 is suitable for AMD GPU, I hear.
+Please look [HMQ1725 algorithm – List of HMQ1725 coins and mining software’s](https://coinguides.org/hmq1725-algorithm-coins-miner/)
+
+I hear hmq1725 is suitable for AMD GPU.
 ```commandline
 cpuminer -a hmq1725 -o http://127.0.0.1:3000/json-rpc -u user -p 5
 pause

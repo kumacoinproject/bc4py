@@ -1,5 +1,5 @@
 from bc4py import __chain_version__
-from bc4py.config import C, V
+from bc4py.config import C, V, P
 from bc4py.user.api import web_base
 from bc4py.database.builder import builder, tx_builder
 from bc4py.user.generate import create_mining_block, confirmed_generating_block
@@ -26,11 +26,13 @@ getwork_cashe = ExpiringDict(max_len=10000, max_age_seconds=1800)
 
 async def json_rpc(request):
     if 'Authorization' not in request.headers:
-        return web.Response(text='Not found Authorization.', status=400)
+        return '"Not found Authorization."', 400
     authorization = request.headers['Authorization']
     auth_type, auth_data = authorization.split()
     if auth_type != 'Basic':
-        return web.Response(text='Not Basic Authorization.', status=400)
+        return '"Not Basic Authorization."', 400
+    if P.F_NOW_BOOTING:
+        return '"Busy status."', 400
     user, password = b64decode(auth_data.encode()).decode().split(':')
     # user_agent = request.headers['User-Agent']
     post = await web_base.content_type_json_check(request)
@@ -39,19 +41,18 @@ async def json_rpc(request):
         method, params = post['method'], post.get('params', list())
         if F_HEAVY_DEBUG: logging.debug("RpcRequest: {}".format(params))
         if not isinstance(params, list):
-            return web.Response(text='Params is list. not {}'.format(type(params)), status=400)
+            return '"Params is list. not {}"'.format(type(params)), 400
         kwords = dict(user=user, password=password)
         result = await globals().get(method)(*params, **kwords)
         if F_HEAVY_DEBUG: logging.debug("RpcResponse: {}".format(result))
-        return web_base.json_res({'error': None, 'result': result, 'id': post['id']})
+        return web_base.json_res(
+            data={'error': None, 'result': result, 'id': post['id']}, indent=None)
     except Exception as e:
         import traceback
         tb = traceback.format_exc()
         logging.debug("JsonRpcError: {}".format(e))
-        return web.Response(
-            text=json.dumps({'error': str(tb), 'result': None, 'id': post['id']}, indent=4),
-            content_type='application/json',
-            status=400)
+        return web_base.error_res(
+            json.dumps({'error': str(tb), 'result': None, 'id': post['id']}))
 
 
 async def get_mining_block(**kwargs):
@@ -117,7 +118,6 @@ async def getblocktemplate(*args, **kwargs):
             # sgminer say, FAILED to decipher work from 127.0.0.1
             "data": hexlify(mining_block.txs[0].b).decode()
         },  # 採掘報酬TX
-        "transactions": list(),
         "target": bin2hex(mining_block.target_hash),
         "mutable": [
             "time",
@@ -186,7 +186,7 @@ async def submitblock(block_hex_or_obj, **kwargs):
         mined_block.height = builder.best_block.height + 1
         mined_block.flag = int(kwargs['password'])
     else:
-        return "Unknown input? -> {}".format(block_hex_or_obj)
+        return 'Unknown input? -> {}'.format(block_hex_or_obj)
     mined_block.update_pow()
     if not mined_block.pow_check():
         return 'not satisfied work.'

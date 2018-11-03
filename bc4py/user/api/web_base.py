@@ -22,13 +22,14 @@ async def content_type_json_check(request):
             logging.error("content_type_json_check() body={}".format(body))
 
 
-def json_res(data):
+def json_res(data, indent=4):
     return web.Response(
-        text=json.dumps(data, indent=4),
+        text=json.dumps(data, indent=indent),
         content_type='application/json')
 
 
-def error_res():
-    import traceback
-    tb = traceback.format_exc()
-    return web.Response(text=str(tb), status=400)
+def error_res(errors=None):
+    if errors:
+        import traceback
+        errors = str(traceback.format_exc())
+    return web.Response(text=errors, status=400)
