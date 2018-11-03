@@ -121,7 +121,6 @@ class Generate(Thread):
             except ZeroDivisionError:
                 pass
             sleep(sleep_span)
-        self.event_close.set()
         logging.info("Close signal")
 
     def proof_of_stake(self):
@@ -197,7 +196,6 @@ class Generate(Thread):
                     logging.info("Staking... margin={}% limit={}".format(round(remain*100, 1), staking_limit))
                 self.hashrate = (calculate_nam, time())
                 sleep(max(0.0, remain))
-        self.event_close.set()
         logging.info("Close signal")
 
 

@@ -16,13 +16,13 @@ def check_tx_pow_reward(tx, include_block):
         raise BlockChainError('Pow msg is less than 96bytes. [{}b>96b]'.format(len(tx.message)))
 
     address, coin_id, amount = tx.outputs[0]
-    reward = GompertzCurve.calc_block_reward(tx.height or include_block.height)
+    reward = GompertzCurve.calc_block_reward(include_block.height)
     fees = sum(tx.gas_amount * tx.gas_price for tx in include_block.txs)
 
     if not (include_block.time == tx.time == tx.deadline - 10800):
         raise BlockChainError('TX time is wrong 3. [{}={}={}-10800]'.format(include_block.time, tx.time, tx.deadline))
     elif not (coin_id == 0 and amount <= reward + fees):
-        raise BlockChainError('Input and output is wrong {} [{}<={}+{}]'.format(coin_id, amount, reward, fees))
+        raise BlockChainError('Input and output is wrong coin={} [{}<={}+{}]'.format(coin_id, amount, reward, fees))
     elif not include_block.pow_check():
         include_block.work2diff()
         include_block.target2diff()
@@ -50,8 +50,7 @@ def check_tx_pos_reward(tx, include_block):
     input_address, input_coin_id, input_amount = base_tx.outputs[txindex]
     tx.pos_amount = input_amount
     output_address, output_coin_id, output_amount = tx.outputs[0]
-    check_height = tx.height or include_block.height
-    reward = GompertzCurve.calc_block_reward(check_height)
+    reward = GompertzCurve.calc_block_reward(include_block.height)
     include_block.bits2target()
 
     if input_address != output_address:
@@ -64,9 +63,9 @@ def check_tx_pos_reward(tx, include_block):
         raise BlockChainError('Not correct tx version or msg_type.')
     elif base_tx.height is None:
         raise BlockChainError('Source TX is unconfirmed. {}'.format(base_tx))
-    elif not (check_height > base_tx.height + C.MATURE_HEIGHT):
+    elif not (include_block.height > base_tx.height + C.MATURE_HEIGHT):
         raise BlockChainError('Source TX height is too young. [{}>{}+{}]'
-                              .format(check_height, base_tx.height, C.MATURE_HEIGHT))
+                              .format(include_block.height, base_tx.height, C.MATURE_HEIGHT))
     elif not (include_block.time == tx.time == tx.deadline - 10800):
         raise BlockChainError('TX time is wrong 1. [{}={}={}-10800]'.format(include_block.time, tx.time, tx.deadline))
     elif not tx.pos_check(include_block.previous_hash, include_block.target_hash):

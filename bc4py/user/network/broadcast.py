@@ -85,7 +85,7 @@ def fill_newblock_info(data):
     new_block = Block(binary=data['block'])
     proof = TX(binary=data['proof'])
     new_block.txs.append(proof)
-    new_block.flag = data.get('block_flag', proof.type)
+    new_block.flag = data['block_flag']
     proof.signature = data['sign']
     # Check the block is correct info
     if not new_block.pow_check():

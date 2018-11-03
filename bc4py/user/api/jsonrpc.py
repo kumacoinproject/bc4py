@@ -160,7 +160,8 @@ async def submitblock(block_hex_or_obj, **kwargs):
         mined_block = Block(binary=block_bin[:80])
         if mined_block.previous_hash != builder.best_block.hash:
             return 'PreviousHash don\'t match.'
-        mined_block.height = builder.best_block.height + 1
+        previous_block = builder.get_block(mined_block.previous_hash)
+        mined_block.height = previous_block.height + 1
         mined_block.flag = int(kwargs['password'])
         # tx length
         storage_flag = int.from_bytes(block_bin[80:81], 'little')
@@ -193,7 +194,10 @@ async def submitblock(block_hex_or_obj, **kwargs):
                 return 'Do not match pos [{}!={}]'.format(pos, len(block_bin))
     elif isinstance(block_hex_or_obj, Block):
         mined_block = block_hex_or_obj
-        mined_block.height = builder.best_block.height + 1
+        if mined_block.previous_hash != builder.best_block.hash:
+            return 'PreviousHash don\'t match.'
+        previous_block = builder.get_block(mined_block.previous_hash)
+        mined_block.height = previous_block.height + 1
         mined_block.flag = int(kwargs['password'])
     else:
         return 'Unknown input? -> {}'.format(block_hex_or_obj)
