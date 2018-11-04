@@ -167,12 +167,17 @@ class Block:
     def work2diff(self):
         self._work_difficulty = round((MAX_256_INT // int.from_bytes(self.work_hash, 'little')) / 1000000, 8)
 
-    def pow_check(self):
+    def pow_check(self, extra_target=None):
+        if extra_target:
+            assert isinstance(extra_target, int)
+            target_int = extra_target
+        else:
+            if not self.target_hash:
+                self.bits2target()
+            target_int = int.from_bytes(self.target_hash, 'little')
         if not self.work_hash:
             update_work_hash(self)
-        if not self.target_hash:
-            self.bits2target()
-        return int.from_bytes(self.target_hash, 'little') > int.from_bytes(self.work_hash, 'little')
+        return target_int > int.from_bytes(self.work_hash, 'little')
 
     def update_merkleroot(self):
         hash_list = [tx.hash for tx in self.txs]

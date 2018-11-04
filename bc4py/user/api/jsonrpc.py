@@ -3,6 +3,7 @@ from bc4py.config import C, V, P
 from bc4py.user.api import web_base
 from bc4py.database.builder import builder, tx_builder
 from bc4py.user.generate import create_mining_block, confirmed_generating_block
+from bc4py.chain.difficulty import MAX_TARGET
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from binascii import hexlify, unhexlify
@@ -22,6 +23,7 @@ import asyncio
 
 F_HEAVY_DEBUG = False
 getwork_cashe = ExpiringDict(max_len=100, max_age_seconds=300)
+extra_target = None  # 0x00000000ffff0000000000000000000000000000000000000000000000000000
 
 
 async def json_rpc(request):
@@ -96,9 +98,14 @@ async def getwork(*args, **kwargs):
         new_data = b''
         for i in range(0, 128, 4):
             new_data += data[i:i+4][::-1]
-        return {
-            "data": hexlify(new_data).decode(),
-            "target": hexlify(mining_block.target_hash).decode()}
+        if extra_target:
+            return {
+                "data": hexlify(new_data).decode(),
+                "target": hexlify(extra_target.to_bytes(32, 'big')).decode()}
+        else:
+            return {
+                "data": hexlify(new_data).decode(),
+                "target": hexlify(mining_block.target_hash).decode()}
     else:
         data = unhexlify(args[0].encode())
         new_data = b''
@@ -112,8 +119,11 @@ async def getwork(*args, **kwargs):
             result = await submitblock(block, **kwargs)
             if result is None:
                 return True
-            logging.debug("GetWorkReject by \"{}\"".format(result))
-            return result
+            elif extra_target and block.pow_check(extra_target=extra_target):
+                return True
+            else:
+                logging.debug("GetWorkReject by \"{}\"".format(result))
+                return result
         else:
             logging.debug("GetWorkReject by \"Not found merkleroot.\"")
             return 'Not found merkleroot.'
@@ -196,18 +206,17 @@ async def submitblock(block_hex_or_obj, **kwargs):
                 return 'Do not match pos [{}!={}]'.format(pos, len(block_bin))
     elif isinstance(block_hex_or_obj, Block):
         mined_block = block_hex_or_obj
-        if mined_block.previous_hash != builder.best_block.hash:
-            return 'PreviousHash don\'t match.'
         previous_block = builder.get_block(mined_block.previous_hash)
         mined_block.height = previous_block.height + 1
         mined_block.flag = int(kwargs['password'])
     else:
         return 'Unknown input? -> {}'.format(block_hex_or_obj)
     mined_block.update_pow()
-    if not mined_block.pow_check():
+    if mined_block.pow_check():
+        confirmed_generating_block(mined_block)
+        return None  # accepted
+    else:
         return 'not satisfied work.'
-    confirmed_generating_block(mined_block)
-    return None  # accepted
 
 
 async def getmininginfo(*args, **kwargs):
