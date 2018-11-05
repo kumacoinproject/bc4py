@@ -1,6 +1,3 @@
-from bc4py.config import V
-from bc4py.utils import set_database_path, set_blockchain_params
-from bc4py.database.builder import builder
 from bc4py.database.tools import get_contract_binary
 from bc4py.contract.tools import *
 from bc4py.contract.libs import __price__
@@ -9,14 +6,15 @@ from multiprocessing import get_context
 import logging
 import socket
 import traceback
-import time
+from time import time
 import os
 import bjson
-import io
+
 
 CMD_ERROR = 0
 CMD_SUCCESS = 1
-CMD_PORT = 3
+CMD_PORT = 2
+cmd2name = {0: 'CMD_ERROR', 1: 'CMD_SUCCESS', 2: 'CMD_PORT'}
 
 EMU_STEP = 'step'
 EMU_NEXT = 'next'
@@ -24,43 +22,45 @@ EMU_QUIT = 'quit'
 EMU_UNTIL = 'until'
 EMU_RETURN = 'return'
 
+cxt = get_context('spawn')
 
-def _work(params, start_tx, que):
-    set_database_path(sub_dir=params["sub_dir"])
-    set_blockchain_params(genesis_block=params['genesis_block'])
+
+def vm(*args):
+    start_tx, que, c_bin, c_address, c_method, c_args = args
     try:
         virtual_machine = rpdb.Rpdb(port=0)
+        c_obj = binary2contract(c_bin)
+        # notify port number
         que.put((CMD_PORT, virtual_machine.port))
+        # start emulate
         virtual_machine.server_start()
-        c_obj = binary2contract(params['c_bin'])
-        # remote emulate
         virtual_machine.set_trace()
-        obj = c_obj(start_tx, params['c_address'])
-        fnc = getattr(obj, params['c_method'])
-        result = fnc(*params['args'])
+        # get method
+        obj = c_obj(start_tx, c_address)
+        fnc = getattr(obj, c_method)
+        result = fnc(*c_args)  # RUN
         que.put((CMD_SUCCESS, result))
-        virtual_machine.do_quit('quit')
+        virtual_machine.do_quit(EMU_QUIT)
     except BaseException:
         tb = traceback.format_exc()
         que.put((CMD_ERROR, str(tb)))
 
 
 def try_emulate(start_tx, gas_limit=None, out=None):
-    start_time = time.time()
-    cxt = get_context('spawn')
+    # return: status, data, fee, line
+    start = time()
     que = cxt.Queue()
     # out = out or io.StringIO()
     c_address, c_method, c_args, c_redeem = bjson.loads(start_tx.message)
     c_bin = get_contract_binary(c_address)
     assert c_bin, 'Not found c_bin of {}'.format(c_address)
-    params = {
-        'sub_dir': V.SUB_DIR, 'genesis_block': builder.get_block(builder.get_block_hash(0)),
-        'c_bin': c_bin, 'c_address': c_address, 'c_method': c_method, 'args': c_args}
-    p = cxt.Process(target=_work, args=(params, start_tx, que))
+    args = [start_tx, que, c_bin, c_address, c_method, c_args]
+    p = cxt.Process(target=vm, args=args)
     p.start()
+    # wait for report port number
     que_cmd, port = que.get(timeout=10)
     if que_cmd != CMD_PORT:
-        raise TypeError('Not correct command="{}" data="{}"'.format(que_cmd, port))
+        raise Exception('Not correct command="{}" data="{}"'.format(que_cmd, port))
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect(("127.0.0.1", port))
     sock.settimeout(10)
@@ -108,10 +108,10 @@ def try_emulate(start_tx, gas_limit=None, out=None):
         except BaseException:
             error = str(traceback.format_exc())
             break
-    logging.debug("Finish contract {}Sec error:{}".format(round(time.time() - start_time, 3), error))
+    logging.debug("Finish contract {}Sec error:{}".format(round(time()-start, 3), error))
     # Close emulation
     try:
-        que_cmd, result = que.get_nowait()
+        que_cmd, result = que.get(timeout=10)
         print(result)
         try: que.close()
         except: pass
