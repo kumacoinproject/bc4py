@@ -25,7 +25,9 @@ def self_check_hash_fnc():
         (hmq_hash, b'\xf9\xf2~\xbc\x96=\xe0\xed\xff\xd0\xd3&\xe5\xab&\xea\xe1\xec'
                    b'\x0f\x031\n\xdf\x12\xf1b zT\xeb\xd6\x86'),
         (ltc_hash, b'\x16\x1d\x08v\xf3\xb9;\x10H\xcd\xa1\xbd\xea\xa73.\xe2\x10\xf7'
-                   b'\x13\x1bB\x01<\xb49\x13\xa6U:Ki')]
+                   b'\x13\x1bB\x01<\xb49\x13\xa6U:Ki'),
+        (x16s_hash, b'\xcc\xa6\x1bVE\xd4\xcez3\x9b\xbf\xba\x80\x05\xeb\xd3\xa5\x86\x9bW'
+                    b'\x01\xf8\xb6\xe5a\xc3\x9e\xd9\x8c\xca\x02\x1a')]
     for hash_fnc, correct_hash in check_list:
         if hash_fnc(check_hash) != correct_hash:
             raise Exception('self check failed, hash module "{}".'.format(hash_fnc.__module__))
