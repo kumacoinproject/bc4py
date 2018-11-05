@@ -20,9 +20,15 @@ Requirement
     * [plyvel](https://github.com/wbolster/plyvel) for linux and ARM
     * [python-leveldb](https://github.com/happynear/py-leveldb-windows) for linux and windows
 * Mining algorithm
-    * [yespower-python](https://github.com/namuyan/yespower-python) for CPU only
-    * [hmq-hash](https://github.com/namuyan/hmq-hash) for GPU only
-    * [x11_hash](https://pypi.org/project/x11_hash/) for ASIC only
+    * For CPU
+        * [yespower-python](https://github.com/namuyan/yespower-python)
+        * [~~yescryptR64~~](https://github.com/namuyan/yescryptR64-python) CPU resistance?
+    * For GPU
+        * [hmq-hash](https://github.com/namuyan/hmq-hash)
+        * [x16s-hash](https://pypi.org/project/shield-x16s-hash/)
+    * For ASIC
+        * [x11_hash](https://pypi.org/project/x11_hash/)
+        * [litecoin_scrypt](https://pypi.org/project/litecoin_scrypt/)
 
 Install
 ----
@@ -64,9 +70,10 @@ Start node
 * `python publicnode.py` Node with mining/staking.
 * `python observenode.py` Node only accept blocks/txs.
 
-Create genesis block
+Documents
 ----
 * [Create genesis block](doc/GenesisBlock.md)
+* [Ho to mining](doc/Mining.md)
 
 
 Build for windows

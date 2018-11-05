@@ -11,7 +11,7 @@ import struct
 import time
 
 
-struct_block = struct.Struct('>I32s32sII4s')
+struct_block = struct.Struct('<I32s32sII4s')
 
 
 class Block:
@@ -81,17 +81,17 @@ class Block:
             self.version,
             self.previous_hash,
             self.merkleroot,
-            self.bits,
             self.time,
+            self.bits,
             self.nonce)
-        self.hash = sha256(self.b).digest()
+        self.hash = sha256(sha256(self.b).digest()).digest()
         assert len(self.b) == 80, 'Not correct header size [{}!={}]'.format(len(self.b), 80)
 
     def deserialize(self):
         assert len(self.b) == 80, 'Not correct header size [{}!={}]'.format(len(self.b), 80)
-        self.version, self.previous_hash, self.merkleroot, self.bits, self.time, \
+        self.version, self.previous_hash, self.merkleroot, self.time, self.bits, \
             self.nonce = struct_block.unpack(self.b)
-        self.hash = sha256(self.b).digest()
+        self.hash = sha256(sha256(self.b).digest()).digest()
 
     def getinfo(self):
         r = dict()
@@ -111,11 +111,12 @@ class Block:
         r['f_on_memory'] = self.f_on_memory
         r['height'] = self.height
         r['difficulty'] = self.difficulty
+        r['fixed_difficulty'] = round(self.difficulty / self.bias, 8)
         r['flag'] = C.consensus2name[self.flag]
         r['merkleroot'] = hexlify(self.merkleroot).decode() if self.merkleroot else None
         r['time'] = V.BLOCK_GENESIS_TIME + self.time
         r['bits'] = self.bits
-        r['bias'] = self.bias
+        r['bias'] = round(self.bias, 8)
         r['nonce'] = hexlify(self.nonce).decode() if self.nonce else None
         r['txs'] = [hexlify(tx.hash).decode() for tx in self.txs]
         return r
@@ -145,10 +146,6 @@ class Block:
         header_size = len(self.b)
         return tx_sizes + header_size
 
-    def update_nonce(self):
-        self.nonce = urandom(4)
-        self.serialize()
-
     def update_time(self, blocktime):
         self.time = blocktime
         self.serialize()
@@ -158,28 +155,36 @@ class Block:
 
     def diff2targets(self, difficulty=None):
         difficulty = difficulty if difficulty else self.difficulty
-        return int(MAX_256_INT / (difficulty*100000000)).to_bytes(32, 'big')
+        return int(MAX_256_INT / (difficulty*100000000)).to_bytes(32, 'little')
 
     def target2diff(self):
-        self._difficulty = round((MAX_256_INT // int.from_bytes(self.target_hash, 'big')) / 1000000, 6)
+        self._difficulty = round((MAX_256_INT // int.from_bytes(self.target_hash, 'little')) / 1000000, 8)
 
     def bits2target(self):
         target = bits2target(self.bits)
-        self.target_hash = target.to_bytes(32, 'big')
+        self.target_hash = target.to_bytes(32, 'little')
 
     def work2diff(self):
-        self._work_difficulty = round((MAX_256_INT // int.from_bytes(self.work_hash, 'big')) / 1000000, 6)
+        self._work_difficulty = round((MAX_256_INT // int.from_bytes(self.work_hash, 'little')) / 1000000, 8)
 
-    def pow_check(self):
+    def pow_check(self, extra_target=None):
+        if extra_target:
+            assert isinstance(extra_target, int)
+            target_int = extra_target
+        else:
+            if not self.target_hash:
+                self.bits2target()
+            target_int = int.from_bytes(self.target_hash, 'little')
         if not self.work_hash:
             update_work_hash(self)
-        if not self.target_hash:
-            self.bits2target()
-        return int.from_bytes(self.target_hash, 'big') > int.from_bytes(self.work_hash, 'big')
+        return target_int > int.from_bytes(self.work_hash, 'little')
 
     def update_merkleroot(self):
-        h = sha256()
-        for tx in self.txs:
-            h.update(tx.hash)
-        self.merkleroot = h.digest()
+        hash_list = [tx.hash for tx in self.txs]
+        while len(hash_list) > 1:
+            if len(hash_list) % 2:
+                hash_list.append(hash_list[-1])
+            hash_list = [sha256(sha256(hash_list[i] + hash_list[i + 1]).digest()).digest()
+                         for i in range(0, len(hash_list), 2)]
+        self.merkleroot = hash_list[0]
         self.serialize()

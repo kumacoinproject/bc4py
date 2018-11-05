@@ -118,7 +118,7 @@ async def get_keypair(request):
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         cur = db.cursor()
         try:
-            address = request.query.get('address')
+            address = request.query['address']
             uuid, sk, pk = read_address2keypair(address, cur)
             return web_base.json_res({
                 'uuid': uuid,

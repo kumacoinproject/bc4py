@@ -11,7 +11,7 @@ from bc4py.user.api import web_base
 from bc4py.chain.tx import TX
 from aiohttp import web
 from binascii import hexlify, unhexlify
-from nem_ed25519.base import Encryption
+from nem_ed25519 import public_key, get_address, sign
 import time
 
 
@@ -49,6 +49,7 @@ async def send_from_user(request):
 
 
 async def send_many_user(request):
+    start = time.time()
     if P.F_NOW_BOOTING:
         return web.Response(text='Now booting...', status=403)
     post = await web_base.content_type_json_check(request)
@@ -71,7 +72,9 @@ async def send_many_user(request):
             if not send_newtx(new_tx=new_tx, outer_cur=cur):
                 raise BaseException('Failed to send new tx.')
             db.commit()
-            return web_base.json_res({'txhash': hexlify(new_tx.hash).decode()})
+            return web_base.json_res({
+                'txhash': hexlify(new_tx.hash).decode(),
+                'time': round(time.time()-start, 3)})
         except Exception as e:
             db.rollback()
             return web_base.error_res()
@@ -129,21 +132,17 @@ async def sign_raw_tx(request):
     post = await web_base.content_type_json_check(request)
     try:
         binary = unhexlify(post['hex'].encode())
-        ecc = Encryption()
         other_pairs = dict()
         for sk in post.get('pairs', list()):
-            ecc.sk = unhexlify(sk.encode())
-            ecc.public_key()
-            ecc.get_address()
-            sign = (ecc.pk, ecc.sign(msg=binary, encode='raw'))
-            other_pairs[ecc.ck] = (ecc.pk, sign)
+            pk = public_key(sk=sk)
+            ck = get_address(pk=pk, prefix=V.BLOCK_PREFIX)
+            other_pairs[ck] = (pk, sign(msg=binary, sk=sk, pk=pk))
         tx = TX(binary=binary)
         for txhash, txindex in tx.inputs:
             input_tx = tx_builder.get_tx(txhash)
             address, coin_id, amount = input_tx.outputs[txindex]
             try:
-                sign = message2signature(raw=tx.b, address=address)
-                tx.signature.append(sign)
+                tx.signature.append(message2signature(raw=tx.b, address=address))
             except BlockChainError:
                 if address not in other_pairs:
                     raise BlockChainError('Not found secret key "{}"'.format(address))

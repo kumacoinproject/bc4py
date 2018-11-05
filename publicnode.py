@@ -53,7 +53,7 @@ def work(port, sub_dir=None):
 
     # Update to newest blockchain
     builder.init(genesis_block)
-    # builder.db.sync = False  # more fast
+    builder.db.sync = False  # more fast but unstable
     sync_chain_loop()
 
     # Mining/Staking setup
@@ -62,8 +62,10 @@ def work(port, sub_dir=None):
     # Debug.F_CONSTANT_DIFF = True
     # Debug.F_SHOW_DIFFICULTY = True
     # Debug.F_STICKY_TX_REJECTION = False  # for debug
-    Generate(consensus=C.BLOCK_YES_POW, power_limit=0.2).start()
-    Generate(consensus=C.BLOCK_POS, power_limit=0.2).start()
+    Generate(consensus=C.BLOCK_YES_POW, power_limit=0.05).start()
+    Generate(consensus=C.BLOCK_HMQ_POW, power_limit=0.05).start()
+    Generate(consensus=C.BLOCK_X11_POW, power_limit=0.05).start()
+    Generate(consensus=C.BLOCK_POS, power_limit=0.3).start()
     Thread(target=mined_newblock, name='GeneBlock', args=(output_que, pc)).start()
     logging.info("Finished all initialize.")
 

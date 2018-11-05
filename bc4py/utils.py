@@ -114,7 +114,7 @@ class AESCipher:
     def _pad(s):
         pad = AES.block_size - len(s) % AES.block_size
         add = AES.block_size - len(s) % AES.block_size
-        return s + add * pad.to_bytes(1, 'big')
+        return s + add * pad.to_bytes(1, 'little')
 
     @staticmethod
     def _unpad(s):

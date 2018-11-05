@@ -31,10 +31,15 @@ async def chain_info(request):
         name = C.consensus2name[consensus]
         target = get_bits_by_hash(previous_hash=best_block.hash, consensus=consensus)[1]
         block_time = round(V.BLOCK_TIME_SPAN / ratio * 100)
+        diff = (MAX_256_INT // target) / 100000000
+        bias = get_bias_by_hash(previous_hash=best_block.previous_hash, consensus=consensus)
         difficulty[name] = {
-            'diff': round((MAX_256_INT // target) / 100000000, 6),
-            'bias': get_bias_by_hash(previous_hash=best_block.previous_hash, consensus=consensus),
-            'hashrate(kh/s)': round((MAX_256_INT//target)/block_time/1000, 3)
+            'number': consensus,
+            'diff': round(diff / 100000000, 8),
+            'bias': round(bias / 100000000, 8),
+            'fixed_diff': round(diff / bias, 8),
+            'hashrate(kh/s)': round((MAX_256_INT//target)/block_time/1000, 3),
+            'is_base': V.BLOCK_BASE_CONSENSUS == consensus,
         }
     data['mining'] = difficulty
     data['size'] = best_block.getsize()

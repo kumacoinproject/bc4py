@@ -51,6 +51,8 @@ def mined_newblock(que, pc):
                 break
         except BlockChainError as e:
             logging.error('Failed mined new block "{}"'.format(e))
+        except Exception as e:
+            logging.error("mined_newblock()", exc_info=True)
 
 
 def send_newtx(new_tx, outer_cur=None):
