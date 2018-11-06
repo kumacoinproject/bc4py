@@ -31,7 +31,7 @@ def escape_cross_origin_block(app):
             # Access-Control-Allow-Origin
             allow_credentials=True,
             expose_headers="*",
-            allow_headers=("X-Requested-With", "Content-Type"),
+            allow_headers=("X-Requested-With", "Content-Type", "Authorization", "Content-Length"),
             allow_methods=['POST', 'GET']
         )
     })
@@ -57,76 +57,6 @@ def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None, ssl_
     app = web.Application()
     routes = web.RouteTableDef()
     V.API_OBJ = app
-
-    @routes.get("/")
-    async def help_page(request):
-        header = "<H>Help page</H><BR>"
-        rest = [
-            ('getsysteminfo', 'GET', '', 'System info'),
-            ('getchaininfo', 'GET', '', 'Chain info'),
-            ('getnetworkinfo', "GET", '', 'Network info'),
-            ('validatorinfo', 'GET', '', 'Validator info.'),
-            ('stop', 'GET', '', 'stop client.'),
-            ('resync', 'GET', '', 'set True resync flag.'),
-            ('listbalance', 'GET', '[confirm=6]', 'All account balance.'),
-            ('listtransactions', 'GET', '[page=0 limit=25]', 'Get account transactions.'),
-            ('listunspents', 'GET', '', 'Get all unspent and orphan txhash:txindex pairs.'),
-            ('listaccountaddress', 'GET', '[account=Unknown]', 'Get account related addresses.'),
-
-            ('lock', 'GET', '', 'Lock by random bytes key.'),
-            ('unlock', 'POST', '[password=None]', 'Unlock database by key.'),
-            ('changepassword', 'POST', '[old=None] [new=None]', 'Change password.'),
-
-            ('move', 'POST', '[from=Unknown] [to] [coin_id=0] [amount]', 'Move account balance of single coin.'),
-            ('movemany', 'POST', '[from=Unknown] [to] [coins]', 'Move account balance of many coins.'),
-            ('sendfrom', 'POST', '[from=Unknown] [address] [coin_id=0] [amount] [message=None]', 'Send from account to address.'),
-            ('sendmany', 'POST', '[from=Unknown] [pairs:list(address,coin_id,amount)] [message=None]', 'Send to many account'),
-            ('issueminttx', 'POST', '[name] [unit] [amount] [digit=0] <BR>\n'
-                                    '[message=None] [image=None] [additional_issue=True] [account=Unknown]', 'Issue mintcoin.'),
-            ('changeminttx', 'POST', '[mint_id] [amount=0] [message=None] [image=None]<BR>\n'
-                                     '[additional_issue=None] [group=Unknown]', 'Chainge mintcoin.'),
-            ('newaddress', 'GET', '[account=Unknown]', 'Get new bind account address.'),
-            ('getkeypair', 'GET', '[address]', 'Get priKey:pubKey by address.'),
-
-            ('createrawtx', 'POST', '[version=1] [type=TRANSFER] [time=now] [deadline=now+10800] <BR>\n'
-                                    '[inputs:list((txhash, txindex),..)] <BR>\n'
-                                    '[outputs:list((address, coin_id, amount),..)] <BR>\n'
-                                    '[gas_price=MINIMUM_PRICE] [gas_amount=MINIMUM_AMOUNT] <BR>\n'
-                                    '[message_type=None] [message=None]', 'Create raw tx without signing.'),
-            ('signrawtx', 'POST', '[hex] [pk=list(sk,..)]', 'Sign raw tx by manually'),
-            ('broadcasttx', 'POST', '[hex] [signature:list([pk, sign],..)]', 'Send raw tx by manually.'),
-
-            ('contracthistory', 'GET', '[address]', 'Get contract related txhash(start:finish) pairs.'),
-            ('contractdetail', 'GET', '[address]', 'Get contract detail by address.'),
-            ('contractstorage', 'GET', '[address]', 'Get contract storage.'),
-            ('sourcecompile', 'POST', '[source OR path] [name=None]', 'Python code to hexstr.'),
-            ('contractcreate', 'POST', '[hex] [account=Unknown]', 'register contract to blockchain.'),
-            ('contractstart', 'POST', '[address] [method] [args=None] [gas_limit=100000000] [outputs=list()] <BR>\n'
-                                      '[account=Unknown]', 'create and send start contract.'),
-
-            ('getblockbyheight', 'GET', '[height]', 'Get blockinfo by height.'),
-            ('getblockbyhash', 'GET', '[hash]', 'Get blockinfo by blockhash.'),
-            ('gettxbyhash', 'GET', '[hash]', 'Get tx by txhash.'),
-            ('getmintinfo', 'GET', '[mint_id]', 'Get mintcoin info.'),
-        ]
-        L = ["<TR><TH>URI</TH> <TH>Method</TH> <TH>Params</TH> <TH>Message</TH></TR>"]
-        for cmd, method, params, msg in rest:
-            s = "<TD><A href=\"./api/{}\">http://127.0.0.1:{}/api/{}</A></TD>".format(cmd, port, cmd)
-            s += "<TD>{}</TD>".format(method)
-            s += "<TD>{}</TD>".format(params)
-            s += "<TD>{}</TD>".format(msg)
-            L.append("<TR>" + s + "</TR>")
-        message = "<TABLE class=\"table4\" border=1>" + "\n".join(L) + "</TABLE>"
-        websocket = "Websocket API." \
-                    "<TABLE class=\"table4\" border=1>" \
-                    "<TR><TH></TH> <TH></TH> <TH></TH></TR>" \
-                    "<TR><TD></TD> <TD></TD> <TD></TD></TR>" \
-                    "</TABLE>"
-        comment = "If raised error, return string error message. If success, return object except string.<BR>" \
-                  "Please detect error by string or other objects."
-        css = "<style>.table4 {  border-collapse: collapse;  width: 100%;}" \
-              ".table4 th, .table4 td {  border: 1px solid gray;}</style>"
-        return web.Response(text=header+message+css+comment, headers=web_base.CONTENT_TYPE_HTML)
 
     # Base
     app.router.add_get('/api/getsysteminfo', system_info)
@@ -179,9 +109,10 @@ def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None, ssl_
         threading.Timer(5, loop.call_soon_threadsafe(loop.stop)).start()
         return web.Response(text='Close after 5 seconds.')
 
+    @routes.get('/')
     @routes.get('/{page_path:[^{}]+.}')
     async def web_page(request):
-        page_path = request.match_info.get('page_path', "index.html")
+        page_path = request.match_info.get('page_path', "index.md")
         try:
             req_path = page_path.split("/")
             abs_path = os.path.join(base_path, *req_path)
@@ -193,7 +124,7 @@ def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None, ssl_
                     text=markdown_template % (markdown_title, markdown_body),
                     headers=web_base.CONTENT_TYPE_HTML)
             elif not os.path.exists(abs_path):
-                return "Not found Request page.", 404
+                return web.Response(text="Not found page. {}".format(req_path[-1]), status=404)
             elif os.path.isfile(abs_path):
                 return web.Response(
                     body=open(abs_path, mode='rb').read(),

@@ -1,6 +1,7 @@
 Index page
 ====
-[all REST methods](./rest.md)
+* [all REST methods](./rest.md)
+* [test response](./testresponse.html)
 
 <table class="table4" border="1">
     <tbody>
