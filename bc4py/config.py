@@ -19,9 +19,9 @@ class C:  # Constant
     BLOCK_X11_POW = 4
     BLOCK_HMQ_POW = 5
     BLOCK_LTC_POW = 6
-    BLOCK_X16_POW = 7
+    BLOCK_X16R_POW = 7
     consensus2name = {0: 'GENESIS', 1: 'POW_YES', 2: 'POS', 4: 'POW_X11', 5: 'POW_HMQ',
-                      6: 'POW_LTC', 7: 'POW_X16'}
+                      6: 'POW_LTC', 7: 'POW_X16R'}
 
     # tx type
     TX_GENESIS = 0  # Height0の初期設定TX

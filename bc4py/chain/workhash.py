@@ -42,7 +42,7 @@ def get_workhash_fnc(flag):
         return hmq_hash
     elif flag == C.BLOCK_LTC_POW:
         return ltc_hash
-    elif flag == C.BLOCK_X16_POW:
+    elif flag == C.BLOCK_X16R_POW:
         return x16s_hash
     elif flag in C.consensus2name:
         raise Exception('Not found block flag {}'.format(C.consensus2name[flag]))
