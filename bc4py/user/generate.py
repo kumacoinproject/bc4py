@@ -63,7 +63,6 @@ class Generate(Thread):
 
     def close(self, timeout=120):
         self.event_close.clear()
-        return self.event_close.wait(timeout)
 
     def run(self):
         self.event_close.set()

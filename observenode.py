@@ -59,7 +59,6 @@ def work(port, sub_dir=None):
 
     try:
         create_rest_server(f_local=True, port=port+1000, user='user', pwd='password')
-        builder.db.batch_create()
         builder.close()
         pc.close()
         close_sync()

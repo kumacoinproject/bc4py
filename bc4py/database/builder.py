@@ -358,8 +358,9 @@ class ChainBuilder:
         logging.getLogger().handlers.clear()
 
     def close(self):
+        self.db.batch_create()
         self.save_starter()
-        del self.db
+        self.db.close()
 
     def set_database_path(self):
         try:

@@ -36,7 +36,7 @@ async def chain_info(request):
         difficulty[name] = {
             'number': consensus,
             'diff': round(diff / 100000000, 8),
-            'bias': round(bias / 100000000, 8),
+            'bias': round(bias, 8),
             'fixed_diff': round(diff / bias, 8),
             'hashrate(kh/s)': round((MAX_256_INT//target)/block_time/1000, 3),
             'is_base': V.BLOCK_BASE_CONSENSUS == consensus,

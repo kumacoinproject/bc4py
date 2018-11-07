@@ -97,7 +97,6 @@ def work(port, sub_dir):
     try:
         # start_stratum(f_blocking=False)
         create_rest_server(f_local=True, port=port+1000)
-        builder.db.batch_create()
         builder.close()
         # close_stratum()
         pc.close()
