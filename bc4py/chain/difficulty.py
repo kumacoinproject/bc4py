@@ -83,7 +83,7 @@ def get_bits_by_hash(previous_hash, consensus):
         return cashe[(previous_hash, consensus)]
 
     # Get best block time
-    block_time = round(V.BLOCK_TIME_SPAN / V.BLOCK_CONSENSUS[consensus] * 100)
+    block_time = round(V.BLOCK_TIME_SPAN / V.BLOCK_CONSENSUSES[consensus] * 100)
     # Get N, K params
     N, K = params(block_time)
 

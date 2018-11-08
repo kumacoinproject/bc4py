@@ -38,7 +38,7 @@ def new_key(user=C.ANT_NAME_UNKNOWN):
 
 class Generate(Thread):
     def __init__(self, consensus, power_limit=1.0):
-        assert consensus in V.BLOCK_CONSENSUS, \
+        assert consensus in V.BLOCK_CONSENSUSES, \
             "{} is not used by blockchain.".format(C.consensus2name[consensus])
         super(Generate, self).__init__(
             name="Gene-{}".format(C.consensus2name[consensus]),

@@ -27,7 +27,7 @@ async def chain_info(request):
     old_block_hash = hexlify(builder.get_block_hash(old_block_height)).decode()
     data = {'best': best_block.getinfo()}
     difficulty = dict()
-    for consensus, ratio in V.BLOCK_CONSENSUS.items():
+    for consensus, ratio in V.BLOCK_CONSENSUSES.items():
         name = C.consensus2name[consensus]
         target = get_bits_by_hash(previous_hash=best_block.hash, consensus=consensus)[1]
         block_time = round(V.BLOCK_TIME_SPAN / ratio * 100)

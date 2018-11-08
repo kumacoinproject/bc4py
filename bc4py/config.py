@@ -82,7 +82,7 @@ class V:  # 起動時に設定される変数
     BLOCK_ALL_SUPPLY = None
     BLOCK_REWARD = None
     BLOCK_BASE_CONSENSUS = None
-    BLOCK_CONSENSUS = None
+    BLOCK_CONSENSUSES = None
 
     # base coin
     COIN_DIGIT = None
