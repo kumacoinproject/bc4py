@@ -10,7 +10,7 @@ import time
 import bjson
 
 
-def create_contract_tx(c_bin, cur, sender=C.ANT_UNKNOWN,
+"""def create_contract_tx(c_bin, cur, sender=C.ANT_UNKNOWN,
                        c_cs=None, gas_price=None, retention=10800):
     assert isinstance(c_bin, bytes), 'contract is bytes code.'
     assert isinstance(sender, int), 'Sender is id.'
@@ -55,10 +55,10 @@ def create_contract_tx(c_bin, cur, sender=C.ANT_UNKNOWN,
     movements[sender] -= fee_coins
     movements[C.ANT_OUTSIDE] += fee_coins
     insert_log(movements, cur, tx.type, tx.time, tx.hash)
-    return c_address, tx
+    return c_address, tx"""
 
 
-def start_contract_tx(c_address, c_method, cur, c_args=None, outputs=None, sender=C.ANT_UNKNOWN,
+"""def start_contract_tx(c_address, c_method, cur, c_args=None, outputs=None, sender=C.ANT_UNKNOWN,
                       gas_price=None, additional_gas_amount=None, retention=10800):
     # TXを作成
     now = int(time.time()) - V.BLOCK_GENESIS_TIME
@@ -98,4 +98,4 @@ def start_contract_tx(c_address, c_method, cur, c_args=None, outputs=None, sende
     movements[sender] -= fee_coins
     movements[C.ANT_OUTSIDE] += fee_coins
     insert_log(movements, cur, tx.type, tx.time, tx.hash)
-    return tx
+    return tx"""

@@ -46,13 +46,18 @@ ZERO_FILLED_HASH = b'\x00' * 32
 STARTER_NUM = 3
 database_tuple = ("_block", "_tx", "_used_index", "_block_index",
                   "_address_index", "_coins", "_contract", "_validator")
+# basic config
+config = {
+    'full_address_index': True,  # all address index?
+}
 
 
 class DataBase:
-    def __init__(self, dirs):
+    def __init__(self, dirs, **kwargs):
         self.dirs = dirs
         self.sync = True
         self.timeout = None
+        config.update(kwargs)  # extra settings
         self.event = threading.Event()
         self.event.set()
         # already used => LevelDBError
@@ -398,9 +403,9 @@ class ChainBuilder:
         self.save_starter()
         self.db.close()
 
-    def set_database_path(self):
+    def set_database_path(self, **kwargs):
         try:
-            self.db = DataBase(os.path.join(V.DB_HOME_DIR, 'db'))
+            self.db = DataBase(os.path.join(V.DB_HOME_DIR, 'db'), **kwargs)
             logging.info("Connect database.")
         except leveldb.LevelDBError:
             logging.warning("Already connect database.")
@@ -599,97 +604,107 @@ class ChainBuilder:
         best_chain = self.best_chain.copy()
         batch_count = self.batch_size
         batched_blocks = list()
-        try:
-            block = None
-            while batch_count > 0 and len(best_chain) > 0:
-                batch_count -= 1
-                block = best_chain.pop()  # 古いものから順に
-                batched_blocks.append(block)
-                self.db.write_block(block)  # Block
-                assert len(block.txs) > 0, "found no tx in {}".format(block)
-                for tx in block.txs:
-                    self.db.write_tx(tx)  # TX
-                    # inputs
-                    for index, (txhash, txindex) in enumerate(tx.inputs):
-                        # DataBase内でのみのUsedIndexを取得
-                        usedindex = self.db.read_usedindex(txhash)
-                        if txindex in usedindex:
-                            raise BlockBuilderError('Already used index? {}:{}'
-                                                    .format(hexlify(txhash).decode(), txindex))
-                        usedindex.add(txindex)
-                        self.db.write_usedindex(txhash, usedindex)  # UsedIndex update
-                        input_tx = tx_builder.get_tx(txhash)
-                        address, coin_id, amount = input_tx.outputs[txindex]
-                        # TODO: 必要なAddressだけにしたい
-                        self.db.write_address_idx(address, txhash, txindex, coin_id, amount, True)  # address
-                    # outputs
-                    for index, (address, coin_id, amount) in enumerate(tx.outputs):
-                        # TODO: 必要なAddressだけにしたい
-                        self.db.write_address_idx(address, tx.hash, index, coin_id, amount, False)  # Address
-                    # TXの種類による追加操作
-                    if tx.type == C.TX_GENESIS:
-                        pass
-                    elif tx.type == C.TX_TRANSFER:
-                        pass
-                    elif tx.type == C.TX_POW_REWARD:
-                        pass
-                    elif tx.type == C.TX_POS_REWARD:
-                        pass
-                    elif tx.type == C.TX_MINT_COIN:
-                        address, mint_id, amount = tx.outputs[0]
-                        next_index = 0
-                        for dummy in self.db.read_coins_iter(mint_id):
-                            next_index += 1
-                        self.db.write_coins(mint_id, next_index, tx.hash)
+        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+            cur = db.cursor()  # DO NOT USE FOR WRITE!
+            try:
+                block = None
+                while batch_count > 0 and len(best_chain) > 0:
+                    batch_count -= 1
+                    block = best_chain.pop()  # 古いものから順に
+                    batched_blocks.append(block)
+                    self.db.write_block(block)  # Block
+                    assert len(block.txs) > 0, "found no tx in {}".format(block)
+                    for tx in block.txs:
+                        self.db.write_tx(tx)  # TX
+                        # inputs
+                        for index, (txhash, txindex) in enumerate(tx.inputs):
+                            # DataBase内でのみのUsedIndexを取得
+                            usedindex = self.db.read_usedindex(txhash)
+                            if txindex in usedindex:
+                                raise BlockBuilderError('Already used index? {}:{}'
+                                                        .format(hexlify(txhash).decode(), txindex))
+                            usedindex.add(txindex)
+                            self.db.write_usedindex(txhash, usedindex)  # UsedIndex update
+                            input_tx = tx_builder.get_tx(txhash)
+                            address, coin_id, amount = input_tx.outputs[txindex]
+                            if config['full_address_index'] or read_address2user(address=address, cur=cur):
+                                # 必要なAddressのみ
+                                self.db.write_address_idx(address, txhash, txindex, coin_id, amount, True)
+                        # outputs
+                        for index, (address, coin_id, amount) in enumerate(tx.outputs):
+                            if config['full_address_index'] or read_address2user(address=address, cur=cur):
+                                # 必要なAddressのみ
+                                self.db.write_address_idx(address, tx.hash, index, coin_id, amount, False)
+                        # TXの種類による追加操作
+                        if tx.type == C.TX_GENESIS:
+                            pass
+                        elif tx.type == C.TX_TRANSFER:
+                            pass
+                        elif tx.type == C.TX_POW_REWARD:
+                            pass
+                        elif tx.type == C.TX_POS_REWARD:
+                            pass
+                        elif tx.type == C.TX_MINT_COIN:
+                            address, mint_id, amount = tx.outputs[0]
+                            next_index = 0
+                            for dummy in self.db.read_coins_iter(mint_id):
+                                next_index += 1
+                            self.db.write_coins(mint_id, next_index, tx.hash)
 
-                    elif tx.type == C.TX_CREATE_CONTRACT:
-                        c_address, c_bin, c_cs = bjson.loads(tx.message)
-                        start_hash, finish_hash = tx.hash, ZERO_FILLED_HASH
-                        self.db.write_contract(c_address, 0, start_hash, finish_hash)
+                        elif tx.type == C.TX_VALIDATOR_EDIT:
+                            assert 'Not found!!!'
 
-                    elif tx.type == C.TX_START_CONTRACT:
-                        c_address, c_data = bjson.loads(tx.message)
-                        next_index = 0
-                        for dummy in self.db.read_contract_iter(c_address):
-                            next_index += 1
-                        assert next_index > 0, 'Not created contract.'
-                        start_hash, finish_hash = tx.hash, ZERO_FILLED_HASH
-                        self.db.write_contract(c_address, next_index, start_hash, finish_hash)
+                        elif tx.type == C.TX_CONCLUDE_CONTRACT:
+                            assert 'Not found!!!'
 
-                    elif tx.type == C.TX_FINISH_CONTRACT:
-                        c_status, start_hash, cs_diff = bjson.loads(tx.message)
-                        # 同一BlockからStartTXを探し..
-                        for start_tx in block.txs:
-                            if start_tx.hash == start_hash:
-                                break
-                        else:
-                            raise BlockBuilderError('Not found start tx. {}'.format(tx))
-                        c_address, c_data, c_args, c_redeem = bjson.loads(start_tx.message)
-                        # 次のIndexを取得する
-                        for dummy, index, _start_hash, finish_hash in self.db.read_contract_iter(c_address):
-                            if start_hash == _start_hash and finish_hash == ZERO_FILLED_HASH:
-                                break  # STARTで既に挿入されているはず
-                        else:
-                            raise BlockBuilderError('Not found start tx on db. {}'.format(tx))
-                        self.db.write_contract(c_address, index, start_hash, tx.hash)
-            # block挿入終了
-            self.best_chain = best_chain
-            self.root_block = block
-            self.db.batch_commit()
-            self.save_starter()
-            # root_blockよりHeightの小さいBlockを消す
-            for blockhash, block in self.chain.copy().items():
-                if self.root_block.height >= block.height:
-                    del self.chain[blockhash]
-            logging.debug("Success batch {} blocks, root={}."
-                          .format(len(batched_blocks), self.root_block))
-            # アカウントへ反映↓
-            user_account.new_batch_apply(batched_blocks)
-            return batched_blocks  # [<height=n>, <height=n+1>, .., <height=n+m>]
-        except BaseException as e:
-            self.db.batch_rollback()
-            logging.warning("Failed batch block builder. '{}'".format(e), exc_info=True)
-            return list()
+                        """elif tx.type == C.TX_CREATE_CONTRACT:
+                            c_address, c_bin, c_cs = bjson.loads(tx.message)
+                            start_hash, finish_hash = tx.hash, ZERO_FILLED_HASH
+                            self.db.write_contract(c_address, 0, start_hash, finish_hash)
+
+                        elif tx.type == C.TX_START_CONTRACT:
+                            c_address, c_data = bjson.loads(tx.message)
+                            next_index = 0
+                            for dummy in self.db.read_contract_iter(c_address):
+                                next_index += 1
+                            assert next_index > 0, 'Not created contract.'
+                            start_hash, finish_hash = tx.hash, ZERO_FILLED_HASH
+                            self.db.write_contract(c_address, next_index, start_hash, finish_hash)
+
+                        elif tx.type == C.TX_FINISH_CONTRACT:
+                            c_status, start_hash, cs_diff = bjson.loads(tx.message)
+                            # 同一BlockからStartTXを探し..
+                            for start_tx in block.txs:
+                                if start_tx.hash == start_hash:
+                                    break
+                            else:
+                                raise BlockBuilderError('Not found start tx. {}'.format(tx))
+                            c_address, c_data, c_args, c_redeem = bjson.loads(start_tx.message)
+                            # 次のIndexを取得する
+                            for dummy, index, _start_hash, finish_hash in self.db.read_contract_iter(c_address):
+                                if start_hash == _start_hash and finish_hash == ZERO_FILLED_HASH:
+                                    break  # STARTで既に挿入されているはず
+                            else:
+                                raise BlockBuilderError('Not found start tx on db. {}'.format(tx))
+                            self.db.write_contract(c_address, index, start_hash, tx.hash)"""
+                # block挿入終了
+                self.best_chain = best_chain
+                self.root_block = block
+                self.db.batch_commit()
+                self.save_starter()
+                # root_blockよりHeightの小さいBlockを消す
+                for blockhash, block in self.chain.copy().items():
+                    if self.root_block.height >= block.height:
+                        del self.chain[blockhash]
+                logging.debug("Success batch {} blocks, root={}."
+                              .format(len(batched_blocks), self.root_block))
+                # アカウントへ反映↓
+                user_account.new_batch_apply(batched_blocks)
+                return batched_blocks  # [<height=n>, <height=n+1>, .., <height=n+m>]
+            except BaseException as e:
+                self.db.batch_rollback()
+                logging.warning("Failed batch block builder. '{}'".format(e), exc_info=True)
+                return list()
 
     def new_block(self, block):
         # とりあえず新規に挿入

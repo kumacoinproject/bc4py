@@ -9,7 +9,6 @@ from bc4py.user.generate import *
 from bc4py.user.boot import *
 from bc4py.user.network import broadcast_check, mined_newblock, DirectCmd, sync_chain_loop, close_sync
 from bc4py.user.api import create_rest_server
-from bc4py.user.validator import setup_as_validator
 from bc4py.database.create import make_account_db
 from bc4py.database.builder import builder
 from bc4py.chain.workhash import start_work_hash, close_work_hash
@@ -74,7 +73,6 @@ def work(port, sub_dir):
     builder.init(genesis_block)
     # builder.db.sync = False  # more fast
     sync_chain_loop()
-    setup_as_validator()
 
     # Mining/Staking setup
     start_work_hash()

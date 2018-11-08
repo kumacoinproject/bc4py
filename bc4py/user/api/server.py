@@ -62,7 +62,7 @@ def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None, ssl_
     app.router.add_get('/api/getsysteminfo', system_info)
     app.router.add_get('/api/getchaininfo', chain_info)
     app.router.add_get('/api/getnetworkinfo', network_info)
-    app.router.add_get('/api/validatorinfo', validator_info)
+    # app.router.add_get('/api/validatorinfo', validator_info)
     app.router.add_get('/api/resync', resync)
     # Account
     app.router.add_get('/api/listbalance', list_balance)

@@ -11,7 +11,7 @@ import logging
 import threading
 
 
-def check_tx_create_contract(tx: TX, include_block: Block):
+"""def check_tx_create_contract(tx: TX, include_block: Block):
     if len(tx.inputs) == 0 or len(tx.outputs) == 0:
         raise BlockChainError('No inputs or outputs.')
     elif tx.message_type != C.MSG_BYTE:
@@ -37,10 +37,10 @@ def check_tx_create_contract(tx: TX, include_block: Block):
     # 既に登録されていないかチェック
     cs = get_contract_storage(c_address, include_block)
     if cs.version != 0:
-        raise BlockChainError('Already created contract. {}'.format(tx))
+        raise BlockChainError('Already created contract. {}'.format(tx))"""
 
 
-def check_tx_start_contract(start_tx: TX, include_block: Block):
+"""def check_tx_start_contract(start_tx: TX, include_block: Block):
     # 共通チェック
     c_address, c_data, c_args, c_redeem = bjson.loads(start_tx.message)
     if not is_address(c_address, V.BLOCK_CONTRACT_PREFIX):
@@ -75,10 +75,10 @@ def check_tx_start_contract(start_tx: TX, include_block: Block):
         get_contract_binary(c_address)
         if P.VALIDATOR_OBJ and im_a_validator(include_block):
             P.VALIDATOR_OBJ.put_unvalidated(start_tx)
-            logging.debug("Add validation que {}".format(start_tx))
+            logging.debug("Add validation que {}".format(start_tx))"""
 
 
-def get_start_by_finish_tx(finish_tx, start_hash, include_block):
+"""def get_start_by_finish_tx(finish_tx, start_hash, include_block):
     if include_block:
         for start_tx in include_block.txs:
             if start_tx.type != C.TX_START_CONTRACT:
@@ -95,10 +95,10 @@ def get_start_by_finish_tx(finish_tx, start_hash, include_block):
             elif start_tx.hash == start_hash:
                 return start_tx
         else:
-            raise BlockChainError('Not found StartTX on Unconfirmed. {}'.format(finish_tx))
+            raise BlockChainError('Not found StartTX on Unconfirmed. {}'.format(finish_tx))"""
 
 
-def check_tx_finish_contract(finish_tx, include_block):
+"""def check_tx_finish_contract(finish_tx, include_block):
     if finish_tx.message_type != C.MSG_BYTE:
         raise BlockChainError('message type is bytes.')
     finish_status, start_hash, finish_diff = bjson.loads(finish_tx.message)
@@ -113,11 +113,11 @@ def check_tx_finish_contract(finish_tx, include_block):
     elif include_block:
         if include_block.txs.index(start_tx) >= include_block.txs.index(finish_tx):
             raise BlockChainError('start tx index is higher than finish tx. [{}>={}]'
-                                  .format(include_block.txs.index(start_tx), include_block.txs.index(finish_tx)))
+                                  .format(include_block.txs.index(start_tx), include_block.txs.index(finish_tx)))"""
 
 
-__all__ = [
+"""__all__ = [
     "check_tx_create_contract",
     "check_tx_start_contract",
     "check_tx_finish_contract"
-]
+]"""

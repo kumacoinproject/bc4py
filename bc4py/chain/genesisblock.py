@@ -72,23 +72,6 @@ def create_genesis_block(all_supply, block_span, prefix=b'\x98', contract_prefix
         ck = create_new_user_keypair(C.ANT_CONTRACT, db.cursor())
         db.commit()
     c_address = convert_address(ck, contract_prefix)
-    c_bin = contract2binary(Contract)
-    c_cs = {
-        ck.encode(): b'\x00\x00\x00\x00',
-        b'\x00'+b'\x00\x00\x00\x00': b'\x01'
-    }  # TODO:　初期値どうする？
-    validator_tx = TX(tx={
-            'version': __chain_version__,
-            'type': C.TX_CREATE_CONTRACT,
-            'time': 0,
-            'deadline': 10800,
-            'inputs': list(),
-            'outputs': list(),
-            'gas_price': 0,
-            'gas_amount': 0,
-            'message_type': C.MSG_BYTE,
-            'message': bjson.dumps((c_address, c_bin, c_cs), compress=False)})
-    validator_tx.height = 0
     params = {
         'prefix': prefix,  # CompressedKey prefix
         'contract_prefix': contract_prefix,  # ContractKey prefix
@@ -125,7 +108,6 @@ def create_genesis_block(all_supply, block_span, prefix=b'\x98', contract_prefix
     genesis_block.flag = C.BLOCK_GENESIS
     # block body
     genesis_block.txs.append(setting_tx)
-    genesis_block.txs.append(validator_tx)
     genesis_block.txs.extend(premine_txs)
     genesis_block.bits2target()
     genesis_block.target2diff()

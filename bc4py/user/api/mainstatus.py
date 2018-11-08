@@ -5,8 +5,8 @@ from bc4py.chain.difficulty import get_bits_by_hash, get_bias_by_hash
 from bc4py.database.create import closing, create_db
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.keylock import is_locked_database
-from bc4py.database.tools import get_validator_info
-from bc4py.user.utils import im_a_validator
+# from bc4py.database.tools import get_validator_info
+# from bc4py.user.utils import im_a_validator
 from bc4py.user.api import web_base
 from bc4py.user.generate import generating_threads
 from binascii import hexlify
@@ -90,7 +90,7 @@ async def network_info(request):
         return web_base.error_res()
 
 
-async def validator_info(request):
+"""async def validator_info(request):
     try:
         validator_cks, required_num = get_validator_info()
         return web_base.json_res({
@@ -100,9 +100,12 @@ async def validator_info(request):
             'all': len(validator_cks),
             'require': required_num})
     except BaseException:
-        return web_base.error_res()
+        return web_base.error_res()"""
 
 
 __all__ = [
-    "chain_info", "system_info", "network_info", "validator_info"
+    "chain_info",
+    "system_info",
+    "network_info",
+    # "validator_info"
 ]

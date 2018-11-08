@@ -23,7 +23,7 @@ c_result, start_hash, cs_diff
 DUMMY_REDEEM_ADDRESS = '_____DUMMY______REDEEM______ADDRESS_____'  # 40letters
 
 
-def failed_finish_tx(start_tx):
+"""def failed_finish_tx(start_tx):
     message = bjson.dumps((False, start_tx.hash, None), compress=False)
     return TX(tx={
         'version': __chain_version__,
@@ -35,10 +35,10 @@ def failed_finish_tx(start_tx):
         'gas_price': start_tx.gas_price,
         'gas_amount': 0,
         'message_type': C.MSG_BYTE,
-        'message': message})
+        'message': message})"""
 
 
-def finish_contract_tx(start_tx, f_limit=True):
+"""def finish_contract_tx(start_tx, f_limit=True):
     assert start_tx.height is None, 'StartTX height is None.'
     assert P.VALIDATOR_OBJ, 'You are not a validator.'
     c_address, c_data, c_args, c_redeem = bjson.loads(start_tx.message)
@@ -91,7 +91,7 @@ def finish_contract_tx(start_tx, f_limit=True):
     finish_tx.outputs[redeem_idx] = (c_redeem, 0, redeem_amount)
     replace_redeem_dummy_address(finish_tx, c_address)
     finish_tx.serialize()
-    return finish_tx, estimate_gas
+    return finish_tx, estimate_gas"""
 
 
 def fill_inputs_outputs(finish_tx, c_address, start_hash, redeem_gas, dust_percent=0.8, utxo_cashe=None):

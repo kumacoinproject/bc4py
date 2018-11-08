@@ -75,7 +75,7 @@ def get_mintcoin(mint_id, best_block=None, best_chain=None):
     return mint_coin_old
 
 
-def get_contract_binary(c_address, best_block=None, best_chain=None):
+"""def get_contract_binary(c_address, best_block=None, best_chain=None):
     assert V.CONTRACT_VALIDATOR_ADDRESS, 'Not found validator address.'
     if c_address == V.CONTRACT_VALIDATOR_ADDRESS:
         return contract2binary(Contract)
@@ -97,10 +97,10 @@ def get_contract_binary(c_address, best_block=None, best_chain=None):
             if tx.type == C.TX_CREATE_CONTRACT:
                 dummy, c_bin, c_cs = bjson.loads(tx.message)
                 return c_bin
-    return None
+    return None"""
 
 
-def get_validator_info(best_block=None, best_chain=None):
+"""def get_validator_info(best_block=None, best_chain=None):
     assert V.CONTRACT_VALIDATOR_ADDRESS, 'Not found validator address.'
     cs = get_contract_storage(V.CONTRACT_VALIDATOR_ADDRESS, best_block, best_chain)
     validator_cks = set()
@@ -110,10 +110,10 @@ def get_validator_info(best_block=None, best_chain=None):
         elif cs.get(b'\x00' + uuid, b'\x00') == b'\x01':
             validator_cks.add(ck.decode())
     required_num = len(validator_cks) * 3 // 4 + 1
-    return validator_cks, required_num
+    return validator_cks, required_num"""
 
 
-def get_contract_history_iter(c_address, best_block=None, best_chain=None):
+"""def get_contract_history_iter(c_address, best_block=None, best_chain=None):
     # DataBaseより
     last_index = 0
     for dummy, index, start_hash, finish_hash in builder.db.read_contract_iter(c_address):
@@ -161,10 +161,10 @@ def get_contract_history_iter(c_address, best_block=None, best_chain=None):
                         yield last_index, start_hash, finish_tx.hash, None, True
                         last_index += 1
                         break
-    # index, start_hash, finish_hash, height, on_memory
+    # index, start_hash, finish_hash, height, on_memory"""
 
 
-def get_contract_storage(c_address, best_block=None, best_chain=None):
+"""def get_contract_storage(c_address, best_block=None, best_chain=None):
     # DataBaseより
     cs = ContractStorage()
     for dummy, index, start_hash, finish_hash in builder.db.read_contract_iter(c_address):
@@ -206,7 +206,7 @@ def get_contract_storage(c_address, best_block=None, best_chain=None):
                 check_address, c_bin, c_cs = bjson.loads(start_tx.message)
                 if c_address == check_address:
                     cs.marge(c_diff)
-    return cs
+    return cs"""
 
 
 def get_utxo_iter(target_address, best_block=None, best_chain=None):
@@ -310,10 +310,10 @@ def is_usedindex(txhash, txindex, except_txhash, best_block=None, best_chain=Non
 
 __all__ = [
     "get_mintcoin",
-    "get_contract_binary",
-    "get_validator_info",
-    "get_contract_history_iter",
-    "get_contract_storage",
+    # "get_contract_binary",
+    # "get_validator_info",
+    # "get_contract_history_iter",
+    # "get_contract_storage",
     "get_utxo_iter",
     "get_unspents_iter",
     "get_usedindex",

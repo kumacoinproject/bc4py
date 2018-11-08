@@ -1,7 +1,7 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.chain.checking.tx_reward import *
 from bc4py.chain.checking.tx_mintcoin import *
-from bc4py.chain.checking.tx_contract import *
+# from bc4py.chain.checking.tx_contract import *
 from bc4py.chain.checking.utils import *
 import logging
 from binascii import hexlify
@@ -57,16 +57,22 @@ def check_tx(tx, include_block):
         f_minimum_fee_check = False
         check_tx_mint_coin(tx=tx, include_block=include_block)
 
-    elif tx.type == C.TX_CREATE_CONTRACT:
-        f_minimum_fee_check = False
-        check_tx_create_contract(tx=tx, include_block=include_block)
+    elif tx.type == C.TX_VALIDATOR_EDIT:
+        assert "Not found!!!"
 
-    elif tx.type == C.TX_START_CONTRACT:
-        check_tx_start_contract(start_tx=tx, include_block=include_block)
+    elif tx.type == C.TX_CONCLUDE_CONTRACT:
+        assert "Not found!!!"
 
-    elif tx.type == C.TX_FINISH_CONTRACT:
-        check_tx_finish_contract(finish_tx=tx, include_block=include_block)
-        validator_check(tx, include_block)  # 必要十分な署名があるか
+    # elif tx.type == C.TX_CREATE_CONTRACT:
+    #    f_minimum_fee_check = False
+    #    check_tx_create_contract(tx=tx, include_block=include_block)
+
+    # elif tx.type == C.TX_START_CONTRACT:
+    #    check_tx_start_contract(start_tx=tx, include_block=include_block)
+
+    # elif tx.type == C.TX_FINISH_CONTRACT:
+    #    check_tx_finish_contract(finish_tx=tx, include_block=include_block)
+    #    validator_check(tx, include_block)  # 必要十分な署名があるか
 
     else:
         raise BlockChainError('Unknown tx type "{}"'.format(tx.type))

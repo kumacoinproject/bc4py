@@ -1,6 +1,6 @@
 from bc4py.config import C, V, P, Debug
 from bc4py.database.builder import builder, tx_builder
-from bc4py.database.tools import get_validator_info, is_usedindex
+from bc4py.database.tools import is_usedindex  #,  get_validator_info
 from bc4py.chain.checking.utils import sticky_failed_txhash
 from bc4py.user.generate import *
 import logging
@@ -88,7 +88,7 @@ def _update_unconfirmed_info():
         unconfirmed_txs = sorted(unconfirmed_txs, key=lambda x: x.time)
 
         # ContractTXのみ取り出す
-        contract_txs = dict()
+        """contract_txs = dict()
         for tx in unconfirmed_txs.copy():
             if tx.type == C.TX_START_CONTRACT:
                 unconfirmed_txs.remove(tx)
@@ -116,7 +116,7 @@ def _update_unconfirmed_info():
                         continue
                     # OK!
                     unconfirmed_txs.extend((start_tx, tx))
-                    break
+                    break"""
 
         update_unconfirmed_txs(unconfirmed_txs)
         logging.debug("Update unconfirmed={}/{} {}Sec"
