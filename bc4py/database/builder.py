@@ -37,13 +37,15 @@ struct_address_idx = struct.Struct('>IQ?')
 struct_coins = struct.Struct('>II')
 struct_construct_key = struct.Struct('>40sI')
 struct_construct_value = struct.Struct('>32s32s')
+struct_validator_key = struct.Struct('>40sI')
+struct_validator_value = struct.Struct('>40sb32sb')
 ITER_ORDER = 'big'
 
 
 ZERO_FILLED_HASH = b'\x00' * 32
 STARTER_NUM = 3
 database_tuple = ("_block", "_tx", "_used_index", "_block_index",
-                  "_address_index", "_coins", "_contract")
+                  "_address_index", "_coins", "_contract", "_validator")
 
 
 class DataBase:
@@ -67,6 +69,7 @@ class DataBase:
         self._address_index = create_level_db(os.path.join(dirs, 'address-index'), create_if_missing=f_create)
         self._coins = create_level_db(os.path.join(dirs, 'coins'), create_if_missing=f_create)
         self._contract = create_level_db(os.path.join(dirs, 'contract'), create_if_missing=f_create)
+        self._validator = create_level_db(os.path.join(dirs, 'validator'), create_if_missing=f_create)
         self.batch = None
         self.batch_thread = None
         logging.debug(':create database connect, plyvel={} {}'.format(is_plyvel, dirs))
@@ -156,19 +159,19 @@ class DataBase:
     def read_block_hash_iter(self, start_height=0):
         f_batch = self.is_batch_thread()
         batch_copy = self.batch['_block_index'].copy() if self.batch else dict()
+        start = start_height.to_bytes(4, ITER_ORDER)
         if is_plyvel:
-            block_iter = self._block_index.iterator(start=start_height.to_bytes(4, ITER_ORDER))
+            block_iter = self._block_index.iterator(start=start)
         else:
-            block_iter = self._block_index.RangeIter(key_from=start_height.to_bytes(4, ITER_ORDER))
+            block_iter = self._block_index.RangeIter(key_from=start)
         for b_height, blockhash in block_iter:
             # height, blockhash
             b_height = bytes(b_height)
             blockhash = bytes(blockhash)
             if f_batch and b_height in batch_copy:
-                yield int.from_bytes(b_height, ITER_ORDER), batch_copy[b_height]
+                blockhash = batch_copy[b_height]
                 del batch_copy[b_height]
-            else:
-                yield int.from_bytes(b_height, ITER_ORDER), blockhash
+            yield int.from_bytes(b_height, ITER_ORDER), blockhash
         if f_batch:
             for b_height, blockhash in sorted(batch_copy.items(), key=lambda x: x[0]):
                 yield int.from_bytes(b_height, ITER_ORDER), blockhash
@@ -233,10 +236,9 @@ class DataBase:
             k, v = bytes(k), bytes(v)
             # address, txhash, index, coin_id, amount, f_used
             if f_batch and k in batch_copy:
-                yield struct_address.unpack(k) + struct_address_idx.unpack(batch_copy[k])
+                v = batch_copy[k]
                 del batch_copy[k]
-            else:
-                yield struct_address.unpack(k) + struct_address_idx.unpack(v)
+            yield struct_address.unpack(k) + struct_address_idx.unpack(v)
         if f_batch:
             for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
                 if k.startswith(b_address):
@@ -256,10 +258,9 @@ class DataBase:
             k, v = bytes(k), bytes(v)
             # coin_id, index, txhash
             if f_batch and k in batch_copy:
-                yield struct_coins.unpack(k) + (batch_copy[k],)
+                v = batch_copy[k]
                 del batch_copy[k]
-            else:
-                yield struct_coins.unpack(k) + (v,)
+            yield struct_coins.unpack(k) + (v,)
         if f_batch:
             for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
                 if k.startswith(b_coin_id):
@@ -279,14 +280,42 @@ class DataBase:
             k, v = bytes(k), bytes(v)
             # c_address, index, start_hash, finish_hash
             if f_batch and k in batch_copy:
-                yield struct_construct_key.unpack(k) + struct_construct_value.unpack(batch_copy[k])
+                v = batch_copy[k]
                 del batch_copy[k]
-            else:
-                yield struct_construct_key.unpack(k) + struct_construct_value.unpack(v)
+            yield struct_construct_key.unpack(k) + struct_construct_value.unpack(v)
         if f_batch:
             for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
                 if k.startswith(b_c_address):
                     yield struct_construct_key.unpack(k) + struct_construct_value.unpack(v)
+
+    def read_validator_iter(self, c_address):
+        f_batch = self.is_batch_thread()
+        batch_copy = self.batch['_validator'].copy() if self.batch else dict()
+        b_c_address = c_address.encode()
+        start = b_c_address + b'\x00'*4
+        stop = b_c_address + b'\xff'*4
+        # from database
+        if is_plyvel:
+            validator_iter = self._validator.iterator(start=start, stop=stop)
+        else:
+            validator_iter = self._validator.RangeIter(key_from=start, key_to=stop)
+        for k, v in validator_iter:
+            k, v = bytes(k), bytes(v)
+            # KEY [c_address 40s]-[index unit4]
+            # VALUE [address 40s]-[flag int1]-[txhash 32s]-[sig_diff int1]
+            if f_batch and k in batch_copy:
+                v = batch_copy[k]
+                del batch_copy[k]
+            dummy, index = struct_validator_key.unpack(k)
+            address, flag, txhash, sig_diff = struct_validator_value.unpack(v)
+            yield index, address.decode(), flag, txhash, sig_diff
+        # from memory
+        if f_batch:
+            for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
+                if k.startswith(b_c_address):
+                    dummy, index = struct_validator_key.unpack(k)
+                    address, flag, txhash, sig_diff = struct_validator_value.unpack(v)
+                    yield index, address.decode(), flag, txhash, sig_diff
 
     def write_block(self, block):
         assert self.is_batch_thread(), 'Not created batch.'
@@ -335,6 +364,13 @@ class DataBase:
         v = start_hash + finish_hash
         self.batch['_contract'][k] = v
         logging.debug("Insert new contract {} {}".format(c_address, index))
+
+    def write_validator(self, c_address, index, address, flag, txhash, sign_diff):
+        assert self.is_batch_thread(), 'Not created batch.'
+        k = c_address.encode() + index.to_bytes(4, ITER_ORDER)
+        v = struct_validator_value.pack(address.encode(), flag, txhash, sign_diff)
+        self.batch['_validator'][k] = v
+        logging.debug("Insert new validator {} {}".format(c_address, index))
 
 
 class ChainBuilder:
