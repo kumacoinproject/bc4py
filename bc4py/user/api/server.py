@@ -3,6 +3,7 @@
 
 from aiohttp import web
 from aiohttp_basicauth_middleware import basic_auth_middleware
+from aiohttp_basicauth_middleware.strategy import BaseStrategy
 import aiohttp_cors
 from .mainstatus import *
 from .accountinfo import *
@@ -39,8 +40,18 @@ def escape_cross_origin_block(app):
         cors.add(resource)
 
 
+class SkipOptionsStrategy(BaseStrategy):
+    # enable access from browser with OPTIONS method
+    async def check(self):
+        if self.request.method == 'OPTIONS':
+            return await self.handler(self.request)
+        else:
+            return await super().check()
+
+
 def setup_basic_auth(app, user, pwd):
-    app.middlewares.append(basic_auth_middleware(('/api/',), {user: pwd}))
+    app.middlewares.append(
+        basic_auth_middleware(('/api/',), {user: pwd}, SkipOptionsStrategy))
     logging.info("Enabled basic auth.")
 
 
