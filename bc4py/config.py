@@ -29,15 +29,18 @@ class C:  # Constant
     TX_POS_REWARD = 2  # POSの報酬TX
     TX_TRANSFER = 3  # 送受金
     TX_MINT_COIN = 4  # 新規貨幣を鋳造
-    # TX_CREATE_CONTRACT = 5  # コントラクトアドレスを作成
-    # TX_START_CONTRACT = 6  # コントラクトの開始TX
-    # TX_FINISH_CONTRACT = 7  # コントラクトの終了TX
+    # TODO: remove old type contract tx
+    TX_CREATE_CONTRACT = 5  # コントラクトアドレスを作成
+    TX_START_CONTRACT = 6  # コントラクトの開始TX
+    TX_FINISH_CONTRACT = 7  # コントラクトの終了TX
+
     TX_VALIDATOR_EDIT = 8  # change validator info
     TX_CONCLUDE_CONTRACT = 9  # conclude static contract tx
     TX_INNER = 255  # 内部のみで扱うTX
     txtype2name = {
         TX_GENESIS: 'GENESIS', TX_POW_REWARD: 'POW_REWARD', TX_POS_REWARD: 'POS_REWARD',
         TX_TRANSFER: 'TRANSFER', TX_MINT_COIN: 'MINT_COIN', TX_VALIDATOR_EDIT: 'VALIDATOR_EDIT',
+        TX_CREATE_CONTRACT: 'CREATE_CONTRACT', TX_START_CONTRACT: 'START_CONTRACT', TX_FINISH_CONTRACT: 'FINISH_CONTRACT',
         TX_CONCLUDE_CONTRACT: 'CONCLUDE_CONTRACT', TX_INNER: 'TX_INNER'}
 
     # message format
