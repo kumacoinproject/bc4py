@@ -13,9 +13,9 @@ def check_tx_mint_coin(tx, include_block):
         raise BlockChainError('TX_MINT_COIN message is bytes.')
     elif include_block and 0 == include_block.txs.index(tx):
         raise BlockChainError('tx index is not proof tx.')
-    elif tx.gas_amount < tx.getsize() + C.MINTCOIN_FEE:
+    elif tx.gas_amount < tx.getsize() + C.MINTCOIN_GAS:
         raise BlockChainError('Insufficient gas amount [{}<{}+{}]'
-                              .format(tx.gas_amount, tx.getsize(), C.MINTCOIN_FEE))
+                              .format(tx.gas_amount, tx.getsize(), C.MINTCOIN_GAS))
 
     coins = CoinObject()
     for txhash, txindex in tx.inputs:

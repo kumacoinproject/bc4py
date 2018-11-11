@@ -1,6 +1,7 @@
 from bc4py.config import C, V, P, Debug
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.tools import is_usedindex  #,  get_validator_info
+from bc4py.database.validator import get_validator_object
 from bc4py.chain.checking.utils import sticky_failed_txhash
 from bc4py.user.generate import *
 import logging
@@ -47,6 +48,7 @@ def _update_unconfirmed_info():
         s = time()
         # sort unconfirmed txs
         unconfirmed_txs = sorted(tx_builder.unconfirmed.values(), key=lambda x: x.gas_price, reverse=True)
+
         # reject tx (input tx is unconfirmed)
         limit_height = builder.best_block.height - C.MATURE_HEIGHT
         best_block, best_chain = builder.get_best_chain()
@@ -60,6 +62,7 @@ def _update_unconfirmed_info():
             if Debug.F_STICKY_TX_REJECTION and tx.hash in sticky_failed_txhash:
                 unconfirmed_txs.remove(tx)
                 continue
+            # inputs check
             for txhash, txindex in tx.inputs:
                 input_tx = tx_builder.get_tx(txhash)
                 if input_tx is None:
@@ -82,41 +85,31 @@ def _update_unconfirmed_info():
                     break
                 used_pairs.add(input_pair)
 
+        # contract tx
+        for tx in unconfirmed_txs.copy():
+            if tx.type == C.TX_CONCLUDE_CONTRACT:
+                c_address, start_hash, c_storage = bjson.loads(tx.message)
+                start_tx = tx_builder.get_tx(txhash=start_hash)
+                if start_tx is None or start_tx.height is None:
+                    unconfirmed_txs.remove(tx)  # start tx is confirmed
+                    continue
+                v = get_validator_object(c_address=c_address, best_block=best_block, best_chain=best_chain)
+                if v.require > len(tx.signature):
+                    unconfirmed_txs.remove(tx)
+                    continue
+            elif tx.type == C.TX_VALIDATOR_EDIT:
+                c_address, address, flag, sig_diff = bjson.loads(tx.message)
+                v = get_validator_object(c_address=c_address, best_block=best_block, best_chain=best_chain)
+                if v.require > len(tx.signature):
+                    unconfirmed_txs.remove(tx)
+                    continue
+            else:
+                pass
+
         # limit per tx's in block
         if Debug.F_LIMIT_INCLUDE_TX_IN_BLOCK:
             unconfirmed_txs = unconfirmed_txs[:Debug.F_LIMIT_INCLUDE_TX_IN_BLOCK]
         unconfirmed_txs = sorted(unconfirmed_txs, key=lambda x: x.time)
-
-        # ContractTXのみ取り出す
-        """contract_txs = dict()
-        for tx in unconfirmed_txs.copy():
-            if tx.type == C.TX_START_CONTRACT:
-                unconfirmed_txs.remove(tx)
-                if tx not in contract_txs:
-                    contract_txs[tx] = list()
-            elif tx.type == C.TX_FINISH_CONTRACT:
-                unconfirmed_txs.remove(tx)
-                dummy0, start_hash, dummy1 = bjson.loads(tx.message)
-                if start_hash not in tx_builder.unconfirmed:
-                    continue
-                start_tx = tx_builder.unconfirmed[start_hash]
-                if start_tx in contract_txs:
-                    contract_txs[start_tx].append(tx)
-                if start_tx in unconfirmed_txs:
-                    contract_txs[start_tx] = [tx]
-
-        # StartTX=>FinishTXを一対一関係で繋げる
-        if len(contract_txs) > 0:
-            _, required_num = get_validator_info()
-            for start_tx, finish_txs in contract_txs.items():
-                if len(finish_txs) == 0:
-                    continue
-                for tx in finish_txs:
-                    if len(tx.signature) < required_num:
-                        continue
-                    # OK!
-                    unconfirmed_txs.extend((start_tx, tx))
-                    break"""
 
         update_unconfirmed_txs(unconfirmed_txs)
         logging.debug("Update unconfirmed={}/{} {}Sec"

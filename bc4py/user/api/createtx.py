@@ -12,11 +12,11 @@ from bc4py.chain.tx import TX
 from aiohttp import web
 from binascii import hexlify, unhexlify
 from nem_ed25519 import public_key, get_address, sign
-import time
+from time import time
 
 
 async def send_from_user(request):
-    start = time.time()
+    start = time()
     if P.F_NOW_BOOTING:
         return web.Response(text='Now booting...', status=403)
     post = await web_base.content_type_json_check(request)
@@ -42,14 +42,17 @@ async def send_from_user(request):
             db.commit()
             return web_base.json_res({
                 'txhash': hexlify(new_tx.hash).decode(),
-                'time': round(time.time()-start, 3)})
+                'gas_amount': new_tx.gas_amount,
+                'gas_price': new_tx.gas_price,
+                'fee': new_tx.gas_amount * new_tx.gas_price,
+                'time': round(time()-start, 3)})
         except Exception as e:
             db.rollback()
             return web_base.error_res()
 
 
 async def send_many_user(request):
-    start = time.time()
+    start = time()
     if P.F_NOW_BOOTING:
         return web.Response(text='Now booting...', status=403)
     post = await web_base.content_type_json_check(request)
@@ -74,7 +77,10 @@ async def send_many_user(request):
             db.commit()
             return web_base.json_res({
                 'txhash': hexlify(new_tx.hash).decode(),
-                'time': round(time.time()-start, 3)})
+                'gas_amount': new_tx.gas_amount,
+                'gas_price': new_tx.gas_price,
+                'fee': new_tx.gas_amount * new_tx.gas_price,
+                'time': round(time()-start, 3)})
         except Exception as e:
             db.rollback()
             return web_base.error_res()
@@ -87,7 +93,7 @@ async def create_raw_tx(request):
     # [message_type=None] [message=None]
     post = await web_base.content_type_json_check(request)
     try:
-        publish_time = post.get('time', int(time.time() - V.BLOCK_GENESIS_TIME))
+        publish_time = post.get('time', int(time() - V.BLOCK_GENESIS_TIME))
         deadline_time = post.get('deadline', publish_time + 10800)
         message_type = post.get('message_type', C.MSG_NONE)
         if message_type == C.MSG_NONE:
@@ -157,6 +163,7 @@ async def sign_raw_tx(request):
 
 
 async def broadcast_tx(request):
+    start = time()
     post = await web_base.content_type_json_check(request)
     try:
         binary = unhexlify(post['hex'].encode())
@@ -164,12 +171,18 @@ async def broadcast_tx(request):
         new_tx.signature = [(pk, unhexlify(sign.encode())) for pk, sign in post['signature']]
         if not send_newtx(new_tx=new_tx):
             raise BaseException('Failed to send new tx.')
-        return web_base.json_res({'txhash': hexlify(new_tx.hash).decode()})
+        return web_base.json_res({
+            'txhash': hexlify(new_tx.hash).decode(),
+            'gas_amount': new_tx.gas_amount,
+            'gas_price': new_tx.gas_price,
+            'fee': new_tx.gas_amount * new_tx.gas_price,
+            'time': round(time()-start, 3)})
     except BaseException:
         return web_base.error_res()
 
 
 async def issue_mint_tx(request):
+    start = time()
     post = await web_base.content_type_json_check(request)
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         cur = db.cursor()
@@ -192,12 +205,17 @@ async def issue_mint_tx(request):
             data = mintcoin_tx.getinfo()
             return web_base.json_res({
                 'txhash': data['hash'],
+                'gas_amount': mintcoin_tx.gas_amount,
+                'gas_price': mintcoin_tx.gas_price,
+                'fee': mintcoin_tx.gas_amount * mintcoin_tx.gas_price,
+                'time': round(time()-start, 3),
                 'mintcoin': mint.getinfo()})
         except BaseException:
             return web_base.error_res()
 
 
 async def change_mint_tx(request):
+    start = time()
     post = await web_base.content_type_json_check(request)
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         cur = db.cursor()
@@ -218,6 +236,10 @@ async def change_mint_tx(request):
             data = mintcoin_tx.getinfo()
             return web_base.json_res({
                 'txhash': data['hash'],
+                'gas_amount': mintcoin_tx.gas_amount,
+                'gas_price': mintcoin_tx.gas_price,
+                'fee': mintcoin_tx.gas_amount * mintcoin_tx.gas_price,
+                'time': round(time()-start, 3),
                 'mintcoin': mint.getinfo()})
         except BaseException:
             return web_base.error_res()

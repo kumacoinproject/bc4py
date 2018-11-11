@@ -73,8 +73,11 @@ class C:  # Constant
     SIZE_TX_LIMIT = 100*1000  # 100kb tx
     CASHE_LIMIT = 100  # Memoryに置く最大Block数、実質Reorg制限
     BATCH_SIZE = 10
-    MINTCOIN_FEE = 10 * 1000000  # 新規Mintcoin発行GasFee
-    CONTRACT_CREATE_FEE = 10 * 1000000  # コントラクト作成GasFee
+    MINTCOIN_GAS = int(10 * pow(10, 6))  # 新規Mintcoin発行GasFee
+    SIGNATURE_GAS = int(0.01 * pow(10, 6))  # gas per one signature
+    # CONTRACT_CREATE_FEE = int(10 * pow(10, 6))  # コントラクト作成GasFee
+    VALIDATOR_EDIT_GAS = int(10 * pow(10, 6))  # gas
+    CONTRACT_MINIMUM_INPUT = int(1 * pow(10, 8))  # Contractの発火最小amount
 
 
 class V:  # 起動時に設定される変数

@@ -9,7 +9,6 @@ Index page
     <tr><td><a href="./api/getsysteminfo">http://127.0.0.1:3000/api/getsysteminfo</a></td><td>GET</td><td></td><td>System info</td></tr>
     <tr><td><a href="./api/getchaininfo">http://127.0.0.1:3000/api/getchaininfo</a></td><td>GET</td><td></td><td>Chain info</td></tr>
     <tr><td><a href="./api/getnetworkinfo">http://127.0.0.1:3000/api/getnetworkinfo</a></td><td>GET</td><td></td><td>Network info</td></tr>
-    <tr><td><a href="./api/validatorinfo">http://127.0.0.1:3000/api/validatorinfo</a></td><td>GET</td><td></td><td>Validator info.</td></tr>
     <tr><td><a href="./api/stop">http://127.0.0.1:3000/api/stop</a></td><td>GET</td><td></td><td>stop client.</td></tr>
     <tr><td><a href="./api/resync">http://127.0.0.1:3000/api/resync</a></td><td>GET</td><td></td><td>set True resync flag.</td></tr>
     <tr><td><a href="./api/listbalance">http://127.0.0.1:3000/api/listbalance</a></td><td>GET</td><td>[confirm=6]</td><td>All account balance.</td></tr>

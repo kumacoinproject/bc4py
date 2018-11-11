@@ -57,11 +57,11 @@ def issue_mintcoin(name, unit, amount, digit, cur, gas_price=None,
         'gas_amount': 1,
         'message_type': C.MSG_BYTE,
         'message': mint.binary})
-    tx.gas_amount = tx.getsize() + 96 + C.MINTCOIN_FEE
+    tx.gas_amount = tx.getsize() + 96 + C.MINTCOIN_GAS
     tx.serialize()
     # fill unspents
     fee_coin_id = 0
-    input_address = fill_inputs_outputs(tx, cur, fee_coin_id, C.MINTCOIN_FEE)
+    input_address = fill_inputs_outputs(tx, cur, fee_coin_id, C.MINTCOIN_GAS)
     fee_coins = CoinObject(fee_coin_id, tx.gas_price*tx.gas_amount)
     # check amount
     check_enough_amount(sender, CoinObject(base_coin_id, amount), fee_coins)
@@ -119,10 +119,10 @@ def change_mintcoin(mint_id, cur, amount=0, message=None,
         'gas_amount': 1,
         'message_type': C.MSG_BYTE,
         'message': mint_new.binary})
-    tx.gas_amount = tx.getsize() + 96 + C.MINTCOIN_FEE
+    tx.gas_amount = tx.getsize() + 96 + C.MINTCOIN_GAS
     tx.serialize()
     fee_coin_id = 0
-    input_address = fill_inputs_outputs(tx, cur, fee_coin_id, C.MINTCOIN_FEE)
+    input_address = fill_inputs_outputs(tx, cur, fee_coin_id, C.MINTCOIN_GAS)
     fee_coins = CoinObject(fee_coin_id, tx.gas_price * tx.gas_amount)
     # check amount
     check_enough_amount(sender, CoinObject(base_coin_id, amount), fee_coins)

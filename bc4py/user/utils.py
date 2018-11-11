@@ -13,8 +13,6 @@ def message2signature(raw, address):
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         cur = db.cursor()
         uuid, sk, pk = read_address2keypair(address, cur)
-    if sk is None:
-        raise BlockChainError('Not found address {}'.format(address))
     return pk, sign(msg=raw, sk=sk, pk=pk)
 
 

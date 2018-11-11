@@ -5,7 +5,7 @@ from bc4py.chain.utils import check_output_format
 from bc4py.user import CoinObject
 from bc4py.contract.emulate import try_emulate
 from bc4py.database.account import create_new_user_keypair
-from bc4py.database.tools import get_contract_storage, get_usedindex, get_utxo_iter
+# from bc4py.database.tools import get_contract_storage, get_usedindex, get_utxo_iter
 import bjson
 import logging
 

@@ -14,6 +14,7 @@ import bjson
 from binascii import hexlify, unhexlify
 import time
 import pickle
+from nem_ed25519.key import is_address
 
 # http://blog.livedoor.jp/wolf200x/archives/53052954.html
 # https://github.com/happynear/py-leveldb-windows
@@ -36,13 +37,14 @@ struct_address = struct.Struct('>40s32sB')
 struct_address_idx = struct.Struct('>IQ?')
 struct_coins = struct.Struct('>II')
 struct_construct_key = struct.Struct('>40sI')
-struct_construct_value = struct.Struct('>32s32s')
+struct_construct_value = struct.Struct('>32s32sI')
 struct_validator_key = struct.Struct('>40sI')
 struct_validator_value = struct.Struct('>40sb32sb')
 ITER_ORDER = 'big'
 
 
 ZERO_FILLED_HASH = b'\x00' * 32
+DUMMY_VALIDATOR_ADDRESS = b'\x00' * 40
 STARTER_NUM = 3
 database_tuple = ("_block", "_tx", "_used_index", "_block_index",
                   "_address_index", "_coins", "_contract", "_validator")
@@ -283,15 +285,23 @@ class DataBase:
             contract_iter = self._contract.RangeIter(key_from=start, key_to=stop)
         for k, v in contract_iter:
             k, v = bytes(k), bytes(v)
-            # c_address, index, start_hash, finish_hash
+            # KEY: [c_address 40s]-[index uint4]
+            # VALUE: [start_hash 32s]-[finish_hash 32s]-[len uint4]-[bjson(c_method, c_args, c_storage)]
+            # c_address, index, start_hash, finish_hash, message
             if f_batch and k in batch_copy:
                 v = batch_copy[k]
                 del batch_copy[k]
-            yield struct_construct_key.unpack(k) + struct_construct_value.unpack(v)
+            dummy, index = struct_construct_key.unpack(k)
+            start_hash, finish_hash, length = struct_construct_value.unpack_from(v)
+            message = bjson.loads(v[32+32+4:32+32+4+length])
+            yield index, start_hash, finish_hash, message
         if f_batch:
             for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
                 if k.startswith(b_c_address):
-                    yield struct_construct_key.unpack(k) + struct_construct_value.unpack(v)
+                    dummy, index = struct_construct_key.unpack(k)
+                    start_hash, finish_hash, length = struct_construct_value.unpack_from(v)
+                    message = bjson.loads(v[32+32+4:32+32+4+length])
+                    yield index, start_hash, finish_hash, message
 
     def read_validator_iter(self, c_address):
         f_batch = self.is_batch_thread()
@@ -307,20 +317,26 @@ class DataBase:
         for k, v in validator_iter:
             k, v = bytes(k), bytes(v)
             # KEY [c_address 40s]-[index unit4]
-            # VALUE [address 40s]-[flag int1]-[txhash 32s]-[sig_diff int1]
+            # VALUE [new_address 40s]-[flag int1]-[txhash 32s]-[sig_diff int1]
             if f_batch and k in batch_copy:
                 v = batch_copy[k]
                 del batch_copy[k]
             dummy, index = struct_validator_key.unpack(k)
-            address, flag, txhash, sig_diff = struct_validator_value.unpack(v)
-            yield index, address.decode(), flag, txhash, sig_diff
+            new_address, flag, txhash, sig_diff = struct_validator_value.unpack(v)
+            if new_address == DUMMY_VALIDATOR_ADDRESS:
+                yield index, None, flag, txhash, sig_diff
+            else:
+                yield index, new_address.decode(), flag, txhash, sig_diff
         # from memory
         if f_batch:
             for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
                 if k.startswith(b_c_address):
                     dummy, index = struct_validator_key.unpack(k)
-                    address, flag, txhash, sig_diff = struct_validator_value.unpack(v)
-                    yield index, address.decode(), flag, txhash, sig_diff
+                    new_address, flag, txhash, sig_diff = struct_validator_value.unpack(v)
+                    if new_address == DUMMY_VALIDATOR_ADDRESS:
+                        yield index, None, flag, txhash, sig_diff
+                    else:
+                        yield index, new_address.decode(), flag, txhash, sig_diff
 
     def write_block(self, block):
         assert self.is_batch_thread(), 'Not created batch.'
@@ -363,17 +379,30 @@ class DataBase:
         self.batch['_coins'][k] = txhash
         logging.debug("Insert new coins id={}".format(coin_id))
 
-    def write_contract(self, c_address, index, start_hash, finish_hash):
+    def write_contract(self, c_address, start_hash, finish_hash, message):
         assert self.is_batch_thread(), 'Not created batch.'
+        assert len(message) == 3
+        index = -1
+        for index, *dummy in self.read_contract_iter(c_address=c_address): pass
+        index += 1
         k = c_address.encode() + index.to_bytes(4, ITER_ORDER)
-        v = start_hash + finish_hash
+        message = bjson.dumps(message, compress=False)
+        length = len(message)
+        v = struct_construct_value.pack(start_hash, finish_hash, length) + message
         self.batch['_contract'][k] = v
         logging.debug("Insert new contract {} {}".format(c_address, index))
 
-    def write_validator(self, c_address, index, address, flag, txhash, sign_diff):
+    def write_validator(self, c_address, new_address, flag, txhash, sign_diff):
         assert self.is_batch_thread(), 'Not created batch.'
+        index = -1
+        for index, *dummy in self.read_validator_iter(c_address=c_address): pass
+        index += 1
+        if new_address is None:
+            new_address = DUMMY_VALIDATOR_ADDRESS
+        else:
+            new_address = new_address.encode()
         k = c_address.encode() + index.to_bytes(4, ITER_ORDER)
-        v = struct_validator_value.pack(address.encode(), flag, txhash, sign_diff)
+        v = struct_validator_value.pack(new_address, flag, txhash, sign_diff)
         self.batch['_validator'][k] = v
         logging.debug("Insert new validator {} {}".format(c_address, index))
 
@@ -627,12 +656,14 @@ class ChainBuilder:
                             self.db.write_usedindex(txhash, usedindex)  # UsedIndex update
                             input_tx = tx_builder.get_tx(txhash)
                             address, coin_id, amount = input_tx.outputs[txindex]
-                            if config['full_address_index'] or read_address2user(address=address, cur=cur):
+                            if config['full_address_index'] or is_address(ck=address, prefix=V.BLOCK_CONTRACT_PREFIX)\
+                                    or read_address2user(address=address, cur=cur):
                                 # 必要なAddressのみ
                                 self.db.write_address_idx(address, txhash, txindex, coin_id, amount, True)
                         # outputs
                         for index, (address, coin_id, amount) in enumerate(tx.outputs):
-                            if config['full_address_index'] or read_address2user(address=address, cur=cur):
+                            if config['full_address_index'] or is_address(ck=address, prefix=V.BLOCK_CONTRACT_PREFIX) \
+                                    or read_address2user(address=address, cur=cur):
                                 # 必要なAddressのみ
                                 self.db.write_address_idx(address, tx.hash, index, coin_id, amount, False)
                         # TXの種類による追加操作
@@ -652,41 +683,17 @@ class ChainBuilder:
                             self.db.write_coins(mint_id, next_index, tx.hash)
 
                         elif tx.type == C.TX_VALIDATOR_EDIT:
-                            assert 'Not found!!!'
+                            c_address, new_address, flag, sig_diff = bjson.loads(tx.message)
+                            self.db.write_validator(c_address=c_address, new_address=new_address,
+                                                    flag=flag, txhash=tx.hash, sign_diff=sig_diff)
 
                         elif tx.type == C.TX_CONCLUDE_CONTRACT:
-                            assert 'Not found!!!'
+                            c_address, start_hash, c_storage = bjson.loads(tx.message)
+                            start_tx = tx_builder.get_tx(txhash=start_hash)
+                            dummy, c_method, c_args = bjson.loads(start_tx.message)
+                            self.db.write_contract(c_address=c_address, start_hash=start_hash,
+                                                   finish_hash=tx.hash, message=(c_method, c_args, c_storage))
 
-                        """elif tx.type == C.TX_CREATE_CONTRACT:
-                            c_address, c_bin, c_cs = bjson.loads(tx.message)
-                            start_hash, finish_hash = tx.hash, ZERO_FILLED_HASH
-                            self.db.write_contract(c_address, 0, start_hash, finish_hash)
-
-                        elif tx.type == C.TX_START_CONTRACT:
-                            c_address, c_data = bjson.loads(tx.message)
-                            next_index = 0
-                            for dummy in self.db.read_contract_iter(c_address):
-                                next_index += 1
-                            assert next_index > 0, 'Not created contract.'
-                            start_hash, finish_hash = tx.hash, ZERO_FILLED_HASH
-                            self.db.write_contract(c_address, next_index, start_hash, finish_hash)
-
-                        elif tx.type == C.TX_FINISH_CONTRACT:
-                            c_status, start_hash, cs_diff = bjson.loads(tx.message)
-                            # 同一BlockからStartTXを探し..
-                            for start_tx in block.txs:
-                                if start_tx.hash == start_hash:
-                                    break
-                            else:
-                                raise BlockBuilderError('Not found start tx. {}'.format(tx))
-                            c_address, c_data, c_args, c_redeem = bjson.loads(start_tx.message)
-                            # 次のIndexを取得する
-                            for dummy, index, _start_hash, finish_hash in self.db.read_contract_iter(c_address):
-                                if start_hash == _start_hash and finish_hash == ZERO_FILLED_HASH:
-                                    break  # STARTで既に挿入されているはず
-                            else:
-                                raise BlockBuilderError('Not found start tx on db. {}'.format(tx))
-                            self.db.write_contract(c_address, index, start_hash, tx.hash)"""
                 # block挿入終了
                 self.best_chain = best_chain
                 self.root_block = block

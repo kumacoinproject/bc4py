@@ -11,6 +11,7 @@ from .editaccount import *
 from .chaininfo import *
 from .websocket import *
 from .createtx import *
+from .contractinfo import *
 from .contracttx import *
 from .jsonrpc import json_rpc
 from bc4py.config import V
@@ -73,7 +74,6 @@ def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None, ssl_
     app.router.add_get('/api/getsysteminfo', system_info)
     app.router.add_get('/api/getchaininfo', chain_info)
     app.router.add_get('/api/getnetworkinfo', network_info)
-    # app.router.add_get('/api/validatorinfo', validator_info)
     app.router.add_get('/api/resync', resync)
     # Account
     app.router.add_get('/api/listbalance', list_balance)
@@ -96,12 +96,15 @@ def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None, ssl_
     app.router.add_post('/api/issueminttx', issue_mint_tx)
     app.router.add_post('/api/changeminttx', change_mint_tx)
     # Contract
-    app.router.add_get('/api/contracthistory', contract_history)
-    app.router.add_get('/api/contractdetail', contract_detail)
+    app.router.add_get('/api/getcontractinfo', contract_info)
+    app.router.add_get('/api/getvalidatorinfo', validator_info)
     app.router.add_get('/api/contractstorage', contract_storage)
     app.router.add_post('/api/sourcecompile', source_compile)
-    app.router.add_post('/api/contractcreate', contract_create)
-    app.router.add_post('/api/contractstart', contract_start)
+    app.router.add_post('/api/contractinit', contract_init)
+    app.router.add_post('/api/contractupdate', contract_update)
+    app.router.add_post('/api/contracttransfer', contract_transfer)
+    app.router.add_post('/api/validatoredit', validator_edit)
+    app.router.add_post('/api/validateunconfirmed', validate_unconfirmed)
     # BlockChain
     app.router.add_get('/api/getblockbyheight', get_block_by_height)
     app.router.add_get('/api/getblockbyhash', get_block_by_hash)
