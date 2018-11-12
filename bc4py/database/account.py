@@ -211,7 +211,7 @@ class MoveLog:
         self.pointer = ref(tx) if tx else object()
 
     def __repr__(self):
-        return "<MoveLog {} {}>".format(C.txtype2name[self.type], hexlify(self.txhash).decode())
+        return "<MoveLog {} {}>".format(C.txtype2name.get(self.type, None), hexlify(self.txhash).decode())
 
     def __hash__(self):
         return hash(self.txhash)
@@ -224,7 +224,7 @@ class MoveLog:
             'txhash': hexlify(self.txhash).decode(),
             'height':  self.height,
             'on_memory': self.on_memory,
-            'type': C.txtype2name[self.type],
+            'type': C.txtype2name.get(self.type, None),
             'movement': movement,
             'time': self.time + V.BLOCK_GENESIS_TIME}
 

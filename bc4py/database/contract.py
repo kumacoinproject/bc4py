@@ -52,8 +52,6 @@ class Contract:
         elif c_method == M_UPDATE:
             assert self.index != -1
             c_bin, c_extra_imports, c_settings = c_args
-            if not self.settings.get('f_update_bin', False):
-                raise BlockChainError('Not allowed update contract binary.')
             self.binary = c_bin
             if c_extra_imports:
                 self.extra_imports = c_extra_imports
@@ -130,6 +128,7 @@ def get_contract_object(c_address, best_block=None, best_chain=None, stop_txhash
 
 
 __all__ = [
+    "M_INIT", "M_UPDATE",
     "Contract",
     "contract_fill",
     "get_contract_object"

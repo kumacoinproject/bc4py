@@ -103,6 +103,7 @@ def create_rest_server(f_local, port, f_blocking=True, user=None, pwd=None, ssl_
     app.router.add_post('/api/contractinit', contract_init)
     app.router.add_post('/api/contractupdate', contract_update)
     app.router.add_post('/api/contracttransfer', contract_transfer)
+    app.router.add_post('/api/concludecontract', conclude_contract)
     app.router.add_post('/api/validatoredit', validator_edit)
     app.router.add_post('/api/validateunconfirmed', validate_unconfirmed)
     # BlockChain

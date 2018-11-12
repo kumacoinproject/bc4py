@@ -28,8 +28,8 @@ class TX:
         return hash(self.hash)
 
     def __repr__(self):
-        return "<TX {} {} {} >"\
-            .format(self.height, C.txtype2name[self.type], hexlify(self.hash).decode())
+        return "<TX {} {} {}>".format(
+            self.height, C.txtype2name.get(self.type, None), hexlify(self.hash).decode())
 
     def __init__(self, binary=None, tx=None):
         self.b = None
@@ -120,7 +120,7 @@ class TX:
         r['pos_amount'] = self.pos_amount
         r['height'] = self.height
         r['version'] = self.version
-        r['type'] = C.txtype2name[self.type]
+        r['type'] = C.txtype2name.get(self.type, None)
         r['time'] = self.time + V.BLOCK_GENESIS_TIME
         r['deadline'] = self.deadline + V.BLOCK_GENESIS_TIME
         r['inputs'] = [(hexlify(txhash).decode(), txindex) for txhash, txindex in self.inputs]

@@ -14,18 +14,19 @@ from time import time
 async def contract_init(request):
     start = time()
     post = await web_base.content_type_json_check(request)
-    c_address = post['c_address']
-    c_bin = unhexlify(post['c_bin'].encode())
-    c_extra_imports = post.get('extra_imports', None)
-    c_settings = post.get('settings', None)
     try:
+        c_address = post['c_address']
+        c_bin = unhexlify(post['hex'].encode())
+        c_extra_imports = post.get('extra_imports', None)
+        c_settings = post.get('settings', None)
+        send_pairs = post.get('send_pairs', None)
         binary2contract(c_bin)  # can compile?
         sender_name = post.get('account', C.ANT_NAME_UNKNOWN)
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
             sender = read_name2user(sender_name, cur)
-            tx = create_init_contract_tx(c_address=c_address, c_bin=c_bin, cur=cur,
-                                         c_extra_imports=c_extra_imports, c_settings=c_settings, sender=sender)
+            tx = create_contract_init_tx(c_address=c_address, c_bin=c_bin, cur=cur, c_extra_imports=c_extra_imports,
+                                         c_settings=c_settings, send_pairs=send_pairs, sender=sender)
             if not send_newtx(new_tx=tx, outer_cur=cur):
                 raise BaseException('Failed to send new tx.')
             db.commit()
@@ -45,6 +46,31 @@ async def contract_update(request):
 
 async def contract_transfer(request):
     pass
+
+
+async def conclude_contract(request):
+    start = time()
+    post = await web_base.content_type_json_check(request)
+    try:
+        c_address = post['c_address']
+        start_hash = unhexlify(post['start_hash'].encode())
+        send_pairs = post.get('send_pairs', None)
+        c_storage = post.get('storage', None)
+        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+            cur = db.cursor()
+            tx = create_conclude_tx(c_address=c_address, start_hash=start_hash,
+                                    cur=cur, send_pairs=send_pairs, c_storage=c_storage)
+            if not send_newtx(new_tx=tx, outer_cur=cur):
+                raise BaseException('Failed to send new tx.')
+            db.commit()
+            return web_base.json_res({
+                'hash': hexlify(tx.hash).decode(),
+                'gas_amount': tx.gas_amount,
+                'gas_price': tx.gas_price,
+                'fee': tx.gas_amount * tx.gas_price,
+                'time': round(time()-start, 3)})
+    except BaseException:
+        return web_base.error_res()
 
 
 async def validator_edit(request):
@@ -81,7 +107,7 @@ async def validate_unconfirmed(request):
         txhash = unhexlify(post['hash'].encode())
         tx = tx_builder.get_tx(txhash=txhash)
         if tx is None or tx.height is not None:
-            return web_base.error_res('No validation tx. {}'.format(tx))
+            return web_base.error_res('You cannot validate tx. {}'.format(tx))
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
             new_tx = create_signed_tx_as_validator(tx=tx)
@@ -97,54 +123,6 @@ async def validate_unconfirmed(request):
                 'time': round(time() - start, 3)})
     except BaseException:
         return web_base.error_res()
-
-
-"""async def contract_detail(request):
-    try:
-        c_address = request.query['address']
-        c_bin = get_contract_binary(c_address)
-        c_cs = get_contract_storage(c_address)
-        c_cs_data = {k.decode(errors='ignore'): v.decode(errors='ignore')
-                     for k, v in c_cs.key_value.items()}
-        c_obj = binary2contract(c_bin)
-        contract_dis = contract2dis(c_obj)
-        data = {
-            'c_address': c_address,
-            'c_cs_data': c_cs_data,
-            'c_cs_ver': c_cs.version,
-            'contract_dis': contract_dis,
-            'c_bin': hexlify(c_bin).decode()}
-        return web_base.json_res(data)
-    except BaseException:
-        return web_base.error_res()"""
-
-
-"""async def contract_history(request):
-    try:
-        c_address = request.query['address']
-        data = list()
-        for index, start_hash, finish_hash, height, on_memory in get_contract_history_iter(c_address):
-            data.append({
-                'index': index,
-                'height': height,
-                'on_memory': on_memory,
-                'start_hash': hexlify(start_hash).decode(),
-                'finish_hash': hexlify(finish_hash).decode()})
-        return web_base.json_res(data)
-    except BaseException:
-        return web_base.error_res()"""
-
-
-"""async def contract_storage(request):
-    try:
-        c_address = request.query['address']
-        cs = get_contract_storage(c_address)
-        data = {
-            'storage': {k.decode(errors='ignore'): v.decode(errors='ignore') for k, v in cs.items()},
-            'version': cs.version}
-        return web_base.json_res(data)
-    except BaseException:
-        return web_base.error_res()"""
 
 
 async def source_compile(request):
@@ -166,70 +144,6 @@ async def source_compile(request):
         return web_base.error_res()
 
 
-"""async def contract_create(request):
-    post = await web_base.content_type_json_check(request)
-    with closing(create_db(V.DB_ACCOUNT_PATH, f_on_memory=True)) as db:
-        cur = db.cursor()
-        try:
-            # バイナリをピックルしオブジェクトに戻す
-            c_bin = unhexlify(post['hex'].encode())
-            c_cs = {k.encode(errors='ignore'): v.encode(errors='ignore')
-                    for k, v in post.get('c_cs', dict()).items()}
-            binary2contract(c_bin)  # can compile?
-            sender_name = post.get('account', C.ANT_NAME_UNKNOWN)
-            sender_id = read_name2user(sender_name, cur)
-            c_address, c_tx = create_contract_tx(c_bin, cur, sender_id, c_cs)
-            if not send_newtx(new_tx=c_tx, outer_cur=cur):
-                raise BaseException('Failed to send new tx.')
-            db.commit()
-            data = {
-                'txhash': hexlify(c_tx.hash).decode(),
-                'c_address': c_address,
-                'time': c_tx.time,
-                'fee': {
-                    'gas_price': c_tx.gas_price,
-                    'gas_amount': c_tx.gas_amount,
-                    'total': c_tx.gas_price * c_tx.gas_amount}}
-            return web_base.json_res(data)
-        except BaseException:
-            return web_base.error_res()"""
-
-
-"""async def contract_start(request):
-    post = await web_base.content_type_json_check(request)
-    with closing(create_db(V.DB_ACCOUNT_PATH, f_on_memory=True)) as db:
-        cur = db.cursor()
-        try:
-            c_address = post['address']
-            c_method = post['method']
-            c_args = post.get('args', None)
-            outputs = post.get('outputs', list())
-            account = post.get('account', C.ANT_NAME_UNKNOWN)
-            user_id = read_name2user(account, cur)
-            # TX作成
-            outputs = [(address, coin_id, amount) for address, coin_id, amount in outputs]
-            start_tx = start_contract_tx(c_address, c_method, cur, c_args, outputs, user_id)
-            # 送信
-            if not send_newtx(new_tx=start_tx, outer_cur=cur):
-                raise BaseException('Failed to send new tx.')
-            db.commit()
-            data = {
-                'txhash': hexlify(start_tx.hash).decode(),
-                'time': start_tx.time,
-                'c_address': c_address,
-                'fee': {
-                    'gas_price': start_tx.gas_price,
-                    'gas_amount': start_tx.gas_amount,
-                    'total': start_tx.gas_price * start_tx.gas_amount},
-                'params': {
-                    'method': c_method,
-                    'args': c_args}
-            }
-            return web_base.json_res(data)
-        except BaseException:
-            return web_base.error_res()"""
-
-
 __all__ = [
     # "contract_detail",
     # "contract_history",
@@ -237,6 +151,7 @@ __all__ = [
     "contract_init",
     "contract_update",
     "contract_transfer",
+    "conclude_contract",
     "validator_edit",
     "validate_unconfirmed",
     "source_compile",
