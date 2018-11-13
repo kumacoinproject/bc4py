@@ -20,29 +20,42 @@ def create_contract_init_tx(c_address, c_bin, cur, c_extra_imports=None, c_setti
     if sender in (C.ANT_OUTSIDE, C.ANT_RESERVED):
         raise BlockChainError('Not allowed inner account.')
     c_method = contract.M_INIT
-    if c_extra_imports is None:
-        c_extra_imports = []
-    if c_settings is None:
-        c_settings = {'f_update_bin': False}
     c_args = (c_bin, c_extra_imports, c_settings)
     msg_body = bjson.dumps((c_address, c_method, c_args), compress=False)
-    if send_pairs is None:
-        send_pairs = [(c_address, 0, C.CONTRACT_MINIMUM_INPUT)]
-    elif isinstance(send_pairs, list):
-        send_pairs = [tuple(s) for s in send_pairs]
-    else:
-        raise BlockChainError('Not correct format. {}'.format(send_pairs))
+    send_pairs = send_pairs_format_check(c_address=c_address, send_pairs=send_pairs)
     tx = send_many(sender=sender, send_pairs=send_pairs, cur=cur, fee_coin_id=0, gas_price=gas_price,
                    msg_type=C.MSG_BYTE, msg_body=msg_body, retention=retention)
     return tx
 
 
-def create_contract_update_tx(sender=C.ANT_UNKNOWN, gas_price=None, retention=10800):
-    pass
+def create_contract_update_tx(c_address, cur, c_bin=None, c_extra_imports=None, c_settings=None,
+                              send_pairs=None, sender=C.ANT_UNKNOWN, gas_price=None, retention=10800):
+    assert c_bin or c_extra_imports or c_settings
+    if sender in (C.ANT_OUTSIDE, C.ANT_RESERVED):
+        raise BlockChainError('Not allowed inner account.')
+    c_method = contract.M_UPDATE
+    c_args = (c_bin, c_extra_imports, c_settings)
+    msg_body = bjson.dumps((c_address, c_method, c_args), compress=False)
+    send_pairs = send_pairs_format_check(c_address=c_address, send_pairs=send_pairs)
+    tx = send_many(sender=sender, send_pairs=send_pairs, cur=cur, fee_coin_id=0, gas_price=gas_price,
+                   msg_type=C.MSG_BYTE, msg_body=msg_body, retention=retention)
+    return tx
 
 
-def create_contract_transfer_tx(sender=C.ANT_UNKNOWN, gas_price=None, retention=10800):
-    pass
+def create_contract_transfer_tx(c_address, cur, c_method, c_args=None,
+                                send_pairs=None, sender=C.ANT_UNKNOWN, gas_price=None, retention=10800):
+    assert isinstance(c_method, str)
+    if sender in (C.ANT_OUTSIDE, C.ANT_RESERVED):
+        raise BlockChainError('Not allowed inner account.')
+    if c_args is None:
+        c_args = tuple()
+    else:
+        c_args = tuple(c_args)
+    msg_body = bjson.dumps((c_address, c_method, c_args), compress=False)
+    send_pairs = send_pairs_format_check(c_address=c_address, send_pairs=send_pairs)
+    tx = send_many(sender=sender, send_pairs=send_pairs, cur=cur, fee_coin_id=0, gas_price=gas_price,
+                   msg_type=C.MSG_BYTE, msg_body=msg_body, retention=retention)
+    return tx
 
 
 def create_conclude_tx(c_address, start_hash, cur, send_pairs=None,
@@ -132,12 +145,23 @@ def create_signed_tx_as_validator(tx: TX):
     return copied_tx
 
 
+def send_pairs_format_check(c_address, send_pairs):
+    # send_pairs is list and inner pair is tuple.
+    if send_pairs is None:
+        send_pairs = [(c_address, 0, C.CONTRACT_MINIMUM_INPUT)]
+    elif isinstance(send_pairs, list):
+        send_pairs = [tuple(s) for s in send_pairs]
+    else:
+        raise BlockChainError('Not correct format. {}'.format(send_pairs))
+    return send_pairs
+
+
 __all__ = [
     "create_contract_transfer_tx",
     "create_contract_init_tx",
     "create_contract_update_tx",
     "F_NOP", "F_REMOVE", "F_ADD",
-    "create_validator_edit_tx",
     "create_conclude_tx",
+    "create_validator_edit_tx",
     "create_signed_tx_as_validator",
 ]

@@ -79,14 +79,14 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
         if c_before.index == -1:
             raise BlockChainError('Not created contract.')
         c_bin, c_extra_imports, c_settings = c_args
-        if not c_before.settings.get['f_update_bin']:
-            raise BlockChainError('Not allowed update contract binary.')
         if not (c_bin is None or isinstance(c_bin, bytes)):
             raise BlockChainError('8. Not correct format. {}'.format(c_args))
         if not (c_extra_imports is None or isinstance(c_extra_imports, tuple)):
             raise BlockChainError('9. Not correct format. {}'.format(c_extra_imports))
         if not (c_settings is None or isinstance(c_settings, dict)):
             raise BlockChainError('10. Not correct format. {}'.format(c_settings))
+        if not (c_bin or c_extra_imports or c_settings):
+            raise BlockChainError('No change found. {}, {}, {}'.format(c_bin, c_extra_imports, c_settings))
     else:
         pass  # user oriented data
     contract_required_gas_check(tx=tx, v=v, extra_gas=0)

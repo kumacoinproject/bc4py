@@ -12,6 +12,10 @@ M_UPDATE = 'update'
 
 cashe = ExpiringDict(max_len=100, max_age_seconds=1800)
 
+settings_template = {
+    'update_binary': True,
+    'update_extra_imports': True}
+
 
 class Contract:
     def __init__(self, c_address):
@@ -47,16 +51,21 @@ class Contract:
             c_bin, c_extra_imports, c_settings = c_args
             self.binary = c_bin
             self.extra_imports = c_extra_imports or list()
-            self.settings = c_settings or dict()
+            self.settings = settings_template.copy()
+            if c_settings:
+                self.settings.update(c_settings)
             self.storage = Storage(c_address=self.c_address, **c_storage)
         elif c_method == M_UPDATE:
             assert self.index != -1
             c_bin, c_extra_imports, c_settings = c_args
-            self.binary = c_bin
-            if c_extra_imports:
+            if self.settings['update_binary']:
+                self.binary = c_bin
+                if not c_settings.get('update_binary', False):
+                    self.settings['update_binary'] = False
+            if self.settings['update_extra_imports']:
                 self.extra_imports = c_extra_imports
-            if c_settings:
-                self.settings.update(c_settings)
+                if not c_settings.get('update_extra_imports', False):
+                    self.settings['update_extra_imports'] = False
         else:
             assert self.index != -1
             self.storage.marge_diff(c_storage)

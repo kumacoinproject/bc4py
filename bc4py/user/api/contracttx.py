@@ -41,11 +41,62 @@ async def contract_init(request):
 
 
 async def contract_update(request):
-    pass
+    start = time()
+    post = await web_base.content_type_json_check(request)
+    try:
+        c_address = post['c_address']
+        if 'hex' in post:
+            c_bin = unhexlify(post['hex'].encode())
+            binary2contract(c_bin)  # can compile?
+        else:
+            c_bin = None
+        c_extra_imports = post.get('extra_imports', None)
+        c_settings = post.get('settings', None)
+        send_pairs = post.get('send_pairs', None)
+        sender_name = post.get('account', C.ANT_NAME_UNKNOWN)
+        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+            cur = db.cursor()
+            sender = read_name2user(sender_name, cur)
+            tx = create_contract_update_tx(c_address=c_address, cur=cur, c_bin=c_bin, c_extra_imports=c_extra_imports,
+                                           c_settings=c_settings, send_pairs=send_pairs, sender=sender)
+            if not send_newtx(new_tx=tx, outer_cur=cur):
+                raise BaseException('Failed to send new tx.')
+            db.commit()
+        return web_base.json_res({
+            'hash': hexlify(tx.hash).decode(),
+            'gas_amount': tx.gas_amount,
+            'gas_price': tx.gas_price,
+            'fee': tx.gas_amount * tx.gas_price,
+            'time': round(time()-start, 3)})
+    except BaseException:
+        return web_base.error_res()
 
 
 async def contract_transfer(request):
-    pass
+    start = time()
+    post = await web_base.content_type_json_check(request)
+    try:
+        c_address = post['c_address']
+        c_method = post['c_method']
+        c_args = post['c_args']
+        send_pairs = post.get('send_pairs', None)
+        sender_name = post.get('account', C.ANT_NAME_UNKNOWN)
+        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+            cur = db.cursor()
+            sender = read_name2user(sender_name, cur)
+            tx = create_contract_transfer_tx(c_address=c_address, cur=cur, c_method=c_method, c_args=c_args,
+                                             send_pairs=send_pairs, sender=sender)
+            if not send_newtx(new_tx=tx, outer_cur=cur):
+                raise BaseException('Failed to send new tx.')
+            db.commit()
+        return web_base.json_res({
+            'hash': hexlify(tx.hash).decode(),
+            'gas_amount': tx.gas_amount,
+            'gas_price': tx.gas_price,
+            'fee': tx.gas_amount * tx.gas_price,
+            'time': round(time() - start, 3)})
+    except BaseException:
+        return web_base.error_res()
 
 
 async def conclude_contract(request):
