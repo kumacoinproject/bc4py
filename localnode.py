@@ -94,7 +94,7 @@ def work(port, sub_dir):
 
     try:
         # start_stratum(f_blocking=False)
-        create_rest_server(f_local=True, port=port+1000)
+        create_rest_server(f_local=True, port=port+1000, user='user', pwd='password')
         builder.close()
         # close_stratum()
         pc.close()

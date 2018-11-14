@@ -40,6 +40,8 @@ async def contract_storage(request):
     try:
         c_address = request.query['c_address']
         c = get_contract_object(c_address=c_address)
+        if c is None:
+            return web_base.json_res({})
         storage = {decode(k): decode(v) for k, v in c.storage.items()}
         return web_base.json_res(storage)
     except Exception as e:

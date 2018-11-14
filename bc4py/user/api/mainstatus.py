@@ -50,6 +50,19 @@ async def chain_info(request):
 
 
 async def system_info(request):
+    data = {
+        'system_ver': __version__,
+        'api_ver': __api_version__,
+        'chain_ver': __chain_version__,
+        'booting': P.F_NOW_BOOTING,
+        'connections': len(V.PC_OBJ.p2p.user),
+        'unconfirmed': [hexlify(txhash).decode() for txhash in tx_builder.unconfirmed.keys()],
+        'access_time': int(time.time()),
+        'start_time': start_time}
+    return web_base.json_res(data)
+
+
+async def system_private_info(request):
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         cur = db.cursor()
         data = {
@@ -90,22 +103,9 @@ async def network_info(request):
         return web_base.error_res()
 
 
-"""async def validator_info(request):
-    try:
-        validator_cks, required_num = get_validator_info()
-        return web_base.json_res({
-            'im_a_validator': im_a_validator(),
-            'validator_address': V.CONTRACT_VALIDATOR_ADDRESS,
-            'validators': list(validator_cks),
-            'all': len(validator_cks),
-            'require': required_num})
-    except BaseException:
-        return web_base.error_res()"""
-
-
 __all__ = [
     "chain_info",
     "system_info",
+    "system_private_info",
     "network_info",
-    # "validator_info"
 ]

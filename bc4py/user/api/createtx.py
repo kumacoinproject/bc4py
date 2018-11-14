@@ -168,7 +168,7 @@ async def broadcast_tx(request):
     try:
         binary = unhexlify(post['hex'].encode())
         new_tx = TX(binary=binary)
-        new_tx.signature = [(pk, unhexlify(sign.encode())) for pk, sign in post['signature']]
+        new_tx.signature = [(pk, unhexlify(_sign.encode())) for pk, _sign in post['signature']]
         if not send_newtx(new_tx=new_tx):
             raise BaseException('Failed to send new tx.')
         return web_base.json_res({
