@@ -17,7 +17,7 @@ import p2p_python
 MAX_256_INT = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 start_time = int(time.time())
 
-__api_version__ = '0.0.1'
+__api_version__ = '0.0.2'
 
 
 async def chain_info(request):

@@ -124,6 +124,8 @@ def create_rest_server(f_local, port, user=None, pwd=None, f_blocking=True, ssl_
     app.router.add_get('/', web_page)
     app.router.add_get('/{page_path:[^{}]+.}', web_page)
 
+    # route2markdown(app)
+
     # Cross-Origin Resource Sharing
     escape_cross_origin_block(app)
 
@@ -155,6 +157,27 @@ def create_rest_server(f_local, port, user=None, pwd=None, f_blocking=True, ssl_
         logging.info("Create REST Server.")
 
 
+def route2markdown(app):
+    row = [('URL', 'Method', 'Type', 'About')]
+    for r in app.router.routes():
+        if r.method not in ('GET', 'POST'):
+            continue
+        if not getattr(r.resource, '_path', False):
+            continue
+        if len(r.resource._path.split("/")) != 3:
+            continue
+        *dummy, type, url = r.resource._path.split("/")
+        row.append((url, r.method, type, r.handler.__doc__ or ""))
+    # print(row)
+    for url, method, type, about in row:
+        print("|{} |{} |{} |{} |".format(
+            "[/{}/{}](./{}/{})".format(type, url, type, url).ljust(60, " "),
+            method.ljust(6, " "),
+            type.ljust(6, " "),
+            about.ljust(60, " ")
+        ))
+
+
 async def non_blocking_start(runner, host, port, ssl_context):
     # No blocking run https://docs.aiohttp.org/en/stable/web_advanced.html#application-runners
     await runner.setup()
@@ -172,7 +195,7 @@ async def web_page(request):
             markdown_body = open(abs_path, mode='r', encoding='utf8').read()
             markdown_body = markdown_body.replace('\\', '\\\\').replace('\"', '\\\"').replace("\n", "\\n")
             return web.Response(
-                text=markdown_template % (markdown_title, markdown_body),
+                text=markdown_template.replace('{:title}', markdown_title, 1).replace('{:body}', markdown_body, 1),
                 headers=web_base.CONTENT_TYPE_HTML)
         elif not os.path.exists(abs_path):
             return web.Response(text="Not found page. {}".format(req_path[-1]), status=404)
@@ -185,7 +208,7 @@ async def web_page(request):
                 body=open(os.path.join(abs_path, 'index.html'), mode='rb').read(),
                 headers=web_base.CONTENT_TYPE_HTML)
     except Exception as e:
-        logging.error(e)
+        logging.error(e, exc_info=True)
         return web.Response(text="Error: {}".format(page_path), status=400)
 
 
@@ -205,6 +228,35 @@ async def close_server(request):
     return web.Response(text='Close after 5 seconds.')
 
 
+"""Document templete
+    Arguments:
+        1. param         (numeric or string, required) confirmed block height.
+
+    Result:
+    {
+        "@Unknown": {
+            "0": 95503321054659
+        },
+        "@Outside": {
+            "0": 40000054400
+        }
+    }
+
+    {
+      "blocks": nnn,             (numeric) The current block
+      "currentblockweight": nnn, (numeric) The last block weight
+      "currentblocktx": nnn,     (numeric) The last block transaction
+      "difficulty": xxx.xxxxx    (numeric) The current difficulty
+      "networkhashps": nnn,      (numeric) The network hashes per second
+      "pooledtx": n              (numeric) The size of the mempool
+      "chain": "xxxx",           (string) current network name as defined in BIP70 (main, test, regtest)
+      "warnings": "..."          (string) any network and blockchain warnings
+      "errors": "..."            (string) DEPRECATED. Same as warnings. Only shown when monacoind is started with -deprecatedrpc=getmininginfo
+    }
+
+    Examples:
+    > curl user:password@127.0.0.1:3000/private/listbalance
+    """
 __all__ = [
     "escape_cross_origin_block",
     "SkipOptionsStrategy",
