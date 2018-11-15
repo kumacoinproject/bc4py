@@ -160,7 +160,7 @@ class HashGenerator:
     def __init__(self, index):
         self.index = index
         cxt = get_context('spawn')
-        parent_conn, child_conn = cxt.Pipe()
+        parent_conn, child_conn = cxt.Pipe(duplex=True)
         self.process = cxt.Process(
             target=_pow_generator, name="Hashing{}".format(index), args=(child_conn,))
         self.process.daemon = True

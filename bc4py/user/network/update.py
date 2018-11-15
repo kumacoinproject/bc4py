@@ -88,7 +88,11 @@ def _update_unconfirmed_info():
         # contract tx
         for tx in unconfirmed_txs.copy():
             if tx.type == C.TX_CONCLUDE_CONTRACT:
-                c_address, start_hash, c_storage = bjson.loads(tx.message)
+                try:
+                    c_address, start_hash, c_storage = bjson.loads(tx.message)
+                except Exception:
+                    unconfirmed_txs.remove(tx)  # failed decode bjson
+                    continue
                 start_tx = tx_builder.get_tx(txhash=start_hash)
                 if start_tx is None or start_tx.height is None:
                     unconfirmed_txs.remove(tx)  # start tx is confirmed
@@ -98,7 +102,11 @@ def _update_unconfirmed_info():
                     unconfirmed_txs.remove(tx)
                     continue
             elif tx.type == C.TX_VALIDATOR_EDIT:
-                c_address, address, flag, sig_diff = bjson.loads(tx.message)
+                try:
+                    c_address, address, flag, sig_diff = bjson.loads(tx.message)
+                except Exception:
+                    unconfirmed_txs.remove(tx)  # failed decode bjson
+                    continue
                 v = get_validator_object(c_address=c_address, best_block=best_block, best_chain=best_chain)
                 if v.require > len(tx.signature):
                     unconfirmed_txs.remove(tx)

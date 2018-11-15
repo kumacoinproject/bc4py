@@ -23,7 +23,10 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
         raise BlockChainError('Not set contract prefix ?')
     elif V.BLOCK_CONTRACT_PREFIX == V.BLOCK_PREFIX:
         raise BlockChainError('normal prefix same with contract prefix.')
-    c_address, start_hash, c_storage = bjson.loads(tx.message)
+    try:
+        c_address, start_hash, c_storage = bjson.loads(tx.message)
+    except Exception as e:
+        raise BlockChainError('BjsonError: {}'.format(e))
     if not (isinstance(c_address, str) and len(c_address) == 40):
         raise BlockChainError('1. Not correct format. {}'.format(c_address))
     if not (isinstance(start_hash, bytes) and len(start_hash) == 32):
@@ -52,7 +55,10 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
         raise BlockChainError('Start tx is TRANSFER, not {}.'.format(C.txtype2name.get(start_tx.type, None)))
     if start_tx.message_type != C.MSG_BYTE:
         raise BlockChainError('Start tx is MSG_BYTE, not {}.'.format(C.msg_type2name.get(start_tx.message_type, None)))
-    c_start_address, c_method, c_args = bjson.loads(start_tx.message)
+    try:
+        c_start_address, c_method, c_args = bjson.loads(start_tx.message)
+    except Exception as e:
+        raise BlockChainError('BjsonError: {}'.format(e))
     if c_address != c_start_address:
         raise BlockChainError('Start tx\'s contract address is different. {}!={}'.format(c_address, c_start_address))
     if not isinstance(c_method, str):
@@ -104,7 +110,10 @@ def check_tx_validator_edit(tx: TX, include_block: Block):
     elif V.BLOCK_CONTRACT_PREFIX == V.BLOCK_PREFIX:
         raise BlockChainError('normal prefix same with contract prefix.')
     # message
-    c_address, new_address, flag, sig_diff = bjson.loads(tx.message)
+    try:
+        c_address, new_address, flag, sig_diff = bjson.loads(tx.message)
+    except Exception as e:
+        raise BlockChainError('BjsonError: {}'.format(e))
     # inputs/outputs address check
     for txhash, txindex in tx.inputs:
         input_tx = tx_builder.get_tx(txhash)

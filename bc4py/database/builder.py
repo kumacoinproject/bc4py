@@ -85,9 +85,10 @@ class DataBase:
         if is_plyvel:
             for name in database_tuple:
                 getattr(self, name).close()
-        else:
-            for name in database_tuple:
-                getattr(self, name).__dell__()
+        # else:  # TODO: how to close?
+        #    for name in database_tuple:
+        #        print(getattr(self, name).GetStats())
+        #        getattr(self, name).__dell__()
         logging.info("Close database connection.")
 
     def batch_create(self):
