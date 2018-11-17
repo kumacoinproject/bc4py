@@ -1,11 +1,10 @@
 Index page
 ====
-* [all REST methods](./rest.md)
 * [sample.md](./sample.md)
 * [test response for debug](./testresponse.html)
 
 
-System
+[System](./doc_system.md)
 ----
 |URL    |Method    |Type    |About   |
 |----   |----   |----   |----   |
@@ -16,7 +15,7 @@ System
 |[/private/resync](./private/resync)                |GET    |private  | Make system resync status.              |
 |[/private/stop](./private/stop)                    |GET    |private  | Stop system.                            |
 
-Account
+[Account](./doc_account.md)
 ----
 |URL    |Method    |Type    |About   |
 |----   |----   |----   |----   |
@@ -32,7 +31,7 @@ Account
 |[/private/newaddress](./private/newaddress)                   |GET    |private  | Get new incoming address by account.  |
 |[/private/getkeypair](./private/getkeypair)                   |GET    |private  | Get keypair by address.               |
 
-Sending
+[Sending](./doc_sending.md)
 ----
 |URL    |Method    |Type    |About   |
 |----   |----   |----   |----   |
@@ -44,7 +43,7 @@ Sending
 |[/private/issueminttx](./private/issueminttx)      |POST   |private  | Issue new mintcoin.                 |
 |[/private/changeminttx](./private/changeminttx)    |POST   |private  | Cahge mintcoin's status.            |
 
-Contract
+[Contract](./doc_contract.md)
 ----
 |URL    |Method    |Type    |About   |
 |----   |----   |----   |----   |
@@ -59,7 +58,7 @@ Contract
 |[/private/validatoredit](./private/validatoredit)              |POST   |private  | Edit validator status.                      |
 |[/private/validateunconfirmed](./private/validateunconfirmed) |POST   |private  | Validate unconfirmed contract transactions.  |
 
-Blockchain
+[Blockchain](./doc_blockchain.md)
 ----
 |URL    |Method    |Type    |About   |
 |----   |----   |----   |----   |
@@ -75,4 +74,4 @@ Others
 |[/json-rpc](./json-rpc)            |POST   |JSON-RPC   | Mining interface, `getwork` and `getblocktemplete` |
 
 
-API version 0.0.1 2018/11/15
+API version 0.0.2 2018/11/15

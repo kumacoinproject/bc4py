@@ -24,7 +24,9 @@
                 try{
                     var renderer = new marked.Renderer();
                     renderer.code = function(code, language) {
-                        return '<pre'+'><code class="hljs">' + hljs.highlightAuto(code).value + '</code></pre>';
+                        return '<pre style="max-height: 30em;">' +
+                            '<code class="hljs">' + hljs.highlightAuto(code).value + '</code>' +
+                            '</pre>';
                     };
                     renderer.table = function(header, body) {
                         if (body) body = '<tbody>' + body + '</tbody>';

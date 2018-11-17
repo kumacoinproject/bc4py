@@ -21,7 +21,7 @@ async def contract_init(request):
         c_settings = post.get('settings', None)
         send_pairs = post.get('send_pairs', None)
         binary2contract(c_bin)  # can compile?
-        sender_name = post.get('account', C.ANT_NAME_UNKNOWN)
+        sender_name = post.get('from', C.ANT_NAME_UNKNOWN)
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
             sender = read_name2user(sender_name, cur)
@@ -53,7 +53,7 @@ async def contract_update(request):
         c_extra_imports = post.get('extra_imports', None)
         c_settings = post.get('settings', None)
         send_pairs = post.get('send_pairs', None)
-        sender_name = post.get('account', C.ANT_NAME_UNKNOWN)
+        sender_name = post.get('from', C.ANT_NAME_UNKNOWN)
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
             sender = read_name2user(sender_name, cur)
@@ -80,7 +80,7 @@ async def contract_transfer(request):
         c_method = post['c_method']
         c_args = post['c_args']
         send_pairs = post.get('send_pairs', None)
-        sender_name = post.get('account', C.ANT_NAME_UNKNOWN)
+        sender_name = post.get('from', C.ANT_NAME_UNKNOWN)
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
             sender = read_name2user(sender_name, cur)

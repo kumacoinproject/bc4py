@@ -84,9 +84,9 @@ def create_rest_server(f_local, port, user=None, pwd=None, f_blocking=True, ssl_
     app.router.add_get('/private/listtransactions', list_transactions)
     app.router.add_get('/private/listunspents', list_unspents)
     app.router.add_get('/private/listaccountaddress', list_account_address)
-    app.router.add_post('/private/lock', lock_database)
-    app.router.add_post('/private/unlock', unlock_database)
-    app.router.add_post('/private/changepassword', change_password)
+    # app.router.add_post('/private/lock', lock_database)  TODO: Work? Need?
+    # app.router.add_post('/private/unlock', unlock_database) TODO: Work? Need?
+    # app.router.add_post('/private/changepassword', change_password) TODO: Work? Need?
     app.router.add_post('/private/move', move_one)
     app.router.add_post('/private/movemany', move_many)
     app.router.add_get('/private/newaddress', new_address)
@@ -115,11 +115,10 @@ def create_rest_server(f_local, port, user=None, pwd=None, f_blocking=True, ssl_
     app.router.add_get('/public/getblockbyhash', get_block_by_hash)
     app.router.add_get('/public/gettxbyhash', get_tx_by_hash)
     app.router.add_get('/public/getmintinfo', get_mintcoin_info)
-    # Websocket
-    # init_ws_status(app)
-    # app.router.add_get('/streaming', ws_streaming)
-    # Json-RPC
-    app.router.add_post('/json-rpc', json_rpc)
+    # Others
+    # init_ws_status(app)  # Websocket
+    # app.router.add_get('/websocket', ws_streaming)
+    app.router.add_post('/json-rpc', json_rpc)  # Json-RPC
     # html/markdown pages
     app.router.add_get('/', web_page)
     app.router.add_get('/{page_path:[^{}]+.}', web_page)
@@ -228,35 +227,6 @@ async def close_server(request):
     return web.Response(text='Close after 5 seconds.')
 
 
-"""Document templete
-    Arguments:
-        1. param         (numeric or string, required) confirmed block height.
-
-    Result:
-    {
-        "@Unknown": {
-            "0": 95503321054659
-        },
-        "@Outside": {
-            "0": 40000054400
-        }
-    }
-
-    {
-      "blocks": nnn,             (numeric) The current block
-      "currentblockweight": nnn, (numeric) The last block weight
-      "currentblocktx": nnn,     (numeric) The last block transaction
-      "difficulty": xxx.xxxxx    (numeric) The current difficulty
-      "networkhashps": nnn,      (numeric) The network hashes per second
-      "pooledtx": n              (numeric) The size of the mempool
-      "chain": "xxxx",           (string) current network name as defined in BIP70 (main, test, regtest)
-      "warnings": "..."          (string) any network and blockchain warnings
-      "errors": "..."            (string) DEPRECATED. Same as warnings. Only shown when monacoind is started with -deprecatedrpc=getmininginfo
-    }
-
-    Examples:
-    > curl user:password@127.0.0.1:3000/private/listbalance
-    """
 __all__ = [
     "escape_cross_origin_block",
     "SkipOptionsStrategy",
