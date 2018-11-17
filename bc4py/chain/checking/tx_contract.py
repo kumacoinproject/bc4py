@@ -77,7 +77,7 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
             raise BlockChainError('5. Not correct format. {}'.format(c_args))
         if not (c_extra_imports is None or isinstance(c_extra_imports, tuple) or isinstance(c_extra_imports, list)):
             raise BlockChainError('6. Not correct format. {}'.format(c_extra_imports))
-        if not isinstance(c_settings, dict):
+        if not (c_settings is None or isinstance(c_settings, dict)):
             raise BlockChainError('7. Not correct format. {}'.format(c_settings))
     elif c_method == M_UPDATE:
         if len(c_args) != 3:
@@ -172,7 +172,6 @@ def check_tx_validator_edit(tx: TX, include_block: Block):
 
 
 def contract_signature_check(extra_tx: TX, v: Validator, include_block: Block):
-    batch_sign_cashe([extra_tx])
     signed_cks = get_signed_cks(extra_tx)
     accept_cks = signed_cks & set(v.validators)
     if include_block:

@@ -37,7 +37,7 @@ def insert_log(movements, cur, _type=None, _time=None, txhash=None):
     assert isinstance(movements, UserCoins), 'movements is UserCoin.'
     _type = _type or C.TX_INNER
     _time = _time or int(time.time() - V.BLOCK_GENESIS_TIME)
-    txhash = txhash or (b'\x00' * 24 + _time.to_bytes(4, 'little') + os.urandom(4))
+    txhash = txhash or (b'\x00' * 24 + _time.to_bytes(4, 'big') + os.urandom(4))
     move = list()
     index = 0
     for user, coins in movements.items():

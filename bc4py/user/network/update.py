@@ -2,6 +2,7 @@ from bc4py.config import C, V, P, Debug
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.tools import is_usedindex  #,  get_validator_info
 from bc4py.database.validator import get_validator_object
+from bc4py.chain.checking.signature import get_signed_cks
 from bc4py.chain.checking.utils import sticky_failed_txhash
 from bc4py.user.generate import *
 import logging
@@ -47,7 +48,8 @@ def _update_unconfirmed_info():
     with unconfirmed_lock:
         s = time()
         # sort unconfirmed txs
-        unconfirmed_txs = sorted(tx_builder.unconfirmed.values(), key=lambda x: x.gas_price, reverse=True)
+        unconfirmed_txs = sorted(tx_builder.unconfirmed.values(), key=lambda x: x.time)
+        unconfirmed_txs = sorted(unconfirmed_txs, key=lambda x: x.gas_price, reverse=True)
 
         # reject tx (input tx is unconfirmed)
         limit_height = builder.best_block.height - C.MATURE_HEIGHT
@@ -98,7 +100,9 @@ def _update_unconfirmed_info():
                     unconfirmed_txs.remove(tx)  # start tx is confirmed
                     continue
                 v = get_validator_object(c_address=c_address, best_block=best_block, best_chain=best_chain)
-                if v.require > len(tx.signature):
+                signed_cks = get_signed_cks(tx)
+                accept_cks = signed_cks & set(v.validators)
+                if v.require > len(accept_cks):
                     unconfirmed_txs.remove(tx)
                     continue
             elif tx.type == C.TX_VALIDATOR_EDIT:
@@ -108,7 +112,9 @@ def _update_unconfirmed_info():
                     unconfirmed_txs.remove(tx)  # failed decode bjson
                     continue
                 v = get_validator_object(c_address=c_address, best_block=best_block, best_chain=best_chain)
-                if v.require > len(tx.signature):
+                signed_cks = get_signed_cks(tx)
+                accept_cks = signed_cks & set(v.validators)
+                if v.require > len(accept_cks):
                     unconfirmed_txs.remove(tx)
                     continue
             else:
@@ -117,7 +123,6 @@ def _update_unconfirmed_info():
         # limit per tx's in block
         if Debug.F_LIMIT_INCLUDE_TX_IN_BLOCK:
             unconfirmed_txs = unconfirmed_txs[:Debug.F_LIMIT_INCLUDE_TX_IN_BLOCK]
-        unconfirmed_txs = sorted(unconfirmed_txs, key=lambda x: x.time)
 
         update_unconfirmed_txs(unconfirmed_txs)
         logging.debug("Update unconfirmed={}/{} {}Sec"
