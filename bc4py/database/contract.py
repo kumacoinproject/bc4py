@@ -131,8 +131,16 @@ def contract_fill(c: Contract, best_block=None, best_chain=None, stop_txhash=Non
 
 
 def get_contract_object(c_address, best_block=None, best_chain=None, stop_txhash=None):
+    if best_block:
+        key = (best_block.hash, stop_txhash)
+        if key in cashe:
+            return cashe[key]
+    else:
+        key = None
     c = Contract(c_address=c_address)
     contract_fill(c=c, best_block=best_block, best_chain=best_chain, stop_txhash=stop_txhash)
+    if key:
+        cashe[key] = c
     return c
 
 

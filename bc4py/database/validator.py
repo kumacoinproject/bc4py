@@ -95,8 +95,16 @@ def validator_fill(v: Validator, best_block=None, best_chain=None, stop_txhash=N
 
 
 def get_validator_object(c_address, best_block=None, best_chain=None, stop_txhash=None):
+    if best_block:
+        key = (best_block.hash, stop_txhash)
+        if key in cashe:
+            return cashe[key]
+    else:
+        key = None
     v = Validator(c_address=c_address)
     validator_fill(v=v, best_block=best_block, best_chain=best_chain, stop_txhash=stop_txhash)
+    if key:
+        cashe[key] = v
     return v
 
 
