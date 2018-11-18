@@ -198,8 +198,9 @@ def check_mintcoin_new_format(m_before, new_params, new_setting):
         pass
     else:
         return 'params is None or dict. {}'.format(type(new_setting))
-    if new_params is None and new_setting is None:
-        return 'new_params and new_setting is None.'
+    # additional issue
+    # if new_params is None and new_setting is None:
+    #    return 'new_params and new_setting is None.'
 
 
 __all__ = [
