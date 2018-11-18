@@ -268,11 +268,15 @@ class DataBase:
             if f_batch and k in batch_copy:
                 v = batch_copy[k]
                 del batch_copy[k]
-            yield struct_coins.unpack(k) + (v,)
+            dummy, index = struct_coins.unpack(k)
+            txhash, (params, setting) = v[:32], bjson.loads(v[32:])
+            yield index, txhash, params, setting
         if f_batch:
             for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
                 if k.startswith(b_coin_id):
-                    yield struct_coins.unpack(k) + (v,)
+                    dummy, index = struct_coins.unpack(k)
+                    txhash, (params, setting) = v[:32], bjson.loads(v[32:])
+                    yield index, txhash, params, setting
 
     def read_contract_iter(self, c_address):
         f_batch = self.is_batch_thread()
@@ -374,10 +378,14 @@ class DataBase:
         self.batch['_address_index'][k] = v
         logging.debug("Insert new address idx {}".format(address))
 
-    def write_coins(self, coin_id, index, txhash):
+    def write_coins(self, coin_id, txhash, params, setting):
         assert self.is_batch_thread(), 'Not created batch.'
+        index = -1
+        for index, *dummy in self.read_coins_iter(coin_id=coin_id): pass
+        index += 1
         k = coin_id.to_bytes(4, ITER_ORDER) + index.to_bytes(4, ITER_ORDER)
-        self.batch['_coins'][k] = txhash
+        v = txhash + bjson.dumps((params, setting), compress=False)
+        self.batch['_coins'][k] = v
         logging.debug("Insert new coins id={}".format(coin_id))
 
     def write_contract(self, c_address, start_hash, finish_hash, message):
@@ -677,11 +685,8 @@ class ChainBuilder:
                         elif tx.type == C.TX_POS_REWARD:
                             pass
                         elif tx.type == C.TX_MINT_COIN:
-                            address, mint_id, amount = tx.outputs[0]
-                            next_index = 0
-                            for dummy in self.db.read_coins_iter(mint_id):
-                                next_index += 1
-                            self.db.write_coins(mint_id, next_index, tx.hash)
+                            mint_id, params, setting = bjson.loads(tx.message)
+                            self.db.write_coins(coin_id=mint_id, txhash=tx.hash, params=params, setting=setting)
 
                         elif tx.type == C.TX_VALIDATOR_EDIT:
                             c_address, new_address, flag, sig_diff = bjson.loads(tx.message)

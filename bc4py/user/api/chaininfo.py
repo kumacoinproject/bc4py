@@ -1,6 +1,6 @@
 from bc4py.user.api import web_base
 from bc4py.database.builder import builder, tx_builder
-from bc4py.database.tools import get_mintcoin
+from bc4py.database.mintcoin import get_mintcoin_object
 from aiohttp import web
 from binascii import hexlify, unhexlify
 import pickle
@@ -65,11 +65,8 @@ async def get_tx_by_hash(request):
 async def get_mintcoin_info(request):
     try:
         mint_id = int(request.query.get('mint_id', 0))
-        mint = get_mintcoin(mint_id)
-        if mint:
-            return web_base.json_res(mint.getinfo())
-        else:
-            return web.Response(text='Not found mintcoin {}'.format(mint_id), status=400)
+        m = get_mintcoin_object(coin_id=mint_id)
+        return web_base.json_res(m.info)
     except BaseException:
         return web_base.error_res()
 

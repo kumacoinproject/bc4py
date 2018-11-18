@@ -124,38 +124,25 @@ send many
 issue mintcoin
 ----
 * Arguments
-    1. from      (string, optional, default="@Unknown")  Account name.
-    2. name      (string, required)   Ex, PyCoin
-    3. unit      (string, required)   Ex, PC
-    4. amount    (numeric, required)  minting amount
-    5. digit     (numeric, optional, default=8)
-    6. message   (string, optional, default=None)
-    7. image     (string, optional, default=None)  URL for image
+    1. from          (string, optional, default="@Unknown")  Account name.
+    2. name          (string, required)   Ex, PyCoin
+    3. unit          (string, required)   Ex, PC
+    5. digit         (numeric, optional, default=8)
+    4. amount        (numeric, required)  minting amount
+    6. description   (string, optional, default=None)
+    7. image         (string, optional, default=None)  URL for image
     8. additional_issue  (string, optional, default=true)
 * Request example
-    * `curl --basic -u user:password -H "accept: application/json"  -H "Content-Type: application/json" "127.0.0.1:3000/private/issueminttx" -d "{\"name\": \"FriendCoin\", \"unit\": \"FC\", \"amount\": 100000000, \"message\": \"example for api.\"}"`
+    * `curl --basic -u user:password -H "accept: application/json"  -H "Content-Type: application/json" "127.0.0.1:3000/private/issueminttx" -d "{\"name\": \"FriendCoin\", \"unit\": \"FC\", \"amount\": 100000000, \"description\": \"example for api.\"}"`
 * Response
 ```json
 {
-    "txhash": "efb6e91995314b75096702aad552f85d2892966464013fd4899ffeb3e927e67c",
-    "gas_amount": 10000549,
+    "txhash": "d30e93d347da3c8eaa23fad7b1b3cbf0ce2e9eaf2b4f9e7a47a7df153932ddf2",
+    "gas_amount": 10000551,
     "gas_price": 100,
-    "fee": 1000054900,
-    "time": 0.096,
-    "mintcoin": {
-        "version": 0,
-        "hash": null,
-        "coin_id": 4191737937,
-        "name": "FriendCoin",
-        "unit": "FC",
-        "digit": 0,
-        "amount": 100000000,
-        "supply": 100000000,
-        "additional_issue": true,
-        "owner": "4e0578ef14b30e0fbf4d3522e7f745bd1edc2cf704debc29fbde3cdc180d813b",
-        "image": null,
-        "message": "example for api."
-    }
+    "fee": 1000055100,
+    "time": 0.117,
+    "mint_id": 3414534983
 }
 ```
 * About
@@ -166,32 +153,19 @@ change mintcoin status
     1. from      (string, optional, default="@Unknown")  Account name.
     2. mint_id   (numeric, required)  mintcoin's coin_id
     3. amount    (numeric, optional, default=0)  additional mint amount
-    4. message   (string, optional, default=None)
+    4. description   (string, optional, default=None)
     5. image     (string, optional, default=None)  URL for image
-    6. additional_issue  (string, optional, default=None)
+    6. setting  (string, optional, default=None)
+    7. new_address  (string, optional, default=None)  New owner address
 * Request example
     * `curl --basic -u user:password -H "accept: application/json"  -H "Content-Type: application/json" "127.0.0.1:3000/private/changeminttx" -d "{\"mint_id\": 4191737937, \"image\": \"https://i.imgur.com/fRJV4ps.png\"}"`
 * Response
 ```json
 {
-    "txhash": "45f4eaee9af80fc5e4cd0270be476c35dbd4a5a8407c9d085636bdf4c90b553b",
-    "gas_amount": 10000534,
+    "txhash": "19bb18862b913499c3f9d7e3d41bd0fab459436fb091d4d6bf2b7874e39fdef1",
+    "gas_amount": 10000347,
     "gas_price": 100,
-    "fee": 1000053400,
-    "time": 0.132,
-    "mintcoin": {
-        "version": 1,
-        "hash": null,
-        "coin_id": 4191737937,
-        "name": "FriendCoin",
-        "unit": "FC",
-        "digit": 0,
-        "amount": 0,
-        "supply": 100000000,
-        "additional_issue": true,
-        "owner": "4e0578ef14b30e0fbf4d3522e7f745bd1edc2cf704debc29fbde3cdc180d813b",
-        "image": "https://i.imgur.com/fRJV4ps.png",
-        "message": "example for api."
-    }
+    "fee": 1000034700,
+    "time": 0.149
 }
 ```

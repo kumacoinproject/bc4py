@@ -16,8 +16,7 @@ class CoinObject:
         return "<Coins {}>".format(coin)
 
     def __iter__(self):
-        for coin_id, amount in self.coins.items():
-            yield coin_id, amount
+        yield from self.coins.items()
 
     def is_all_plus_amount(self):
         for v in self.coins.values():

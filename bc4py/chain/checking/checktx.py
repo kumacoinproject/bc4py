@@ -57,6 +57,7 @@ def check_tx(tx, include_block):
     elif tx.type == C.TX_MINT_COIN:
         f_amount_check = False
         f_minimum_fee_check = False
+        f_signature_check = False
         check_tx_mint_coin(tx=tx, include_block=include_block)
 
     elif tx.type == C.TX_VALIDATOR_EDIT:

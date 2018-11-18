@@ -189,27 +189,21 @@ async def issue_mint_tx(request):
         try:
             user_name = post.get('from', C.ANT_NAME_UNKNOWN)
             sender = read_name2user(user_name, cur)
-            mint, mintcoin_tx = issue_mintcoin(
-                name=post['name'],
-                unit=post['unit'],
-                amount=int(post['amount']),
-                digit=int(post.get('digit', 8)),
-                cur=cur,
-                message=post.get('message', None),
-                image=post.get('image', None),
-                additional_issue=bool(post.get('additional_issue', True)),
+            mint_id, tx = issue_mintcoin(
+                name=post['name'], unit=post['unit'], digit=post.get('digit', 8),
+                amount=post['amount'], cur=cur, description=post.get('description', None),
+                image=post.get('image', None),additional_issue=post.get('additional_issue', True),
                 sender=sender)
-            if not send_newtx(new_tx=mintcoin_tx, outer_cur=cur):
+            if not send_newtx(new_tx=tx, outer_cur=cur):
                 raise BaseException('Failed to send new tx.')
             db.commit()
-            data = mintcoin_tx.getinfo()
             return web_base.json_res({
-                'txhash': data['hash'],
-                'gas_amount': mintcoin_tx.gas_amount,
-                'gas_price': mintcoin_tx.gas_price,
-                'fee': mintcoin_tx.gas_amount * mintcoin_tx.gas_price,
+                'txhash': hexlify(tx.hash).decode(),
+                'gas_amount': tx.gas_amount,
+                'gas_price': tx.gas_price,
+                'fee': tx.gas_amount * tx.gas_price,
                 'time': round(time()-start, 3),
-                'mintcoin': mint.getinfo()})
+                'mint_id': mint_id})
         except BaseException:
             return web_base.error_res()
 
@@ -222,25 +216,19 @@ async def change_mint_tx(request):
         try:
             user_name = post.get('from', C.ANT_NAME_UNKNOWN)
             sender = read_name2user(user_name, cur)
-            mint, mintcoin_tx = change_mintcoin(
-                mint_id=int(post['mint_id']),
-                cur=cur,
-                amount=int(post.get('amount', 0)),
-                message=post.get('message', None),
-                image=post.get('image', None),
-                additional_issue= bool(post['additional_issue']) if 'additional_issue' in post else None,
+            tx = change_mintcoin(
+                mint_id=post['mint_id'], cur=cur, amount=post.get('amount'), description=post.get('description'),
+                image=post.get('image'), setting=post.get('setting'), new_address=post.get('new_address'),
                 sender=sender)
-            if not send_newtx(new_tx=mintcoin_tx, outer_cur=cur):
+            if not send_newtx(new_tx=tx, outer_cur=cur):
                 raise BaseException('Failed to send new tx.')
             db.commit()
-            data = mintcoin_tx.getinfo()
             return web_base.json_res({
-                'txhash': data['hash'],
-                'gas_amount': mintcoin_tx.gas_amount,
-                'gas_price': mintcoin_tx.gas_price,
-                'fee': mintcoin_tx.gas_amount * mintcoin_tx.gas_price,
-                'time': round(time()-start, 3),
-                'mintcoin': mint.getinfo()})
+                'txhash': hexlify(tx.hash).decode(),
+                'gas_amount': tx.gas_amount,
+                'gas_price': tx.gas_price,
+                'fee': tx.gas_amount * tx.gas_price,
+                'time': round(time()-start, 3)})
         except BaseException:
             return web_base.error_res()
 

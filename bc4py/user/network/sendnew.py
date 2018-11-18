@@ -80,4 +80,5 @@ def send_newtx(new_tx, outer_cur=None):
         logging.warning("Failed broadcast new tx, other nodes don\'t accept {}"
                         .format(new_tx.getinfo()))
         logging.warning("Reason is \"{}\"".format(e))
+        logging.debug("traceback,", exc_info=True)
         return False

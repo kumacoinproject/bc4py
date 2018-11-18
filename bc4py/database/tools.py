@@ -1,12 +1,7 @@
 from bc4py.config import C, V, BlockChainError
-from bc4py.chain.mintcoin import MintCoinObject, setup_base_currency_mint, MintCoinError
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.create import closing, create_db
-# from bc4py.contract.storage import ContractStorage
-from bc4py.contract.tools import contract2binary
-# from bc4py.contract.c_validator import Contract
 from bc4py.database.account import read_pooled_address_iter
-import bjson
 
 
 best_block_cashe = None
@@ -29,50 +24,6 @@ def _get_best_chain_all(best_block):
         best_block_cashe = best_block
         best_chain_cashe = best_chain
         return best_chain
-
-
-def get_mintcoin(mint_id, best_block=None, best_chain=None):
-    if mint_id < 0:
-        raise MintCoinError('coinID is more than 0.')
-    elif mint_id == 0:
-        return setup_base_currency_mint()
-    mint_coin_old = None
-    # DataBaseより
-    for dummy, index, txhash in builder.db.read_coins_iter(mint_id):
-        binary = tx_builder.get_tx(txhash).message
-        mint_coin_new = MintCoinObject(txhash, binary)
-        if mint_coin_new.coin_id != mint_id:
-            continue
-        mint_coin_new.marge(mint_coin_old)
-        mint_coin_new.check_param()
-        mint_coin_new.check_sign()
-        mint_coin_old = mint_coin_new
-    # Memoryより
-    best_chain = best_chain or _get_best_chain_all(best_block)
-    for block in reversed(best_chain):
-        for tx in block.txs:
-            if tx.type != C.TX_MINT_COIN:
-                continue
-            mint_coin_new = MintCoinObject(txhash=tx.hash, binary=tx.message)
-            if mint_coin_new.coin_id != mint_id:
-                continue
-            mint_coin_new.marge(mint_coin_old)
-            mint_coin_new.check_param()
-            mint_coin_new.check_sign()
-            mint_coin_old = mint_coin_new
-    # Unconfirmedより
-    if best_block is None:
-        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.time):
-            if tx.type != C.TX_MINT_COIN:
-                continue
-            mint_coin_new = MintCoinObject(txhash=tx.hash, binary=tx.message)
-            if mint_coin_new.coin_id != mint_id:
-                continue
-            mint_coin_new.marge(mint_coin_old)
-            mint_coin_new.check_param()
-            mint_coin_new.check_sign()
-            mint_coin_old = mint_coin_new
-    return mint_coin_old
 
 
 def get_utxo_iter(target_address, best_block=None, best_chain=None):
@@ -175,11 +126,6 @@ def is_usedindex(txhash, txindex, except_txhash, best_block=None, best_chain=Non
 
 
 __all__ = [
-    "get_mintcoin",
-    # "get_contract_binary",
-    # "get_validator_info",
-    # "get_contract_history_iter",
-    # "get_contract_storage",
     "get_utxo_iter",
     "get_unspents_iter",
     "get_usedindex",

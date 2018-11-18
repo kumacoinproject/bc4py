@@ -7,9 +7,13 @@ import configparser
 
 class C:  # Constant
     # base currency info
-    BASE_CURRENCY_NAME = 'PyCoin'
-    BASE_CURRENCY_UNIT = 'PC'
-    BASE_CURRENCY_DESCRIPTION = 'Base currency.'
+    BASE_CURRENCY = {
+        'name': 'PyCoin',
+        'unit': 'PC',
+        'digit': 8,
+        'address': 'NDUMMYADDRESSAAAAAAAAAAAAAAAAAAAACRSTTMF',
+        'description': 'Base currency.',
+        'image': None}
 
     # consensus
     BLOCK_GENESIS = 0

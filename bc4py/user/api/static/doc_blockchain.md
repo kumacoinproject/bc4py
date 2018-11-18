@@ -98,16 +98,19 @@ get mintcoin info
 ```json
 {
     "version": 0,
-    "hash": null,
     "coin_id": 0,
     "name": "PyCoin",
     "unit": "PC",
     "digit": 8,
-    "amount": 0,
-    "supply": 1000000000000000000,
-    "additional_issue": false,
-    "owner": null,
+    "description": "Base currency.",
     "image": null,
-    "message": "Base currency."
+    "txhash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "address": "NDUMMYADDRESSAAAAAAAAAAAAAAAAAAAACRSTTMF",
+    "setting": {
+        "additional_issue": false,
+        "change_description": false,
+        "change_image": false,
+        "change_address": false
+    }
 }
 ```
