@@ -49,6 +49,8 @@ Index page
 |----   |----   |----   |----   |
 |[/public/getcontractinfo](./public/getcontractinfo)           |GET    |public   | Get contract info.                           |
 |[/public/getvalidatorinfo](./public/getvalidatorinfo)         |GET    |public   | Get validator info.                          |
+|[/public/getcontracthistory](./public/getcontracthistory)           |GET    |public   | Get contract history.                           |
+|[/public/getvalidatorhistory](./public/getvalidatorhistory)         |GET    |public   | Get validator history.                          |
 |[/public/contractstorage](./public/contractstorage)           |GET    |public   | Get contract storage key-value.              |
 |[/private/sourcecompile](./private/sourcecompile)             |POST   |private  | Compile source.                              |
 |[/private/contractinit](./private/contractinit)               |POST   |private  | Init contract first of all.                  |
@@ -66,6 +68,7 @@ Index page
 |[/public/getblockbyhash](./public/getblockbyhash)      |GET    |public   | Get block by hash.           |
 |[/public/gettxbyhash](./public/gettxbyhash)            |GET    |public   | Get transaction by hash.     |
 |[/public/getmintinfo](./public/getmintinfo)            |GET    |public   | Get mintcoin info.           |
+|[/public/getminthistory](./public/getminthistory)      |GET    |public   | Get mintcoin history.        |
 
 Others
 ----

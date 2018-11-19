@@ -71,9 +71,25 @@ async def get_mintcoin_info(request):
         return web_base.error_res()
 
 
+async def get_mintcoin_history(request):
+    try:
+        mint_id = int(request.query.get('mint_id', 0))
+        data = list()
+        for index, txhash, params, setting in builder.db.read_coins_iter(coin_id=mint_id):
+            data.append({
+                'index': index,
+                'txhash': hexlify(txhash).decode(),
+                'params': params,
+                'setting': setting})
+        return web_base.json_res(data)
+    except BaseException:
+        return web_base.error_res()
+
+
 __all__ = [
     "get_block_by_height",
     "get_block_by_hash",
     "get_tx_by_hash",
-    "get_mintcoin_info"
+    "get_mintcoin_info",
+    "get_mintcoin_history",
 ]

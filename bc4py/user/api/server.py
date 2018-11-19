@@ -102,6 +102,8 @@ def create_rest_server(f_local, port, user=None, pwd=None, f_blocking=True, ssl_
     # Contract
     app.router.add_get('/public/getcontractinfo', contract_info)
     app.router.add_get('/public/getvalidatorinfo', validator_info)
+    app.router.add_get('/public/getcontracthistory', get_contract_history)
+    app.router.add_get('/public/getvalidatorhistory', get_validator_history)
     app.router.add_get('/public/contractstorage', contract_storage)
     app.router.add_post('/private/sourcecompile', source_compile)
     app.router.add_post('/private/contractinit', contract_init)
@@ -115,6 +117,7 @@ def create_rest_server(f_local, port, user=None, pwd=None, f_blocking=True, ssl_
     app.router.add_get('/public/getblockbyhash', get_block_by_hash)
     app.router.add_get('/public/gettxbyhash', get_tx_by_hash)
     app.router.add_get('/public/getmintinfo', get_mintcoin_info)
+    app.router.add_get('/public/getminthistory', get_mintcoin_history)
     # Others
     # init_ws_status(app)  # Websocket
     # app.router.add_get('/websocket', ws_streaming)

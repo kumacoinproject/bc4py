@@ -58,7 +58,10 @@ async def list_account_address(request):
         address_list = list()
         for uuid, address, user in read_pooled_address_iter(cur):
             if user_id == user:
-                address_list.append(address)
+                if user == C.ANT_CONTRACT:
+                    address_list.append(convert_address(ck=address, prefix=V.BLOCK_CONTRACT_PREFIX))
+                else:
+                    address_list.append(address)
     return web_base.json_res({
         'account': user_name, 'user_id': user_id, 'address': address_list})
 

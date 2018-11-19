@@ -1,5 +1,6 @@
 from bc4py.config import C, BlockChainError
 from bc4py.database.builder import builder, tx_builder
+from expiringdict import ExpiringDict
 from binascii import hexlify
 import bjson
 
@@ -10,6 +11,7 @@ setting_template = {
     "change_image": True,
     "change_address": True,
 }
+cashe = ExpiringDict(max_len=100, max_age_seconds=1800)
 
 
 class MintCoin:
@@ -129,6 +131,12 @@ def fill_mintcoin_status(m, best_block=None, best_chain=None, stop_txhash=None):
 
 
 def get_mintcoin_object(coin_id, best_block=None, best_chain=None, stop_txhash=None):
+    if best_block:
+        key = (best_block.hash, stop_txhash)
+        if key in cashe:
+            return cashe[key]
+    else:
+        key = None
     m = MintCoin(coin_id=coin_id)
     fill_mintcoin_status(m=m, best_block=best_block, best_chain=best_chain, stop_txhash=stop_txhash)
     if coin_id == 0:
@@ -136,6 +144,8 @@ def get_mintcoin_object(coin_id, best_block=None, best_chain=None, stop_txhash=N
             params=C.BASE_CURRENCY,
             setting={k: False for k, v in setting_template.items()},
             txhash=b'\x00'*32)
+    elif key:
+        cashe[key] = m
     return m
 
 

@@ -21,7 +21,7 @@ def check_tx_mint_coin(tx, include_block):
     try:
         mint_id, params, setting = bjson.loads(tx.message)
     except Exception as e:
-        raise BlockChainError('BjsoDecodeError: {}'.format(e))
+        raise BlockChainError('BjsonDecodeError: {}'.format(e))
     m_before = get_mintcoin_object(coin_id=mint_id, best_block=include_block, stop_txhash=tx.hash)
     result = check_mintcoin_new_format(m_before=m_before, new_params=params, new_setting=setting)
     if isinstance(result, str):
