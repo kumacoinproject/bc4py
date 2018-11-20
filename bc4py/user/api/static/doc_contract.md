@@ -51,6 +51,63 @@ get validator info
 * About
     * txhash is last validator edit txhash
 
+get contract history
+----
+* Arguments
+    1. c_address (string, required) Contract address
+* Request example
+    * `curl -H "accept: application/json" "127.0.0.1:3000/public/getcontracthistory?c_address="`
+* Response
+```json
+[
+    {
+        "index": 0,
+        "height": 5491,
+        "start_hash": "84f93861468f4f6ef97dbfd858154a92be89630f567f13c30363417314a003c6",
+        "finish_hash": "591a594d3aa2664972498f666708ab807c0a34ca5e63e355f6211a24baa830d3",
+        "c_method": "init",
+        "c_args": [
+            "\u0004\u0001\u0000\u0000\u0000\u0000\u0000\u0000\tdill.dill\f_create_type(h\u0000\n_load_type\u0004typeR\bContracth\u0004\u0006objectR}(\n__module__\b__main__\u0007__doc__N\b__init__h\u0000\u0010_create_function(h\u0004\bCodeTypeR(K\u0003K\u0000K\u0003K\u0002KCC\u0010|\u0001|\u0000_\u0000|\u0002|\u0000_\u0001d\u0000S\u0000N\bstart_tx\tc_address\u0004selfh\u0019h\u001ah\bh\u0011K\u0002C\u0004\u0000\u0001\u0006\u0001))tRcbc4py.contract.tools\n__dict__\nh\u0011NN}tR\u0004testh\u0013(h\u0016(K\u0001K\u0000K\u0002K\u0001KGC\u0004d\u0000S\u0000N)h\u001c\u0004argsh\bh$K\u0006C\u0002\u0000\u0001))tRcbc4py.contract.tools\n__dict__\nh$NN}tRutR.",
+            null,
+            null
+        ],
+        "c_storage": {
+            "hello": "world"
+        }
+    }
+]
+```
+* About
+
+get validator history
+----
+* Arguments
+    1. c_address (string, required) Contract address
+* Request example
+    * `curl -H "accept: application/json" "127.0.0.1:3000/public/getvalidatorhistory?c_address="`
+* Response
+```json
+[
+    {
+        "index": 0,
+        "height": 5437,
+        "new_address": "NDYV57BQ6QZAVETWEH2S6M3B7U4AZYK5RQNYWQQL",
+        "flag": 1,
+        "txhash": "2a1e1ef938b61ac2030f02b199381830254c02533940e55e2ad785bc4d11247a",
+        "sig_diff": 1
+    },
+    {
+        "index": 1,
+        "height": 5475,
+        "new_address": "NB6E2YDFCNTTX5RAM7AYMVU5476ZB2TIS6ELSX2Z",
+        "flag": 1,
+        "txhash": "4c58adc2f2d1a27e4f135119d0f41b70d0781d6745148f16b327e984265922a8",
+        "sig_diff": 0
+    }
+]
+```
+* About
+
 get contract storage
 ----
 * Arguments

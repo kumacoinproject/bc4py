@@ -93,24 +93,82 @@ get mintcoin info
 * Arguments
     1. mint_id   (numeric, optional, default=0)
 * Request example
-    * `curl -H "accept: application/json" -H "Content-Type: application/json" "127.0.0.1:3000/public/getmintinfo"`
+    * `curl -H "accept: application/json" -H "Content-Type: application/json" "127.0.0.1:3000/public/getmintinfo?mint_id=3414534983"`
 * Response
 ```json
 {
-    "version": 0,
-    "coin_id": 0,
-    "name": "PyCoin",
-    "unit": "PC",
+    "version": 4,
+    "coin_id": 3414534983,
+    "name": "FriendCoin",
+    "unit": "FC",
     "digit": 8,
-    "description": "Base currency.",
-    "image": null,
-    "txhash": "0000000000000000000000000000000000000000000000000000000000000000",
-    "address": "NDUMMYADDRESSAAAAAAAAAAAAAAAAAAAACRSTTMF",
+    "description": "example for api.",
+    "image": "https://i.imgur.com/fRJV4ps.png",
+    "txhash": "2a8e3d48b7ee5287a80884c041805113d99f7663d227772da242325b357231ff",
+    "address": "NAC65KCG5B5J55T7TV6PZ2BHPHBQKMUJOXXT4PDV",
     "setting": {
         "additional_issue": false,
-        "change_description": false,
+        "change_description": true,
         "change_image": false,
-        "change_address": false
+        "change_address": true
     }
 }
+```
+
+get mintcoin history
+----
+* Arguments
+    1. mint_id   (numeric, required)
+* Request example
+    * `curl -H "accept: application/json" -H "Content-Type: application/json" "127.0.0.1:3000/public/getminthistory?mint_id=3414534983"`
+* Response
+```json
+[
+    {
+        "index": 0,
+        "txhash": "d30e93d347da3c8eaa23fad7b1b3cbf0ce2e9eaf2b4f9e7a47a7df153932ddf2",
+        "params": {
+            "address": "NAC65KCG5B5J55T7TV6PZ2BHPHBQKMUJOXXT4PDV",
+            "description": "example for api.",
+            "digit": 8,
+            "image": null,
+            "name": "FriendCoin",
+            "unit": "FC"
+        },
+        "setting": {
+            "additional_issue": true,
+            "change_address": true
+        }
+    },
+    {
+        "index": 1,
+        "txhash": "42b6ab256586d27715cf19f53b11814f0d5fd93e1ac8fbf8f2ceeadba8ec8310",
+        "params": {
+            "image": "https://i.imgur.com/fRJV4ps.png"
+        },
+        "setting": null
+    },
+    {
+        "index": 2,
+        "txhash": "19bb18862b913499c3f9d7e3d41bd0fab459436fb091d4d6bf2b7874e39fdef1",
+        "params": null,
+        "setting": {
+            "change_image": false
+        }
+    },
+    {
+        "index": 3,
+        "txhash": "23edb55d49e2f4b9a960935db066657129eb3e0bed775ea2cc07460802eef399",
+        "params": null,
+        "setting": null
+    },
+    {
+        "index": 4,
+        "txhash": "2a8e3d48b7ee5287a80884c041805113d99f7663d227772da242325b357231ff",
+        "params": null,
+        "setting": {
+            "additional_issue": false
+        }
+    }
+]
 ```
