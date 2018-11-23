@@ -123,6 +123,41 @@ get contract storage
 ```
 * About
 
+get watching info
+----
+* Arguments
+    1. pickle     (bool, optional, default=False) tx data by pickled
+* Request example
+    * `curl -H "accept: application/json" "127.0.0.1:3000/private/watchinginfo"`
+* Response
+```json
+[
+    {
+        "hash": "5f5a501fdf78fdde11ed8dd3917af20afdc40df6244d8011e3c0f7df5819ba96",
+        "type": 8,
+        "tx": "<TX None VALIDATOR_EDIT 5f5a501fdf78fdde11ed8dd3917af20afdc40df6244d8011e3c0f7df5819ba96>",
+        "time": 1542958260.0427983,
+        "c_address": "CJ4QZ7FDEH5J7B2O3OLPASBHAFEDP6I7UKI2YMKF",
+        "related": [
+            [
+                "@Unknown",
+                "NDYV57BQ6QZAVETWEH2S6M3B7U4AZYK5RQNYWQQL"
+            ]
+        ],
+        "args": [
+            "NDYV57BQ6QZAVETWEH2S6M3B7U4AZYK5RQNYWQQL",
+            -1,
+            -1
+        ]
+    }
+]
+```
+* About
+    * Do not use pickle data from outside because of security risk. 
+    * default disabled function. require `close_contract_watch()`
+    * Your account related contract/validator tx displayed, check update by **time**.
+    * If you want to sign, use **/private/validateunconfirmed** method.
+
 source compile
 ----
 dummy contract

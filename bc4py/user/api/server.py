@@ -105,6 +105,7 @@ def create_rest_server(f_local, port, user=None, pwd=None, f_blocking=True, ssl_
     app.router.add_get('/public/getcontracthistory', get_contract_history)
     app.router.add_get('/public/getvalidatorhistory', get_validator_history)
     app.router.add_get('/public/contractstorage', contract_storage)
+    app.router.add_get('/private/watchinginfo', watching_info)
     app.router.add_post('/private/sourcecompile', source_compile)
     app.router.add_post('/private/contractinit', contract_init)
     app.router.add_post('/private/contractupdate', contract_update)

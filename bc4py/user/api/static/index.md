@@ -2,6 +2,7 @@ Index page
 ====
 * [sample.md](./sample.md)
 * [test response for debug](./testresponse.html)
+* [bootstrap3 components](https://getbootstrap.com/docs/3.3/components/)
 
 
 [System](./doc_system.md)
@@ -52,6 +53,7 @@ Index page
 |[/public/getcontracthistory](./public/getcontracthistory)           |GET    |public   | Get contract history.                           |
 |[/public/getvalidatorhistory](./public/getvalidatorhistory)         |GET    |public   | Get validator history.                          |
 |[/public/contractstorage](./public/contractstorage)           |GET    |public   | Get contract storage key-value.              |
+|[/private/watchinginfo](./private/watchinginfo)               |GET   |private  | Get account related contrac/validator tx.      |
 |[/private/sourcecompile](./private/sourcecompile)             |POST   |private  | Compile source.                              |
 |[/private/contractinit](./private/contractinit)               |POST   |private  | Init contract first of all.                  |
 |[/private/contractupdate](./private/contractupdate)           |POST   |private  | Update contract params after.                |
@@ -77,4 +79,4 @@ Others
 |[/json-rpc](./json-rpc)            |POST   |JSON-RPC   | Mining interface, `getwork` and `getblocktemplete` |
 
 
-API version 0.0.2 2018/11/15
+API version 0.0.2 2018/11/23

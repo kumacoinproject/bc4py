@@ -1,11 +1,14 @@
-from bc4py.config import C
+from bc4py.config import C, P
 from bc4py.user.api import web_base
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.validator import get_validator_object
 from bc4py.database.contract import get_contract_object
+from bc4py.contract.watch import watching_tx
 import logging
 from binascii import hexlify
 import bjson
+import pickle
+from base64 import b64encode
 
 
 async def contract_info(request):
@@ -33,11 +36,6 @@ async def validator_info(request):
 
 
 async def get_contract_history(request):
-    def decode(d):
-        if isinstance(d, bytes):
-            return d.decode(errors='ignore')
-        else:
-            return d
     try:
         c_address = request.query['c_address']
         data = list()
@@ -117,10 +115,6 @@ async def get_validator_history(request):
 
 
 async def contract_storage(request):
-    def decode(b):
-        if isinstance(b, bytes) or isinstance(b, bytearray):
-            return b.decode(errors='ignore')
-        return b
     try:
         c_address = request.query['c_address']
         f_confirmed = bool(request.query.get('confirmed', False))
@@ -135,10 +129,42 @@ async def contract_storage(request):
         return web_base.error_res()
 
 
+async def watching_info(request):
+    try:
+        f_pickle = bool(request.query.get('pickle', False))
+        if not P.F_WATCH_CONTRACT:
+            return web_base.error_res(errors='You need to enable watching option!')
+        return web_base.json_res([{
+            'hash': hexlify(txhash).decode(),
+            'type': tx.type,
+            'tx': b64encode(pickle.dumps(tx)).decode() if f_pickle else str(tx),
+            'time': time,
+            'c_address': c_address,
+            'related': related_list,
+            'args': tuple(map(decode, args)),
+             } for txhash, (time, tx, related_list, c_address, *args) in watching_tx.items()
+        ])
+    except Exception as e:
+        logging.error(e)
+        return web_base.error_res()
+
+
+def decode(b):
+    if isinstance(b, bytes) or isinstance(b, bytearray):
+        return b.decode(errors='ignore')
+    elif isinstance(b, set) or isinstance(b, list) or isinstance(b, tuple):
+        return tuple(decode(data) for data in b)
+    elif isinstance(b, dict):
+        return {decode(k): decode(v) for k, v in b.items()}
+    else:
+        return 'Cannot decode type {}'.format(type(b))
+
+
 __all__ = [
     "contract_info",
     "validator_info",
     "get_contract_history",
     "get_validator_history",
     "contract_storage",
+    "watching_info",
 ]
