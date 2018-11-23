@@ -13,7 +13,6 @@ cashe = ExpiringDict(max_len=100, max_age_seconds=3600)
 
 
 def check_new_tx(tx: TX):
-    print("NewTX", tx)
     if tx.height is not None:
         raise CheckWatchError('is not unconfirmed? {}'.format(tx))
     elif tx.message_type != C.MSG_BYTE:
@@ -37,7 +36,6 @@ def check_new_tx(tx: TX):
 
 
 def check_new_block(block: Block):
-    print("NewBlock", block)
     for tx in block.txs:
         if tx.height is None:
             raise CheckWatchError('is not confirmed? {}'.format(tx))

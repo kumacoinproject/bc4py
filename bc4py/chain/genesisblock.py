@@ -67,7 +67,7 @@ def create_genesis_block(all_supply, block_span, prefix=b'\x98', contract_prefix
     # validator
     V.BLOCK_GENESIS_TIME = int(time.time())
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-        ck = create_new_user_keypair(C.ANT_CONTRACT, db.cursor())
+        ck = create_new_user_keypair(C.ANT_NAME_CONTRACT, db.cursor())
         db.commit()
     c_address = convert_address(ck, contract_prefix)
     params = {

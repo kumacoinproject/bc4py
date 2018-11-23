@@ -37,7 +37,7 @@ struct_address = struct.Struct('>40s32sB')
 struct_address_idx = struct.Struct('>IQ?')
 struct_coins = struct.Struct('>II')
 struct_construct_key = struct.Struct('>40sI')
-struct_construct_value = struct.Struct('>32s32sI')
+struct_construct_value = struct.Struct('>32s32s')
 struct_validator_key = struct.Struct('>40sI')
 struct_validator_value = struct.Struct('>40sb32sb')
 ITER_ORDER = 'big'
@@ -297,15 +297,15 @@ class DataBase:
                 v = batch_copy[k]
                 del batch_copy[k]
             dummy, index = struct_construct_key.unpack(k)
-            start_hash, finish_hash, length = struct_construct_value.unpack_from(v)
-            message = bjson.loads(v[32+32+4:32+32+4+length])
+            start_hash, finish_hash, raw_message = v[0:32], v[32:64], v[64:]
+            message = bjson.loads(raw_message)
             yield index, start_hash, finish_hash, message
         if f_batch:
             for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
                 if k.startswith(b_c_address):
                     dummy, index = struct_construct_key.unpack(k)
-                    start_hash, finish_hash, length = struct_construct_value.unpack_from(v)
-                    message = bjson.loads(v[32+32+4:32+32+4+length])
+                    start_hash, finish_hash, raw_message = v[0:32], v[32:64], v[64:]
+                    message = bjson.loads(raw_message)
                     yield index, start_hash, finish_hash, message
 
     def read_validator_iter(self, c_address):
@@ -395,9 +395,7 @@ class DataBase:
         for index, *dummy in self.read_contract_iter(c_address=c_address): pass
         index += 1
         k = c_address.encode() + index.to_bytes(4, ITER_ORDER)
-        message = bjson.dumps(message, compress=False)
-        length = len(message)
-        v = struct_construct_value.pack(start_hash, finish_hash, length) + message
+        v = start_hash + finish_hash + bjson.dumps(message, compress=False)
         self.batch['_contract'][k] = v
         logging.debug("Insert new contract {} {}".format(c_address, index))
 

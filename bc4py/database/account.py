@@ -136,6 +136,7 @@ def read_user2name(user, cur):
 
 
 def create_account(name, cur, description="", _time=None, is_root=False):
+    assert isinstance(name, str)
     if not (name.startswith('@') == is_root):
         raise BlockChainError('prefix"@" is root user, is_root={} name={}'.format(is_root, name))
     _time = _time or int(time.time() - V.BLOCK_GENESIS_TIME)
@@ -181,6 +182,7 @@ def create_new_user_keypair(name, cur):
         return cur.execute("""
             SELECT `id`,`sk`,`pk`,`ck` FROM `pool` WHERE `user`=?
         """, (C.ANT_RESERVED,)).fetchall()
+    assert isinstance(name, str)
     # ReservedKeypairを１つ取得
     all_reserved_keys = get_all_keys()
     if len(all_reserved_keys) == 0:
@@ -244,7 +246,7 @@ class MoveLog:
 __all__ = [
     "read_txhash2log", "read_log_iter", "insert_log", "delete_log",
     "read_address2keypair", "read_address2user", "update_keypair_user", "insert_keypairs",
-    "read_account_info", "read_pooled_address_iter", "read_address2account", "read_name2user", "read_user2name",
-    "create_account", "create_new_user_keypair",
+    "read_account_info", "read_pooled_address_iter", "read_address2account",
+    "read_name2user", "read_user2name", "create_account", "create_new_user_keypair",
     "MoveLog"
 ]
