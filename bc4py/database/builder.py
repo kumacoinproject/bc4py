@@ -1,4 +1,4 @@
-from bc4py.config import C, V, P
+from bc4py.config import C, V, P, NewInfo
 from bc4py.chain.utils import signature2bin, bin2signature
 from bc4py.chain.tx import TX
 from bc4py.chain.block import Block
@@ -795,9 +795,7 @@ class TransactionBuilder:
             logging.debug('Already chained tx. {}'.format(tx))
             return
         user_account.affect_new_tx(tx, outer_cur)
-        # WebSocket apiに通知
-        if P.NEW_CHAIN_INFO_QUE:
-            P.NEW_CHAIN_INFO_QUE.put_nowait(('tx', tx.getinfo()))
+        NewInfo.put(obj=tx)
 
     def get_tx(self, txhash, default=None):
         if txhash in self.tmp:

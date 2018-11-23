@@ -135,7 +135,9 @@ def read_user2name(user, cur):
     return d[0]
 
 
-def create_account(name, cur, description="", _time=None):
+def create_account(name, cur, description="", _time=None, is_root=False):
+    if not (name.startswith('@') == is_root):
+        raise BlockChainError('prefix"@" is root user, is_root={} name={}'.format(is_root, name))
     _time = _time or int(time.time() - V.BLOCK_GENESIS_TIME)
     cur.execute("""
         INSERT INTO `account` (`name`,`description`,`time`) VALUES (?,?,?)

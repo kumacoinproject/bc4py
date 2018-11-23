@@ -48,7 +48,7 @@ class Validator:
 
 
 def decode(msg):
-    # [c_address]-[address]-[flag]-[sig_diff]
+    # [c_address]-[new_address]-[flag]-[sig_diff]
     return bjson.loads(msg)
 
 

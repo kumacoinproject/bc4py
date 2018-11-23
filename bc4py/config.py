@@ -3,6 +3,7 @@
 
 
 import configparser
+from queue import LifoQueue, Full, Empty
 
 
 class C:  # Constant
@@ -120,7 +121,7 @@ class V:  # 起動時に設定される変数
 class P:  # 起動中もダイナミックに変化
     VALIDATOR_OBJ = None  # Validation request
     F_NOW_BOOTING = True  # Booting mode flag
-    NEW_CHAIN_INFO_QUE = None  # API streaming
+    F_WATCH_CONTRACT = False  # Watching contract
 
 
 class Debug:
@@ -130,6 +131,32 @@ class Debug:
     F_SHOW_DIFFICULTY = False
     F_CONSTANT_DIFF = False
     F_STICKY_TX_REJECTION = True
+
+
+class NewInfo:
+    ques = list()  # [(que, name), ..]
+    empty = Empty
+
+    def __init__(self):
+        raise Exception('Not init the class!')
+
+    @staticmethod
+    def put(obj):
+        for q, name in NewInfo.ques.copy():
+            try:
+                q.put_nowait(obj)
+            except Full:
+                NewInfo.ques.remove((q, name))
+
+    @staticmethod
+    def get(channel, timeout=None):
+        while True:
+            for q, ch in NewInfo.ques.copy():
+                if channel == ch:
+                    return q.get(timeout=timeout)
+            else:
+                que = LifoQueue(maxsize=10)
+                NewInfo.ques.append((que, channel))
 
 
 class MyConfigParser(configparser.ConfigParser):
