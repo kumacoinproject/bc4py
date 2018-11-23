@@ -157,7 +157,8 @@ def decode(b):
     elif isinstance(b, dict):
         return {decode(k): decode(v) for k, v in b.items()}
     else:
-        return 'Cannot decode type {}'.format(type(b))
+        return b
+        # return 'Cannot decode type {}'.format(type(b))
 
 
 __all__ = [
