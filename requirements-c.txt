@@ -3,6 +3,6 @@ git+https://github.com/namuyan/yespower-python
 git+https://github.com/namuyan/hmq-hash
 x11_hash
 litecoin_scrypt
-https://github.com/namuyan/shield-x16s-hash
+git+https://github.com/namuyan/shield-x16s-hash
 # leveldb  # for linux and windows
 plyvel  # for linux and arm
