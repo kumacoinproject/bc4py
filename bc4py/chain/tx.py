@@ -19,8 +19,7 @@ class TX:
         "b", "hash", "height", "pos_amount",
         "version", "type", "time", "deadline", "inputs", "outputs",
         "gas_price", "gas_amount", "message_type", "message",
-        "signature", "meta", "inner_params", "f_on_memory",
-        "__weakref__")
+        "signature", "f_on_memory", "__weakref__")
 
     def __eq__(self, other):
         return self.hash == other.hash
@@ -29,8 +28,8 @@ class TX:
         return hash(self.hash)
 
     def __repr__(self):
-        return "<TX {} {} {} >"\
-            .format(self.height, C.txtype2name[self.type], hexlify(self.hash).decode())
+        return "<TX {} {} {}>".format(
+            self.height, C.txtype2name.get(self.type, None), hexlify(self.hash).decode())
 
     def __init__(self, binary=None, tx=None):
         self.b = None
@@ -53,8 +52,6 @@ class TX:
         # proof
         self.signature = None  # [(pubkey, signature),.. ]
         # 処理には使わないが有用なデータ
-        self.meta = dict()
-        self.inner_params = dict()
         self.f_on_memory = None
 
         if binary:
@@ -123,7 +120,7 @@ class TX:
         r['pos_amount'] = self.pos_amount
         r['height'] = self.height
         r['version'] = self.version
-        r['type'] = C.txtype2name[self.type]
+        r['type'] = C.txtype2name.get(self.type, None)
         r['time'] = self.time + V.BLOCK_GENESIS_TIME
         r['deadline'] = self.deadline + V.BLOCK_GENESIS_TIME
         r['inputs'] = [(hexlify(txhash).decode(), txindex) for txhash, txindex in self.inputs]
@@ -133,7 +130,6 @@ class TX:
         r['message_type'] = C.msg_type2name.get(self.message_type) or self.message_type
         r['message'] = self.message.decode() if self.message_type == C.MSG_PLAIN else hexlify(self.message).decode()
         r['signature'] = [(pubkey, hexlify(signature).decode()) for pubkey, signature in self.signature]
-        r['meta'] = self.meta
         r['f_on_memory'] = self.f_on_memory
         return r
 

@@ -2,14 +2,12 @@ from bc4py.config import V
 from nem_ed25519.key import get_address
 from nem_ed25519.signature import verify
 from binascii import hexlify, unhexlify
-from threading import Event, Lock
-from time import time
+from threading import Lock
+from time import time, sleep
 from pooled_multiprocessing import mp_map_async
 import logging
 
 
-waiting = 0
-event_waiting = Event()
 verify_cashe = dict()  # {(pubkey, signature, txhash): address, ...}
 limit_time = time()
 limit_delete_set = set()
@@ -31,13 +29,10 @@ def _verify(pubkey, signature, txhash, tx_b, prefix):
 
 
 def _callback(signed_list):
-    global waiting
     try:
         with lock:
             for pubkey, signature, txhash, address in signed_list:
                 verify_cashe[(pubkey, signature, txhash)] = address
-            waiting -= 1
-            event_waiting.set()
     except Exception as e:
         logging.error("{}: {}".format(e, signed_list))
     logging.debug("Callback finish {}sign".format(len(signed_list)))
@@ -58,7 +53,6 @@ def _delete_cashe():
 
 
 def batch_sign_cashe(txs):
-    global waiting
     logging.debug("Verify signature {}tx".format(len(txs)))
     generate_list = list()
     # list need to verify
@@ -76,32 +70,48 @@ def batch_sign_cashe(txs):
             pubkey, signature, txhash, address = _verify(pubkey, signature, txhash, tx_b, V.BLOCK_PREFIX)
             verify_cashe[(pubkey, signature, txhash)] = address
         else:
-            waiting += 1
             mp_map_async(_verify, generate_list, callback=_callback, prefix=V.BLOCK_PREFIX)
             logging.debug("Put task {}sign to pool.".format(len(generate_list)))
 
 
 def get_signed_cks(tx):
-    signed_cks = set()
-    for pubkey, signature, txhash in tuple(verify_cashe.keys()):
-        if tx.hash == txhash:
-            address = verify_cashe[(pubkey, signature, txhash)]
-            if address is None:
-                event_waiting.clear()
-                event_waiting.wait(timeout=10)
+    failed = 200
+    while failed > 0:
+        try:
+            signed_cks = set()
+            for pubkey, signature, txhash in verify_cashe.keys():
+                if txhash != tx.hash:
+                    continue
+                if (pubkey, signature) not in tx.signature:
+                    continue
                 address = verify_cashe[(pubkey, signature, txhash)]
-            if address is None:
-                logging.debug("Retry get signature {} {}".format(address, tx))
-                with lock:
-                    del verify_cashe[(pubkey, signature, txhash)]
-                batch_sign_cashe([tx])
-                return get_signed_cks(tx)
-            signed_cks.add(address)
-    if len(signed_cks) > 0:
-        return signed_cks
-    else:
-        batch_sign_cashe([tx])
-        return get_signed_cks(tx)
+                if address is None:
+                    failed -= 1
+                    sleep(0.02)
+                    break  # retry
+                signed_cks.add(address)
+            else:
+                if len(signed_cks) == len(tx.signature):
+                    return signed_cks
+                elif len(signed_cks) == 0:
+                    batch_sign_cashe([tx])
+                    failed -= 1
+                    continue
+                elif len(signed_cks) < len(tx.signature):
+                    logging.debug('Cannot get all signature, throw task. signed={}, include={}'
+                                    .format(signed_cks, len(tx.signature)))
+                    batch_sign_cashe([tx])
+                    failed -= 1
+                    sleep(0.02)
+                    continue
+                else:
+                    raise Exception('Something wrong. signed={}, include={}'
+                                    .format(signed_cks, len(tx.signature)))
+        except RuntimeError:
+            # dictionary changed size during iteration
+            failed -= 1
+            sleep(0.02)
+    raise Exception("Too match failed get signed_cks.")
 
 
 def delete_signed_cashe(txhash_set):

@@ -3,13 +3,18 @@
 
 
 import configparser
+from queue import LifoQueue, Full, Empty
 
 
 class C:  # Constant
     # base currency info
-    BASE_CURRENCY_NAME = 'PyCoin'
-    BASE_CURRENCY_UNIT = 'PC'
-    BASE_CURRENCY_DESCRIPTION = 'Base currency.'
+    BASE_CURRENCY = {
+        'name': 'PyCoin',
+        'unit': 'PC',
+        'digit': 8,
+        'address': 'NDUMMYADDRESSAAAAAAAAAAAAAAAAAAAACRSTTMF',
+        'description': 'Base currency.',
+        'image': None}
 
     # consensus
     BLOCK_GENESIS = 0
@@ -19,9 +24,9 @@ class C:  # Constant
     BLOCK_X11_POW = 4
     BLOCK_HMQ_POW = 5
     BLOCK_LTC_POW = 6
-    BLOCK_X16_POW = 7
+    BLOCK_X16R_POW = 7
     consensus2name = {0: 'GENESIS', 1: 'POW_YES', 2: 'POS', 4: 'POW_X11', 5: 'POW_HMQ',
-                      6: 'POW_LTC', 7: 'POW_X16'}
+                      6: 'POW_LTC', 7: 'POW_X16R'}
 
     # tx type
     TX_GENESIS = 0  # Height0の初期設定TX
@@ -29,14 +34,19 @@ class C:  # Constant
     TX_POS_REWARD = 2  # POSの報酬TX
     TX_TRANSFER = 3  # 送受金
     TX_MINT_COIN = 4  # 新規貨幣を鋳造
+    # TODO: remove old type contract tx
     TX_CREATE_CONTRACT = 5  # コントラクトアドレスを作成
     TX_START_CONTRACT = 6  # コントラクトの開始TX
     TX_FINISH_CONTRACT = 7  # コントラクトの終了TX
+
+    TX_VALIDATOR_EDIT = 8  # change validator info
+    TX_CONCLUDE_CONTRACT = 9  # conclude static contract tx
     TX_INNER = 255  # 内部のみで扱うTX
     txtype2name = {
         TX_GENESIS: 'GENESIS', TX_POW_REWARD: 'POW_REWARD', TX_POS_REWARD: 'POS_REWARD',
-        TX_TRANSFER: 'TRANSFER', TX_MINT_COIN: 'MINT_COIN', TX_CREATE_CONTRACT: 'CREATE_CONTRACT',
-        TX_START_CONTRACT: 'START_CONTRACT', TX_FINISH_CONTRACT: 'FINISH_CONTRACT', TX_INNER: 'TX_INNER'}
+        TX_TRANSFER: 'TRANSFER', TX_MINT_COIN: 'MINT_COIN', TX_VALIDATOR_EDIT: 'VALIDATOR_EDIT',
+        TX_CREATE_CONTRACT: 'CREATE_CONTRACT', TX_START_CONTRACT: 'START_CONTRACT', TX_FINISH_CONTRACT: 'FINISH_CONTRACT',
+        TX_CONCLUDE_CONTRACT: 'CONCLUDE_CONTRACT', TX_INNER: 'TX_INNER'}
 
     # message format
     MSG_NONE = 0  # no message
@@ -68,8 +78,11 @@ class C:  # Constant
     SIZE_TX_LIMIT = 100*1000  # 100kb tx
     CASHE_LIMIT = 100  # Memoryに置く最大Block数、実質Reorg制限
     BATCH_SIZE = 10
-    MINTCOIN_FEE = 10 * 1000000  # 新規Mintcoin発行GasFee
-    CONTRACT_CREATE_FEE = 10 * 1000000  # コントラクト作成GasFee
+    MINTCOIN_GAS = int(10 * pow(10, 6))  # 新規Mintcoin発行GasFee
+    SIGNATURE_GAS = int(0.01 * pow(10, 6))  # gas per one signature
+    # CONTRACT_CREATE_FEE = int(10 * pow(10, 6))  # コントラクト作成GasFee
+    VALIDATOR_EDIT_GAS = int(10 * pow(10, 6))  # gas
+    CONTRACT_MINIMUM_INPUT = int(1 * pow(10, 8))  # Contractの発火最小amount
 
 
 class V:  # 起動時に設定される変数
@@ -82,7 +95,7 @@ class V:  # 起動時に設定される変数
     BLOCK_ALL_SUPPLY = None
     BLOCK_REWARD = None
     BLOCK_BASE_CONSENSUS = None
-    BLOCK_CONSENSUS = None
+    BLOCK_CONSENSUSES = None
 
     # base coin
     COIN_DIGIT = None
@@ -108,7 +121,7 @@ class V:  # 起動時に設定される変数
 class P:  # 起動中もダイナミックに変化
     VALIDATOR_OBJ = None  # Validation request
     F_NOW_BOOTING = True  # Booting mode flag
-    NEW_CHAIN_INFO_QUE = None  # API streaming
+    F_WATCH_CONTRACT = False  # Watching contract
 
 
 class Debug:
@@ -118,6 +131,32 @@ class Debug:
     F_SHOW_DIFFICULTY = False
     F_CONSTANT_DIFF = False
     F_STICKY_TX_REJECTION = True
+
+
+class NewInfo:
+    ques = list()  # [(que, name), ..]
+    empty = Empty
+
+    def __init__(self):
+        raise Exception('Not init the class!')
+
+    @staticmethod
+    def put(obj):
+        for q, name in NewInfo.ques.copy():
+            try:
+                q.put_nowait(obj)
+            except Full:
+                NewInfo.ques.remove((q, name))
+
+    @staticmethod
+    def get(channel, timeout=None):
+        while True:
+            for q, ch in NewInfo.ques.copy():
+                if channel == ch:
+                    return q.get(timeout=timeout)
+            else:
+                que = LifoQueue(maxsize=10)
+                NewInfo.ques.append((que, channel))
 
 
 class MyConfigParser(configparser.ConfigParser):

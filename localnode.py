@@ -9,7 +9,7 @@ from bc4py.user.generate import *
 from bc4py.user.boot import *
 from bc4py.user.network import broadcast_check, mined_newblock, DirectCmd, sync_chain_loop, close_sync
 from bc4py.user.api import create_rest_server
-from bc4py.user.validator import setup_as_validator
+from bc4py.contract.watch import start_contract_watch, close_contract_watch
 from bc4py.database.create import make_account_db
 from bc4py.database.builder import builder
 from bc4py.chain.workhash import start_work_hash, close_work_hash
@@ -74,7 +74,6 @@ def work(port, sub_dir):
     builder.init(genesis_block)
     # builder.db.sync = False  # more fast
     sync_chain_loop()
-    setup_as_validator()
 
     # Mining/Staking setup
     start_work_hash()
@@ -89,6 +88,8 @@ def work(port, sub_dir):
     if port % 3 == 2:
         Generate(consensus=C.BLOCK_X11_POW, power_limit=0.01).start()
     Generate(consensus=C.BLOCK_POS, power_limit=0.3).start()
+    # Contract watcher
+    start_contract_watch()
     # Stratum
     # Stratum(port=port+2000, consensus=C.BLOCK_HMQ_POW, first_difficulty=4)
     Thread(target=mined_newblock, name='GeneBlock', args=(output_que, pc)).start()
@@ -96,8 +97,8 @@ def work(port, sub_dir):
 
     try:
         # start_stratum(f_blocking=False)
-        create_rest_server(f_local=True, port=port+1000)
-        builder.db.batch_create()
+        create_rest_server(f_local=True, port=port+1000, user='user', pwd='password')
+        close_contract_watch()
         builder.close()
         # close_stratum()
         pc.close()

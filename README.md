@@ -66,7 +66,7 @@ pip install plyvel
 
 Start node
 ----
-* `python localnode.py` Node working on local env.
+* `python localnode.py` Node working on local env, for debug.
 * `python publicnode.py` Node with mining/staking.
 * `python observenode.py` Node only accept blocks/txs.
 
@@ -74,7 +74,7 @@ Documents
 ----
 * [Create genesis block](doc/GenesisBlock.md)
 * [Ho to mining](doc/Mining.md)
-
+* [API doc](bc4py/user/api/static/index.md)
 
 Build for windows
 ----

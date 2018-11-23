@@ -12,72 +12,7 @@ from bc4py.chain.tx import TX
 from aiohttp import web
 from binascii import hexlify, unhexlify
 from nem_ed25519 import public_key, get_address, sign
-import time
-
-
-async def send_from_user(request):
-    start = time.time()
-    if P.F_NOW_BOOTING:
-        return web.Response(text='Now booting...', status=403)
-    post = await web_base.content_type_json_check(request)
-    with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-        cur = db.cursor()
-        try:
-            from_name = post.get('from', C.ANT_NAME_UNKNOWN)
-            from_id = read_name2user(from_name, cur)
-            to_address = post['address']
-            coin_id = int(post.get('coin_id', 0))
-            amount = int(post['amount'])
-            coins = CoinObject(coin_id, amount)
-            message = post.get('message', None)
-            if message:
-                msg_type = C.MSG_PLAIN
-                msg_body = message.encode()
-            else:
-                msg_type = C.MSG_NONE
-                msg_body = b''
-            new_tx = send_from(from_id, to_address, coins, cur, msg_type=msg_type, msg_body=msg_body)
-            if not send_newtx(new_tx=new_tx, outer_cur=cur):
-                raise BaseException('Failed to send new tx.')
-            db.commit()
-            return web_base.json_res({
-                'txhash': hexlify(new_tx.hash).decode(),
-                'time': round(time.time()-start, 3)})
-        except Exception as e:
-            db.rollback()
-            return web_base.error_res()
-
-
-async def send_many_user(request):
-    start = time.time()
-    if P.F_NOW_BOOTING:
-        return web.Response(text='Now booting...', status=403)
-    post = await web_base.content_type_json_check(request)
-    with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-        cur = db.cursor()
-        try:
-            user_name = post.get('from', C.ANT_NAME_UNKNOWN)
-            user_id = read_name2user(user_name, cur)
-            send_pairs = list()
-            for address, coin_id, amount in post['pairs']:
-                send_pairs.append((address, int(coin_id), int(amount)))
-            message = post.get('message', None)
-            if message:
-                msg_type = C.MSG_PLAIN
-                msg_body = message.encode()
-            else:
-                msg_type = C.MSG_NONE
-                msg_body = b''
-            new_tx = send_many(user_id, send_pairs, cur, msg_type=msg_type, msg_body=msg_body)
-            if not send_newtx(new_tx=new_tx, outer_cur=cur):
-                raise BaseException('Failed to send new tx.')
-            db.commit()
-            return web_base.json_res({
-                'txhash': hexlify(new_tx.hash).decode(),
-                'time': round(time.time()-start, 3)})
-        except Exception as e:
-            db.rollback()
-            return web_base.error_res()
+from time import time
 
 
 async def create_raw_tx(request):
@@ -87,7 +22,7 @@ async def create_raw_tx(request):
     # [message_type=None] [message=None]
     post = await web_base.content_type_json_check(request)
     try:
-        publish_time = post.get('time', int(time.time() - V.BLOCK_GENESIS_TIME))
+        publish_time = post.get('time', int(time() - V.BLOCK_GENESIS_TIME))
         deadline_time = post.get('deadline', publish_time + 10800)
         message_type = post.get('message_type', C.MSG_NONE)
         if message_type == C.MSG_NONE:
@@ -157,77 +92,152 @@ async def sign_raw_tx(request):
 
 
 async def broadcast_tx(request):
+    start = time()
     post = await web_base.content_type_json_check(request)
     try:
         binary = unhexlify(post['hex'].encode())
         new_tx = TX(binary=binary)
-        new_tx.signature = [(pk, unhexlify(sign.encode())) for pk, sign in post['signature']]
+        new_tx.signature = [(pk, unhexlify(_sign.encode())) for pk, _sign in post['signature']]
         if not send_newtx(new_tx=new_tx):
             raise BaseException('Failed to send new tx.')
-        return web_base.json_res({'txhash': hexlify(new_tx.hash).decode()})
+        return web_base.json_res({
+            'txhash': hexlify(new_tx.hash).decode(),
+            'gas_amount': new_tx.gas_amount,
+            'gas_price': new_tx.gas_price,
+            'fee': new_tx.gas_amount * new_tx.gas_price,
+            'time': round(time()-start, 3)})
     except BaseException:
         return web_base.error_res()
 
 
-async def issue_mint_tx(request):
+async def send_from_user(request):
+    start = time()
+    if P.F_NOW_BOOTING:
+        return web.Response(text='Now booting...', status=403)
     post = await web_base.content_type_json_check(request)
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         cur = db.cursor()
         try:
-            user_name = post.get('account', C.ANT_NAME_UNKNOWN)
-            sender = read_name2user(user_name, cur)
-            mint, mintcoin_tx = issue_mintcoin(
-                name=post['name'],
-                unit=post['unit'],
-                amount=int(post['amount']),
-                digit=int(post.get('digit', 0)),
-                cur=cur,
-                message=post.get('message', None),
-                image=post.get('image', None),
-                additional_issue=bool(post.get('additional_issue', True)),
-                sender=sender)
-            if not send_newtx(new_tx=mintcoin_tx, outer_cur=cur):
+            from_name = post.get('from', C.ANT_NAME_UNKNOWN)
+            from_id = read_name2user(from_name, cur)
+            to_address = post['address']
+            coin_id = int(post.get('coin_id', 0))
+            amount = int(post['amount'])
+            coins = CoinObject(coin_id, amount)
+            message = post.get('message', None)
+            if message:
+                msg_type = C.MSG_PLAIN
+                msg_body = message.encode()
+            else:
+                msg_type = C.MSG_NONE
+                msg_body = b''
+            new_tx = send_from(from_id, to_address, coins, cur, msg_type=msg_type, msg_body=msg_body)
+            if not send_newtx(new_tx=new_tx, outer_cur=cur):
                 raise BaseException('Failed to send new tx.')
             db.commit()
-            data = mintcoin_tx.getinfo()
             return web_base.json_res({
-                'txhash': data['hash'],
-                'mintcoin': mint.getinfo()})
+                'txhash': hexlify(new_tx.hash).decode(),
+                'gas_amount': new_tx.gas_amount,
+                'gas_price': new_tx.gas_price,
+                'fee': new_tx.gas_amount * new_tx.gas_price,
+                'time': round(time()-start, 3)})
+        except Exception as e:
+            db.rollback()
+            return web_base.error_res()
+
+
+async def send_many_user(request):
+    start = time()
+    if P.F_NOW_BOOTING:
+        return web.Response(text='Now booting...', status=403)
+    post = await web_base.content_type_json_check(request)
+    with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+        cur = db.cursor()
+        try:
+            user_name = post.get('from', C.ANT_NAME_UNKNOWN)
+            user_id = read_name2user(user_name, cur)
+            send_pairs = list()
+            for address, coin_id, amount in post['pairs']:
+                send_pairs.append((address, int(coin_id), int(amount)))
+            message = post.get('message', None)
+            if message:
+                msg_type = C.MSG_PLAIN
+                msg_body = message.encode()
+            else:
+                msg_type = C.MSG_NONE
+                msg_body = b''
+            new_tx = send_many(user_id, send_pairs, cur, msg_type=msg_type, msg_body=msg_body)
+            if not send_newtx(new_tx=new_tx, outer_cur=cur):
+                raise BaseException('Failed to send new tx.')
+            db.commit()
+            return web_base.json_res({
+                'txhash': hexlify(new_tx.hash).decode(),
+                'gas_amount': new_tx.gas_amount,
+                'gas_price': new_tx.gas_price,
+                'fee': new_tx.gas_amount * new_tx.gas_price,
+                'time': round(time()-start, 3)})
+        except Exception as e:
+            db.rollback()
+            return web_base.error_res()
+
+
+async def issue_mint_tx(request):
+    start = time()
+    post = await web_base.content_type_json_check(request)
+    with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+        cur = db.cursor()
+        try:
+            user_name = post.get('from', C.ANT_NAME_UNKNOWN)
+            sender = read_name2user(user_name, cur)
+            mint_id, tx = issue_mintcoin(
+                name=post['name'], unit=post['unit'], digit=post.get('digit', 8),
+                amount=post['amount'], cur=cur, description=post.get('description', None),
+                image=post.get('image', None),additional_issue=post.get('additional_issue', True),
+                sender=sender)
+            if not send_newtx(new_tx=tx, outer_cur=cur):
+                raise BaseException('Failed to send new tx.')
+            db.commit()
+            return web_base.json_res({
+                'txhash': hexlify(tx.hash).decode(),
+                'gas_amount': tx.gas_amount,
+                'gas_price': tx.gas_price,
+                'fee': tx.gas_amount * tx.gas_price,
+                'time': round(time()-start, 3),
+                'mint_id': mint_id})
         except BaseException:
             return web_base.error_res()
 
 
 async def change_mint_tx(request):
+    start = time()
     post = await web_base.content_type_json_check(request)
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         cur = db.cursor()
         try:
-            user_name = post.get('account', C.ANT_NAME_UNKNOWN)
+            user_name = post.get('from', C.ANT_NAME_UNKNOWN)
             sender = read_name2user(user_name, cur)
-            mint, mintcoin_tx = change_mintcoin(
-                mint_id=int(post['mint_id']),
-                cur=cur,
-                amount=int(post.get('amount', 0)),
-                message=post.get('message', None),
-                image=post.get('image', None),
-                additional_issue= bool(post['additional_issue']) if 'additional_issue' in post else None,
+            tx = change_mintcoin(
+                mint_id=post['mint_id'], cur=cur, amount=post.get('amount'), description=post.get('description'),
+                image=post.get('image'), setting=post.get('setting'), new_address=post.get('new_address'),
                 sender=sender)
-            if not send_newtx(new_tx=mintcoin_tx, outer_cur=cur):
+            if not send_newtx(new_tx=tx, outer_cur=cur):
                 raise BaseException('Failed to send new tx.')
             db.commit()
-            data = mintcoin_tx.getinfo()
             return web_base.json_res({
-                'txhash': data['hash'],
-                'mintcoin': mint.getinfo()})
+                'txhash': hexlify(tx.hash).decode(),
+                'gas_amount': tx.gas_amount,
+                'gas_price': tx.gas_price,
+                'fee': tx.gas_amount * tx.gas_price,
+                'time': round(time()-start, 3)})
         except BaseException:
             return web_base.error_res()
 
 __all__ = [
-    "send_from_user",
-    "send_many_user",
     "create_raw_tx",
     "sign_raw_tx",
     "broadcast_tx",
+    "send_from_user",
+    "send_many_user",
     "issue_mint_tx",
     "change_mint_tx"
 ]

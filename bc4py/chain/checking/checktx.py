@@ -3,6 +3,7 @@ from bc4py.chain.checking.tx_reward import *
 from bc4py.chain.checking.tx_mintcoin import *
 from bc4py.chain.checking.tx_contract import *
 from bc4py.chain.checking.utils import *
+from bc4py.database.builder import tx_builder
 import logging
 from binascii import hexlify
 import time
@@ -10,6 +11,7 @@ import time
 
 def check_tx(tx, include_block):
     # TXの正当性チェック
+    f_inputs_origin_check = True
     f_amount_check = True
     f_signature_check = True
     f_size_check = True
@@ -55,24 +57,27 @@ def check_tx(tx, include_block):
     elif tx.type == C.TX_MINT_COIN:
         f_amount_check = False
         f_minimum_fee_check = False
+        f_signature_check = False
         check_tx_mint_coin(tx=tx, include_block=include_block)
 
-    elif tx.type == C.TX_CREATE_CONTRACT:
-        f_minimum_fee_check = False
-        check_tx_create_contract(tx=tx, include_block=include_block)
+    elif tx.type == C.TX_VALIDATOR_EDIT:
+        f_signature_check = False
+        if tx.hash in tx_builder.unconfirmed:
+            f_inputs_origin_check = False  # already checked before
+        check_tx_validator_edit(tx=tx, include_block=include_block)
 
-    elif tx.type == C.TX_START_CONTRACT:
-        check_tx_start_contract(start_tx=tx, include_block=include_block)
-
-    elif tx.type == C.TX_FINISH_CONTRACT:
-        check_tx_finish_contract(finish_tx=tx, include_block=include_block)
-        validator_check(tx, include_block)  # 必要十分な署名があるか
+    elif tx.type == C.TX_CONCLUDE_CONTRACT:
+        f_signature_check = False
+        if tx.hash in tx_builder.unconfirmed:
+            f_inputs_origin_check = False  # already checked before
+        check_tx_contract_conclude(tx=tx, include_block=include_block)
 
     else:
         raise BlockChainError('Unknown tx type "{}"'.format(tx.type))
 
     # Inputs origin チェック
-    inputs_origin_check(tx=tx, include_block=include_block)
+    if f_inputs_origin_check:
+        inputs_origin_check(tx=tx, include_block=include_block)
 
     # 残高移動チェック
     if f_amount_check:

@@ -1,5 +1,5 @@
 from bc4py.config import V
-from bc4py.contract.storage import ContractStorage
+# from bc4py.contract.storage import ContractStorage
 import bjson
 
 
@@ -9,7 +9,7 @@ def get_storage_by_address(address):
 
 
 def get_storage_obj(key_value=None):
-    return ContractStorage(key_value=key_value)
+    pass
 
 
 def get_tx_message_data(tx):

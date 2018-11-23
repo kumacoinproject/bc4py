@@ -42,7 +42,7 @@ def get_workhash_fnc(flag):
         return hmq_hash
     elif flag == C.BLOCK_LTC_POW:
         return ltc_hash
-    elif flag == C.BLOCK_X16_POW:
+    elif flag == C.BLOCK_X16R_POW:
         return x16s_hash
     elif flag in C.consensus2name:
         raise Exception('Not found block flag {}'.format(C.consensus2name[flag]))
@@ -59,6 +59,8 @@ def update_work_hash(block):
             from bc4py.database.builder import tx_builder
             txhash, txindex = proof_tx.inputs[0]
             output_tx = tx_builder.get_tx(txhash)
+            if output_tx is None:
+                raise BlockChainError('Not found output {} of {}'.format(proof_tx, block))
             address, coin_id, amount = output_tx.outputs[txindex]
             proof_tx.pos_amount = amount
         block.work_hash = proof_tx.get_pos_hash(block.previous_hash)
@@ -160,7 +162,7 @@ class HashGenerator:
     def __init__(self, index):
         self.index = index
         cxt = get_context('spawn')
-        parent_conn, child_conn = cxt.Pipe()
+        parent_conn, child_conn = cxt.Pipe(duplex=True)
         self.process = cxt.Process(
             target=_pow_generator, name="Hashing{}".format(index), args=(child_conn,))
         self.process.daemon = True

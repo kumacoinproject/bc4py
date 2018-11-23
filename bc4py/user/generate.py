@@ -38,7 +38,7 @@ def new_key(user=C.ANT_NAME_UNKNOWN):
 
 class Generate(Thread):
     def __init__(self, consensus, power_limit=1.0):
-        assert consensus in V.BLOCK_CONSENSUS, \
+        assert consensus in V.BLOCK_CONSENSUSES, \
             "{} is not used by blockchain.".format(C.consensus2name[consensus])
         super(Generate, self).__init__(
             name="Gene-{}".format(C.consensus2name[consensus]),
@@ -63,7 +63,6 @@ class Generate(Thread):
 
     def close(self, timeout=120):
         self.event_close.clear()
-        return self.event_close.wait(timeout)
 
     def run(self):
         self.event_close.set()
@@ -179,8 +178,8 @@ class Generate(Thread):
                     # Fit block size
                     while staking_block.getsize() > C.SIZE_BLOCK_LIMIT:
                         tx = staking_block.txs.pop()
-                        if tx.type == C.TX_FINISH_CONTRACT:
-                            staking_block.txs.pop()
+                        # if tx.type == C.TX_FINISH_CONTRACT:
+                        #    staking_block.txs.pop()
                     staking_block.update_time(proof_tx.time)
                     staking_block.update_merkleroot()
                     confirmed_generating_block(staking_block)

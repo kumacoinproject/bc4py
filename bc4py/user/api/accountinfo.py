@@ -7,6 +7,7 @@ from bc4py.database.account import *
 from bc4py.database.tools import get_unspents_iter
 from aiohttp import web
 from binascii import hexlify
+from nem_ed25519.key import convert_address
 
 
 async def list_balance(request):
@@ -57,7 +58,10 @@ async def list_account_address(request):
         address_list = list()
         for uuid, address, user in read_pooled_address_iter(cur):
             if user_id == user:
-                address_list.append(address)
+                if user == C.ANT_CONTRACT:
+                    address_list.append(convert_address(ck=address, prefix=V.BLOCK_CONTRACT_PREFIX))
+                else:
+                    address_list.append(address)
     return web_base.json_res({
         'account': user_name, 'user_id': user_id, 'address': address_list})
 
@@ -111,6 +115,8 @@ async def new_address(request):
         user_id = read_name2user(user_name, cur)
         address = create_new_user_keypair(user_name, cur)
         db.commit()
+        if user_id == C.ANT_CONTRACT:
+            address = convert_address(address, V.BLOCK_CONTRACT_PREFIX)
     return web_base.json_res({'account': user_name, 'user_id': user_id, 'address': address})
 
 

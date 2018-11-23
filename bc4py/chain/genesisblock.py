@@ -8,8 +8,6 @@ from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.database.create import closing, create_db
 from bc4py.database.account import create_new_user_keypair
-from bc4py.contract.tools import contract2binary
-from bc4py.contract.c_validator import Contract
 from nem_ed25519.key import convert_address
 import time
 import logging
@@ -41,7 +39,7 @@ def create_genesis_block(all_supply, block_span, prefix=b'\x98', contract_prefix
         raise BlockChainError('out of range {}'.format(min(consensus.values())))
     elif not (0 < max(consensus.values()) <= 100):
         raise BlockChainError('out of range {}'.format(min(consensus.values())))
-    all_consensus = {C.BLOCK_POS, C.BLOCK_YES_POW, C.BLOCK_X11_POW, C.BLOCK_HMQ_POW, C.BLOCK_LTC_POW, C.BLOCK_X16_POW}
+    all_consensus = {C.BLOCK_POS, C.BLOCK_YES_POW, C.BLOCK_X11_POW, C.BLOCK_HMQ_POW, C.BLOCK_LTC_POW, C.BLOCK_X16R_POW}
     if len(set(consensus.keys()) - all_consensus) > 0:
         raise BlockChainError('Not found all_consensus number {}'.format(set(consensus.keys()) - all_consensus))
     elif len(set(consensus.keys()) & all_consensus) == 0:
@@ -69,26 +67,9 @@ def create_genesis_block(all_supply, block_span, prefix=b'\x98', contract_prefix
     # validator
     V.BLOCK_GENESIS_TIME = int(time.time())
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-        ck = create_new_user_keypair(C.ANT_CONTRACT, db.cursor())
+        ck = create_new_user_keypair(C.ANT_NAME_CONTRACT, db.cursor())
         db.commit()
     c_address = convert_address(ck, contract_prefix)
-    c_bin = contract2binary(Contract)
-    c_cs = {
-        ck.encode(): b'\x00\x00\x00\x00',
-        b'\x00'+b'\x00\x00\x00\x00': b'\x01'
-    }  # TODO:　初期値どうする？
-    validator_tx = TX(tx={
-            'version': __chain_version__,
-            'type': C.TX_CREATE_CONTRACT,
-            'time': 0,
-            'deadline': 10800,
-            'inputs': list(),
-            'outputs': list(),
-            'gas_price': 0,
-            'gas_amount': 0,
-            'message_type': C.MSG_BYTE,
-            'message': bjson.dumps((c_address, c_bin, c_cs), compress=False)})
-    validator_tx.height = 0
     params = {
         'prefix': prefix,  # CompressedKey prefix
         'contract_prefix': contract_prefix,  # ContractKey prefix
@@ -125,7 +106,6 @@ def create_genesis_block(all_supply, block_span, prefix=b'\x98', contract_prefix
     genesis_block.flag = C.BLOCK_GENESIS
     # block body
     genesis_block.txs.append(setting_tx)
-    genesis_block.txs.append(validator_tx)
     genesis_block.txs.extend(premine_txs)
     genesis_block.bits2target()
     genesis_block.target2diff()

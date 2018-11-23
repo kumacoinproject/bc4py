@@ -29,7 +29,7 @@ def json_res(data, indent=4):
 
 
 def error_res(errors=None):
-    if errors:
+    if errors is None:
         import traceback
         errors = str(traceback.format_exc())
     return web.Response(text=errors, status=400)

@@ -19,7 +19,6 @@ def send_many(sender, send_pairs, cur, fee_coin_id=0, gas_price=None,
     for address, coin_id, amount in send_pairs:
         assert isinstance(address, str) and len(address) == 40, 'Recipient is 40 letter string.'
         assert isinstance(coin_id, int) and isinstance(amount, int), 'CoinID, amount is int.'
-        assert is_address(address, V.BLOCK_PREFIX), 'Not correct format {}'.format(address)
         coins[coin_id] += amount
         outputs.append((address, coin_id, amount))
     movements[sender] -= coins
@@ -39,7 +38,7 @@ def send_many(sender, send_pairs, cur, fee_coin_id=0, gas_price=None,
         'message': msg_body})
     tx.gas_amount = tx.getsize()
     # fill unspents
-    input_address = fill_inputs_outputs(tx, cur, fee_coin_id, additional_fee=0)
+    input_address = fill_inputs_outputs(tx, cur, fee_coin_id, additional_gas=0)
     # account check
     fee_coins = CoinObject(coin_id=fee_coin_id, amount=tx.gas_price * tx.gas_amount)
     if f_balance_check:

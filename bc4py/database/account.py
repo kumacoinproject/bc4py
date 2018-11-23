@@ -37,7 +37,7 @@ def insert_log(movements, cur, _type=None, _time=None, txhash=None):
     assert isinstance(movements, UserCoins), 'movements is UserCoin.'
     _type = _type or C.TX_INNER
     _time = _time or int(time.time() - V.BLOCK_GENESIS_TIME)
-    txhash = txhash or (b'\x00' * 24 + _time.to_bytes(4, 'little') + os.urandom(4))
+    txhash = txhash or (b'\x00' * 24 + _time.to_bytes(4, 'big') + os.urandom(4))
     move = list()
     index = 0
     for user, coins in movements.items():
@@ -135,7 +135,10 @@ def read_user2name(user, cur):
     return d[0]
 
 
-def create_account(name, cur, description="", _time=None):
+def create_account(name, cur, description="", _time=None, is_root=False):
+    assert isinstance(name, str)
+    if not (name.startswith('@') == is_root):
+        raise BlockChainError('prefix"@" is root user, is_root={} name={}'.format(is_root, name))
     _time = _time or int(time.time() - V.BLOCK_GENESIS_TIME)
     cur.execute("""
         INSERT INTO `account` (`name`,`description`,`time`) VALUES (?,?,?)
@@ -179,6 +182,7 @@ def create_new_user_keypair(name, cur):
         return cur.execute("""
             SELECT `id`,`sk`,`pk`,`ck` FROM `pool` WHERE `user`=?
         """, (C.ANT_RESERVED,)).fetchall()
+    assert isinstance(name, str)
     # ReservedKeypairを１つ取得
     all_reserved_keys = get_all_keys()
     if len(all_reserved_keys) == 0:
@@ -211,7 +215,7 @@ class MoveLog:
         self.pointer = ref(tx) if tx else object()
 
     def __repr__(self):
-        return "<MoveLog {} {}>".format(C.txtype2name[self.type], hexlify(self.txhash).decode())
+        return "<MoveLog {} {}>".format(C.txtype2name.get(self.type, None), hexlify(self.txhash).decode())
 
     def __hash__(self):
         return hash(self.txhash)
@@ -224,7 +228,7 @@ class MoveLog:
             'txhash': hexlify(self.txhash).decode(),
             'height':  self.height,
             'on_memory': self.on_memory,
-            'type': C.txtype2name[self.type],
+            'type': C.txtype2name.get(self.type, None),
             'movement': movement,
             'time': self.time + V.BLOCK_GENESIS_TIME}
 
@@ -242,7 +246,7 @@ class MoveLog:
 __all__ = [
     "read_txhash2log", "read_log_iter", "insert_log", "delete_log",
     "read_address2keypair", "read_address2user", "update_keypair_user", "insert_keypairs",
-    "read_account_info", "read_pooled_address_iter", "read_address2account", "read_name2user", "read_user2name",
-    "create_account", "create_new_user_keypair",
+    "read_account_info", "read_pooled_address_iter", "read_address2account",
+    "read_name2user", "read_user2name", "create_account", "create_new_user_keypair",
     "MoveLog"
 ]

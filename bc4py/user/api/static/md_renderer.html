@@ -3,7 +3,7 @@
     <head>
         <meta charset="utf-8">
 
-        <title>%s</title>
+        <title>{:title}</title>
         <meta name="description" content="API document">
 
         <!-- js libraries -->
@@ -24,18 +24,20 @@
                 try{
                     var renderer = new marked.Renderer();
                     renderer.code = function(code, language) {
-                        return '<pre'+'><code class="hljs">' + hljs.highlightAuto(code).value + '</code></pre>';
+                        return '<pre style="max-height: 30em;">' +
+                            '<code class="hljs">' + hljs.highlightAuto(code).value + '</code>' +
+                            '</pre>';
                     };
                     renderer.table = function(header, body) {
                         if (body) body = '<tbody>' + body + '</tbody>';
-                        return '<table class="table table-bordered">\n'
+                        return '<table class="my-boostrap-table">\n'
                             + '<thead>\n' + header + '</thead>\n'
                             + body + '</table>\n';
                     };
                     marked.setOptions({
                         renderer: renderer
                     });
-                    var markdown_body = "%s";
+                    var markdown_body = "{:body}";
                     target.append(marked(markdown_body));
                 }catch (e) {
                     target.append("Error: " + str(e));
@@ -43,11 +45,28 @@
             });
         </script>
     </head>
-
     <body>
         <!-- Content -->
         <div class="container">
             <div id="markdown_content"></div>
         </div>
     </body>
+    <style>
+        .my-boostrap-table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 10px;
+        }
+        .my-boostrap-table th {
+            border: 2px solid black;
+            font-weight: bold;
+            padding: 6px;
+            margin: 6px;
+        }
+        .my-boostrap-table td {
+            border: 2px solid gray;
+            padding: 4px;
+            margin: 4px;
+        }
+    </style>
 </html>
