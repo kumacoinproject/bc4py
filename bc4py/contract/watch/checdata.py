@@ -1,4 +1,4 @@
-from bc4py.config import C, V
+from bc4py.config import C, V, NewInfo
 from bc4py.chain import Block, TX
 from bc4py.database.create import closing, create_db
 from bc4py.database.account import read_address2user, read_user2name
@@ -67,6 +67,18 @@ def check_related_address(address_list):
             if user:
                 r.append((read_user2name(user, cur), address))
     return r
+
+
+def decode(b):
+    if isinstance(b, bytes) or isinstance(b, bytearray):
+        return b.decode(errors='ignore')
+    elif isinstance(b, set) or isinstance(b, list) or isinstance(b, tuple):
+        return tuple(decode(data) for data in b)
+    elif isinstance(b, dict):
+        return {decode(k): decode(v) for k, v in b.items()}
+    else:
+        return b
+        # return 'Cannot decode type {}'.format(type(b))
 
 
 class CheckWatchError(Exception):

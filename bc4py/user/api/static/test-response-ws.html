@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WS test page</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script type="text/javascript" src="js/jquery-2.0.3.min.js"></script>
+    <script type="text/javascript" src="js/vue.min.js"></script>
+    <script type="text/javascript" src="js/vue-cookies.js"></script>
+    <script type="text/javascript" src="js/axios.min.js"></script>
+    <script type="text/javascript" src="js/basis.js"></script>
+    <script type="text/javascript" src='js/highlight.min.js'></script>
+    <!-- bootstrap -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <!-- Optional theme -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+    <!-- Latest compiled and minified JavaScript -->
+    <script type="text/javascript" src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+    <!-- github css style -->
+    <link rel='stylesheet' href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.0.0/styles/github.min.css" />
+</head>
+
+<style>
+    div.section {
+        margin: 10px;
+    }
+    input.section {
+        margin: 5px;
+    }
+</style>
+
+<body>
+<div id="app-ws">
+    <!-- header -->
+    <div class="container">
+        <div class="jumbotron">
+            <h2>Websocket test page</h2>
+            <input v-model="proto" v-bind:disabled="ws!==null" type="text" placeholder="ws://">
+            <input v-model="user" v-bind:disabled="ws!==null" type="text" placeholder="user">
+            <input v-model="password" v-bind:disabled="ws!==null" type="text" placeholder="password">
+            <input v-model="url" v-bind:disabled="ws!==null" type="text" placeholder="127.0.0.1:3000">
+            <input v-model="dest" v-bind:disabled="ws!==null" type="text" placeholder="/ws/test">
+            <div class="section">
+                Connect <b>{{proto}}{{user}}:{{password}}@{{url}}{{dest}}</b>
+                <button v-if="ws" @click="disconnect">Close connect</button>
+                <button v-else @click="connect">Connect</button>
+                <button onclick="document.getElementById('code-form').innerHTML = '';">ClearData</button>
+            </div>
+            <div class="section">
+                Message: {{message}}
+            </div>
+        </div>
+    </div>
+    <!-- body -->
+    <div class="container">
+        <div class="jumbotron">
+            <div id="code-form"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let ws = new Vue({
+        el: "#app-ws",
+        data: {
+            ws: null,
+            proto: "ws://",
+            user: 'user',
+            password: 'password',
+            url: "127.0.0.1:3000",
+            dest: "/ws/test",
+            message: "No message...",
+            index: 0
+        },
+        methods: {
+            connect: function () {
+                let uri = this.proto+this.user+':'+this.password+'@'+this.url+this.dest;
+                this.ws = new WebSocket(uri);
+                this.ws.onopen = on_connect;
+                this.ws.onmessage = on_message;
+                this.ws.onclose = on_disconnect;
+                this.ws.onerror = on_error;
+                console.log("New connection: "+uri);
+                this.$cookies.set('connection-proto', this.proto);
+                this.$cookies.set('connection-user', this.user);
+                this.$cookies.set('connection-password', this.password);
+                this.$cookies.set('connection-url', this.url);
+                this.$cookies.set('connection-dest', this.dest);
+            },
+            disconnect: function () {
+                if(!this.ws){return;}
+                this.ws.close();
+                this.ws = null;
+                ws.message = "Close";
+            }
+        }
+    });
+    function on_message(event) {
+        var item;
+        try {
+            item = JSON.parse(event.data);
+            console.log("Get message: ", item);
+            item = JSON.stringify(item, null, 4);
+            item = hljs.highlightAuto(item).value;
+        }catch (e) {
+            item = event.data;
+        }
+        const code_form = document.getElementById('code-form');
+        code_form.innerHTML += '<pre style="max-height: 20em;">Num: '+ws.index+'<code class="hljs">'+item+'</code></pre>';
+        ws.message = "OK!";
+        ws.index += 1;
+    }
+    function on_connect(event) {
+        console.log("Websocket connected to ", event);
+        ws.message = "open";
+    }
+    function on_disconnect(event) {
+        console.log("Websocket disconnected from ", event);
+        ws.message = "closing";
+        ws.disconnect();
+    }
+    function on_error(event) {
+        console.error("Websocket error!", event);
+        ws.message = "Error: "+event.data;
+        ws.disconnect();
+    }
+</script>
+</body>
+</html>
+
+<script>
+    setTimeout(function () {
+        let proto = window.$cookies.get('connection-proto');
+        if (proto !== 'ws://' && proto !== 'wss://'){return;}
+        ws.user = window.$cookies.get('connection-user');
+        ws.pass = window.$cookies.get('connection-password');
+        ws.proto = proto;
+        ws.url = window.$cookies.get('connection-url');
+        ws.dest = window.$cookies.get('connection-dest');
+    }, 500);
+</script>

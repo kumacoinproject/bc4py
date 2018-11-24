@@ -77,7 +77,6 @@ def work(port, sub_dir):
 
     # Mining/Staking setup
     start_work_hash()
-    Debug.F_WS_FULL_ERROR_MSG = True
     # Debug.F_CONSTANT_DIFF = True
     # Debug.F_SHOW_DIFFICULTY = True
     # Debug.F_STICKY_TX_REJECTION = False  # for debug
@@ -98,6 +97,7 @@ def work(port, sub_dir):
     try:
         # start_stratum(f_blocking=False)
         create_rest_server(f_local=True, port=port+1000, user='user', pwd='password')
+        P.F_STOP = True
         close_contract_watch()
         builder.close()
         # close_stratum()

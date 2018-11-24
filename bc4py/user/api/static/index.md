@@ -1,7 +1,8 @@
 Index page
 ====
 * [sample.md](./sample.md)
-* [test response for debug](./testresponse.html)
+* [REST response test](./test-response-rest.html)
+* [WebSocket response test](./test-response-ws.html)
 * [bootstrap3 components](https://getbootstrap.com/docs/3.3/components/)
 
 
@@ -76,6 +77,8 @@ Others
 ----
 |URL    |Method    |Type    |About   |
 |----   |----   |----   |----   |
+|[/public/ws](./public/ws)          |GET   |public      | Realtime information stream.                       |
+|[/private/ws](./private/ws)        |GET   |private     | Realtime private information stream.               |
 |[/json-rpc](./json-rpc)            |POST   |JSON-RPC   | Mining interface, `getwork` and `getblocktemplete` |
 
 

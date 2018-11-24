@@ -2,13 +2,13 @@
 # -*- coding: utf-8 -*-
 
 from bc4py import __version__, __chain_version__, __message__, __logo__
-from bc4py.config import C, Debug
+from bc4py.config import P, Debug
 from bc4py.utils import set_database_path, set_blockchain_params
 from bc4py.user.generate import *
 from bc4py.user.boot import *
 from bc4py.user.network import broadcast_check, mined_newblock, DirectCmd, sync_chain_loop, close_sync
 from bc4py.user.api import create_rest_server
-from bc4py.contract.watch import start_contract_watch, close_contract_watch
+from bc4py.contract.watch import start_contract_watch
 from bc4py.database.create import make_account_db
 from bc4py.database.builder import builder
 from bc4py.chain.workhash import start_work_hash, close_work_hash
@@ -58,7 +58,6 @@ def work(port, sub_dir=None):
 
     # Mining/Staking setup
     start_work_hash()
-    Debug.F_WS_FULL_ERROR_MSG = True
     # Debug.F_CONSTANT_DIFF = True
     # Debug.F_SHOW_DIFFICULTY = True
     # Debug.F_STICKY_TX_REJECTION = False  # for debug
@@ -73,7 +72,7 @@ def work(port, sub_dir=None):
 
     try:
         create_rest_server(f_local=True, port=port + 1000, user='user', pwd='password')
-        close_contract_watch()
+        P.F_STOP = True
         builder.close()
         pc.close()
         close_generate()

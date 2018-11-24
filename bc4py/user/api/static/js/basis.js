@@ -20,3 +20,7 @@ function getRandomColor() {
     let color = (Math.random() * 0xFFFFFF | 0).toString(16);
     return "#" + ("000000" + color).slice(-6);
 }
+
+function urlSerialize( obj ) {
+  return '?'+Object.keys(obj).reduce(function(a,k){a.push(k+'='+encodeURIComponent(obj[k]));return a},[]).join('&')
+}

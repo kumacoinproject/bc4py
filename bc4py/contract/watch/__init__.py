@@ -13,7 +13,7 @@ def start_contract_watch():
 
 def loop():
     logging.info("Watching contract start.")
-    while P.F_WATCH_CONTRACT:
+    while not P.F_STOP and P.F_WATCH_CONTRACT:
         try:
             obj = NewInfo.get(channel='watch contract', timeout=2)
             if isinstance(obj, TX):
