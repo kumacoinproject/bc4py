@@ -45,14 +45,16 @@ async def websocket_private(request):
             elif msg.type == web.WSMsgType.BINARY:
                 logging.debug("Get bin from {} data={}".format(client, msg.data))
             elif msg.type == web.WSMsgType.CLOSED:
-                await client.close()
+                logging.debug("Get close signal from {} data={}".format(client, msg.data))
+                break
             elif msg.type == web.WSMsgType.ERROR:
                 logging.error("Get error from {} data={}".format(client, msg.data))
         except Exception as e:
             import traceback
             await client.send(raw_data=get_send_format(
                 cmd=CMD_ERROR, data=str(traceback.format_exc()), status=False))
-        logging.debug("close {}".format(client))
+    logging.debug("close {}".format(client))
+    await client.close()
     return client.ws
 
 
@@ -79,6 +81,8 @@ class WsConnection:
 
     async def close(self):
         await self.ws.close()
+        if self in clients:
+            clients.remove(self)
 
     async def send(self, raw_data):
         assert isinstance(raw_data, str)
