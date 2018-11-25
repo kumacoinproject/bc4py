@@ -121,8 +121,8 @@ def create_rest_server(f_local, port, user=None, pwd=None, f_blocking=True, ssl_
     app.router.add_get('/public/getminthistory', get_mintcoin_history)
     # Others
     start_ws_listen_loop()
-    app.router.add_get('/public/ws', websocket_public)
-    app.router.add_get('/private/ws', websocket_private)
+    app.router.add_get('/public/ws', websocket_route)
+    app.router.add_get('/private/ws', websocket_route)
     app.router.add_post('/json-rpc', json_rpc)  # Json-RPC
     # html/markdown pages
     app.router.add_get('/', web_page)

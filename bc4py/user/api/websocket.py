@@ -16,34 +16,21 @@ CMD_NEW_TX = 'TX'
 CMD_ERROR = 'Error'
 
 
-async def websocket_public(request):
-    client = await websocket_protocol_check(request=request, is_public=True)
+async def websocket_route(request):
+    if request.rel_url.path.startswith('/public/'):
+        is_public = True
+    elif request.rel_url.path.startswith('/private/'):
+        is_public = False
+    else:
+        raise web.HTTPNotFound()
+    client = await websocket_protocol_check(request=request, is_public=is_public)
     async for msg in client.ws:
         try:
             if msg.type == web.WSMsgType.TEXT:
                 logging.debug("Get text from {} data={}".format(client, msg.data))
-            elif msg.type == web.WSMsgType.BINARY:
-                logging.debug("Get bin from {} data={}".format(client, msg.data))
-            elif msg.type == web.WSMsgType.CLOSED:
-                logging.debug("Get close signal from {} data={}".format(client, msg.data))
-                break
-            elif msg.type == web.WSMsgType.ERROR:
-                logging.error("Get error from {} data={}".format(client, msg.data))
-        except Exception as e:
-            import traceback
-            await client.send(raw_data=get_send_format(
-                cmd=CMD_ERROR, data=str(traceback.format_exc()), status=False))
-    logging.debug("close {}".format(client))
-    await client.close()
-    return client.ws
-
-
-async def websocket_private(request):
-    client = await websocket_protocol_check(request=request, is_public=False)
-    async for msg in client.ws:
-        try:
-            if msg.type == web.WSMsgType.TEXT:
-                logging.debug("Get text from {} data={}".format(client, msg.data))
+                # send dummy response
+                data = {'connect': len(clients), 'is_public': client.is_public, 'echo': msg.data}
+                await client.send(get_send_format('dummy', data))
             elif msg.type == web.WSMsgType.BINARY:
                 logging.debug("Get bin from {} data={}".format(client, msg.data))
             elif msg.type == web.WSMsgType.CLOSED:
@@ -141,7 +128,6 @@ __all__ = [
     "CMD_NEW_BLOCK",
     "CMD_NEW_TX",
     "start_ws_listen_loop",
-    "websocket_public",
-    "websocket_private",
+    "websocket_route",
     "send_websocket_data",
 ]
