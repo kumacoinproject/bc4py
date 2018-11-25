@@ -42,7 +42,11 @@
             <input v-model="user" v-bind:disabled="ws!==null" type="text" placeholder="user">
             <input v-model="password" v-bind:disabled="ws!==null" type="text" placeholder="password">
             <input v-model="url" v-bind:disabled="ws!==null" type="text" placeholder="127.0.0.1:3000">
-            <input v-model="dest" v-bind:disabled="ws!==null" type="text" placeholder="/ws/test">
+            <input v-model="dest" v-bind:disabled="ws!==null" type="text" placeholder="/public/ws">
+            <div class="section">
+                <button @click="send_msg_btn">SendJson</button>
+                <input style="width: 50%;" v-model="send_msg_body" v-bind:disabled="ws===null" type="text">
+            </div>
             <div class="section">
                 Connect <b>{{proto}}{{user}}:{{password}}@{{url}}{{dest}}</b>
                 <button v-if="ws" @click="disconnect">Close connect</button>
@@ -73,6 +77,7 @@
             url: "127.0.0.1:3000",
             dest: "/public/ws",
             message: "No message...",
+            send_msg_body: '',
             index: 0
         },
         computed: {
@@ -100,6 +105,16 @@
                 this.ws.close();
                 this.ws = null;
                 ws.message = "Close";
+            },
+            send_msg_btn: function () {
+                try{
+                    let msg = JSON.parse(ws.send_msg_body);
+                    this.ws.send(ws.send_msg_body);
+                    ws.message = "Success: "+msg;
+                }catch (e) {
+                    let msg = String(e);
+                    ws.message = 'Failed: '+msg;
+                }
             }
         }
     });
