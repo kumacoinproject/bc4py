@@ -84,7 +84,7 @@ async def sign_raw_tx(request):
                 tx.signature.append(other_pairs[address])
         data = tx.getinfo()
         return web_base.json_res({
-            'txhash': data['hash'],
+            'hash': data['hash'],
             'signature': data['signature'],
             'hex': hexlify(tx.b).decode()})
     except BaseException:
@@ -101,7 +101,7 @@ async def broadcast_tx(request):
         if not send_newtx(new_tx=new_tx):
             raise BaseException('Failed to send new tx.')
         return web_base.json_res({
-            'txhash': hexlify(new_tx.hash).decode(),
+            'hash': hexlify(new_tx.hash).decode(),
             'gas_amount': new_tx.gas_amount,
             'gas_price': new_tx.gas_price,
             'fee': new_tx.gas_amount * new_tx.gas_price,
@@ -136,7 +136,7 @@ async def send_from_user(request):
                 raise BaseException('Failed to send new tx.')
             db.commit()
             return web_base.json_res({
-                'txhash': hexlify(new_tx.hash).decode(),
+                'hash': hexlify(new_tx.hash).decode(),
                 'gas_amount': new_tx.gas_amount,
                 'gas_price': new_tx.gas_price,
                 'fee': new_tx.gas_amount * new_tx.gas_price,
@@ -171,7 +171,7 @@ async def send_many_user(request):
                 raise BaseException('Failed to send new tx.')
             db.commit()
             return web_base.json_res({
-                'txhash': hexlify(new_tx.hash).decode(),
+                'hash': hexlify(new_tx.hash).decode(),
                 'gas_amount': new_tx.gas_amount,
                 'gas_price': new_tx.gas_price,
                 'fee': new_tx.gas_amount * new_tx.gas_price,
@@ -198,7 +198,7 @@ async def issue_mint_tx(request):
                 raise BaseException('Failed to send new tx.')
             db.commit()
             return web_base.json_res({
-                'txhash': hexlify(tx.hash).decode(),
+                'hash': hexlify(tx.hash).decode(),
                 'gas_amount': tx.gas_amount,
                 'gas_price': tx.gas_price,
                 'fee': tx.gas_amount * tx.gas_price,
@@ -224,7 +224,7 @@ async def change_mint_tx(request):
                 raise BaseException('Failed to send new tx.')
             db.commit()
             return web_base.json_res({
-                'txhash': hexlify(tx.hash).decode(),
+                'hash': hexlify(tx.hash).decode(),
                 'gas_amount': tx.gas_amount,
                 'gas_price': tx.gas_price,
                 'fee': tx.gas_amount * tx.gas_price,

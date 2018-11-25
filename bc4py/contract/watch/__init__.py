@@ -1,6 +1,6 @@
 from bc4py.config import P, NewInfo
 from bc4py.chain import Block, TX
-from bc4py.contract.watch.checdata import *
+from bc4py.contract.watch.checkdata import *
 import logging
 from threading import Thread
 

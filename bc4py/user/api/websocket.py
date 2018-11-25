@@ -1,12 +1,13 @@
 from bc4py.config import P, NewInfo
 from bc4py.chain import Block, TX
+from bc4py.contract.watch.checkdata import *
 from aiohttp import web
 from threading import Thread
 import asyncio
 import logging
 import json
 import time
-
+from binascii import hexlify
 
 clients = list()
 loop = asyncio.get_event_loop()
@@ -100,6 +101,45 @@ def start_ws_listen_loop():
                     send_websocket_data(cmd=CMD_NEW_TX, data=data.getinfo(), is_public_data=True)
                 elif isinstance(data, tuple):
                     cmd, is_public, send_data = data
+                    if cmd == C_Conclude:
+                        _time, tx, related_list, c_address, start_hash, c_storage = send_data
+                        send_data = {
+                            'c_address': c_address,
+                            'hash': hexlify(tx.hash).decode(),
+                            'time': _time,
+                            'tx': tx.getinfo(),
+                            'related': related_list,
+                            'start_hash': hexlify(start_hash).decode(),
+                            'c_storage': decode(c_storage)}
+                    elif cmd == C_Validator:
+                        _time, tx, related_list, c_address, new_address, flag, sig_diff = send_data
+                        send_data = {
+                            'c_address': c_address,
+                            'hash': hexlify(tx.hash).decode(),
+                            'time': _time,
+                            'tx': tx.getinfo(),
+                            'related': related_list,
+                            'new_address': new_address,
+                            'flag': flag, 'sig_diff': sig_diff}
+                    elif cmd == C_RequestConclude:
+                        _time, tx, related_list, c_address, c_method, c_args = send_data
+                        send_data = {
+                            'c_address': c_address,
+                            'hash': hexlify(tx.hash).decode(),
+                            'time': _time,
+                            'tx': tx.getinfo(),
+                            'related': related_list,
+                            'c_method': c_method,
+                            'c_args': decode(c_args)}
+                    elif cmd == C_FinishConclude or cmd == C_FinishValidator:
+                        _time, tx = send_data
+                        send_data = {
+                            'hash': hexlify(tx.hash).decode(),
+                            'time': _time,
+                            'tx': tx.getinfo()}
+                    else:
+                        logging.warning("Not found cmd {}".format(cmd))
+                        continue
                     send_websocket_data(cmd=cmd, data=send_data, is_public_data=is_public)
             except NewInfo.empty:
                 pass
@@ -121,6 +161,18 @@ def send_websocket_data(cmd, data, status=True, is_public_data=False):
         return
     send_format = get_send_format(cmd=cmd, data=data, status=status)
     asyncio.run_coroutine_threadsafe(coro=exe(), loop=loop)
+
+
+def decode(b):
+    if isinstance(b, bytes) or isinstance(b, bytearray):
+        return b.decode(errors='ignore')
+    elif isinstance(b, set) or isinstance(b, list) or isinstance(b, tuple):
+        return tuple(decode(data) for data in b)
+    elif isinstance(b, dict):
+        return {decode(k): decode(v) for k, v in b.items()}
+    else:
+        return b
+        # return 'Cannot decode type {}'.format(type(b))
 
 
 __all__ = [
