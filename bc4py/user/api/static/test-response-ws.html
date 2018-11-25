@@ -35,6 +35,9 @@
     <div class="container">
         <div class="jumbotron">
             <h2>Websocket test page</h2>
+            <a v-bind:href="help_page_url">API help page</a>
+        </div>
+        <div class="jumbotron">
             <input v-model="proto" v-bind:disabled="ws!==null" type="text" placeholder="ws://">
             <input v-model="user" v-bind:disabled="ws!==null" type="text" placeholder="user">
             <input v-model="password" v-bind:disabled="ws!==null" type="text" placeholder="password">
@@ -68,9 +71,14 @@
             user: 'user',
             password: 'password',
             url: "127.0.0.1:3000",
-            dest: "/ws/test",
+            dest: "/public/ws",
             message: "No message...",
             index: 0
+        },
+        computed: {
+            help_page_url: function () {
+                return this.proto + this.url + "/"
+            },
         },
         methods: {
             connect: function () {
