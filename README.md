@@ -75,6 +75,7 @@ Documents
 * [Create genesis block](doc/GenesisBlock.md)
 * [Ho to mining](doc/Mining.md)
 * [API doc](bc4py/user/api/static/index.md)
+* [Development Guidelines](doc/Development.md)
 
 Build for windows
 ----
