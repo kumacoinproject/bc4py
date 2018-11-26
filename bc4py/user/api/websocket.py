@@ -8,7 +8,9 @@ import logging
 import json
 import time
 from binascii import hexlify
+from collections import OrderedDict
 
+number = 0
 clients = list()
 loop = asyncio.get_event_loop()
 
@@ -31,7 +33,7 @@ async def websocket_route(request):
                 logging.debug("Get text from {} data={}".format(client, msg.data))
                 # send dummy response
                 data = {'connect': len(clients), 'is_public': client.is_public, 'echo': msg.data}
-                await client.send(get_send_format('dummy', data))
+                await client.send(get_send_format(cmd='debug', data=data))
             elif msg.type == web.WSMsgType.BINARY:
                 logging.debug("Get bin from {} data={}".format(client, msg.data))
             elif msg.type == web.WSMsgType.CLOSED:
@@ -60,14 +62,17 @@ async def websocket_protocol_check(request, is_public):
 
 class WsConnection:
     def __init__(self, ws, request, is_public):
+        global number
+        number += 1
+        self.number = number
         self.ws = ws
         self.request = request
         self.is_public = is_public
         clients.append(self)
 
     def __repr__(self):
-        return "<WsConnection {} {}>".format(
-            'Pub' if self.is_public else 'Pri', self.request.remote)
+        return "<WsConnection {} {} {}>".format(
+            self.number, 'Pub' if self.is_public else 'Pri', self.request.remote)
 
     async def close(self):
         await self.ws.close()
@@ -100,43 +105,44 @@ def start_ws_listen_loop():
                 elif isinstance(data, TX):
                     send_websocket_data(cmd=CMD_NEW_TX, data=data.getinfo(), is_public_data=True)
                 elif isinstance(data, tuple):
-                    cmd, is_public, send_data = data
+                    cmd, is_public, data_list = data
                     if cmd == C_Conclude:
-                        _time, tx, related_list, c_address, start_hash, c_storage = send_data
-                        send_data = {
-                            'c_address': c_address,
-                            'hash': hexlify(tx.hash).decode(),
-                            'time': _time,
-                            'tx': tx.getinfo(),
-                            'related': related_list,
-                            'start_hash': hexlify(start_hash).decode(),
-                            'c_storage': decode(c_storage)}
+                        _time, tx, related_list, c_address, start_hash, c_storage = data_list
+                        send_data = OrderedDict()
+                        send_data['c_address'] = c_address
+                        send_data['hash'] = hexlify(tx.hash).decode()
+                        send_data['time'] = _time
+                        send_data['tx'] = tx.getinfo()
+                        send_data['related'] = related_list
+                        send_data['start_hash'] = hexlify(start_hash).decode()
+                        send_data['c_storage'] = decode(c_storage)
                     elif cmd == C_Validator:
-                        _time, tx, related_list, c_address, new_address, flag, sig_diff = send_data
-                        send_data = {
-                            'c_address': c_address,
-                            'hash': hexlify(tx.hash).decode(),
-                            'time': _time,
-                            'tx': tx.getinfo(),
-                            'related': related_list,
-                            'new_address': new_address,
-                            'flag': flag, 'sig_diff': sig_diff}
+                        _time, tx, related_list, c_address, new_address, flag, sig_diff = data_list
+                        send_data = OrderedDict()
+                        send_data['c_address'] = c_address
+                        send_data['hash'] = hexlify(tx.hash).decode()
+                        send_data['time'] = _time
+                        send_data['tx'] = tx.getinfo()
+                        send_data['related'] = related_list
+                        send_data['new_address'] = new_address
+                        send_data['flag'] = flag
+                        send_data['sig_diff'] = sig_diff
                     elif cmd == C_RequestConclude:
-                        _time, tx, related_list, c_address, c_method, c_args = send_data
-                        send_data = {
-                            'c_address': c_address,
-                            'hash': hexlify(tx.hash).decode(),
-                            'time': _time,
-                            'tx': tx.getinfo(),
-                            'related': related_list,
-                            'c_method': c_method,
-                            'c_args': decode(c_args)}
+                        _time, tx, related_list, c_address, c_method, c_args = data_list
+                        send_data = OrderedDict()
+                        send_data['c_address'] = c_address
+                        send_data['hash'] = hexlify(tx.hash).decode()
+                        send_data['time'] = _time
+                        send_data['tx'] = tx.getinfo()
+                        send_data['related'] = related_list
+                        send_data['c_method'] = c_method
+                        send_data['c_args'] = decode(c_args)
                     elif cmd == C_FinishConclude or cmd == C_FinishValidator:
-                        _time, tx = send_data
-                        send_data = {
-                            'hash': hexlify(tx.hash).decode(),
-                            'time': _time,
-                            'tx': tx.getinfo()}
+                        _time, tx = data_list
+                        send_data = OrderedDict()
+                        send_data['hash'] = hexlify(tx.hash).decode()
+                        send_data['time'] = _time
+                        send_data['tx'] = tx.getinfo()
                     else:
                         logging.warning("Not found cmd {}".format(cmd))
                         continue
@@ -148,8 +154,11 @@ def start_ws_listen_loop():
 
 
 def get_send_format(cmd, data, status=True):
-    return json.dumps(
-        {"cmd": cmd, "data": data, "time": time.time(), 'status': status})
+    send_data = OrderedDict()
+    send_data['cmd'] = cmd
+    send_data['data'] = data
+    send_data['status'] = status
+    return json.dumps(send_data)
 
 
 def send_websocket_data(cmd, data, status=True, is_public_data=False):

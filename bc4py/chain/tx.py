@@ -7,6 +7,7 @@ from hashlib import sha256
 from binascii import hexlify
 import time
 import struct
+from collections import OrderedDict
 
 
 struct_tx_header = struct.Struct('<IIIIQqBBBI')
@@ -115,7 +116,7 @@ class TX:
         self.hash = sha256(sha256(self.b).digest()).digest()
 
     def getinfo(self):
-        r = dict()
+        r = OrderedDict()
         r['hash'] = hexlify(self.hash).decode()
         r['pos_amount'] = self.pos_amount
         r['height'] = self.height

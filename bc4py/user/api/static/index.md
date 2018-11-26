@@ -73,7 +73,7 @@ Index page
 |[/public/getmintinfo](./public/getmintinfo)            |GET    |public   | Get mintcoin info.           |
 |[/public/getminthistory](./public/getminthistory)      |GET    |public   | Get mintcoin history.        |
 
-Others
+[Others](./doc_others.md)
 ----
 |URL    |Method    |Type    |About   |
 |----   |----   |----   |----   |

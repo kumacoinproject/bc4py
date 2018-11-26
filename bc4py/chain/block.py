@@ -5,10 +5,10 @@ from bc4py.config import C, V
 from bc4py.chain.utils import MAX_256_INT, bits2target
 from bc4py.chain.workhash import update_work_hash
 from hashlib import sha256
-from os import urandom
 from binascii import hexlify
 import struct
 import time
+from collections import OrderedDict
 
 
 struct_block = struct.Struct('<I32s32sII4s')
@@ -94,7 +94,7 @@ class Block:
         self.hash = sha256(sha256(self.b).digest()).digest()
 
     def getinfo(self):
-        r = dict()
+        r = OrderedDict()
         r['hash'] = hexlify(self.hash).decode() if self.hash else None
         try:
             if self.work_hash is None:
