@@ -4,6 +4,7 @@ from bc4py.contract.storage import Storage
 from expiringdict import ExpiringDict
 from binascii import hexlify
 import bjson
+from collections import OrderedDict
 
 
 M_INIT = 'init'
@@ -35,15 +36,16 @@ class Contract:
     def info(self):
         if self.index == -1:
             return None
-        return {
-            'c_address': self.c_address,
-            'index': self.index,
-            'binary': hexlify(self.binary).decode(),
-            'extra_imports': self.extra_imports,
-            'storage_key': len(self.storage),
-            'settings': self.settings,
-            'start_hash': hexlify(self.start_hash).decode(),
-            'finish_hash': hexlify(self.finish_hash).decode()}
+        d = OrderedDict()
+        d['c_address'] = self.c_address
+        d['index'] = self.index
+        d['binary'] = hexlify(self.binary).decode()
+        d['extra_imports'] = self.extra_imports
+        d['storage_key'] = len(self.storage)
+        d['settings'] = self.settings
+        d['start_hash'] = hexlify(self.start_hash).decode()
+        d['finish_hash'] = hexlify(self.finish_hash).decode()
+        return d
 
     def update(self, start_hash, finish_hash, c_method, c_args, c_storage):
         if c_method == M_INIT:
