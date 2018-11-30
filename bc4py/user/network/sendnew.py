@@ -82,3 +82,9 @@ def send_newtx(new_tx, outer_cur=None):
         logging.warning("Reason is \"{}\"".format(e))
         logging.debug("traceback,", exc_info=True)
         return False
+
+
+__all__ = [
+    "mined_newblock",
+    "send_newtx",
+]

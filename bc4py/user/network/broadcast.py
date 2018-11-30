@@ -1,7 +1,7 @@
 from bc4py.config import C, V, P, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
-from bc4py.chain.checking import new_insert_block, check_tx, check_tx_time, batch_sign_cashe
+from bc4py.chain.checking import new_insert_block, check_tx, check_tx_time
 from bc4py.database.builder import builder, tx_builder
 from bc4py.user.network.update import update_mining_staking_all_info
 from bc4py.user.network.directcmd import DirectCmd

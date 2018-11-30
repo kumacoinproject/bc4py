@@ -1,16 +1,13 @@
 from bc4py.config import C, V, P, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
-from bc4py.contract.tools import binary2contract
 from bc4py.chain.checking.signature import *
 from bc4py.database.builder import tx_builder
 from bc4py.database.validator import *
 from bc4py.database.contract import *
-from nem_ed25519.key import is_address, convert_address
+from nem_ed25519.key import is_address
 from binascii import hexlify
 import bjson
-import logging
-import threading
 
 
 def check_tx_contract_conclude(tx: TX, include_block: Block):
