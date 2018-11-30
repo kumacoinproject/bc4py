@@ -2,7 +2,6 @@ from bc4py.config import C, V
 from bc4py.contract.tools import *
 from bc4py.user.txcreation.contract import *
 from bc4py.database.create import closing, create_db
-from bc4py.database.tools import *
 from bc4py.database.account import *
 from bc4py.database.builder import tx_builder
 from bc4py.user.network.sendnew import send_newtx
@@ -20,7 +19,7 @@ async def contract_init(request):
         c_extra_imports = post.get('extra_imports', None)
         c_settings = post.get('settings', None)
         send_pairs = post.get('send_pairs', None)
-        binary2contract(c_bin)  # can compile?
+        binary2contract(c_bin=c_bin, extra_imports=c_extra_imports)  # can compile?
         sender_name = post.get('from', C.ANT_NAME_UNKNOWN)
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
@@ -28,7 +27,7 @@ async def contract_init(request):
             tx = create_contract_init_tx(c_address=c_address, c_bin=c_bin, cur=cur, c_extra_imports=c_extra_imports,
                                          c_settings=c_settings, send_pairs=send_pairs, sender=sender)
             if not send_newtx(new_tx=tx, outer_cur=cur):
-                raise BaseException('Failed to send new tx.')
+                raise Exception('Failed to send new tx.')
             db.commit()
             return web_base.json_res({
                 'hash': hexlify(tx.hash).decode(),
@@ -36,7 +35,7 @@ async def contract_init(request):
                 'gas_price': tx.gas_price,
                 'fee': tx.gas_amount * tx.gas_price,
                 'time': round(time()-start, 3)})
-    except BaseException:
+    except Exception:
         return web_base.error_res()
 
 
@@ -45,12 +44,12 @@ async def contract_update(request):
     post = await web_base.content_type_json_check(request)
     try:
         c_address = post['c_address']
+        c_extra_imports = post.get('extra_imports', None)
         if 'hex' in post:
             c_bin = unhexlify(post['hex'].encode())
-            binary2contract(c_bin)  # can compile?
+            binary2contract(c_bin=c_bin, extra_imports=c_extra_imports)  # can compile?
         else:
             c_bin = None
-        c_extra_imports = post.get('extra_imports', None)
         c_settings = post.get('settings', None)
         send_pairs = post.get('send_pairs', None)
         sender_name = post.get('from', C.ANT_NAME_UNKNOWN)
@@ -60,7 +59,7 @@ async def contract_update(request):
             tx = create_contract_update_tx(c_address=c_address, cur=cur, c_bin=c_bin, c_extra_imports=c_extra_imports,
                                            c_settings=c_settings, send_pairs=send_pairs, sender=sender)
             if not send_newtx(new_tx=tx, outer_cur=cur):
-                raise BaseException('Failed to send new tx.')
+                raise Exception('Failed to send new tx.')
             db.commit()
         return web_base.json_res({
             'hash': hexlify(tx.hash).decode(),
@@ -68,7 +67,7 @@ async def contract_update(request):
             'gas_price': tx.gas_price,
             'fee': tx.gas_amount * tx.gas_price,
             'time': round(time()-start, 3)})
-    except BaseException:
+    except Exception:
         return web_base.error_res()
 
 
@@ -87,7 +86,7 @@ async def contract_transfer(request):
             tx = create_contract_transfer_tx(c_address=c_address, cur=cur, c_method=c_method, c_args=c_args,
                                              send_pairs=send_pairs, sender=sender)
             if not send_newtx(new_tx=tx, outer_cur=cur):
-                raise BaseException('Failed to send new tx.')
+                raise Exception('Failed to send new tx.')
             db.commit()
         return web_base.json_res({
             'hash': hexlify(tx.hash).decode(),
@@ -95,7 +94,7 @@ async def contract_transfer(request):
             'gas_price': tx.gas_price,
             'fee': tx.gas_amount * tx.gas_price,
             'time': round(time() - start, 3)})
-    except BaseException:
+    except Exception:
         return web_base.error_res()
 
 
@@ -112,7 +111,7 @@ async def conclude_contract(request):
             tx = create_conclude_tx(c_address=c_address, start_hash=start_hash,
                                     cur=cur, send_pairs=send_pairs, c_storage=c_storage)
             if not send_newtx(new_tx=tx, outer_cur=cur):
-                raise BaseException('Failed to send new tx.')
+                raise Exception('Failed to send new tx.')
             db.commit()
             return web_base.json_res({
                 'hash': hexlify(tx.hash).decode(),
@@ -120,7 +119,7 @@ async def conclude_contract(request):
                 'gas_price': tx.gas_price,
                 'fee': tx.gas_amount * tx.gas_price,
                 'time': round(time()-start, 3)})
-    except BaseException:
+    except Exception:
         return web_base.error_res()
 
 
@@ -139,7 +138,7 @@ async def validator_edit(request):
             tx = create_validator_edit_tx(c_address=c_address, cur=cur,
                                           new_address=new_address, flag=flag, sig_diff=sig_diff)
             if not send_newtx(new_tx=tx, outer_cur=cur):
-                raise BaseException('Failed to send new tx.')
+                raise Exception('Failed to send new tx.')
             db.commit()
             return web_base.json_res({
                 'hash': hexlify(tx.hash).decode(),
@@ -147,7 +146,7 @@ async def validator_edit(request):
                 'gas_price': tx.gas_price,
                 'fee': tx.gas_amount * tx.gas_price,
                 'time': round(time()- start, 3)})
-    except BaseException:
+    except Exception:
         return web_base.error_res()
 
 
@@ -164,7 +163,7 @@ async def validate_unconfirmed(request):
             new_tx = create_signed_tx_as_validator(tx=tx)
             assert tx is not new_tx, 'tx={}, new_tx={}'.format(id(tx), id(new_tx))
             if not send_newtx(new_tx=new_tx, outer_cur=cur):
-                raise BaseException('Failed to send new tx.')
+                raise Exception('Failed to send new tx.')
             db.commit()
             return web_base.json_res({
                 'hash': hexlify(new_tx.hash).decode(),
@@ -172,33 +171,31 @@ async def validate_unconfirmed(request):
                 'gas_price': new_tx.gas_price,
                 'fee': new_tx.gas_amount * new_tx.gas_price,
                 'time': round(time() - start, 3)})
-    except BaseException:
+    except Exception:
         return web_base.error_res()
 
 
 async def source_compile(request):
     post = await web_base.content_type_json_check(request)
     try:
+        extra_imports = post.get('extra_imports', None)
         if 'source' in post:
             source = str(post['source'])
-            c_obj = string2contract(source, limit_global=False)
+            c_obj = string2contract(string=source, extra_imports=extra_imports)
         elif 'path' in post:
-            c_obj = path2contract(path=post['path'], limit_global=False)
+            c_obj = path2contract(path=post['path'], extra_imports=extra_imports)
         else:
-            raise BaseException('You need set "source" or "path".')
+            raise Exception('You need set "source" or "path".')
         c_bin = contract2binary(c_obj)
         c_dis = contract2dis(c_obj)
         return web_base.json_res({
             'hex': hexlify(c_bin).decode(),
             'dis': c_dis})
-    except BaseException:
+    except Exception:
         return web_base.error_res()
 
 
 __all__ = [
-    # "contract_detail",
-    # "contract_history",
-    # "contract_storage",
     "contract_init",
     "contract_update",
     "contract_transfer",
@@ -206,6 +203,4 @@ __all__ = [
     "validator_edit",
     "validate_unconfirmed",
     "source_compile",
-    # "contract_create",
-    # "contract_start",
 ]
