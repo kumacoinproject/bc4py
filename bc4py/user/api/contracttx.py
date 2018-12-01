@@ -106,19 +106,16 @@ async def conclude_contract(request):
         start_hash = unhexlify(post['start_hash'].encode())
         send_pairs = post.get('send_pairs', None)
         c_storage = post.get('storage', None)
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-            cur = db.cursor()
-            tx = create_conclude_tx(c_address=c_address, start_hash=start_hash,
-                                    cur=cur, send_pairs=send_pairs, c_storage=c_storage)
-            if not send_newtx(new_tx=tx, outer_cur=cur):
-                raise Exception('Failed to send new tx.')
-            db.commit()
-            return web_base.json_res({
-                'hash': hexlify(tx.hash).decode(),
-                'gas_amount': tx.gas_amount,
-                'gas_price': tx.gas_price,
-                'fee': tx.gas_amount * tx.gas_price,
-                'time': round(time()-start, 3)})
+        tx = create_conclude_tx(c_address=c_address, start_hash=start_hash,
+                                send_pairs=send_pairs, c_storage=c_storage)
+        if not send_newtx(new_tx=tx):
+            raise Exception('Failed to send new tx.')
+        return web_base.json_res({
+            'hash': hexlify(tx.hash).decode(),
+            'gas_amount': tx.gas_amount,
+            'gas_price': tx.gas_price,
+            'fee': tx.gas_amount * tx.gas_price,
+            'time': round(time()-start, 3)})
     except Exception:
         return web_base.error_res()
 
@@ -135,8 +132,7 @@ async def validator_edit(request):
             cur = db.cursor()
             if c_address is None:
                 c_address = create_new_user_keypair(name=C.ANT_NAME_CONTRACT, cur=cur)
-            tx = create_validator_edit_tx(c_address=c_address, cur=cur,
-                                          new_address=new_address, flag=flag, sig_diff=sig_diff)
+            tx = create_validator_edit_tx(c_address=c_address, new_address=new_address, flag=flag, sig_diff=sig_diff)
             if not send_newtx(new_tx=tx, outer_cur=cur):
                 raise Exception('Failed to send new tx.')
             db.commit()

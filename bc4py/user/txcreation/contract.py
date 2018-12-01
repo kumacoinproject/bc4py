@@ -58,7 +58,7 @@ def create_contract_transfer_tx(c_address, cur, c_method, c_args=None,
     return tx
 
 
-def create_conclude_tx(c_address, start_hash, cur, send_pairs=None,
+def create_conclude_tx(c_address, start_hash, send_pairs=None,
                        c_storage=None, gas_price=None, retention=10800):
     assert send_pairs is None or isinstance(send_pairs, list)
     assert c_storage is None or isinstance(c_storage, dict)
@@ -77,10 +77,9 @@ def create_conclude_tx(c_address, start_hash, cur, send_pairs=None,
     tx.update_time(retention)
     # fill unspents
     fee_coin_id = 0
-    fill_contract_inputs_outputs(tx=tx, c_address=c_address, cur=cur,
-                                 fee_coin_id=fee_coin_id, additional_gas=extra_gas)
+    fill_contract_inputs_outputs(tx=tx, c_address=c_address, fee_coin_id=fee_coin_id, additional_gas=extra_gas)
     # replace dummy address
-    replace_redeem_dummy_address(tx=tx, cur=cur, replace_by=c_address)
+    replace_redeem_dummy_address(tx=tx, replace_by=c_address)
     tx.serialize()
     if v.index == -1:
         raise BlockChainError('Not init validator address. {}'.format(c_address))
@@ -89,7 +88,7 @@ def create_conclude_tx(c_address, start_hash, cur, send_pairs=None,
     return tx
 
 
-def create_validator_edit_tx(c_address, cur, new_address=None,
+def create_validator_edit_tx(c_address, new_address=None,
                              flag=F_NOP, sig_diff=0, gas_price=None, retention=10800):
     assert not (flag == F_NOP and sig_diff == 0), 'No edit info.'
     if new_address is None and flag != F_NOP:
@@ -121,10 +120,9 @@ def create_validator_edit_tx(c_address, cur, new_address=None,
     tx.update_time(retention)
     # fill unspents
     fee_coin_id = 0
-    fill_contract_inputs_outputs(tx=tx, c_address=c_address, cur=cur,
-                                 fee_coin_id=fee_coin_id, additional_gas=extra_gas)
+    fill_contract_inputs_outputs(tx=tx, c_address=c_address, fee_coin_id=fee_coin_id, additional_gas=extra_gas)
     # replace dummy address
-    replace_redeem_dummy_address(tx=tx, cur=cur, replace_by=c_address)
+    replace_redeem_dummy_address(tx=tx, replace_by=c_address)
     tx.serialize()
     if len(v.validators) > 0 and setup_contract_signature(tx, v.validators) == 0:
         raise BlockChainError('Cannot sign, you are not validator.')
