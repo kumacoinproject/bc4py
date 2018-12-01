@@ -192,8 +192,8 @@ Disassembly of test:
     1. source  (string, optional, default=None)  
     2. path    (file path, optional, default=None)
 * Request example
-    * by source `curl user:password@127.0.0.1:3000/api/sourcecompile -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"source\": \"class Contract:\n    def __init__(self, start_tx, c_address):\n        self.start_tx = start_tx\n        self.c_address = c_address\n\n    def test(self, *args):\n        return\n\"}"`
-    * by filepath `curl user:password@127.0.0.1:3000/api/sourcecompile -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"path\": \"C:\\Users\\pycoin\\Source\\eample.py\"}"`
+    * by source `curl  --basic -u user:password "127.0.0.1:3000/private/sourcecompile" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"source\": \"class Contract:\n    def __init__(self, start_tx, c_address):\n        self.start_tx = start_tx\n        self.c_address = c_address\n\n    def test(self, *args):\n        return\n\"}"`
+    * by filepath `curl  --basic -u user:password 127.0.0.1:3000/private/sourcecompile" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"path\": \"C:\\Users\\pycoin\\Source\\eample.py\"}"`
 * Response
 ```json
 {
@@ -216,7 +216,7 @@ contract init
     5. send_pairs     (list, optional, default=None)
     6. from           (string, optional, default="@Unknown")
 * Request example
-    * `curl user:password@127.0.0.1:3000/private/contractinit -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"c_address\": \"CJ4QZ7FDEH5J7B2O3OLPASBHAFEDP6I7UKI2YMKF\", \"hex\": \"800495a0010000000000008c0964696c6c2e64696c6c948c0c5f6372656174655f747970659493942868008c0a5f6c6f61645f747970659493948c047479706594859452948c08436f6e74726163749468048c066f626a656374948594529485947d94288c0a5f5f6d6f64756c655f5f948c085f5f6d61696e5f5f948c075f5f646f635f5f944e8c085f5f696e69745f5f9468008c105f6372656174655f66756e6374696f6e9493942868048c08436f6465547970659485945294284b034b004b034b024b4343107c017c005f007c027c005f0164005300944e85948c0873746172745f7478948c09635f616464726573739486948c0473656c66946819681a8794680868114b02430400010601942929749452946362633470792e636f6e74726163742e746f6f6c730a5f5f646963745f5f0a68114e4e7d94749452948c0474657374946813286816284b014b004b024b014b47430464005300944e859429681c8c0461726773948694680868244b0643020001942929749452946362633470792e636f6e74726163742e746f6f6c730a5f5f646963745f5f0a68244e4e7d947494529475749452942e\"}"`
+    * `curl  --basic -u user:password "127.0.0.1:3000/private/contractinit" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"c_address\": \"CJ4QZ7FDEH5J7B2O3OLPASBHAFEDP6I7UKI2YMKF\", \"hex\": \"800495a0010000000000008c0964696c6c2e64696c6c948c0c5f6372656174655f747970659493942868008c0a5f6c6f61645f747970659493948c047479706594859452948c08436f6e74726163749468048c066f626a656374948594529485947d94288c0a5f5f6d6f64756c655f5f948c085f5f6d61696e5f5f948c075f5f646f635f5f944e8c085f5f696e69745f5f9468008c105f6372656174655f66756e6374696f6e9493942868048c08436f6465547970659485945294284b034b004b034b024b4343107c017c005f007c027c005f0164005300944e85948c0873746172745f7478948c09635f616464726573739486948c0473656c66946819681a8794680868114b02430400010601942929749452946362633470792e636f6e74726163742e746f6f6c730a5f5f646963745f5f0a68114e4e7d94749452948c0474657374946813286816284b014b004b024b014b47430464005300944e859429681c8c0461726773948694680868244b0643020001942929749452946362633470792e636f6e74726163742e746f6f6c730a5f5f646963745f5f0a68244e4e7d947494529475749452942e\"}"`
 * Response
 ```json
 {
@@ -240,7 +240,7 @@ contract update
     5. send_pairs     (list, optional, default=None)
     6. from           (string, optional, default="@Unknown")
 * Request example
-    * `curl --basic -u user:password "127.0.0.1:3001/private/contractupdate" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"c_address\": \"CJ4QZ7FDEH5J7B2O3OLPASBHAFEDP6I7UKI2YMKF\", \"settings\": {\"update_extra_imports\": false}}"`
+    * `curl --basic -u user:password "127.0.0.1:3000/private/contractupdate" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"c_address\": \"CJ4QZ7FDEH5J7B2O3OLPASBHAFEDP6I7UKI2YMKF\", \"settings\": {\"update_extra_imports\": false}}"`
 * Response
 ```json
 {
@@ -262,7 +262,7 @@ contract transfer
     4. send_pairs     (list, optional, default=None)
     5. from           (string, optional, default="@Unknown")
 * Request example
-    * `curl --basic -u user:password "127.0.0.1:3001/private/contracttransfer" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"c_address\": \"CJ4QZ7FDEH5J7B2O3OLPASBHAFEDP6I7UKI2YMKF\", \"c_method\": \"test\", \"c_args\": []}"`
+    * `curl --basic -u user:password "127.0.0.1:3000/private/contracttransfer" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"c_address\": \"CJ4QZ7FDEH5J7B2O3OLPASBHAFEDP6I7UKI2YMKF\", \"c_method\": \"test\", \"c_args\": []}"`
 * Response
 ```json
 {
@@ -325,7 +325,7 @@ validate unconfirmed tx
 ----
 * Arguments
 * Request example
-    * `curl --basic -u user:password "127.0.0.1:3001/private/validateunconfirmed" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"hash\": \"1b9a9796bca2498f3b678506e6a82ea6416d2a321e4978516aff46598a6b73c3\"}"`
+    * `curl --basic -u user:password "127.0.0.1:3000/private/validateunconfirmed" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"hash\": \"1b9a9796bca2498f3b678506e6a82ea6416d2a321e4978516aff46598a6b73c3\"}"`
 * Response
 ```json
 {

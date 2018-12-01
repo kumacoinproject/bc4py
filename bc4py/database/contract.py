@@ -108,11 +108,11 @@ class Contract:
             c_bin, c_extra_imports, c_settings = c_args
             if self.settings['update_binary']:
                 self.binary = c_bin
-                if not c_settings.get('update_binary', False):
+                if c_settings and not c_settings.get('update_binary', False):
                     self.settings['update_binary'] = False
             if self.settings['update_extra_imports']:
                 self.extra_imports = c_extra_imports
-                if not c_settings.get('update_extra_imports', False):
+                if c_settings and not c_settings.get('update_extra_imports', False):
                     self.settings['update_extra_imports'] = False
         else:
             assert self.index != -1
