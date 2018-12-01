@@ -59,7 +59,6 @@ def send_newtx(new_tx, outer_cur=None):
     assert V.PC_OBJ, "PeerClient is None."
     try:
         check_tx(new_tx, include_block=None)
-        check_tx_time(new_tx)
         data = {
             'cmd': BroadcastCmd.NEW_TX,
             'data': {
@@ -73,6 +72,8 @@ def send_newtx(new_tx, outer_cur=None):
             original_tx.signature = new_signature
             logging.info("Marge contract tx {}".format(new_tx))
         else:
+            # normal tx
+            check_tx_time(new_tx)
             tx_builder.put_unconfirmed(new_tx, outer_cur)
             logging.info("Success broadcast new tx {}".format(new_tx))
         return True

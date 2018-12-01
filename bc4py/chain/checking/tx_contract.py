@@ -57,6 +57,8 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
         raise BlockChainError('Start tx is TRANSFER, not {}.'.format(C.txtype2name.get(start_tx.type, None)))
     if start_tx.message_type != C.MSG_BYTE:
         raise BlockChainError('Start tx is MSG_BYTE, not {}.'.format(C.msg_type2name.get(start_tx.message_type, None)))
+    if start_tx.time != tx.time or start_tx.deadline != tx.deadline:
+        raise BlockChainError('time of conclude_tx and start_tx is same, {}!={}.'.format(start_tx.time, tx.time))
     try:
         c_start_address, c_method, c_args = bjson.loads(start_tx.message)
     except Exception as e:

@@ -104,10 +104,12 @@ async def conclude_contract(request):
     try:
         c_address = post['c_address']
         start_hash = unhexlify(post['start_hash'].encode())
+        start_tx = tx_builder.get_tx(txhash=start_hash)
+        if start_tx is None:
+            return web_base.error_res('Not found start_tx {}'.format(post['start_hash']))
         send_pairs = post.get('send_pairs', None)
         c_storage = post.get('storage', None)
-        tx = create_conclude_tx(c_address=c_address, start_hash=start_hash,
-                                send_pairs=send_pairs, c_storage=c_storage)
+        tx = create_conclude_tx(c_address=c_address, start_tx=start_tx, send_pairs=send_pairs, c_storage=c_storage)
         if not send_newtx(new_tx=tx):
             raise Exception('Failed to send new tx.')
         return web_base.json_res({

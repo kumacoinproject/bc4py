@@ -58,23 +58,24 @@ def create_contract_transfer_tx(c_address, cur, c_method, c_args=None,
     return tx
 
 
-def create_conclude_tx(c_address, start_hash, send_pairs=None,
-                       c_storage=None, gas_price=None, retention=10800):
+def create_conclude_tx(c_address, start_tx, send_pairs=None, c_storage=None):
+    assert isinstance(start_tx, TX)
     assert send_pairs is None or isinstance(send_pairs, list)
     assert c_storage is None or isinstance(c_storage, dict)
-    message = bjson.dumps((c_address, start_hash, c_storage), compress=False)
+    message = bjson.dumps((c_address, start_tx.hash, c_storage), compress=False)
     v = get_validator_object(c_address=c_address)
     send_pairs = send_pairs or list()
     tx = TX(tx={
         'type': C.TX_CONCLUDE_CONTRACT,
-        'gas_price': gas_price or V.COIN_MINIMUM_PRICE,
+        'time': start_tx.time,
+        'deadline': start_tx.deadline,
+        'gas_price': start_tx.gas_price,
         'gas_amount': 0,
         'outputs': [tuple(s) for s in send_pairs],
         'message_type': C.MSG_BYTE,
         'message': message})
     extra_gas = (C.SIGNATURE_GAS + 96) * v.require
     tx.gas_amount = tx.getsize() + extra_gas
-    tx.update_time(retention)
     # fill unspents
     fee_coin_id = 0
     fill_contract_inputs_outputs(tx=tx, c_address=c_address, fee_coin_id=fee_coin_id, additional_gas=extra_gas)
