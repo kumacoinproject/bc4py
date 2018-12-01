@@ -9,7 +9,6 @@ import socket
 import traceback
 from time import time
 import os
-import bjson
 
 
 CMD_ERROR = 'CMD_ERROR'
@@ -27,34 +26,36 @@ WORKING_FILE_NAME = 'em.py'
 cxt = get_context('spawn')
 
 
-def _vm(**kwargs):
-    que = kwargs['que']
+def _vm(start_tx, que, binary, extra_imports, c_address, c_method, c_args):
+    c_args = c_args or list()
+    virtual_machine = rpdb.Rpdb(port=0)
     try:
-        virtual_machine = rpdb.Rpdb(port=0)
-        c_obj = binary2contract(c_bin=kwargs['c'].binary, extra_imports=kwargs['c'].extra_imports)
+        c_obj = binary2contract(c_bin=binary, extra_imports=extra_imports)
         # notify listen port
         que.put((CMD_PORT, virtual_machine.port))
         # start emulate
         virtual_machine.server_start()
         virtual_machine.set_trace()
         # get method
-        obj = c_obj(kwargs['start_tx'], kwargs['c_address'])
-        fnc = getattr(obj, kwargs['c_method'])
-        result = fnc(*kwargs['c_args'])  # RUN
-        que.put((CMD_SUCCESS, result))
+        obj = c_obj(start_tx, c_address)
+        fnc = getattr(obj, c_method)
+        result = fnc(*c_args)
         virtual_machine.do_quit(EMU_QUIT)
-    except BaseException:
+        que.put((CMD_SUCCESS, result))
+    except Exception:
+        virtual_machine.do_quit(EMU_QUIT)
         tb = traceback.format_exc()
         que.put((CMD_ERROR, str(tb)))
 
 
-def emulate(start_tx, c_address, c_method, c_args, gas_limit=None, file=None):
+def emulate(start_tx, c_address, c_method, c_args, gas_limit=None, timeout=None, file=None):
     start = time()
     que = cxt.Queue()
     c = get_contract_object(c_address=c_address, stop_txhash=start_tx.hash)
     if c.index == -1 or c.binary is None:
         raise BlockChainError('Need register contract binary first.')
-    kwargs = dict(start_tx=start_tx, que=que, c=c, c_address=c_address, c_method=c_method, c_args=c_args)
+    kwargs = dict(start_tx=start_tx, que=que, binary=c.binary, extra_imports=c.extra_imports,
+                  c_address=c_address, c_method=c_method, c_args=c_args)
     p = cxt.Process(target=_vm, kwargs=kwargs)
     p.start()
     logging.debug('wait for notify of listen port.')
@@ -64,7 +65,8 @@ def emulate(start_tx, c_address, c_method, c_args, gas_limit=None, file=None):
     logging.debug("Communication port={}.".format(port))
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect(("127.0.0.1", port))
-    sock.settimeout(3600)
+    if timeout:
+        sock.settimeout(timeout)
     logging.debug('Start emulation of {}'.format(start_tx))
     work_line = total_gas = 0
     cmd, error = EMU_STEP, None
@@ -82,13 +84,11 @@ def emulate(start_tx, c_address, c_method, c_args, gas_limit=None, file=None):
             elif cmd in (EMU_STEP, EMU_NEXT, EMU_UNTIL, EMU_RETURN):
                 msgs, working_path, words = msgs[:-3], msgs[-3][2:], msgs[-2][3:]
                 working_file = os.path.split(working_path)[1]
-                print("file={}, words={}, path={}".format(working_file, words, working_path), file=file)
-                if working_file.startswith(WORKING_FILE_NAME) and working_file.endswith('work_field()'):
-                    cmd = EMU_STEP  # Start!
-                    print("start contract.", file=file)
-                elif working_file.startswith('contract('):
+                if working_file.startswith('contract('):
                     work_line += 1
                     total_gas += 1
+                    cmd = EMU_STEP
+                elif working_file.startswith(WORKING_FILE_NAME):
                     cmd = EMU_STEP
                 else:
                     cmd = EMU_NEXT
@@ -96,7 +96,8 @@ def emulate(start_tx, c_address, c_method, c_args, gas_limit=None, file=None):
                 for func, gas in __price__.items():
                     if func in words and words.startswith('def ' + func + '('):
                         total_gas += gas
-                print("{}:read [{}] {} >> {}".format(work_line, total_gas, cmd, words), file=file)
+                print("file={}, path={}".format(working_file, working_path.replace('\\', '/')), file=file)
+                print(" {}: gas={} cmd={} >> {}".format(work_line, total_gas, cmd, words), file=file)
             else:
                 print("NOP [{}] >> {}".format(cmd, ', '.join(msgs)), file=file)
 

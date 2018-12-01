@@ -35,6 +35,11 @@ class Emulate:
         if is_success:
             logging.info('Success gas={} line={} result={}'.format(
                 total_gas, work_line, result))
+            if f_debug:
+                logging.debug("#### Start log ####")
+                for data in file.getvalue().split("\n"):
+                    logging.debug(data)
+                logging.debug("#### Finish log ####")
         else:
             logging.error('Failed gas={} line={} result={} log={}'.format(
                 total_gas, work_line, result, file.getvalue()))
@@ -58,7 +63,7 @@ def start_emulators():
         while f_running:
             try:
                 data = NewInfo.get(channel='emulator', timeout=1)
-                if not isinstance(data, tuple) and len(data) != 3:
+                if not isinstance(data, tuple) or len(data) != 3:
                     continue
                 cmd, is_public, data_list = data
                 if cmd == C_RequestConclude:
