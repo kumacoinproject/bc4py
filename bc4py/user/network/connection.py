@@ -1,4 +1,4 @@
-from bc4py.config import C, V, BlockChainError
+from bc4py.config import V, P, BlockChainError
 from bc4py.user.network.directcmd import DirectCmd
 import logging
 import random

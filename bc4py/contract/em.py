@@ -1,7 +1,7 @@
 from bc4py.config import BlockChainError
 from bc4py.database.contract import get_contract_object
 from bc4py.contract.tools import *
-from bc4py.contract.libs import __price__
+from bc4py.contract.basiclib import __price__
 from bc4py.contract import rpdb
 from multiprocessing import get_context
 import logging
