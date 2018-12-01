@@ -1,12 +1,11 @@
 from bc4py.config import P, NewInfo
 from bc4py.chain import Block, TX
-from bc4py.contract.watch.checkdata import *
+from bc4py.contract.watch import *
 from aiohttp import web
 from threading import Thread
 import asyncio
 import logging
 import json
-import time
 from binascii import hexlify
 from collections import OrderedDict
 

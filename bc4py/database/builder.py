@@ -448,8 +448,10 @@ class ChainBuilder:
         except BaseException as e:
             logging.debug("Failed connect database, {}.".format(e))
 
-    def init(self, genesis_block: Block):
+    def init(self, genesis_block: Block, batch_size=None):
         assert self.db, 'Why database connection failed?'
+        if batch_size is None:
+            batch_size = self.cashe_limit
         # GenesisBlockか確認
         t = time.time()
         try:
@@ -510,7 +512,7 @@ class ChainBuilder:
             # Block確認終了
             before_block = block
             batch_blocks.append(block)
-            if len(batch_blocks) > self.cashe_limit:
+            if len(batch_blocks) >= batch_size:
                 user_account.new_batch_apply(batch_blocks)
                 batch_blocks.clear()
                 logging.debug("UserAccount batched at {} height.".format(block.height))
@@ -867,7 +869,8 @@ class UserAccount:
         # {txhash: (_type, movement, _time),..}
         self.memory_movement = dict()
 
-    def init(self):
+    def init(self, f_delete=False):
+        assert f_delete is False, 'Unsafe function!'
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
             memory_sum = UserCoins()
@@ -876,8 +879,12 @@ class UserAccount:
                 if builder.db.read_tx(move_log.txhash):
                     memory_sum += move_log.movement
                 else:
-                    logging.warning("It's unknown log {}".format(move_log))
-                    # delete_log(move_log.txhash, cur)
+                    logging.debug("It's unknown log {}".format(move_log))
+                    if f_delete:
+                        delete_log(move_log.txhash, cur)
+            if f_delete:
+                logging.warning("Delete user's old unconfirmed tx.")
+                db.commit()
             self.db_balance += memory_sum
 
     def get_balance(self, confirm=6):

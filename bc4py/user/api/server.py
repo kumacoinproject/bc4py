@@ -20,6 +20,7 @@ import threading
 import logging
 import os
 import asyncio
+from ssl import SSLContext, PROTOCOL_SSLv23
 
 
 loop = asyncio.get_event_loop()
@@ -60,14 +61,13 @@ def setup_basic_auth(app, user, pwd):
 
 
 def setup_ssl_context(cert, private, hostname=False):
-    import ssl
-    ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+    ssl_context = SSLContext(PROTOCOL_SSLv23)
     ssl_context.load_cert_chain(cert, private)
     ssl_context.check_hostname = hostname
     return ssl_context
 
 
-def create_rest_server(f_local, port, user=None, pwd=None, f_blocking=True, ssl_context=None):
+def create_rest_server(f_local, port=3000, user=None, pwd=None, f_blocking=True, ssl_context=None):
     threading.current_thread().setName("REST")
     app = web.Application()
     V.API_OBJ = app

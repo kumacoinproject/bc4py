@@ -37,6 +37,11 @@ def close_contract_watch():
 
 
 __all__ = [
+    "C_Conclude",
+    "C_Validator",
+    "C_RequestConclude",
+    "C_FinishConclude",
+    "C_FinishValidator",
     "watching_tx",
     "start_contract_watch",
     "close_contract_watch",

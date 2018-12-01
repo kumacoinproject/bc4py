@@ -1,7 +1,7 @@
 from bc4py.config import C, V, P, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
-from bc4py.chain.checking import new_insert_block, check_tx, check_tx_time, batch_sign_cashe
+from bc4py.chain.checking import new_insert_block, check_tx, check_tx_time
 from bc4py.database.builder import builder, tx_builder
 from bc4py.user.network.update import update_mining_staking_all_info
 from bc4py.user.network.directcmd import DirectCmd
@@ -64,7 +64,6 @@ class BroadcastCmd:
             new_tx = TX(binary=data['tx'])
             new_tx.signature = data['sign']
             check_tx(tx=new_tx, include_block=None)
-            check_tx_time(new_tx)
             if new_tx.type in (C.TX_VALIDATOR_EDIT, C.TX_CONCLUDE_CONTRACT) and new_tx.hash in tx_builder.unconfirmed:
                 # marge contract signature
                 original_tx = tx_builder.unconfirmed[new_tx.hash]
@@ -73,6 +72,7 @@ class BroadcastCmd:
                 logging.info("Marge contract tx {}".format(new_tx))
             else:
                 # normal tx
+                check_tx_time(new_tx)
                 tx_builder.put_unconfirmed(new_tx)
                 update_mining_staking_all_info()
                 logging.info("Accept new tx {}".format(new_tx))

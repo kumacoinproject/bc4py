@@ -9,7 +9,7 @@ import bjson
 
 
 watching_tx = ExpiringDict(max_len=1000, max_age_seconds=10800)
-cashe = ExpiringDict(max_len=100, max_age_seconds=3600)
+
 
 C_Conclude = 'Conclude'
 C_Validator = 'Validator'
@@ -62,6 +62,10 @@ def check_new_block(block: Block):
                 NewInfo.put((C_RequestConclude, False, data))
         elif tx.type == C.TX_CONCLUDE_CONTRACT:
             if tx.hash in watching_tx:
+                # try to delete c_transfer_tx and conclude_tx
+                _time, _tx, _related_list, _c_address, start_hash, c_storage = watching_tx[tx.hash]
+                if start_hash in watching_tx:
+                    del watching_tx[start_hash]
                 del watching_tx[tx.hash]
             data = (time(), tx)
             NewInfo.put((C_FinishConclude, False, data))

@@ -1,16 +1,13 @@
 from bc4py.config import C, V, P, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
-from bc4py.contract.tools import binary2contract
 from bc4py.chain.checking.signature import *
 from bc4py.database.builder import tx_builder
 from bc4py.database.validator import *
 from bc4py.database.contract import *
-from nem_ed25519.key import is_address, convert_address
+from nem_ed25519.key import is_address
 from binascii import hexlify
 import bjson
-import logging
-import threading
 
 
 def check_tx_contract_conclude(tx: TX, include_block: Block):
@@ -60,6 +57,8 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
         raise BlockChainError('Start tx is TRANSFER, not {}.'.format(C.txtype2name.get(start_tx.type, None)))
     if start_tx.message_type != C.MSG_BYTE:
         raise BlockChainError('Start tx is MSG_BYTE, not {}.'.format(C.msg_type2name.get(start_tx.message_type, None)))
+    if start_tx.time != tx.time or start_tx.deadline != tx.deadline:
+        raise BlockChainError('time of conclude_tx and start_tx is same, {}!={}.'.format(start_tx.time, tx.time))
     try:
         c_start_address, c_method, c_args = bjson.loads(start_tx.message)
     except Exception as e:
