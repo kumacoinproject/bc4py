@@ -4,6 +4,7 @@
 
 import configparser
 from queue import LifoQueue, Full, Empty
+from threading import Lock
 
 
 class C:  # Constant
@@ -136,6 +137,7 @@ class Debug:
 class NewInfo:
     ques = list()  # [(que, name), ..]
     empty = Empty
+    lock = Lock()
 
     def __init__(self):
         raise Exception('Not init the class!')
@@ -146,7 +148,8 @@ class NewInfo:
             try:
                 q.put_nowait(obj)
             except Full:
-                NewInfo.ques.remove((q, name))
+                with NewInfo.lock:
+                    NewInfo.ques.remove((q, name))
 
     @staticmethod
     def get(channel, timeout=None):
@@ -156,7 +159,8 @@ class NewInfo:
                     return q.get(timeout=timeout)
             else:
                 que = LifoQueue(maxsize=10)
-                NewInfo.ques.append((que, channel))
+                with NewInfo.lock:
+                    NewInfo.ques.append((que, channel))
 
 
 class MyConfigParser(configparser.ConfigParser):

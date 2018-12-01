@@ -1,6 +1,7 @@
 from bc4py.contract.params import allow_globals, deny_builtins
 from bc4py.contract.basiclib import *
 from bc4py.contract.basiclib import __all__ as all_libs
+from bc4py.contract.dummy_template import Contract
 from types import FunctionType, ModuleType
 import dill
 import io
@@ -28,8 +29,6 @@ def get_limited_globals(extra_imports):
 
 
 def _import_lack_modules(c_bin):
-    class Contract:
-        pass
     for opcode, arg, pos in pickletools.genops(c_bin):
         if opcode.name == 'GLOBAL':
             module, name = arg.split(' ')

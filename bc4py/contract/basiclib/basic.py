@@ -2,7 +2,7 @@ from bc4py.chain import TX
 from requests import get, post
 
 
-API_BASE = '127.0.0.1:3000/public/'
+API_BASE = 'http://127.0.0.1:3000/public/'
 
 
 def get_account_balance(start_tx: TX):
