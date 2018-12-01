@@ -72,7 +72,7 @@ def work(port, sub_dir):
     pc.broadcast_check = broadcast_check
 
     # Update to newest blockchain
-    builder.init(genesis_block)
+    builder.init(genesis_block, batch_size=500)
     # builder.db.sync = False  # more fast
     sync_chain_loop()
 
