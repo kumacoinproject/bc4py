@@ -1,8 +1,9 @@
 from bc4py.config import C, NewInfo
-from bc4py.chain import TX
 from bc4py.contract.watch import *
 from bc4py.contract.em import *
+from bc4py.database.contract import M_INIT, M_UPDATE
 from bc4py.user.network.sendnew import *
+from bc4py.user.txcreation.contract import create_conclude_tx
 from threading import Thread
 import logging
 from io import StringIO
@@ -44,22 +45,25 @@ class Emulate:
             logging.error('Failed gas={} line={} result={} log={}'.format(
                 total_gas, work_line, result, file.getvalue()))
         file.close()
-        if isinstance(result, TX) and result.type == C.TX_CONCLUDE_CONTRACT:
-            if f_debug:
-                logging.debug("Not broadcast, {}".format(result.getinfo()))
-            elif send_newtx(new_tx=result):
-                logging.info("Success {}".format(result))
-            else:
-                logging.error("Failed broadcast {}".format(result.getinfo()))
+        # conclude tx
+        send_pairs, c_storage = result
+        tx = create_conclude_tx(c_address=self.c_address,
+                                start_tx=start_tx, send_pairs=send_pairs, c_storage=c_storage)
+        if f_debug:
+            logging.debug("Not broadcast, send_pairs={} c_storage={} tx={}"
+                          .format(send_pairs, c_storage, tx.getinfo()))
+        elif send_newtx(new_tx=tx):
+            logging.info("Success {}".format(tx))
         else:
-            return result
+            logging.error("Failed broadcast, send_pairs={} c_storage={} tx={}"
+                          .format(send_pairs, c_storage, tx.getinfo()))
 
 
-def start_emulators():
+def start_emulators(f_debug=False):
     def run():
         global f_running
         f_running = True
-        logging.info("Start emulators.")
+        logging.info("Start emulators debug={}".format(f_debug))
         while f_running:
             try:
                 data = NewInfo.get(channel='emulator', timeout=1)
@@ -72,7 +76,12 @@ def start_emulators():
                     for e in emulators:
                         if e.c_address != c_address:
                             continue
-                        e.emulate(start_tx, c_method, c_args, f_debug=False)
+                        elif c_method == M_INIT:
+                            pass
+                        elif c_method == M_UPDATE:
+                            pass
+                        else:
+                            e.emulate(start_tx=start_tx, c_method=c_method, c_args=c_args, f_debug=f_debug)
 
                 # elif cmd == C_Conclude:
                 #    # sign already created conclude tx
