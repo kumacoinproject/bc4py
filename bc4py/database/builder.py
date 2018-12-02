@@ -2,7 +2,7 @@ from bc4py.config import C, V, P, NewInfo
 from bc4py.chain.utils import signature2bin, bin2signature
 from bc4py.chain.tx import TX
 from bc4py.chain.block import Block
-from bc4py.user import CoinObject, UserCoins
+from bc4py.user import CoinBalance, UserCoins
 from bc4py.database.account import *
 from bc4py.database.create import closing, create_db
 import struct
@@ -924,7 +924,7 @@ class UserAccount:
         return balance
 
     def move_balance(self, _from, _to, coins, outer_cur=None):
-        assert isinstance(coins, CoinObject),  'coins is CoinObject.'
+        assert isinstance(coins, CoinBalance),  'coins is CoinBalance.'
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = outer_cur or db.cursor()
             try:
@@ -1028,7 +1028,7 @@ class UserAccount:
                 if user is not None:
                     movement.add_coins(user, coin_id, amount)
             # check
-            if len(movement.users) == 0:
+            if len(movement) == 0:
                 return  # 無関係である
             move_log = MoveLog(tx.hash, tx.type, movement, tx.time, True, tx)
             self.memory_movement[tx.hash] = move_log
