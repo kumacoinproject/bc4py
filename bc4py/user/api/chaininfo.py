@@ -54,7 +54,8 @@ async def get_tx_by_hash(request):
             tx = pickle.dumps(tx)
             return web.Response(text=b64encode(tx).decode())
         data = tx.getinfo()
-        data['size'] = tx.getsize()
+        data['size'] = tx.size
+        data['total_size'] = tx.size + len(tx.signature) * 96
         data['hex'] = hexlify(tx.b).decode()
         data['signature'] = [(pubkey, hexlify(sign).decode()) for pubkey, sign in tx.signature]
         return web_base.json_res(data)

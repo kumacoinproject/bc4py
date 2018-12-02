@@ -134,13 +134,10 @@ class TX:
         r['f_on_memory'] = self.f_on_memory
         return r
 
-    def getsize(self):
-        s = len(self.b)
-        for pk, sign in self.signature:
-            assert isinstance(pk, str), 'pk is str.'
-            assert isinstance(sign, bytes), 'sign is bytes'
-            s += len(pk) // 2 + len(sign)
-        return s
+    @property
+    def size(self):
+        # Do not include signature size
+        return len(self.b)
 
     def get_pos_hash(self, previous_hash):
         # staked => sha256(txhash + previous_hash) / amount < 256^32 / diff

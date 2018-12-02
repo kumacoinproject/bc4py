@@ -65,14 +65,14 @@ def fill_inputs_outputs(tx, cur, fee_coin_id=0, additional_gas=0, dust_percent=0
         tx.outputs.append((DUMMY_REDEEM_ADDRESS, coin_id, amount))
     # Feeをチェックし再計算するか決める
     tx.serialize()
-    need_gas_amount = tx.getsize() + len(input_address) * 96 + additional_gas
+    need_gas_amount = tx.size + len(input_address)*C.SIGNATURE_GAS + additional_gas
     if 0 <= tx.gas_amount - need_gas_amount < 10000:
         # input/outputを混ぜる
         return input_address
     else:
         # insufficient gas
         logging.debug("Retry calculate tx fee. [{}=>{}+{}={}]".format(
-            tx.gas_amount, tx.getsize()+len(input_address) * 96, additional_gas, need_gas_amount))
+            tx.gas_amount, tx.size + len(input_address)*C.SIGNATURE_GAS, additional_gas, need_gas_amount))
         tx.gas_amount = need_gas_amount
         return fill_inputs_outputs(tx=tx, cur=cur, fee_coin_id=fee_coin_id, additional_gas=additional_gas,
                                    dust_percent=dust_percent, utxo_cashe=utxo_cashe)
@@ -135,14 +135,14 @@ def fill_contract_inputs_outputs(tx, c_address, fee_coin_id=0,
         tx.outputs.append((DUMMY_REDEEM_ADDRESS, coin_id, amount))
     # Feeをチェックし再計算するか決める
     tx.serialize()
-    need_gas_amount = tx.getsize() + additional_gas
+    need_gas_amount = tx.size + additional_gas
     if 0 <= tx.gas_amount - need_gas_amount < 10000:
         # input/outputを混ぜる
         return input_address
     else:
         # insufficient gas
         logging.debug("Retry calculate tx fee. [{}=>{}+{}={}]".format(
-            tx.gas_amount, tx.getsize()+len(input_address) * 96, additional_gas, need_gas_amount))
+            tx.gas_amount, tx.size, additional_gas, need_gas_amount))
         tx.gas_amount = need_gas_amount
         return fill_contract_inputs_outputs(tx=tx, c_address=c_address, fee_coin_id=fee_coin_id,
                                             additional_gas=additional_gas, dust_percent=dust_percent,

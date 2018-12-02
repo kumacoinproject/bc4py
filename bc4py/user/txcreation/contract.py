@@ -74,8 +74,8 @@ def create_conclude_tx(c_address, start_tx, send_pairs=None, c_storage=None):
         'outputs': [tuple(s) for s in send_pairs],
         'message_type': C.MSG_BYTE,
         'message': message})
-    extra_gas = (C.SIGNATURE_GAS + 96) * v.require
-    tx.gas_amount = tx.getsize() + extra_gas
+    extra_gas = C.SIGNATURE_GAS * v.require
+    tx.gas_amount = tx.size + extra_gas
     # fill unspents
     fee_coin_id = 0
     fill_contract_inputs_outputs(tx=tx, c_address=c_address, fee_coin_id=fee_coin_id, additional_gas=extra_gas)
@@ -116,8 +116,8 @@ def create_validator_edit_tx(c_address, new_address=None,
         'gas_amount': 0,
         'message_type': C.MSG_BYTE,
         'message': message})
-    extra_gas = C.VALIDATOR_EDIT_GAS + (C.SIGNATURE_GAS + 96) * v.require
-    tx.gas_amount = tx.getsize() + extra_gas
+    extra_gas = C.VALIDATOR_EDIT_GAS + C.SIGNATURE_GAS * v.require
+    tx.gas_amount = tx.size + extra_gas
     tx.update_time(retention)
     # fill unspents
     fee_coin_id = 0

@@ -53,8 +53,8 @@ async def create_raw_tx(request):
             'gas_amount': 0,
             'message_type': message_type,
             'message': message})
-        tx_size = tx.getsize() + len(input_address) * 96
-        tx.gas_amount = post.get('gas_amount', tx_size)
+        require_gas = tx.size + len(input_address)*C.SIGNATURE_GAS
+        tx.gas_amount = post.get('gas_amount', require_gas)
         tx.serialize()
         return web_base.json_res({
             'tx': tx.getinfo(),

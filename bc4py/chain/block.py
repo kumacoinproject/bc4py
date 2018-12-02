@@ -142,7 +142,7 @@ class Block:
         return self._work_difficulty
 
     def getsize(self):
-        tx_sizes = sum(tx.getsize() for tx in self.txs)
+        tx_sizes = sum(tx.size + len(tx.signature) * 96 for tx in self.txs)
         header_size = len(self.b)
         return tx_sizes + header_size
 
