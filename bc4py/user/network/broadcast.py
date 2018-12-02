@@ -110,6 +110,7 @@ def fill_newblock_info(data):
     for txhash in data['txs'][1:]:
         tx = tx_builder.get_tx(txhash)
         if tx is None:
+            new_block.inner_score *= 0.75  # unknown tx, score down
             logging.debug("Unknown tx, try to download.")
             r = ask_node(cmd=DirectCmd.TX_BY_HASH, data={'txhash': txhash}, f_continue_asking=True)
             if isinstance(r, str):

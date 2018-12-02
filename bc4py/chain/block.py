@@ -9,7 +9,7 @@ from binascii import hexlify
 import struct
 import time
 from collections import OrderedDict
-
+from math import log
 
 struct_block = struct.Struct('<I32s32sII4s')
 
@@ -18,7 +18,7 @@ class Block:
     __slots__ = (
         "b", "hash", "next_hash", "target_hash", "work_hash",
         "height", "_difficulty", "_work_difficulty", "create_time", "delete_time",
-        "flag", "f_orphan", "f_on_memory", "_bias",
+        "flag", "f_orphan", "f_on_memory", "_bias", "inner_score",
         "version", "previous_hash", "merkleroot", "time", "bits", "nonce", "txs",
         "__weakref__")
 
@@ -51,6 +51,7 @@ class Block:
         self.f_orphan = None
         self.f_on_memory = None
         self._bias = None  # bias 4bytes float
+        self.inner_score = 1.0
         # block header
         self.version = None  # ver 4bytes int
         self.previous_hash = None  # previous header sha256 hash
@@ -112,6 +113,7 @@ class Block:
         r['height'] = self.height
         r['difficulty'] = self.difficulty
         r['fixed_difficulty'] = round(self.difficulty / self.bias, 8)
+        r['score'] = round(self.score, 8)
         r['flag'] = C.consensus2name[self.flag]
         r['merkleroot'] = hexlify(self.merkleroot).decode() if self.merkleroot else None
         r['time'] = V.BLOCK_GENESIS_TIME + self.time
@@ -127,6 +129,11 @@ class Block:
             from bc4py.chain.difficulty import get_bias_by_hash  # not good?
             self._bias = get_bias_by_hash(self.previous_hash, self.flag)
         return self._bias
+
+    @property
+    def score(self):
+        # fixed_diff = difficulty / bias
+        return log(max(1.0, self.inner_score * self.difficulty / self.bias))
 
     @property
     def difficulty(self):
