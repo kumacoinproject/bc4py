@@ -7,6 +7,7 @@ from hashlib import sha256
 from binascii import hexlify
 import time
 import struct
+from collections import OrderedDict
 
 
 struct_tx_header = struct.Struct('<IIIIQqBBBI')
@@ -115,7 +116,7 @@ class TX:
         self.hash = sha256(sha256(self.b).digest()).digest()
 
     def getinfo(self):
-        r = dict()
+        r = OrderedDict()
         r['hash'] = hexlify(self.hash).decode()
         r['pos_amount'] = self.pos_amount
         r['height'] = self.height
@@ -133,13 +134,10 @@ class TX:
         r['f_on_memory'] = self.f_on_memory
         return r
 
-    def getsize(self):
-        s = len(self.b)
-        for pk, sign in self.signature:
-            assert isinstance(pk, str), 'pk is str.'
-            assert isinstance(sign, bytes), 'sign is bytes'
-            s += len(pk) // 2 + len(sign)
-        return s
+    @property
+    def size(self):
+        # Do not include signature size
+        return len(self.b)
 
     def get_pos_hash(self, previous_hash):
         # staked => sha256(txhash + previous_hash) / amount < 256^32 / diff

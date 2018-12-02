@@ -53,7 +53,7 @@ sign raw tx
 * Response
 ```json
 {
-    "txhash": "6d2439781672827d7d4a2e99a92453a4713dbf966f613d49dc36640aae62f392",
+    "hash": "6d2439781672827d7d4a2e99a92453a4713dbf966f613d49dc36640aae62f392",
     "signature": [
         ["eeadb99dfe647348818951c012c81f31f5337e07e8a9d398888a7239223237d7", "00ea86e44703d954d295cb706b481d5261e6df561e0a279acf94c35a956a66f92be38a4e34e6caffbdae367582f0aa916970387d7dacd28005021c0bb6c7e2c6"]
     ],
@@ -73,7 +73,7 @@ broadcast tx
 * Response
 ```json
 {
-    "txhash": "6d2439781672827d7d4a2e99a92453a4713dbf966f613d49dc36640aae62f392",
+    "hash": "6d2439781672827d7d4a2e99a92453a4713dbf966f613d49dc36640aae62f392",
     "gas_amount": 360,
     "gas_price": 100,
     "fee": 36000,
@@ -94,7 +94,7 @@ send from
 * Response
 ```json
 {
-    "txhash": "c6c9d3d93e213edc9d6c9a15cdcb042f281ec47801d35cbc8de7968ab70e286c",
+    "hash": "c6c9d3d93e213edc9d6c9a15cdcb042f281ec47801d35cbc8de7968ab70e286c",
     "gas_amount": 272,
     "gas_price": 100,
     "fee": 27200,
@@ -113,7 +113,7 @@ send many
 * Response
 ```json
 {
-    "txhash": "677f966022f87a51a2077c01fc58fe6dde086f2e955358fa6855da58b5a52c9b",
+    "hash": "677f966022f87a51a2077c01fc58fe6dde086f2e955358fa6855da58b5a52c9b",
     "gas_amount": 324,
     "gas_price": 100,
     "fee": 32400,
@@ -137,7 +137,7 @@ issue mintcoin
 * Response
 ```json
 {
-    "txhash": "d30e93d347da3c8eaa23fad7b1b3cbf0ce2e9eaf2b4f9e7a47a7df153932ddf2",
+    "hash": "d30e93d347da3c8eaa23fad7b1b3cbf0ce2e9eaf2b4f9e7a47a7df153932ddf2",
     "gas_amount": 10000551,
     "gas_price": 100,
     "fee": 1000055100,
@@ -162,7 +162,7 @@ change mintcoin status
 * Response
 ```json
 {
-    "txhash": "19bb18862b913499c3f9d7e3d41bd0fab459436fb091d4d6bf2b7874e39fdef1",
+    "hash": "19bb18862b913499c3f9d7e3d41bd0fab459436fb091d4d6bf2b7874e39fdef1",
     "gas_amount": 10000347,
     "gas_price": 100,
     "fee": 1000034700,

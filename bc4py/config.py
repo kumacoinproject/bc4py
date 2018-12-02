@@ -4,6 +4,7 @@
 
 import configparser
 from queue import LifoQueue, Full, Empty
+from threading import Lock
 
 
 class C:  # Constant
@@ -34,18 +35,12 @@ class C:  # Constant
     TX_POS_REWARD = 2  # POSの報酬TX
     TX_TRANSFER = 3  # 送受金
     TX_MINT_COIN = 4  # 新規貨幣を鋳造
-    # TODO: remove old type contract tx
-    TX_CREATE_CONTRACT = 5  # コントラクトアドレスを作成
-    TX_START_CONTRACT = 6  # コントラクトの開始TX
-    TX_FINISH_CONTRACT = 7  # コントラクトの終了TX
-
     TX_VALIDATOR_EDIT = 8  # change validator info
     TX_CONCLUDE_CONTRACT = 9  # conclude static contract tx
     TX_INNER = 255  # 内部のみで扱うTX
     txtype2name = {
         TX_GENESIS: 'GENESIS', TX_POW_REWARD: 'POW_REWARD', TX_POS_REWARD: 'POS_REWARD',
         TX_TRANSFER: 'TRANSFER', TX_MINT_COIN: 'MINT_COIN', TX_VALIDATOR_EDIT: 'VALIDATOR_EDIT',
-        TX_CREATE_CONTRACT: 'CREATE_CONTRACT', TX_START_CONTRACT: 'START_CONTRACT', TX_FINISH_CONTRACT: 'FINISH_CONTRACT',
         TX_CONCLUDE_CONTRACT: 'CONCLUDE_CONTRACT', TX_INNER: 'TX_INNER'}
 
     # message format
@@ -119,13 +114,13 @@ class V:  # 起動時に設定される変数
 
 
 class P:  # 起動中もダイナミックに変化
+    F_STOP = False  # Stop signal
     VALIDATOR_OBJ = None  # Validation request
     F_NOW_BOOTING = True  # Booting mode flag
     F_WATCH_CONTRACT = False  # Watching contract
 
 
 class Debug:
-    F_WS_FULL_ERROR_MSG = False
     F_LIMIT_INCLUDE_TX_IN_BLOCK = 0  # 1blockに入れるTXの最大数(0=無効)
     F_MINING_POWER_SAVE = 0.0
     F_SHOW_DIFFICULTY = False
@@ -136,6 +131,7 @@ class Debug:
 class NewInfo:
     ques = list()  # [(que, name), ..]
     empty = Empty
+    lock = Lock()
 
     def __init__(self):
         raise Exception('Not init the class!')
@@ -146,7 +142,8 @@ class NewInfo:
             try:
                 q.put_nowait(obj)
             except Full:
-                NewInfo.ques.remove((q, name))
+                with NewInfo.lock:
+                    NewInfo.ques.remove((q, name))
 
     @staticmethod
     def get(channel, timeout=None):
@@ -156,7 +153,8 @@ class NewInfo:
                     return q.get(timeout=timeout)
             else:
                 que = LifoQueue(maxsize=10)
-                NewInfo.ques.append((que, channel))
+                with NewInfo.lock:
+                    NewInfo.ques.append((que, channel))
 
 
 class MyConfigParser(configparser.ConfigParser):

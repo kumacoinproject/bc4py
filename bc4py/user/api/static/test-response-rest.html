@@ -4,17 +4,20 @@
     <meta charset="UTF-8">
     <title>Rest test page</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script type="text/javascript" src="js/jquery-2.0.3.js"></script>
-    <script type="text/javascript" src="js/vue.js"></script>
+    <script type="text/javascript" src="js/jquery-2.0.3.min.js"></script>
+    <script type="text/javascript" src="js/vue.min.js"></script>
     <script type="text/javascript" src="js/vue-cookies.js"></script>
     <script type="text/javascript" src="js/axios.min.js"></script>
     <script type="text/javascript" src="js/basis.js"></script>
+    <script type="text/javascript" src='js/highlight.min.js'></script>
     <!-- bootstrap -->
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
     <!-- Optional theme -->
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
     <!-- Latest compiled and minified JavaScript -->
     <script type="text/javascript" src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+    <!-- github css style -->
+    <link rel='stylesheet' href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.0.0/styles/github.min.css" />
 </head>
 <style>
     div.section {
@@ -36,6 +39,8 @@
 
     <div class="container">
         <div class="jumbotron">
+            Delete old response results =>
+            <button onclick="document.getElementById('code-form').innerHTML = '';">ClearData</button>
             <div>
                 <input v-model="proto" type="text" placeholder="http://">
                 <input v-model="url" type="text" placeholder="127.0.0.1:3000">
@@ -76,10 +81,7 @@
 
     <div class="container">
         <div class="jumbotron">
-            <div v-for="r in response" class="section" style="background-color: white;">
-                URL: {{r.request}}<br>Params: {{r.params}}<br>
-                <textarea style="width: 100%; height: 300px;">{{r.data}}</textarea>
-            </div>
+            <div id="code-form"></div>
         </div>
     </div>
 </div>
@@ -100,16 +102,16 @@
         data: {
             proto: "http://",
             url: "127.0.0.1:3000",
-            dest: "/api/getsysteminfo",
+            dest: "/public/getsysteminfo",
             method: 'get',
             username: 'user',
             password: 'password',
             uuid: 0,
+            index: 0,
             name: "",
             value: "",
             is_object: false,
             params: [],
-            response: [],
             error_message: null
         },
         computed: {
@@ -141,11 +143,24 @@
                     axios_option.params = params;
                 }
                 axios(axios_option).then(response => {
-                    this.response.unshift({
-                        data: JSON.stringify(response.data, null, 4),
-                        request: this.proto+this.url+this.dest,
-                        params: params
-                    });
+                    let args;
+                    console.log(params.length);
+                    if (Object.keys(params).length === 0){
+                        args = '';
+                    } else if (this.method === 'get'){
+                        args = "<br>UrlEncoded: "+urlSerialize(params);
+                    }else {
+                        args = '<code class="hljs">Json: '+hljs.highlightAuto(JSON.stringify(params)).value+'</code>';
+                    }
+                    let uri = this.proto+this.url+this.dest;
+                    let item = JSON.stringify(response.data, null, 4);
+                    item = hljs.highlightAuto(item).value;
+                    let new_data = Format('<pre style="max-height: 20em;">{0} URI: {1}{2}<code class="hljs">{3}</code></pre>'
+                        , this.index, uri, args, item);
+                    const code_form = document.getElementById('code-form');
+                    code_form.innerHTML = new_data + code_form.innerHTML;
+                    this.index += 1;
+                    // recode params to cookie
                     this.$cookies.set('rest-proto', this.proto);
                     this.$cookies.set('rest-url', this.url);
                     this.$cookies.set('rest-dest', this.dest);

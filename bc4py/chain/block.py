@@ -5,11 +5,11 @@ from bc4py.config import C, V
 from bc4py.chain.utils import MAX_256_INT, bits2target
 from bc4py.chain.workhash import update_work_hash
 from hashlib import sha256
-from os import urandom
 from binascii import hexlify
 import struct
 import time
-
+from collections import OrderedDict
+from math import log
 
 struct_block = struct.Struct('<I32s32sII4s')
 
@@ -18,7 +18,7 @@ class Block:
     __slots__ = (
         "b", "hash", "next_hash", "target_hash", "work_hash",
         "height", "_difficulty", "_work_difficulty", "create_time", "delete_time",
-        "flag", "f_orphan", "f_on_memory", "_bias",
+        "flag", "f_orphan", "f_on_memory", "_bias", "inner_score",
         "version", "previous_hash", "merkleroot", "time", "bits", "nonce", "txs",
         "__weakref__")
 
@@ -51,6 +51,7 @@ class Block:
         self.f_orphan = None
         self.f_on_memory = None
         self._bias = None  # bias 4bytes float
+        self.inner_score = 1.0
         # block header
         self.version = None  # ver 4bytes int
         self.previous_hash = None  # previous header sha256 hash
@@ -94,7 +95,7 @@ class Block:
         self.hash = sha256(sha256(self.b).digest()).digest()
 
     def getinfo(self):
-        r = dict()
+        r = OrderedDict()
         r['hash'] = hexlify(self.hash).decode() if self.hash else None
         try:
             if self.work_hash is None:
@@ -112,6 +113,7 @@ class Block:
         r['height'] = self.height
         r['difficulty'] = self.difficulty
         r['fixed_difficulty'] = round(self.difficulty / self.bias, 8)
+        r['score'] = round(self.score, 8)
         r['flag'] = C.consensus2name[self.flag]
         r['merkleroot'] = hexlify(self.merkleroot).decode() if self.merkleroot else None
         r['time'] = V.BLOCK_GENESIS_TIME + self.time
@@ -129,6 +131,11 @@ class Block:
         return self._bias
 
     @property
+    def score(self):
+        # fixed_diff = difficulty / bias
+        return log(max(1.0, self.inner_score * self.difficulty / self.bias))
+
+    @property
     def difficulty(self):
         if self._difficulty is None:
             self.bits2target()
@@ -142,7 +149,7 @@ class Block:
         return self._work_difficulty
 
     def getsize(self):
-        tx_sizes = sum(tx.getsize() for tx in self.txs)
+        tx_sizes = sum(tx.size + len(tx.signature) * 96 for tx in self.txs)
         header_size = len(self.b)
         return tx_sizes + header_size
 

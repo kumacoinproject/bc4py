@@ -1,6 +1,6 @@
 from bc4py.config import P, NewInfo
 from bc4py.chain import Block, TX
-from bc4py.contract.watch.checdata import *
+from bc4py.contract.watch.checkdata import *
 import logging
 from threading import Thread
 
@@ -13,7 +13,7 @@ def start_contract_watch():
 
 def loop():
     logging.info("Watching contract start.")
-    while P.F_WATCH_CONTRACT:
+    while not P.F_STOP and P.F_WATCH_CONTRACT:
         try:
             obj = NewInfo.get(channel='watch contract', timeout=2)
             if isinstance(obj, TX):
@@ -37,6 +37,11 @@ def close_contract_watch():
 
 
 __all__ = [
+    "C_Conclude",
+    "C_Validator",
+    "C_RequestConclude",
+    "C_FinishConclude",
+    "C_FinishValidator",
     "watching_tx",
     "start_contract_watch",
     "close_contract_watch",

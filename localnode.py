@@ -2,13 +2,14 @@
 # -*- coding: utf-8 -*-
 
 from bc4py import __version__, __chain_version__, __message__, __logo__
-from bc4py.config import P, Debug
+from bc4py.config import C, V, P
 from bc4py.utils import set_database_path, set_blockchain_params
 # from bc4py.user.stratum import Stratum, start_stratum, close_stratum
 from bc4py.user.generate import *
 from bc4py.user.boot import *
-from bc4py.user.network import broadcast_check, mined_newblock, DirectCmd, sync_chain_loop, close_sync
+from bc4py.user.network import *
 from bc4py.user.api import create_rest_server
+from bc4py.contract import start_emulators, close_emulators, Emulate
 from bc4py.contract.watch import start_contract_watch, close_contract_watch
 from bc4py.database.create import make_account_db
 from bc4py.database.builder import builder
@@ -71,13 +72,12 @@ def work(port, sub_dir):
     pc.broadcast_check = broadcast_check
 
     # Update to newest blockchain
-    builder.init(genesis_block)
+    builder.init(genesis_block, batch_size=500)
     # builder.db.sync = False  # more fast
     sync_chain_loop()
 
     # Mining/Staking setup
     start_work_hash()
-    Debug.F_WS_FULL_ERROR_MSG = True
     # Debug.F_CONSTANT_DIFF = True
     # Debug.F_SHOW_DIFFICULTY = True
     # Debug.F_STICKY_TX_REJECTION = False  # for debug
@@ -90,6 +90,8 @@ def work(port, sub_dir):
     Generate(consensus=C.BLOCK_POS, power_limit=0.3).start()
     # Contract watcher
     start_contract_watch()
+    # Emulate(c_address='CJ4QZ7FDEH5J7B2O3OLPASBHAFEDP6I7UKI2YMKF')
+    start_emulators()
     # Stratum
     # Stratum(port=port+2000, consensus=C.BLOCK_HMQ_POW, first_difficulty=4)
     Thread(target=mined_newblock, name='GeneBlock', args=(output_que, pc)).start()
@@ -98,10 +100,13 @@ def work(port, sub_dir):
     try:
         # start_stratum(f_blocking=False)
         create_rest_server(f_local=True, port=port+1000, user='user', pwd='password')
+        P.F_STOP = True
         close_contract_watch()
         builder.close()
         # close_stratum()
         pc.close()
+        close_emulators()
+        close_contract_watch()
         close_generate()
         close_work_hash()
         close_sync()

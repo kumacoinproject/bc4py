@@ -1,4 +1,4 @@
-from bc4py.config import C, V, BlockChainError
+from bc4py.config import V, P, BlockChainError
 from bc4py.user.network.directcmd import DirectCmd
 import logging
 import random
@@ -91,7 +91,7 @@ def get_best_conn_info():
 
 def check_connection(f_3_conn=3):
     c, need = 0,  3 if f_3_conn else 1
-    while len(V.PC_OBJ.p2p.user) < need:
+    while not P.F_STOP and len(V.PC_OBJ.p2p.user) < need:
         if c % 90 == 0:
             logging.debug("Waiting for new connections.. {}".format(len(V.PC_OBJ.p2p.user)))
         time.sleep(1)

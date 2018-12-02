@@ -77,3 +77,11 @@ def load_bootstrap_file():
             new_insert_block(block=block, time_check=False)
             b_data = fp.readline()
     logging.debug("load bootstrap.dat! last={}".format(block))
+
+
+__all__ = [
+    "create_boot_file",
+    "load_boot_file",
+    "create_bootstrap_file",
+    "load_bootstrap_file"
+]

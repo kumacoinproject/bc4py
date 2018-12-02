@@ -1,9 +1,9 @@
 from bc4py.config import C, BlockChainError
 from bc4py.database.builder import builder, tx_builder
-from bc4py.contract.storage import Storage
 from expiringdict import ExpiringDict
 from binascii import hexlify
 import bjson
+from collections import defaultdict, OrderedDict
 
 
 M_INIT = 'init'
@@ -15,6 +15,53 @@ cashe = ExpiringDict(max_len=100, max_age_seconds=1800)
 settings_template = {
     'update_binary': True,
     'update_extra_imports': True}
+
+
+class Storage(defaultdict):
+    def __init__(self, c_address, default_factory=None, **kwargs):
+        super(Storage, self).__init__(default_factory, **kwargs)
+        # check value is not None
+        for k, v in kwargs.items():
+            if v is None:
+                raise Exception('Not allowed None value...')
+        # check key type
+        if len({type(k) for k in kwargs}) > 1:
+            raise Exception("All key type is same {}".format([type(k) for k in kwargs]))
+        self.c_address = c_address
+        self.version = 0
+
+    def __repr__(self):
+        return "<Storage of {} ver={} {}>".\
+            format(self.c_address, self.version, dict(self.items()))
+
+    def marge_diff(self, diff):
+        if diff is None:
+            return  # skip
+        for k, v in diff.items():
+            if v is None:
+                del self[k]
+            else:
+                self[k] = v
+        self.version += 1
+
+    def export_diff(self, original_storage):
+        # check value is not None
+        for v in self.values():
+            if v is None:
+                raise Exception('Not allowed None value...')
+        diff = dict()
+        for key in original_storage.keys() | self.keys():
+            if key in original_storage and key in self:
+                if original_storage[key] != self[key]:
+                    diff[key] = self[key]  # update
+            elif key not in original_storage and key in self:
+                diff[key] = self[key]  # insert
+            elif key in original_storage and key not in self:
+                diff[key] = None  # delete
+        # check key type
+        if len({type(k) for k in diff}) > 1:
+            raise Exception("All key type is same {}".format([type(k) for k in diff]))
+        return diff
 
 
 class Contract:
@@ -35,15 +82,16 @@ class Contract:
     def info(self):
         if self.index == -1:
             return None
-        return {
-            'c_address': self.c_address,
-            'index': self.index,
-            'binary': hexlify(self.binary).decode(),
-            'extra_imports': self.extra_imports,
-            'storage_key': len(self.storage),
-            'settings': self.settings,
-            'start_hash': hexlify(self.start_hash).decode(),
-            'finish_hash': hexlify(self.finish_hash).decode()}
+        d = OrderedDict()
+        d['c_address'] = self.c_address
+        d['index'] = self.index
+        d['binary'] = hexlify(self.binary).decode()
+        d['extra_imports'] = self.extra_imports
+        d['storage_key'] = len(self.storage)
+        d['settings'] = self.settings
+        d['start_hash'] = hexlify(self.start_hash).decode()
+        d['finish_hash'] = hexlify(self.finish_hash).decode()
+        return d
 
     def update(self, start_hash, finish_hash, c_method, c_args, c_storage):
         if c_method == M_INIT:
@@ -60,11 +108,11 @@ class Contract:
             c_bin, c_extra_imports, c_settings = c_args
             if self.settings['update_binary']:
                 self.binary = c_bin
-                if not c_settings.get('update_binary', False):
+                if c_settings and not c_settings.get('update_binary', False):
                     self.settings['update_binary'] = False
             if self.settings['update_extra_imports']:
                 self.extra_imports = c_extra_imports
-                if not c_settings.get('update_extra_imports', False):
+                if c_settings and not c_settings.get('update_extra_imports', False):
                     self.settings['update_extra_imports'] = False
         else:
             assert self.index != -1
@@ -187,6 +235,7 @@ def get_conclude_hash_by_start_hash(c_address, start_hash, best_block=None, best
 
 __all__ = [
     "M_INIT", "M_UPDATE",
+    "Storage",
     "Contract",
     "contract_fill",
     "get_contract_object",

@@ -14,9 +14,9 @@ def check_tx_mint_coin(tx, include_block):
         raise BlockChainError('TX_MINT_COIN message is bytes.')
     elif include_block and 0 == include_block.txs.index(tx):
         raise BlockChainError('tx index is not proof tx.')
-    elif tx.gas_amount < tx.getsize() + C.MINTCOIN_GAS:
-        raise BlockChainError('Insufficient gas amount [{}<{}+{}]'
-                              .format(tx.gas_amount, tx.getsize(), C.MINTCOIN_GAS))
+    elif tx.gas_amount < tx.size + len(tx.signature)*C.SIGNATURE_GAS + C.MINTCOIN_GAS:
+        raise BlockChainError('Insufficient gas amount [{}<{}+{}+{}]'
+                              .format(tx.gas_amount, tx.size, len(tx.signature)*C.SIGNATURE_GAS, C.MINTCOIN_GAS))
     # check new mintcoin format
     try:
         mint_id, params, setting = bjson.loads(tx.message)

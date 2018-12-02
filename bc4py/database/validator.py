@@ -3,6 +3,7 @@ from bc4py.database.builder import builder, tx_builder
 from expiringdict import ExpiringDict
 import bjson
 from binascii import hexlify
+from collections import OrderedDict
 
 F_ADD = 1
 F_REMOVE = -1
@@ -39,12 +40,13 @@ class Validator:
     def info(self):
         if self.index == -1:
             return None
-        return {
-            'index': self.index,
-            'c_address': self.c_address,
-            'txhash': hexlify(self.txhash).decode(),
-            'validators': self.validators,
-            'require': self.require}
+        d = OrderedDict()
+        d['index'] = self.index
+        d['c_address'] = self.c_address
+        d['txhash'] = hexlify(self.txhash).decode()
+        d['validators'] = self.validators
+        d['require'] = self.require
+        return d
 
 
 def decode(msg):

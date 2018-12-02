@@ -50,7 +50,7 @@ def create_genesis_block(all_supply, block_span, prefix=b'\x98', contract_prefix
     genesis_time = int(time.time())
     # premine
     premine_txs = list()
-    for index, chunk in enumerate(chunked(premine or list(), 256)):
+    for index, chunk in enumerate(chunked(premine or list(), 255)):
         tx = TX(tx={
             'version': __chain_version__,
             'type': C.TX_TRANSFER,

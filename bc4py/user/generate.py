@@ -178,8 +178,6 @@ class Generate(Thread):
                     # Fit block size
                     while staking_block.getsize() > C.SIZE_BLOCK_LIMIT:
                         tx = staking_block.txs.pop()
-                        # if tx.type == C.TX_FINISH_CONTRACT:
-                        #    staking_block.txs.pop()
                     staking_block.update_time(proof_tx.time)
                     staking_block.update_merkleroot()
                     confirmed_generating_block(staking_block)

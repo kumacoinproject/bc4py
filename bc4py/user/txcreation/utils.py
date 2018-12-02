@@ -65,21 +65,22 @@ def fill_inputs_outputs(tx, cur, fee_coin_id=0, additional_gas=0, dust_percent=0
         tx.outputs.append((DUMMY_REDEEM_ADDRESS, coin_id, amount))
     # Feeをチェックし再計算するか決める
     tx.serialize()
-    need_gas_amount = tx.getsize() + len(input_address) * 96 + additional_gas
+    need_gas_amount = tx.size + len(input_address)*C.SIGNATURE_GAS + additional_gas
     if 0 <= tx.gas_amount - need_gas_amount < 10000:
         # input/outputを混ぜる
         return input_address
     else:
         # insufficient gas
         logging.debug("Retry calculate tx fee. [{}=>{}+{}={}]".format(
-            tx.gas_amount, tx.getsize()+len(input_address) * 96, additional_gas, need_gas_amount))
+            tx.gas_amount, tx.size + len(input_address)*C.SIGNATURE_GAS, additional_gas, need_gas_amount))
         tx.gas_amount = need_gas_amount
         return fill_inputs_outputs(tx=tx, cur=cur, fee_coin_id=fee_coin_id, additional_gas=additional_gas,
                                    dust_percent=dust_percent, utxo_cashe=utxo_cashe)
 
 
-def fill_contract_inputs_outputs(tx, c_address, cur, fee_coin_id=0, additional_gas=0, dust_percent=0.8, utxo_cashe=None):
+def fill_contract_inputs_outputs(tx, c_address, additional_gas, dust_percent=0.8, utxo_cashe=None):
     assert tx.gas_price > 0, "Gas params is none zero."
+    fee_coin_id = 0
     # outputsの合計を取得
     output_coins = CoinObject()
     for address, coin_id, amount in tx.outputs.copy():
@@ -121,9 +122,8 @@ def fill_contract_inputs_outputs(tx, c_address, cur, fee_coin_id=0, additional_g
         if f_dust_skipped and dust_percent > 0.00001:
             new_dust_percent = round(dust_percent * 0.7, 6)
             logging.debug("Retry by lower dust percent. {}=>{}".format(dust_percent, new_dust_percent))
-            return fill_contract_inputs_outputs(tx=tx, c_address=c_address, cur=cur, fee_coin_id=fee_coin_id,
-                                                additional_gas=additional_gas, dust_percent=new_dust_percent,
-                                                utxo_cashe=utxo_cashe)
+            return fill_contract_inputs_outputs(tx=tx, c_address=c_address, additional_gas=additional_gas,
+                                                dust_percent=new_dust_percent, utxo_cashe=utxo_cashe)
         elif len(tx.inputs) > 255:
             raise BlockChainError('Too many inputs, unspent tx\'s amount is too small.')
         else:
@@ -134,21 +134,21 @@ def fill_contract_inputs_outputs(tx, c_address, cur, fee_coin_id=0, additional_g
         tx.outputs.append((DUMMY_REDEEM_ADDRESS, coin_id, amount))
     # Feeをチェックし再計算するか決める
     tx.serialize()
-    need_gas_amount = tx.getsize() + additional_gas
+    need_gas_amount = tx.size + additional_gas
     if 0 <= tx.gas_amount - need_gas_amount < 10000:
         # input/outputを混ぜる
         return input_address
     else:
         # insufficient gas
         logging.debug("Retry calculate tx fee. [{}=>{}+{}={}]".format(
-            tx.gas_amount, tx.getsize()+len(input_address) * 96, additional_gas, need_gas_amount))
+            tx.gas_amount, tx.size, additional_gas, need_gas_amount))
         tx.gas_amount = need_gas_amount
-        return fill_contract_inputs_outputs(tx=tx, c_address=c_address, cur=cur, fee_coin_id=fee_coin_id,
-                                            additional_gas=additional_gas, dust_percent=dust_percent,
-                                            utxo_cashe=utxo_cashe)
+        return fill_contract_inputs_outputs(tx=tx, c_address=c_address, additional_gas=additional_gas,
+                                            dust_percent=dust_percent, utxo_cashe=utxo_cashe)
 
 
-def replace_redeem_dummy_address(tx, cur, replace_by=None):
+def replace_redeem_dummy_address(tx, cur=None, replace_by=None):
+    assert cur or replace_by
     new_redeem_address = set()
     for index, (address, coin_id, amount) in enumerate(tx.outputs):
         if address != DUMMY_REDEEM_ADDRESS:
@@ -186,6 +186,7 @@ def setup_contract_signature(tx, validators):
 
 
 def check_enough_amount(sender, send_coins, fee_coins):
+    assert isinstance(sender, int)
     from_coins = user_account.get_balance()[sender]
     remain_coins = from_coins - send_coins - fee_coins
     if not remain_coins.is_all_plus_amount():
