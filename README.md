@@ -34,8 +34,8 @@ cd ~
 git clone https://github.com/namuyan/bc4py
 mv bc4py blockchain-py
 cd blockchain-py
-pip install --user -r reqirements.txt
-pip install --user -r reqirements-c.txt
+pip install --user -r requirements.txt
+pip install --user -r requirements-c.txt
 wget http://example.com/boot.dat
 ```
 
