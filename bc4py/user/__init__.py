@@ -1,3 +1,48 @@
+from collections import defaultdict
+
+
+# TODO: replace CoinObject to CoinBalance
+
+
+class CoinBalance(defaultdict):
+    def __init__(self, coin_id=None, amount=None, balance=None):
+        super().__init__(int)
+        if coin_id and amount:
+            self[coin_id] = amount
+        elif balance:
+            for k, v in balance.items():
+                if v != 0:
+                    self[k] = v
+
+    def __repr__(self):
+        return "<CoinBalance {}>".format(dict(self))
+
+    def copy(self):
+        return CoinBalance(balance=dict(self))
+
+    def is_all_plus_amount(self):
+        for v in self.values():
+            if v < 0:
+                return False
+        return True
+
+    def is_all_minus_amount(self):
+        for v in self.values():
+            if v > 0:
+                return False
+        return True
+
+    def __add__(self, other):
+        b = self.copy()
+        for k in other.keys():
+            b[k] += other[k]
+        return b
+
+    def __sub__(self, other):
+        b = self.copy()
+        for k in other.keys():
+            b[k] -= other[k]
+        return b
 
 
 class CoinObject:
@@ -95,7 +140,7 @@ class CoinObject:
 
 class UserCoins:
     def __repr__(self):
-        return "<User {}>".format(self.users)
+        return "<UserCoins {}>".format(self.users)
 
     def __init__(self, users=None):
         self.users = users or dict()
@@ -143,21 +188,3 @@ class UserCoins:
             if u in other:
                 new[u] -= other[u]
         return UserCoins(new)
-
-
-def float2unit(f):
-    if f < 1.0:
-        return "%f" % round(f, 6)
-    elif f < 10.0:
-        return str(round(f, 5))
-    elif f < 100.0:
-        return str(round(f, 4))
-    elif f < 1000.0:
-        return str(round(f, 3))
-    elif f < 10000.0:
-        return str(round(f, 2))
-    elif f < 100000.0:
-        return str(round(f, 1))
-    else:
-        return str(round(f, 0))
-

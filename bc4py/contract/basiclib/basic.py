@@ -1,12 +1,17 @@
-from bc4py.chain import TX
+from bc4py.user import CoinBalance
 from requests import get, post
 
 
 API_BASE = 'http://127.0.0.1:3000/public/'
 
 
-def get_account_balance(start_tx: TX):
-    pass
+def get_address_inputs(start_tx, c_address):
+    """ extract contract input balance """
+    balance = CoinBalance()
+    for address, coin_id, amount in start_tx.outputs:
+        if address == c_address:
+            balance[coin_id] += amount
+    return balance
 
 
 def api_get(method, **kwargs):
@@ -24,7 +29,7 @@ def api_post(method, **kwargs):
 
 
 __price__ = {
-    "get_account_balance": 100,
+    "get_address_inputs": 100,
     "api_get": 200,
     "api_post": 200,
 }

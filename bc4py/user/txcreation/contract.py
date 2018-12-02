@@ -1,16 +1,10 @@
-from bc4py import __chain_version__
 from bc4py.config import C, V, BlockChainError
 from bc4py.chain import TX
-from bc4py.chain.utils import check_output_format
 from bc4py.database import contract
-from bc4py.database.account import create_new_user_keypair, insert_log
 from bc4py.database.validator import F_NOP, F_REMOVE, F_ADD, get_validator_object
 from bc4py.database.builder import tx_builder
-from bc4py.user import CoinObject, UserCoins
 from bc4py.user.txcreation.utils import *
 from bc4py.user.txcreation.transfer import send_many
-from nem_ed25519.key import convert_address
-import time
 import bjson
 from copy import deepcopy
 

@@ -1,5 +1,4 @@
 from bc4py.config import C, V
-from bc4py.user import CoinObject
 from bc4py.database.create import closing, create_db
 from bc4py.database.keylock import is_locked_database, change_encrypt_key
 from bc4py.user.api import web_base

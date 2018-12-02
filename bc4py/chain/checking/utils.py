@@ -1,6 +1,6 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.database.builder import builder, tx_builder
-from bc4py.database.tools import get_usedindex  # , get_validator_info
+from bc4py.database.tools import get_usedindex
 from bc4py.chain.checking.signature import get_signed_cks
 from bc4py.user import CoinObject
 from nem_ed25519.key import is_address

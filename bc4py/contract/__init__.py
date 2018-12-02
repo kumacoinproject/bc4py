@@ -34,8 +34,7 @@ class Emulate:
             start_tx=start_tx, c_address=self.c_address, c_method=c_method,
             c_args=c_args, gas_limit=gas_limit, file=file)
         if is_success:
-            logging.info('Success gas={} line={} result={}'.format(
-                total_gas, work_line, result))
+            logging.info('Success gas={} line={} result={}'.format(total_gas, work_line, result))
             if f_debug:
                 logging.debug("#### Start log ####")
                 for data in file.getvalue().split("\n"):
@@ -44,6 +43,7 @@ class Emulate:
         else:
             logging.error('Failed gas={} line={} result={} log={}'.format(
                 total_gas, work_line, result, file.getvalue()))
+            return
         file.close()
         # conclude tx
         send_pairs, c_storage = result
