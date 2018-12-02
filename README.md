@@ -19,16 +19,13 @@ Requirement
 * LevelDB
     * [plyvel](https://github.com/wbolster/plyvel) for linux and ARM
     * [python-leveldb](https://github.com/happynear/py-leveldb-windows) for linux and windows
-* Mining algorithm
-    * For CPU
-        * [yespower-python](https://github.com/namuyan/yespower-python)
-        * [~~yescryptR64~~](https://github.com/namuyan/yescryptR64-python) CPU resistance?
-    * For GPU
-        * [hmq-hash](https://github.com/namuyan/hmq-hash)
-        * [x16s-hash](https://pypi.org/project/shield-x16s-hash/)
-    * For ASIC
-        * [x11_hash](https://pypi.org/project/x11_hash/)
-        * [litecoin_scrypt](https://pypi.org/project/litecoin_scrypt/)
+* hash algorithm
+    * [yespower-python](https://github.com/namuyan/yespower-python)  For CPU
+    * [~~yescryptR64~~](https://github.com/namuyan/yescryptR64-python) CPU resistance?
+    * [hmq-hash](https://github.com/namuyan/hmq-hash) for GPU
+    * [x16s-hash](https://pypi.org/project/shield-x16s-hash/) for GPU
+    * [x11_hash](https://pypi.org/project/x11_hash/) For ASIC
+    * [litecoin_scrypt](https://pypi.org/project/litecoin_scrypt/) For ASIC
 
 Install
 ----
