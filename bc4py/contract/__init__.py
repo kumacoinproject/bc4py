@@ -76,10 +76,10 @@ def start_emulators(f_debug=False):
                     for e in emulators:
                         if e.c_address != c_address:
                             continue
-                        elif c_method == M_INIT:
-                            pass
-                        elif c_method == M_UPDATE:
-                            pass
+                        # elif c_method == M_INIT:
+                        #    pass
+                        # elif c_method == M_UPDATE:
+                        #    pass
                         else:
                             e.emulate(start_tx=start_tx, c_method=c_method, c_args=c_args, f_debug=f_debug)
 

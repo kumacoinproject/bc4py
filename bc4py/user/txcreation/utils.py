@@ -186,6 +186,7 @@ def setup_contract_signature(tx, validators):
 
 
 def check_enough_amount(sender, send_coins, fee_coins):
+    assert isinstance(sender, int)
     from_coins = user_account.get_balance()[sender]
     remain_coins = from_coins - send_coins - fee_coins
     if not remain_coins.is_all_plus_amount():

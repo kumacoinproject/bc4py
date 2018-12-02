@@ -1,7 +1,7 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.chain import TX
 from bc4py.database.mintcoin import *
-from bc4py.database.account import create_new_user_keypair, insert_log
+from bc4py.database.account import create_new_user_keypair, read_user2name, insert_log
 from bc4py.user import CoinObject, UserCoins
 from bc4py.user.txcreation.utils import *
 import random
@@ -15,7 +15,8 @@ MINTCOIN_DUMMY_ADDRESS = '_____MINTCOIN_____DUMMY_____ADDRESS_____'
 def issue_mintcoin(name, unit, digit, amount, cur, description=None, image=None, additional_issue=True,
                    change_address=True, gas_price=None, sender=C.ANT_UNKNOWN, retention=10800):
     mint_id = get_new_coin_id()
-    mint_address = create_new_user_keypair(name=sender, cur=cur)
+    sender_name = read_user2name(user=sender, cur=cur)
+    mint_address = create_new_user_keypair(name=sender_name, cur=cur)
     params = {"name": name, "unit": unit, "digit": digit,
               "address": mint_address, "description": description, "image": image}
     setting = {"additional_issue": additional_issue, "change_address": change_address}
@@ -96,11 +97,11 @@ def change_mintcoin(mint_id, cur, amount=None, description=None, image=None, set
         send_coins = CoinObject(0, 0)
         minting_coins = CoinObject(0, 0)
     tx.update_time(retention)
-    tx.gas_amount = tx.getsize() + C.MINTCOIN_GAS
+    additional_gas = C.MINTCOIN_GAS
+    tx.gas_amount = tx.size + C.SIGNATURE_GAS + additional_gas
     tx.serialize()
     # fill unspents
     fee_coin_id = 0
-    additional_gas = C.MINTCOIN_GAS + 96
     input_address = fill_inputs_outputs(tx=tx, cur=cur, fee_coin_id=fee_coin_id, additional_gas=additional_gas)
     input_address.add(m_before.address)
     fee_coins = CoinObject(coin_id=fee_coin_id, amount=tx.gas_price * tx.gas_amount)

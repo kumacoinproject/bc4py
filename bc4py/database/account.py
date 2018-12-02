@@ -118,6 +118,7 @@ def read_address2account(address, cur):
 
 
 def read_name2user(name, cur):
+    assert isinstance(name, str)
     d = cur.execute("""
         SELECT `id` FROM `account` WHERE `name`=?
     """, (name,)).fetchone()
@@ -127,6 +128,7 @@ def read_name2user(name, cur):
 
 
 def read_user2name(user, cur):
+    assert isinstance(user, int)
     d = cur.execute("""
         SELECT `name` FROM `account` WHERE `id`=?
     """, (user,)).fetchone()

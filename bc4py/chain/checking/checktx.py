@@ -91,7 +91,7 @@ def check_tx(tx, include_block):
     if f_minimum_fee_check:
         if tx.gas_amount < tx.size + C.SIGNATURE_GAS * len(tx.signature):
             raise BlockChainError('Too low fee [{}<{}+{}]'.format(
-                tx.gas_price * tx.gas_amount, tx.size, C.SIGNATURE_GAS*len(tx.signature)))
+                tx.gas_amount, tx.size, C.SIGNATURE_GAS*len(tx.signature)))
 
     # TX size チェック
     if f_size_check:
