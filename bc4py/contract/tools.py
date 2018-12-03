@@ -1,14 +1,12 @@
-from bc4py.contract.params import allow_globals, deny_builtins
+from bc4py.contract.params import *
 from bc4py.contract.basiclib import *
-from bc4py.contract.basiclib import __all__ as all_libs
+from bc4py.contract.basiclib import __all__ as basiclibs
 from bc4py.contract.dummy_template import Contract
 from bc4py.contract import dill
 from types import FunctionType, ModuleType
 import io
 import dis
 import os
-import pickletools
-import sys
 import logging
 import importlib
 
@@ -17,55 +15,42 @@ import importlib
 PICKLE_PROTO_VER = 4
 
 
-def get_limited_globals(extra_imports):
-    g = {n: globals()[n] for n in all_libs}
+def get_limited_globals(extra_imports=None):
+    g = {name: globals()[name] for name in basiclibs}
     if extra_imports:
         for name in extra_imports:
+            logging.warning("Import an external library => {}".format(name))
             g[name] = importlib.import_module(name)
-    for n in allow_globals:
-        g[n] = globals()[n]
-    builtins = dict(globals()['__builtins__']).copy()
+    for allow in allow_globals:
+        if allow in globals():
+            g[allow] = globals()[allow]
+    for deny in deny_globals:
+        if deny in g:
+            del g[deny]
+    __builtins__ = globals()['__builtins__']
+    builtins = dict()
+    for allow in allow_builtins:
+        if allow in __builtins__:
+            builtins[allow] = __builtins__[allow]
     for deny in deny_builtins:
-        try: del builtins[deny]
-        except KeyError: pass
+        if deny in builtins:
+            del builtins[deny]
     g['__builtins__'] = builtins
     return g
-
-
-def _import_lack_modules(c_bin):
-    for opcode, arg, pos in pickletools.genops(c_bin):
-        if opcode.name == 'GLOBAL':
-            module, name = arg.split(' ')
-            logging.debug("_import_lack_modules => {}, {}".format(module, name))
-            if '.' in module:
-                continue
-            elif module not in sys.modules:
-                # import_module(name=here, package='dummy_module')
-                sys.modules[module] = Contract
-        elif opcode.name == 'PROTO':
-            if arg != PICKLE_PROTO_VER:
-                raise Exception('pickle version is {}, not {}'.format(PICKLE_PROTO_VER, arg))
 
 
 def binary2contract(c_bin, extra_imports=None):
     g = get_limited_globals(extra_imports)
 
-    def dummy_create_type(*args):
-        return args
-
     def dummy_create_function(fcode, fglobals, fname=None, fdefaults=None, fclosure=None, fdict=None):
         return FunctionType(fcode, g, fname, fdefaults, fclosure)
 
-    _import_lack_modules(c_bin)
-    create_type = dill._dill._create_type
-    create_func = dill._dill._create_function
-    dill._dill._create_type = dummy_create_type
+    create_fnc = dill._dill._create_function
     dill._dill._create_function = dummy_create_function
-    f_type, f_name, f_obj, f_dict = dill.loads(c_bin)
-    assert f_type == type(ModuleType), 'Not class module.'
-    c_obj = create_type(f_type, f_name, f_obj, f_dict)
-    dill._dill._create_type = create_type
-    dill._dill._create_function = create_func
+    c_obj = dill.loads(c_bin)
+    dill._dill._create_function = create_fnc
+    assert c_obj.__class__ is type, 'Is not a class.'
+    c_obj.__module__ = 'bc4py.contract.dummy_template'
     return c_obj
 
 
@@ -101,7 +86,7 @@ def path2contract(path, is_safe=False):
 def contract2binary(obj):
     old_name = obj.__module__
     obj.__module__ = '__main__'
-    c_bin = dill.dumps(obj, protocol=4)
+    c_bin = dill.dumps(obj,  protocol=4)
     obj.__module__ = old_name
     return c_bin
 

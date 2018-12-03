@@ -1,7 +1,11 @@
 
 
 allow_globals = [
-    '__name__', '__doc__', '__package__', '__loader__', '__spec__', '__builtins__'
+    '__name__', '__doc__', '__package__', '__spec__', '__annotations__', 'SourceFileLoader'
+]
+
+deny_globals = [
+    '__loader__', '__builtins__', '__builtins__'
 ]
 
 allow_builtins = [
@@ -19,7 +23,7 @@ allow_builtins = [
     'TimeoutError', 'True', 'TypeError', 'UnboundLocalError', 'UnicodeDecodeError', 'UnicodeEncodeError',
     'UnicodeError', 'UnicodeTranslateError', 'UnicodeWarning', 'UserWarning', 'ValueError', 'Warning',
     'WindowsError', 'ZeroDivisionError',
-    '_', '__name__', '__loader__', '__package__', '__spec__',
+    '__name__', '__loader__', '__package__', '__spec__',
     'locals', 'globals', 'staticmethod', 'super', 'callable', 'classmethod',
     'issubclass', '__build_class__', '__debug__', '__doc__',
     'abs', 'all', 'any', 'ascii', 'bin', 'bool', 'bytearray', 'bytes', 'chr', 'complex', 'delattr', 'dict',
@@ -35,6 +39,8 @@ deny_builtins = [
 ]
 
 __all__ = [
-    "allow_builtins", "allow_globals",
+    "allow_globals",
+    "deny_globals",
+    "allow_builtins",
     "deny_builtins"
 ]

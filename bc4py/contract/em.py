@@ -1,5 +1,6 @@
 from bc4py.config import BlockChainError
 from bc4py.database.contract import get_contract_object
+from bc4py.utils import set_blockchain_params
 from bc4py.contract.tools import *
 from bc4py.contract.basiclib import __price__
 from bc4py.contract import rpdb
@@ -26,7 +27,8 @@ WORKING_FILE_NAME = 'em.py'
 cxt = get_context('spawn')
 
 
-def _vm(start_tx, que, binary, extra_imports, c_address, c_method, c_args):
+def _vm(genesis_block, start_tx, que, binary, extra_imports, c_address, c_method, c_args):
+    set_blockchain_params(genesis_block)
     c_args = c_args or list()
     virtual_machine = rpdb.Rpdb(port=0)
     try:
@@ -48,14 +50,14 @@ def _vm(start_tx, que, binary, extra_imports, c_address, c_method, c_args):
         que.put((CMD_ERROR, str(tb)))
 
 
-def emulate(start_tx, c_address, c_method, c_args, gas_limit=None, timeout=None, file=None):
+def emulate(genesis_block, start_tx, c_address, c_method, c_args, gas_limit=None, timeout=None, file=None):
     start = time()
     que = cxt.Queue()
     c = get_contract_object(c_address=c_address, stop_txhash=start_tx.hash)
     if c.index == -1 or c.binary is None:
         raise BlockChainError('Need register contract binary first.')
-    kwargs = dict(start_tx=start_tx, que=que, binary=c.binary, extra_imports=c.extra_imports,
-                  c_address=c_address, c_method=c_method, c_args=c_args)
+    kwargs = dict(genesis_block=genesis_block, start_tx=start_tx, que=que, binary=c.binary,
+                  extra_imports=c.extra_imports, c_address=c_address, c_method=c_method, c_args=c_args)
     p = cxt.Process(target=_vm, kwargs=kwargs)
     p.start()
     logging.debug('wait for notify of listen port.')

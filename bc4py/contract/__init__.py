@@ -27,12 +27,12 @@ class Emulate:
     def close(self):
         emulators.remove(self)
 
-    def emulate(self, start_tx, c_method, c_args, f_debug=False):
+    def emulate(self, genesis_block, start_tx, c_method, c_args, f_debug=False):
         file = StringIO()
         gas_limit = 100000000 if f_debug else None
         is_success, result, total_gas, work_line = emulate(
-            start_tx=start_tx, c_address=self.c_address, c_method=c_method,
-            c_args=c_args, gas_limit=gas_limit, file=file)
+            genesis_block=genesis_block, start_tx=start_tx, c_address=self.c_address,
+            c_method=c_method, c_args=c_args, gas_limit=gas_limit, file=file)
         if is_success:
             logging.info('Success gas={} line={} result={}'.format(total_gas, work_line, result))
             if f_debug:
@@ -59,7 +59,7 @@ class Emulate:
                           .format(send_pairs, c_storage, tx.getinfo()))
 
 
-def start_emulators(f_debug=False):
+def start_emulators(genesis_block, f_debug=False):
     def run():
         global f_running
         f_running = True
@@ -82,7 +82,8 @@ def start_emulators(f_debug=False):
                         # elif c_method == M_UPDATE:
                         #    pass
                         else:
-                            e.emulate(start_tx=start_tx, c_method=c_method, c_args=c_args, f_debug=f_debug)
+                            e.emulate(genesis_block=genesis_block, start_tx=start_tx,
+                                      c_method=c_method, c_args=c_args, f_debug=f_debug)
 
                 # elif cmd == C_Conclude:
                 #    # sign already created conclude tx

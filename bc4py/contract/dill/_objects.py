@@ -111,7 +111,7 @@ class _newclass2(object):
     __slots__ = ['descriptor']
 def _function(x): yield x
 def _function2():
-    try: raise
+    try: raise Exception()
     except:
         from sys import exc_info
         e, er, tb = exc_info()

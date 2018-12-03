@@ -293,11 +293,13 @@ def dumps(obj, protocol=None, byref=None, fmode=None, recurse=None):#, strictio=
     dump(obj, file, protocol, byref, fmode, recurse)#, strictio)
     return file.getvalue()
 
-def load(file, ignore=None):
+def load(file, white_list=None, ignore=None):
     """unpickle an object from a file"""
     from .settings import settings
     if ignore is None: ignore = settings['ignore']
     pik = Unpickler(file)
+    if white_list:
+        pik.white_list.extend(white_list)
     pik._main = _main_module
     # apply kwd settings
     pik._ignore = bool(ignore)
@@ -310,10 +312,10 @@ def load(file, ignore=None):
    #_main_module.__dict__.update(obj.__dict__) #XXX: should update globals ?
     return obj
 
-def loads(str, ignore=None):
+def loads(str, white_list=None, ignore=None):
     """unpickle an object from a string"""
     file = StringIO(str)
-    return load(file, ignore)
+    return load(file, white_list, ignore)
 
 # def dumpzs(obj, protocol=None):
 #     """pickle an object to a compressed string"""
@@ -465,18 +467,31 @@ class Unpickler(StockUnpickler):
     _session = False
 
     def find_class(self, module, name):
+        # Only allow safe classes from builtins.
         if (module, name) == ('__builtin__', '__main__'):
-            return self._main.__dict__ #XXX: above set w/save_module_dict
+            return self._main.__dict__  # XXX: above set w/save_module_dict
         elif (module, name) == ('__builtin__', 'NoneType'):
-            return type(None) #XXX: special case: NoneType missing
-        if module == 'dill.dill': module = 'dill._dill'
-        return StockUnpickler.find_class(self, module, name)
+            return type(None)  # XXX: special case: NoneType missing
+        elif module == 'dill.dill' or module == 'dill._dill' or \
+                module == 'bc4py.contract.dill.dill' or module == 'bc4py.contract.dill._dill':
+            module = 'bc4py.contract.dill._dill'  # for dill
+            return StockUnpickler.find_class(self, module, name)
+        elif module.startswith('bc4py.') or (module, name) in self.white_list:  # for basiclib
+            return StockUnpickler.find_class(self, module, name)
+        else:
+            # Forbid everything else.
+            raise UnpicklingError("global '%s.%s' is forbidden" % (module, name))
 
     def __init__(self, *args, **kwds):
         _ignore = kwds.pop('ignore', Unpickler._ignore)
         StockUnpickler.__init__(self, *args, **kwds)
         self._main = _main_module
         self._ignore = _ignore
+        self.white_list = [
+            ('_frozen_importlib_external', 'SourceFileLoader'),
+            ('_frozen_importlib', 'ModuleSpec'),
+            ('_frozen_importlib', 'BuiltinImporter')
+        ]
     pass
 
 '''
