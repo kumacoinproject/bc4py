@@ -1,8 +1,11 @@
 from bc4py.contract.basiclib.basic import *
 from bc4py.contract.basiclib import basic
+from bc4py.user import CoinBalance, UserCoins
 
 
-__all__ = list()
+__all__ = [
+    "CoinBalance", "UserCoins",
+]
 __all__ += basic.__all__
 
 

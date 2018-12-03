@@ -118,11 +118,15 @@ async def contract_storage(request):
     try:
         c_address = request.query['c_address']
         f_confirmed = bool(request.query.get('confirmed', False))
+        f_pickle = bool(request.query.get('pickle', False))
         best_block = builder.best_block if f_confirmed else None
         c = get_contract_object(c_address=c_address, best_block=best_block)
         if c is None:
             return web_base.json_res({})
-        storage = {decode(k): decode(v) for k, v in c.storage.items()}
+        elif f_pickle:
+            storage = b64encode(pickle.dumps(c)).decode()
+        else:
+            storage = {decode(k): decode(v) for k, v in c.storage.items()}
         return web_base.json_res(storage)
     except Exception as e:
         logging.error(e)

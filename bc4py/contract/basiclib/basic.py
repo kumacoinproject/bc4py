@@ -1,5 +1,7 @@
 from bc4py.user import CoinBalance
 from requests import get, post
+from base64 import b64decode
+import pickle
 
 
 API_BASE = 'http://127.0.0.1:3000/public/'
@@ -12,6 +14,37 @@ def get_address_inputs(start_tx, c_address):
         if address == c_address:
             balance[coin_id] += amount
     return balance
+
+
+def calc_return_pairs(start_tx, inputs, used, send=None, f_safe=True, redeem_address=None):
+    """ Calc redeem outputs pairs """
+    if redeem_address is None:
+        txhash, txindex = start_tx.inputs[0]
+        tx = api_get('gettxbyhash', hash=txhash)
+        redeem_address, coin_id, amount = tx.outputs[txindex]
+    pairs = list()
+    outputs = inputs - used
+    if send:
+        outputs += send
+    for coin_id, amount in outputs:
+        if amount == 0:
+            continue
+        elif f_safe and amount < 0:
+            raise Exception('Try to send more than received {}:{}'.format(coin_id, amount))
+        else:
+            pairs.append((redeem_address, coin_id, amount))
+    return pairs
+
+
+def get_contract_storage(c_address):
+    p_storage = api_get('contractstorage', c_address=c_address, pickle='true')
+    return pickle.loads(b64decode(p_storage.encode()))
+
+
+def calc_storage_diff(c_address, new_storage):
+    p_storage = api_get('contractstorage', c_address=c_address, pickle='true')
+    c_storage = pickle.loads(b64decode(p_storage.encode()))
+    return new_storage.export_diff(c_storage)
 
 
 def api_get(method, **kwargs):
@@ -30,6 +63,9 @@ def api_post(method, **kwargs):
 
 __price__ = {
     "get_address_inputs": 100,
+    "calc_return_pairs": 200,
+    "get_contract_storage": 500,
+    "calc_storage_diff": 500,
     "api_get": 200,
     "api_post": 200,
 }
