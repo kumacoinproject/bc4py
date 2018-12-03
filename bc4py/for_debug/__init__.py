@@ -5,6 +5,7 @@ import logging
 
 
 def f_already_bind(port):
+    """ check port already bind """
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     r = False
     try:
@@ -16,7 +17,7 @@ def f_already_bind(port):
     return r
 
 
-def set_logger(level, prefix='', fileout=False):
+def set_logger(level, prefix='main', fileout=False):
     logger = logging.getLogger()
     for sh in logger.handlers:
         logger.removeHandler(sh)
@@ -24,7 +25,7 @@ def set_logger(level, prefix='', fileout=False):
     logger.setLevel(logging.DEBUG)
     formatter = logging.Formatter('[%(levelname)-6s] [%(threadName)-10s] [%(asctime)-24s] %(message)s')
     if fileout:
-        sh = logging.FileHandler('debug-{}.log'.format(prefix))
+        sh = logging.FileHandler('debug.{}.log'.format(prefix))
         sh.setLevel(level)
         sh.setFormatter(formatter)
         logger.addHandler(sh)

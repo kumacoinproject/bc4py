@@ -76,8 +76,9 @@ def start_emulators(f_debug=False):
                     for e in emulators:
                         if e.c_address != c_address:
                             continue
-                        # elif c_method == M_INIT:
-                        #    pass
+                        elif c_method == M_INIT:
+                            # TODO:Not write function.
+                            logging.warning("What work?")
                         # elif c_method == M_UPDATE:
                         #    pass
                         else:

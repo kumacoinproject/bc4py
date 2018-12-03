@@ -205,7 +205,7 @@ def contract_signature_check(extra_tx: TX, v: Validator, include_block: Block):
 
 def contract_required_gas_check(tx: TX, v: Validator, extra_gas=0):
     # gas/cosigner fee check
-    require_gas = len(tx.b) + extra_gas + (C.SIGNATURE_GAS + 96) * v.require
+    require_gas = tx.size + C.SIGNATURE_GAS*v.require + extra_gas
     if tx.gas_amount < require_gas:
         raise BlockChainError('Unsatisfied required gas. [{}<{}]'.format(tx.gas_amount, require_gas))
 

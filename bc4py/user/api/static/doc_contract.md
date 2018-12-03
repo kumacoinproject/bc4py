@@ -193,7 +193,7 @@ Disassembly of test:
     2. path    (file path, optional, default=None)
 * Request example
     * by source `curl  --basic -u user:password "127.0.0.1:3000/private/sourcecompile" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"source\": \"class Contract:\n    def __init__(self, start_tx, c_address):\n        self.start_tx = start_tx\n        self.c_address = c_address\n\n    def test(self, *args):\n        return\n\"}"`
-    * by filepath `curl  --basic -u user:password 127.0.0.1:3000/private/sourcecompile" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"path\": \"C:\\Users\\pycoin\\Source\\eample.py\"}"`
+    * by filepath `curl  --basic -u user:password "127.0.0.1:3000/private/sourcecompile" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"path\": \"C:\\Users\\pycoin\\Source\\eample.py\"}"`
 * Response
 ```json
 {
