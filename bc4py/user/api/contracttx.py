@@ -175,13 +175,13 @@ async def validate_unconfirmed(request):
 
 async def source_compile(request):
     post = await web_base.content_type_json_check(request)
+    # Warning: do not execute unknown source code!
     try:
-        extra_imports = post.get('extra_imports', None)
         if 'source' in post:
             source = str(post['source'])
-            c_obj = string2contract(string=source, extra_imports=extra_imports)
+            c_obj = string2contract(string=source, is_safe=True)
         elif 'path' in post:
-            c_obj = path2contract(path=post['path'], extra_imports=extra_imports)
+            c_obj = path2contract(path=post['path'], is_safe=True)
         else:
             raise Exception('You need set "source" or "path".')
         c_bin = contract2binary(c_obj)

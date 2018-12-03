@@ -102,6 +102,7 @@ class Contract:
             self.settings = settings_template.copy()
             if c_settings:
                 self.settings.update(c_settings)
+            c_storage = c_storage or dict()
             self.storage = Storage(c_address=self.c_address, **c_storage)
         elif c_method == M_UPDATE:
             assert self.index != -1
