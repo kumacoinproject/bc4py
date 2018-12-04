@@ -7,6 +7,7 @@ from bc4py.user.txcreation.utils import *
 from bc4py.user.txcreation.transfer import send_many
 import bjson
 from copy import deepcopy
+import logging
 
 
 def create_contract_init_tx(c_address, c_bin, cur, c_extra_imports=None, c_settings=None,
@@ -52,7 +53,7 @@ def create_contract_transfer_tx(c_address, cur, c_method, c_args=None,
     return tx
 
 
-def create_conclude_tx(c_address, start_tx, send_pairs=None, c_storage=None):
+def create_conclude_tx(c_address, start_tx, send_pairs=None, c_storage=None, emulate_gas=None):
     assert isinstance(start_tx, TX)
     assert send_pairs is None or isinstance(send_pairs, list)
     assert c_storage is None or isinstance(c_storage, dict)
@@ -74,6 +75,28 @@ def create_conclude_tx(c_address, start_tx, send_pairs=None, c_storage=None):
     fill_contract_inputs_outputs(tx=tx, c_address=c_address, additional_gas=extra_gas)
     # replace dummy address
     replace_redeem_dummy_address(tx=tx, replace_by=c_address)
+    # fix redeem fees
+    if send_pairs and emulate_gas:
+        # conclude_txで使用したGasを、ユーザーから引いてコントラクトに戻す処理
+        user_address_list = [address for address, coin_id, amount in send_pairs]
+        conclude_fee = (emulate_gas + tx.gas_amount) * tx.gas_price
+        fee_coin_id = 0
+        f_finish_add = f_finish_sub = False
+        for index, (address, coin_id, amount) in enumerate(tx.outputs):
+            if coin_id != fee_coin_id:
+                continue
+            elif not f_finish_add and address == c_address:
+                f_finish_add = True
+                tx.outputs[index] = (address, coin_id, amount + conclude_fee)
+            elif not f_finish_sub and address in user_address_list:
+                f_finish_sub = True
+                tx.outputs[index] = (address, coin_id, amount - conclude_fee)
+            else:
+                pass
+        if not (f_finish_add and f_finish_sub):
+            raise BlockChainError('Cannot move conclude fee, add={} sub={}'
+                                  .format(f_finish_add, f_finish_sub))
+        logging.debug("Move conclude fee {}:{}".format(fee_coin_id, conclude_fee))
     tx.serialize()
     if v.index == -1:
         raise BlockChainError('Not init validator address. {}'.format(c_address))

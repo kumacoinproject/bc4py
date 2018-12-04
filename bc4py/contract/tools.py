@@ -1,9 +1,9 @@
 from bc4py.contract.params import *
 from bc4py.contract.basiclib import *
 from bc4py.contract.basiclib import __all__ as basiclibs
-from bc4py.contract.dummy_template import Contract
 from bc4py.contract import dill
 from types import FunctionType, ModuleType
+from threading import Lock
 import io
 import dis
 import os
@@ -13,6 +13,7 @@ import importlib
 # Doc: restricting globals
 # https://docs.python.jp/3/library/pickle.html#restricting-globals
 PICKLE_PROTO_VER = 4
+lock = Lock()
 
 
 def get_limited_globals(extra_imports=None):
@@ -45,10 +46,11 @@ def binary2contract(c_bin, extra_imports=None):
     def dummy_create_function(fcode, fglobals, fname=None, fdefaults=None, fclosure=None, fdict=None):
         return FunctionType(fcode, g, fname, fdefaults, fclosure)
 
-    create_fnc = dill._dill._create_function
-    dill._dill._create_function = dummy_create_function
-    c_obj = dill.loads(c_bin)
-    dill._dill._create_function = create_fnc
+    with lock:
+        create_fnc = dill._dill._create_function
+        dill._dill._create_function = dummy_create_function
+        c_obj = dill.loads(c_bin)
+        dill._dill._create_function = create_fnc
     assert c_obj.__class__ is type, 'Is not a class.'
     c_obj.__module__ = 'bc4py.contract.dummy_template'
     return c_obj

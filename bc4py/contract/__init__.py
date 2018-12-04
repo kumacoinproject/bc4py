@@ -4,13 +4,14 @@ from bc4py.contract.em import *
 from bc4py.database.contract import M_INIT, M_UPDATE
 from bc4py.user.network.sendnew import *
 from bc4py.user.txcreation.contract import create_conclude_tx
-from threading import Thread
+from threading import Thread, Lock
 import logging
 from io import StringIO
 
 
 emulators = list()
 f_running = False
+lock = Lock()
 
 
 class Emulate:
@@ -19,50 +20,63 @@ class Emulate:
         for e in emulators:
             if c_address == e.c_address:
                 raise Exception('Already registered c_address {}'.format(c_address))
-        emulators.append(self)
+        with lock:
+            emulators.append(self)
 
     def __repr__(self):
         return "<Emulator {}>".format(self.c_address)
 
     def close(self):
-        emulators.remove(self)
+        with lock:
+            emulators.remove(self)
 
-    def emulate(self, genesis_block, start_tx, c_method, c_args, f_debug=False):
-        file = StringIO()
-        gas_limit = 100000000 if f_debug else None
-        is_success, result, total_gas, work_line = emulate(
-            genesis_block=genesis_block, start_tx=start_tx, c_address=self.c_address,
-            c_method=c_method, c_args=c_args, gas_limit=gas_limit, file=file)
-        if is_success:
-            logging.info('Success gas={} line={} result={}'.format(total_gas, work_line, result))
-            if f_debug:
-                logging.debug("#### Start log ####")
-                for data in file.getvalue().split("\n"):
-                    logging.debug(data)
-                logging.debug("#### Finish log ####")
-        else:
-            logging.error('Failed gas={} line={} result={} log={}'.format(
-                total_gas, work_line, result, file.getvalue()))
-            return
-        file.close()
-        # conclude tx
-        send_pairs, c_storage = result
-        tx = create_conclude_tx(c_address=self.c_address,
-                                start_tx=start_tx, send_pairs=send_pairs, c_storage=c_storage)
+
+def execute(c_address, genesis_block, start_tx, c_method, c_args, f_debug=False):
+    """ execute contract emulator """
+    file = StringIO()
+    gas_limit = 100000000 if f_debug else None
+    is_success, result, emulate_gas, work_line = emulate(
+        genesis_block=genesis_block, start_tx=start_tx, c_address=c_address,
+        c_method=c_method, c_args=c_args, gas_limit=gas_limit, file=file)
+    if is_success:
+        logging.info('Success gas={} line={} result={}'.format(emulate_gas, work_line, result))
         if f_debug:
-            logging.debug("Not broadcast, send_pairs={} c_storage={} tx={}"
-                          .format(send_pairs, c_storage, tx.getinfo()))
-        elif send_newtx(new_tx=tx):
-            logging.info("Success {}".format(tx))
-        else:
-            logging.error("Failed broadcast, send_pairs={} c_storage={} tx={}"
-                          .format(send_pairs, c_storage, tx.getinfo()))
+            logging.debug("#### Start log ####")
+            for data in file.getvalue().split("\n"):
+                logging.debug(data)
+            logging.debug("#### Finish log ####")
+    else:
+        logging.error('Failed gas={} line={} result={} log={}'.format(
+            emulate_gas, work_line, result, file.getvalue()))
+    file.close()
+    return result, emulate_gas
+
+
+def broadcast(c_address, start_tx, emulate_gas, result, f_debug=False):
+    """ broadcast conclude tx """
+    if isinstance(result, tuple) and len(result) == 2:
+        send_pairs, c_storage = result
+    else:
+        return
+    # create conclude tx
+    tx = create_conclude_tx(c_address=c_address, start_tx=start_tx,
+                            send_pairs=send_pairs, c_storage=c_storage, emulate_gas=emulate_gas)
+    # send tx
+    if f_debug:
+        logging.debug("Not broadcast, send_pairs={} c_storage={} tx={}"
+                      .format(send_pairs, c_storage, tx.getinfo()))
+    elif send_newtx(new_tx=tx):
+        logging.info("Broadcast success {}".format(tx))
+    else:
+        logging.error("Failed broadcast, send_pairs={} c_storage={} tx={}"
+                      .format(send_pairs, c_storage, tx.getinfo()))
 
 
 def start_emulators(genesis_block, f_debug=False):
     def run():
         global f_running
-        f_running = True
+        with lock:
+            f_running = True
         logging.info("Start emulators debug={}".format(f_debug))
         while f_running:
             try:
@@ -82,8 +96,11 @@ def start_emulators(genesis_block, f_debug=False):
                         # elif c_method == M_UPDATE:
                         #    pass
                         else:
-                            e.emulate(genesis_block=genesis_block, start_tx=start_tx,
-                                      c_method=c_method, c_args=c_args, f_debug=f_debug)
+                            result, emulate_gas = execute(
+                                c_address=c_address, genesis_block=genesis_block, start_tx=start_tx,
+                                c_method=c_method, c_args=c_args, f_debug=f_debug)
+                            broadcast(c_address=c_address, start_tx=start_tx, emulate_gas=emulate_gas,
+                                      result=result, f_debug=f_debug)
 
                 # elif cmd == C_Conclude:
                 #    # sign already created conclude tx
@@ -92,6 +109,8 @@ def start_emulators(genesis_block, f_debug=False):
                     pass
             except NewInfo.empty:
                 pass
+            except BlockChainError:
+                logging.warning("Emulator", exc_info=True)
             except Exception:
                 logging.error("Emulator", exc_info=True)
     global f_running
@@ -101,8 +120,9 @@ def start_emulators(genesis_block, f_debug=False):
 def close_emulators():
     global f_running
     assert f_running is True
-    f_running = False
-    emulators.clear()
+    with lock:
+        f_running = False
+        emulators.clear()
     logging.info("Close emulators.")
 
 
