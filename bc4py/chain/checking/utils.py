@@ -73,8 +73,8 @@ def amount_check(tx, payfee_coin_id):
 
     # Check all plus amount
     remain_amount = input_coins - output_coins - fee_coins
-    if not remain_amount.is_all_plus_amount():
-        raise BlockChainError('There are minus amount coins. {}={}-{}-{}'
+    if not remain_amount.is_empty():
+        raise BlockChainError('77 Don\'t match input/output. {}={}-{}-{}'
                               .format(remain_amount, input_coins, output_coins, fee_coins))
 
 

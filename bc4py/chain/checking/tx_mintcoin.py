@@ -36,29 +36,39 @@ def check_tx_mint_coin(tx, include_block):
         raise BlockChainError('Signature check failed. signed={} require={} lack={}'
                               .format(signed_cks, require_cks, require_cks-signed_cks))
     # amount check
-    if 0 < len(set(coins.keys()) - {0, mint_id}):
-        raise BlockChainError('Unexpected coin_id included. {}'.format(set(coins.keys()) - {0, mint_id}))
-    if mint_id in coins:
-        # increase/decrease mintcoin amount
+    include_coin_ids = set(coins.keys())  # include zero balance pair
+    if include_coin_ids == {0, mint_id}:
+        # increase/decrease mintcoin amount (exchange)
+        # don't care about params and setting on this section
         if not m_before.setting['additional_issue']:
             raise BlockChainError('additional_issue is False but change amount.')
-        if coins[0] + coins[mint_id] < 0:
-            raise BlockChainError('Too many output amount. {}'.format(coins))
+        if coins[0] + coins[mint_id] != 0:
+            raise BlockChainError('46 Don\'t match input/output amount. {}'.format(coins))
         if coins[mint_id] < 0:
             pass  # increase
         if coins[mint_id] > 0:
             pass  # decrease
+    elif len(include_coin_ids) == 1:
+        include_id = include_coin_ids.pop()
+        include_amount = coins[include_id]
+        if include_id == 0:
+            # only id=0, just only change mintcoin status
+            if params is None and setting is None:
+                raise BlockChainError('No update found.')
+            if include_amount != 0:
+                raise BlockChainError('59 Don\'t match input/output amount. {}'.format(coins))
+        elif include_id == mint_id:
+            raise BlockChainError('Only include mint_id, coins={}'.format(coins))
+        else:
+            raise BlockChainError('Unexpected include_id, {}'.format(include_id))
     else:
-        # only change mintcoin status
-        if params is None and setting is None:
-            raise BlockChainError('No update found.')
-        if sum(coins.values()) < 0:
-            raise BlockChainError('Too many output amount. {}'.format(coins))
+        raise BlockChainError('Unexpected include_coin_ids, {}'.format(include_coin_ids))
 
 
 def input_output_digest(tx):
     require_cks = set()
     coins = CoinBalance()
+    # inputs
     for txhash, txindex in tx.inputs:
         input_tx = tx_builder.get_tx(txhash=txhash)
         if input_tx is None:
@@ -66,9 +76,11 @@ def input_output_digest(tx):
         address, coin_id, amount = input_tx.outputs[txindex]
         require_cks.add(address)
         coins[coin_id] += amount
-    coins[0] -= tx.gas_amount * tx.gas_price
+    # outputs
     for address, coin_id, amount in tx.outputs:
         coins[coin_id] -= amount
+    # fee
+    coins[0] -= tx.gas_amount * tx.gas_price
     return require_cks, coins
 
 

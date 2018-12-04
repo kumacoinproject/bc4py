@@ -19,6 +19,8 @@ class CoinBalance(defaultdict):
         yield from self.items()
 
     def copy(self):
+        # don't remove zero balance pair, until copy
+        # after copy, new obj don't include zero balance pair
         return CoinBalance(balance=dict(self))
 
     def is_all_plus_amount(self):
@@ -30,6 +32,12 @@ class CoinBalance(defaultdict):
     def is_all_minus_amount(self):
         for v in self.values():
             if v > 0:
+                return False
+        return True
+
+    def is_empty(self):
+        for v in self.values():
+            if v != 0:
                 return False
         return True
 
