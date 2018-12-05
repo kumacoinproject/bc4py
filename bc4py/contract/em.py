@@ -10,6 +10,7 @@ import socket
 import traceback
 from time import time
 import os
+import bdb
 
 
 CMD_ERROR = 'CMD_ERROR'
@@ -44,6 +45,8 @@ def _vm(genesis_block, start_tx, que, binary, extra_imports, c_address, c_method
         result = fnc(*c_args)
         virtual_machine.do_quit(EMU_QUIT)
         que.put((CMD_SUCCESS, result))
+    except bdb.BdbQuit:
+        pass
     except Exception:
         virtual_machine.do_quit(EMU_QUIT)
         tb = traceback.format_exc()
@@ -70,24 +73,47 @@ def emulate(genesis_block, start_tx, c_address, c_method, c_args, gas_limit=None
     if timeout:
         sock.settimeout(timeout)
     logging.debug('Start emulation of {}'.format(start_tx))
-    work_line = total_gas = 0
+    work_line = total_gas = code_depth = 0
     cmd, error = EMU_STEP, None
+    data = b''
     while True:
         try:
-            msgs = sock.recv(8192).decode(errors='ignore').replace("\r", "").split("\n")
-            if len(msgs) <= 1:
-                sock.close()
+            new_data = sock.recv(8192)
+            if len(new_data) == 0:
                 break
-            elif len(msgs) < 3:
-                pass
-            elif gas_limit and gas_limit < total_gas:
+            data += new_data
+            if data.endswith(b'(Pdb) '):
+                msgs = data.decode(errors='ignore').replace("\r", "").split("\n")
+                if data.startswith(b'> ') and len(msgs) == 2:
+                    working_type = 'Normal'
+                    working_path = msgs[0][2:]
+                    working_code = ''
+                elif data.startswith(b'> ') and len(msgs) == 3:
+                    working_type = 'Normal'
+                    working_path = msgs[0][2:]
+                    working_code = msgs[-2][3:]
+                elif data.startswith(b'--Call--'):
+                    working_type = 'Call'
+                    working_path = msgs[1][2:]
+                    working_code = msgs[-2][3:]
+                    code_depth += 1
+                elif data.startswith(b'--Return--'):
+                    working_type = 'Return'
+                    working_path = msgs[1][2:]
+                    working_code = msgs[-2][3:]
+                    code_depth -= 1
+                else:
+                    error = data.decode(errors='ignore')
+                    break
+                data = b''
+            else:
+                continue
+            if gas_limit and gas_limit < total_gas:
                 error = 'Reach gas_limit. [{}<{}]'.format(gas_limit, total_gas)
                 break
             elif cmd in (EMU_STEP, EMU_NEXT, EMU_UNTIL, EMU_RETURN):
-                msgs, working_path, words = msgs[:-3], msgs[-3][2:], msgs[-2][3:]
                 working_file = os.path.split(working_path)[1]
                 if working_file.startswith('contract('):
-                    work_line += 1
                     total_gas += 1
                     cmd = EMU_STEP
                 elif working_file.startswith(WORKING_FILE_NAME):
@@ -96,10 +122,11 @@ def emulate(genesis_block, start_tx, c_address, c_method, c_args, gas_limit=None
                     cmd = EMU_NEXT
                 # Calculate total_gas
                 for func, gas in __price__.items():
-                    if func in words and words.startswith('def ' + func + '('):
+                    if func in working_code and working_code.startswith('def ' + func + '('):
                         total_gas += gas
-                print("file={}, path={}".format(working_file, working_path.replace('\\', '/')), file=file)
-                print(" {}: gas={} cmd={} >> {}".format(work_line, total_gas, cmd, words), file=file)
+                print("{} d={} {} >> type={} gas={} path={} code=\"{}\"".format(
+                    work_line, code_depth, cmd, working_type, total_gas, working_file, working_code), file=file)
+                work_line += 1
             else:
                 print("NOP [{}] >> {}".format(cmd, ', '.join(msgs)), file=file)
 
@@ -110,6 +137,9 @@ def emulate(genesis_block, start_tx, c_address, c_method, c_args, gas_limit=None
         except Exception:
             error = str(traceback.format_exc())
             break
+    # close socket
+    sock.send((EMU_QUIT + "\n").encode())
+    sock.close()
     # Close emulation
     logging.debug("Finish {}Sec error:{}".format(round(time()-start, 3), error))
     try:

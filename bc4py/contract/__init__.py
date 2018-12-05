@@ -1,4 +1,4 @@
-from bc4py.config import C, NewInfo
+from bc4py.config import P, NewInfo
 from bc4py.contract.watch import *
 from bc4py.contract.em import *
 from bc4py.database.contract import M_INIT, M_UPDATE
@@ -7,7 +7,7 @@ from bc4py.user.txcreation.contract import create_conclude_tx
 from threading import Thread, Lock
 import logging
 from io import StringIO
-
+from time import sleep
 
 emulators = list()
 f_running = False
@@ -30,6 +30,14 @@ class Emulate:
         with lock:
             emulators.remove(self)
 
+    def debug(self, genesis_block, start_tx, c_method, c_args):
+        f_debug = True
+        result, emulate_gas = execute(
+            c_address=self.c_address, genesis_block=genesis_block, start_tx=start_tx,
+            c_method=c_method, c_args=c_args, f_debug=f_debug)
+        broadcast(c_address=self.c_address, start_tx=start_tx, emulate_gas=emulate_gas,
+                  result=result, f_debug=f_debug)
+
 
 def execute(c_address, genesis_block, start_tx, c_method, c_args, f_debug=False):
     """ execute contract emulator """
@@ -46,7 +54,7 @@ def execute(c_address, genesis_block, start_tx, c_method, c_args, f_debug=False)
                 logging.debug(data)
             logging.debug("#### Finish log ####")
     else:
-        logging.error('Failed gas={} line={} result={} log={}'.format(
+        logging.error('Failed gas={} line={} result=\n{} log=\n{}'.format(
             emulate_gas, work_line, result, file.getvalue()))
     file.close()
     return result, emulate_gas
@@ -77,6 +85,8 @@ def start_emulators(genesis_block, f_debug=False):
         global f_running
         with lock:
             f_running = True
+        while P.F_NOW_BOOTING:
+            sleep(1)
         logging.info("Start emulators debug={}".format(f_debug))
         while f_running:
             try:
@@ -91,8 +101,7 @@ def start_emulators(genesis_block, f_debug=False):
                         if e.c_address != c_address:
                             continue
                         elif c_method == M_INIT:
-                            # TODO:Not write function.
-                            logging.warning("What work?")
+                            logging.warning("No work on init.")
                         # elif c_method == M_UPDATE:
                         #    pass
                         else:

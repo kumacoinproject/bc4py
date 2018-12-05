@@ -53,6 +53,7 @@ def binary2contract(c_bin, extra_imports=None):
         dill._dill._create_function = create_fnc
     assert c_obj.__class__ is type, 'Is not a class.'
     c_obj.__module__ = 'bc4py.contract.dummy_template'
+    c_obj.__name__ = 'contract'
     return c_obj
 
 
