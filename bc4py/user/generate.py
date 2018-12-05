@@ -131,6 +131,8 @@ class Generate(Thread):
             if previous_block is None or unconfirmed_txs is None or unspents_txs is None:
                 sleep(0.1)
                 continue
+            # to avoid AttributeError of previous_block
+            previous_hash, previous_height = previous_block.hash, previous_block.height
             if len(unspents_txs) == 0:
                 logging.info("No unspents for staking, wait 180s..")
                 sleep(180)
@@ -138,15 +140,15 @@ class Generate(Thread):
             start = time()
             # create staking block
             bits, target = get_bits_by_hash(
-                previous_hash=previous_block.hash, consensus=C.BLOCK_POS)
-            reward = GompertzCurve.calc_block_reward(previous_block.height + 1)
+                previous_hash=previous_hash, consensus=C.BLOCK_POS)
+            reward = GompertzCurve.calc_block_reward(previous_height + 1)
             staking_block = Block(block={
                 'merkleroot': b'\xff' * 32,
                 'time': 0,
-                'previous_hash': previous_block.hash,
+                'previous_hash': previous_hash,
                 'bits': bits,
                 'nonce': b'\xff\xff\xff\xff'})
-            staking_block.height = previous_block.height + 1
+            staking_block.height = previous_height + 1
             staking_block.flag = C.BLOCK_POS
             staking_block.bits2target()
             staking_block.txs.append(None)  # Dummy proof tx
@@ -162,12 +164,12 @@ class Generate(Thread):
                     logging.debug("Reset by \"nothing params found\"")
                     sleep(1)
                     break
-                elif previous_block.hash != staking_block.previous_hash:
+                elif previous_hash != staking_block.previous_hash:
                     logging.debug("Reset by \"Don't match previous_hash\"")
                     sleep(1)
                     break
                 elif not proof_tx.pos_check(
-                        previous_hash=previous_block.hash,
+                        previous_hash=previous_hash,
                         pos_target_hash=staking_block.target_hash):
                     continue
                 else:
