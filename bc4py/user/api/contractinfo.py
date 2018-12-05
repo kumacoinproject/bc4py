@@ -124,7 +124,7 @@ async def contract_storage(request):
         if c is None:
             return web_base.json_res({})
         elif f_pickle:
-            storage = b64encode(pickle.dumps(c)).decode()
+            storage = b64encode(pickle.dumps(c.storage)).decode()
         else:
             storage = {decode(k): decode(v) for k, v in c.storage.items()}
         return web_base.json_res(storage)

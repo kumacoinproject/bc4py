@@ -51,9 +51,14 @@ def _vm(genesis_block, start_tx, que, binary, extra_imports, c_address, c_method
         virtual_machine.do_quit(EMU_QUIT)
         tb = traceback.format_exc()
         que.put((CMD_ERROR, str(tb)))
+    # close port
+    try:
+        virtual_machine.shutdown()
+    except Exception:
+        pass
 
 
-def emulate(genesis_block, start_tx, c_address, c_method, c_args, gas_limit=None, timeout=None, file=None):
+def emulate(genesis_block, start_tx, c_address, c_method, c_args, gas_limit=None, file=None):
     start = time()
     que = cxt.Queue()
     c = get_contract_object(c_address=c_address, stop_txhash=start_tx.hash)
@@ -70,8 +75,7 @@ def emulate(genesis_block, start_tx, c_address, c_method, c_args, gas_limit=None
     logging.debug("Communication port={}.".format(port))
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect(("127.0.0.1", port))
-    if timeout:
-        sock.settimeout(timeout)
+    sock.settimeout(10)
     logging.debug('Start emulation of {}'.format(start_tx))
     work_line = total_gas = code_depth = 0
     cmd, error = EMU_STEP, None
@@ -85,11 +89,11 @@ def emulate(genesis_block, start_tx, c_address, c_method, c_args, gas_limit=None
             if data.endswith(b'(Pdb) '):
                 msgs = data.decode(errors='ignore').replace("\r", "").split("\n")
                 if data.startswith(b'> ') and len(msgs) == 2:
-                    working_type = 'Normal'
+                    working_type = 'Normal_1'
                     working_path = msgs[0][2:]
                     working_code = ''
                 elif data.startswith(b'> ') and len(msgs) == 3:
-                    working_type = 'Normal'
+                    working_type = 'Normal_2'
                     working_path = msgs[0][2:]
                     working_code = msgs[-2][3:]
                 elif data.startswith(b'--Call--'):
@@ -102,9 +106,15 @@ def emulate(genesis_block, start_tx, c_address, c_method, c_args, gas_limit=None
                     working_path = msgs[1][2:]
                     working_code = msgs[-2][3:]
                     code_depth -= 1
+                elif data.startswith(b'Internal StopIteration'):
+                    working_type = 'StopIter'
+                    working_path = msgs[1][2:]
+                    working_code = msgs[-2][3:]
                 else:
-                    error = data.decode(errors='ignore')
-                    break
+                    working_type = 'Exception'
+                    working_path = msgs[1][2:]
+                    working_code = msgs[-2][3:] if len(msgs) >= 4 else ''
+                    print("{} >> Unexpected em data?: {}".format(work_line, msgs), file=file)
                 data = b''
             else:
                 continue
@@ -135,20 +145,21 @@ def emulate(genesis_block, start_tx, c_address, c_method, c_args, gas_limit=None
         except ConnectionResetError:
             break
         except Exception:
+            import itertools
             error = str(traceback.format_exc())
             break
     # close socket
     sock.send((EMU_QUIT + "\n").encode())
     sock.close()
     # Close emulation
-    logging.debug("Finish {}Sec error:{}".format(round(time()-start, 3), error))
+    logging.debug("Finish {}Sec error:\"{}\"".format(round(time()-start, 3), error))
     try:
         cmd, result = que.get(timeout=10)
         # close connect
         try: que.close()
-        except: pass
+        except Exception: pass
         try: p.terminate()
-        except: pass
+        except Exception: pass
 
         return cmd == CMD_SUCCESS, result, total_gas, work_line
     except Exception as e:

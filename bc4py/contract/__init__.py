@@ -54,9 +54,10 @@ def execute(c_address, genesis_block, start_tx, c_method, c_args, f_debug=False)
                 logging.debug(data)
             logging.debug("#### Finish log ####")
     else:
-        logging.error('Failed gas={} line={} result=\n{} log=\n{}'.format(
+        logging.error('Failed gas={} line={} result=\n{}\nlog=\n{}'.format(
             emulate_gas, work_line, result, file.getvalue()))
     file.close()
+    logging.debug("Close file obj {}.".format(id(file)))
     return result, emulate_gas
 
 

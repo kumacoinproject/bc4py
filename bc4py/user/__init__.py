@@ -2,6 +2,8 @@ from collections import defaultdict
 
 
 class CoinBalance(defaultdict):
+    __slots__ = tuple()
+
     def __init__(self, coin_id=None, amount=None, balance=None):
         super().__init__(int)
         if coin_id is not None and amount is not None:
@@ -57,6 +59,8 @@ class CoinBalance(defaultdict):
 
 
 class UserCoins(defaultdict):
+    __slots__ = tuple()
+
     def __init__(self, users=None):
         super().__init__(CoinBalance)
         if users:

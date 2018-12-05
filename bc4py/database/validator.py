@@ -13,6 +13,8 @@ cashe = ExpiringDict(max_len=100, max_age_seconds=1800)
 
 
 class Validator:
+    __slots__ = ("c_address", "validators", "require", "index", "txhash")
+
     def __init__(self, c_address):
         self.c_address = c_address
         self.validators = list()

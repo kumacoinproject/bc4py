@@ -17,16 +17,20 @@ settings_template = {
     'update_extra_imports': True}
 
 
-class Storage(defaultdict):
-    def __init__(self, c_address, default_factory=None, **kwargs):
-        super(Storage, self).__init__(default_factory, **kwargs)
+class Storage(dict):
+    __slots__ = ("c_address", "version")
+
+    def __init__(self, c_address=None, init_storage=None):
+        super().__init__()
+        assert c_address is not None
+        init_storage = init_storage or dict()
         # check value is not None
-        for k, v in kwargs.items():
+        for k, v in init_storage.items():
             if v is None:
                 raise Exception('Not allowed None value...')
         # check key type
-        if len({type(k) for k in kwargs}) > 1:
-            raise Exception("All key type is same {}".format([type(k) for k in kwargs]))
+        if len({type(k) for k in init_storage}) > 1:
+            raise Exception("All key type is same {}".format([type(k) for k in init_storage]))
         self.c_address = c_address
         self.version = 0
 
@@ -65,6 +69,9 @@ class Storage(defaultdict):
 
 
 class Contract:
+    __slots__ = ("c_address", "index", "binary", "extra_imports",
+                 "storage", "settings", "start_hash", "finish_hash")
+
     def __init__(self, c_address):
         self.c_address = c_address
         self.index = -1
@@ -103,7 +110,7 @@ class Contract:
             if c_settings:
                 self.settings.update(c_settings)
             c_storage = c_storage or dict()
-            self.storage = Storage(c_address=self.c_address, **c_storage)
+            self.storage = Storage(c_address=self.c_address, init_storage=c_storage)
         elif c_method == M_UPDATE:
             assert self.index != -1
             c_bin, c_extra_imports, c_settings = c_args
