@@ -33,7 +33,7 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
     # check already created conclude tx
     check_finish_hash = get_conclude_hash_by_start_hash(
         c_address=c_address, start_hash=start_hash, best_block=include_block, stop_txhash=tx.hash)
-    if check_finish_hash is not None:
+    if check_finish_hash and check_finish_hash != tx.hash:
         raise BlockChainError('Already start_hash used. {}'.format(hexlify(check_finish_hash).decode()))
     # inputs address check
     for txhash, txindex in tx.inputs:

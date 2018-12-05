@@ -97,7 +97,7 @@ def change_mintcoin(mint_id, cur, amount=None, description=None, image=None, set
         send_coins = CoinBalance(0, 0)
         minting_coins = CoinBalance(0, 0)
     tx.update_time(retention)
-    additional_gas = C.MINTCOIN_GAS
+    additional_gas = C.MINTCOIN_GAS + C.SIGNATURE_GAS  # for mint_coin user signature
     tx.gas_amount = tx.size + C.SIGNATURE_GAS + additional_gas
     tx.serialize()
     # fill unspents
