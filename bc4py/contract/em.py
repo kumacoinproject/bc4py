@@ -28,19 +28,19 @@ WORKING_FILE_NAME = 'em.py'
 cxt = get_context('spawn')
 
 
-def _vm(genesis_block, start_tx, que, binary, extra_imports, c_address, c_method, c_args):
+def _vm(genesis_block, start_tx, que, c, c_address, c_method, redeem_address, c_args):
     set_blockchain_params(genesis_block)
     c_args = c_args or list()
     virtual_machine = rpdb.Rpdb(port=0)
     try:
-        c_obj = binary2contract(c_bin=binary, extra_imports=extra_imports)
+        c_obj = binary2contract(c_bin=c.binary, extra_imports=c.extra_imports)
         # notify listen port
         que.put((CMD_PORT, virtual_machine.port))
         # start emulate
         virtual_machine.server_start()
         virtual_machine.set_trace()
         # get method
-        obj = c_obj(start_tx, c_address)
+        obj = c_obj(start_tx, c_address, c.storage, redeem_address)
         fnc = getattr(obj, c_method)
         result = fnc(*c_args)
         virtual_machine.do_quit(EMU_QUIT)
@@ -58,14 +58,14 @@ def _vm(genesis_block, start_tx, que, binary, extra_imports, c_address, c_method
         pass
 
 
-def emulate(genesis_block, start_tx, c_address, c_method, c_args, gas_limit=None, file=None):
+def emulate(genesis_block, start_tx, c_address, c_method, redeem_address, c_args, gas_limit=None, file=None):
     start = time()
     que = cxt.Queue()
     c = get_contract_object(c_address=c_address, stop_txhash=start_tx.hash)
     if c.index == -1 or c.binary is None:
         raise BlockChainError('Need register contract binary first.')
-    kwargs = dict(genesis_block=genesis_block, start_tx=start_tx, que=que, binary=c.binary,
-                  extra_imports=c.extra_imports, c_address=c_address, c_method=c_method, c_args=c_args)
+    kwargs = dict(genesis_block=genesis_block, start_tx=start_tx, que=que, c=c,
+                  c_address=c_address, c_method=c_method, redeem_address=redeem_address, c_args=c_args)
     p = cxt.Process(target=_vm, kwargs=kwargs)
     p.start()
     logging.debug('wait for notify of listen port.')
@@ -145,7 +145,6 @@ def emulate(genesis_block, start_tx, c_address, c_method, c_args, gas_limit=None
         except ConnectionResetError:
             break
         except Exception:
-            import itertools
             error = str(traceback.format_exc())
             break
     # close socket
@@ -162,7 +161,7 @@ def emulate(genesis_block, start_tx, c_address, c_method, c_args, gas_limit=None
         except Exception: pass
 
         return cmd == CMD_SUCCESS, result, total_gas, work_line
-    except Exception as e:
+    except Exception:
         if error is None:
-            error = str(e)
+            error = str(traceback.format_exc())
         return False, error, total_gas, work_line

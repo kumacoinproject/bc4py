@@ -67,7 +67,7 @@ async def get_contract_history(request):
                 if _c_address != c_address:
                     continue
                 start_tx = tx_builder.get_tx(txhash=start_hash)
-                dummy, c_method, c_args = bjson.loads(start_tx.message)
+                dummy, c_method, redeem_address, c_args = bjson.loads(start_tx.message)
                 data.append({
                     'index': index,
                     'height': tx.height,
@@ -75,7 +75,8 @@ async def get_contract_history(request):
                     'finish_hash': hexlify(tx.hash).decode(),
                     'c_method': c_method,
                     'c_args': [decode(a) for a in c_args],
-                    'c_storage': {decode(k): decode(v) for k, v in c_storage.items()} if c_storage else None
+                    'c_storage': {decode(k): decode(v) for k, v in c_storage.items()} if c_storage else None,
+                    'redeem_address': redeem_address,
                 })
                 index += 1
         return web_base.json_res(data)

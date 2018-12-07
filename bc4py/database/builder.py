@@ -2,7 +2,7 @@ from bc4py.config import C, V, P, NewInfo
 from bc4py.chain.utils import signature2bin, bin2signature
 from bc4py.chain.tx import TX
 from bc4py.chain.block import Block
-from bc4py.user import CoinBalance, UserCoins
+from bc4py.user import Balance, Accounting
 from bc4py.database.account import *
 from bc4py.database.create import closing, create_db
 import struct
@@ -696,7 +696,7 @@ class ChainBuilder:
                         elif tx.type == C.TX_CONCLUDE_CONTRACT:
                             c_address, start_hash, c_storage = bjson.loads(tx.message)
                             start_tx = tx_builder.get_tx(txhash=start_hash)
-                            dummy, c_method, c_args = bjson.loads(start_tx.message)
+                            dummy, c_method, redeem_address, c_args = bjson.loads(start_tx.message)
                             self.db.write_contract(c_address=c_address, start_hash=start_hash,
                                                    finish_hash=tx.hash, message=(c_method, c_args, c_storage))
 
@@ -865,7 +865,7 @@ class TransactionBuilder:
 
 class UserAccount:
     def __init__(self):
-        self.db_balance = UserCoins()
+        self.db_balance = Accounting()
         # {txhash: (_type, movement, _time),..}
         self.memory_movement = dict()
 
@@ -873,7 +873,7 @@ class UserAccount:
         assert f_delete is False, 'Unsafe function!'
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
-            memory_sum = UserCoins()
+            memory_sum = Accounting()
             for move_log in read_log_iter(cur):
                 # logに記録されてもBlockに取り込まれていないならTXは存在せず
                 if builder.db.read_tx(move_log.txhash):
@@ -924,12 +924,12 @@ class UserAccount:
         return balance
 
     def move_balance(self, _from, _to, coins, outer_cur=None):
-        assert isinstance(coins, CoinBalance),  'coins is CoinBalance.'
+        assert isinstance(coins, Balance), 'coins is Balance.'
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = outer_cur or db.cursor()
             try:
                 # DataBaseに即書き込む(Memoryに入れない)
-                movements = UserCoins()
+                movements = Accounting()
                 movements[_from] -= coins
                 movements[_to] += coins
                 txhash = insert_log(movements, cur)
@@ -1012,7 +1012,7 @@ class UserAccount:
     def affect_new_tx(self, tx, outer_cur=None):
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = outer_cur or db.cursor()
-            movement = UserCoins()
+            movement = Accounting()
             # send_from_applyで登録済み
             if tx.hash in self.memory_movement:
                 return

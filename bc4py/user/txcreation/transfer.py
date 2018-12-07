@@ -2,7 +2,7 @@ from bc4py import __chain_version__
 from bc4py.config import C, V, BlockChainError
 from bc4py.chain import TX
 from bc4py.database.account import insert_log
-from bc4py.user import CoinBalance, UserCoins
+from bc4py.user import Balance, Accounting
 from bc4py.user.txcreation.utils import *
 from nem_ed25519.key import is_address
 import time
@@ -13,9 +13,9 @@ def send_many(sender, send_pairs, cur, fee_coin_id=0, gas_price=None,
     assert isinstance(sender, int), 'Sender is user id.'
     assert 0 < len(send_pairs), 'Empty send_pairs.'
     # send_pairs check
-    movements = UserCoins()
+    movements = Accounting()
     outputs = list()
-    coins = CoinBalance()
+    coins = Balance()
     for address, coin_id, amount in send_pairs:
         assert isinstance(address, str) and len(address) == 40, 'Recipient is 40 letter string.'
         assert isinstance(coin_id, int) and isinstance(amount, int), 'CoinID, amount is int.'
@@ -40,10 +40,10 @@ def send_many(sender, send_pairs, cur, fee_coin_id=0, gas_price=None,
     # fill unspents
     input_address = fill_inputs_outputs(tx, cur, fee_coin_id, additional_gas=0)
     # account check
-    fee_coins = CoinBalance(coin_id=fee_coin_id, amount=tx.gas_price * tx.gas_amount)
+    fee_coins = Balance(coin_id=fee_coin_id, amount=tx.gas_price * tx.gas_amount)
     if f_balance_check:
         # 残高が十分にあるかチェック
-        send_coins = CoinBalance()
+        send_coins = Balance()
         for address, coin_id, amount in send_pairs:
             send_coins[coin_id] += amount
         check_enough_amount(sender, send_coins, fee_coins)
@@ -63,7 +63,7 @@ def send_many(sender, send_pairs, cur, fee_coin_id=0, gas_price=None,
 
 def send_from(sender, address, coins, cur, fee_coin_id=0, gas_price=None,
               msg_type=C.MSG_NONE, msg_body=b'', f_balance_check=True, retention=10800):
-    assert isinstance(coins, CoinBalance)
+    assert isinstance(coins, Balance)
     send_pairs = list()
     for coin_id, amount in coins:
         send_pairs.append((address, coin_id, amount))

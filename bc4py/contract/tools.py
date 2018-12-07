@@ -81,8 +81,12 @@ def path2contract(path, is_safe=False):
         raise FileNotFoundError('Not found "{}"'.format(path))
     elif os.path.isdir(path):
         raise TypeError('Is not file "{}"'.format(path))
-    with open(path, mode='r') as fp:
-        string = fp.read()
+    try:
+        with open(path, mode='r') as fp:
+            string = fp.read()
+    except UnicodeDecodeError:
+        with open(path, mode='r', encoding='utf-8') as fp:
+            string = fp.read()
     return string2contract(string, is_safe)
 
 

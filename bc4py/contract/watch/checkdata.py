@@ -53,11 +53,11 @@ def check_new_block(block: Block):
             continue
         elif tx.type == C.TX_TRANSFER:
             # ConcludeTXを作成するべきフォーマットのTXを見つける
-            c_address, c_method, c_args = bjson.loads(tx.message)
+            c_address, c_method, redeem_address, c_args = bjson.loads(tx.message)
             v = get_validator_object(c_address=c_address)
             related_list = check_related_address(v.validators)
             if related_list:
-                data = (time(), tx, related_list, c_address, c_method, c_args)
+                data = (time(), tx, related_list, c_address, c_method, redeem_address, c_args)
                 watching_tx[tx.hash] = data
                 NewInfo.put((C_RequestConclude, False, data))
         elif tx.type == C.TX_CONCLUDE_CONTRACT:

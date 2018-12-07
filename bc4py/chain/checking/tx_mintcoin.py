@@ -2,7 +2,7 @@ from bc4py.config import C, V, BlockChainError
 from bc4py.chain.checking.signature import *
 from bc4py.database.mintcoin import *
 from bc4py.database.builder import tx_builder
-from bc4py.user import CoinBalance
+from bc4py.user import Balance
 from binascii import hexlify
 import bjson
 
@@ -67,7 +67,7 @@ def check_tx_mint_coin(tx, include_block):
 
 def input_output_digest(tx):
     require_cks = set()
-    coins = CoinBalance()
+    coins = Balance()
     # inputs
     for txhash, txindex in tx.inputs:
         input_tx = tx_builder.get_tx(txhash=txhash)

@@ -3,6 +3,7 @@ from bc4py.chain import TX
 from bc4py.database import contract
 from bc4py.database.validator import F_NOP, F_REMOVE, F_ADD, get_validator_object
 from bc4py.database.builder import tx_builder
+from bc4py.database.account import create_new_user_keypair, read_user2name
 from bc4py.user.txcreation.utils import *
 from bc4py.user.txcreation.transfer import send_many
 import bjson
@@ -16,7 +17,8 @@ def create_contract_init_tx(c_address, c_bin, cur, c_extra_imports=None, c_setti
         raise BlockChainError('Not allowed inner account.')
     c_method = contract.M_INIT
     c_args = (c_bin, c_extra_imports, c_settings)
-    msg_body = bjson.dumps((c_address, c_method, c_args), compress=False)
+    redeem_address = create_new_user_keypair(read_user2name(sender, cur), cur)
+    msg_body = bjson.dumps((c_address, c_method, redeem_address, c_args), compress=False)
     send_pairs = send_pairs_format_check(c_address=c_address, send_pairs=send_pairs)
     tx = send_many(sender=sender, send_pairs=send_pairs, cur=cur, fee_coin_id=0, gas_price=gas_price,
                    msg_type=C.MSG_BYTE, msg_body=msg_body, retention=retention)
@@ -30,7 +32,8 @@ def create_contract_update_tx(c_address, cur, c_bin=None, c_extra_imports=None, 
         raise BlockChainError('Not allowed inner account.')
     c_method = contract.M_UPDATE
     c_args = (c_bin, c_extra_imports, c_settings)
-    msg_body = bjson.dumps((c_address, c_method, c_args), compress=False)
+    redeem_address = create_new_user_keypair(read_user2name(sender, cur), cur)
+    msg_body = bjson.dumps((c_address, c_method, redeem_address, c_args), compress=False)
     send_pairs = send_pairs_format_check(c_address=c_address, send_pairs=send_pairs)
     tx = send_many(sender=sender, send_pairs=send_pairs, cur=cur, fee_coin_id=0, gas_price=gas_price,
                    msg_type=C.MSG_BYTE, msg_body=msg_body, retention=retention)
@@ -46,14 +49,15 @@ def create_contract_transfer_tx(c_address, cur, c_method, c_args=None,
         c_args = tuple()
     else:
         c_args = tuple(c_args)
-    msg_body = bjson.dumps((c_address, c_method, c_args), compress=False)
+    redeem_address = create_new_user_keypair(read_user2name(sender, cur), cur)
+    msg_body = bjson.dumps((c_address, c_method, redeem_address, c_args), compress=False)
     send_pairs = send_pairs_format_check(c_address=c_address, send_pairs=send_pairs)
     tx = send_many(sender=sender, send_pairs=send_pairs, cur=cur, fee_coin_id=0, gas_price=gas_price,
                    msg_type=C.MSG_BYTE, msg_body=msg_body, retention=retention)
     return tx
 
 
-def create_conclude_tx(c_address, start_tx, send_pairs=None, c_storage=None, emulate_gas=None):
+def create_conclude_tx(c_address, start_tx, redeem_address, send_pairs=None, c_storage=None, emulate_gas=None):
     assert isinstance(start_tx, TX)
     assert send_pairs is None or isinstance(send_pairs, list)
     assert c_storage is None or isinstance(c_storage, dict)
@@ -78,7 +82,6 @@ def create_conclude_tx(c_address, start_tx, send_pairs=None, c_storage=None, emu
     # fix redeem fees
     if send_pairs and emulate_gas:
         # conclude_txで使用したGasを、ユーザーから引いてコントラクトに戻す処理
-        user_address_list = [address for address, coin_id, amount in send_pairs]
         conclude_fee = (emulate_gas + tx.gas_amount) * tx.gas_price
         fee_coin_id = 0
         f_finish_add = f_finish_sub = False
@@ -88,7 +91,7 @@ def create_conclude_tx(c_address, start_tx, send_pairs=None, c_storage=None, emu
             elif not f_finish_add and address == c_address:
                 f_finish_add = True
                 tx.outputs[index] = (address, coin_id, amount + conclude_fee)
-            elif not f_finish_sub and address in user_address_list:
+            elif not f_finish_sub and address == redeem_address:
                 f_finish_sub = True
                 tx.outputs[index] = (address, coin_id, amount - conclude_fee)
             else:

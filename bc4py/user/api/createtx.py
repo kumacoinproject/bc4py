@@ -1,6 +1,6 @@
 from bc4py import __chain_version__
 from bc4py.config import C, V, P, BlockChainError
-from bc4py.user import CoinBalance
+from bc4py.user import Balance
 from bc4py.user.txcreation import *
 from bc4py.database.builder import tx_builder
 from bc4py.database.account import *
@@ -123,7 +123,7 @@ async def send_from_user(request):
             to_address = post['address']
             coin_id = int(post.get('coin_id', 0))
             amount = int(post['amount'])
-            coins = CoinBalance(coin_id, amount)
+            coins = Balance(coin_id, amount)
             message = post.get('message', None)
             if message:
                 msg_type = C.MSG_PLAIN

@@ -1,5 +1,5 @@
 from bc4py.config import C, V, BlockChainError
-from bc4py.user import UserCoins
+from bc4py.user import Accounting
 from bc4py.utils import AESCipher
 from bc4py.database.create import closing, create_db
 import time
@@ -17,7 +17,7 @@ def read_txhash2log(txhash, cur):
     """, (txhash,)).fetchall()
     if len(d) == 0:
         return None
-    movement = UserCoins()
+    movement = Accounting()
     _type = _time = None
     for _type, user, coin_id, amount, _time in d:
         movement.add_coins(user, coin_id, amount)
@@ -34,7 +34,7 @@ def read_log_iter(cur, start=0):
 
 
 def insert_log(movements, cur, _type=None, _time=None, txhash=None):
-    assert isinstance(movements, UserCoins), 'movements is UserCoin.'
+    assert isinstance(movements, Accounting), 'movements is Accounting.'
     _type = _type or C.TX_INNER
     _time = _time or int(time.time() - V.BLOCK_GENESIS_TIME)
     txhash = txhash or (b'\x00' * 24 + _time.to_bytes(4, 'big') + os.urandom(4))

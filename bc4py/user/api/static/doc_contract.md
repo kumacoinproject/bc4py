@@ -282,12 +282,11 @@ contract transfer
 conclude contract
 ----
 * Arguments
-    1. c_address     (string, required)  Contract address
-    2. start_hash    (hex string, required)
-    3. send_pairs    (list, optional, default=None)  `[(address, coin_id, amount),..]`
-    4. storage       (dict, optional, default=None)
+    1. start_hash    (hex string, required)
+    2. send_pairs    (list, optional, default=None)  `[(address, coin_id, amount),..]`
+    3. storage       (dict, optional, default=None)
 * Request example
-    * `curl --basic -u user:password "127.0.0.1:3000/private/concludecontract" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"c_address\": \"CJ4QZ7FDEH5J7B2O3OLPASBHAFEDP6I7UKI2YMKF\", \"start_hash\": \"c6a350a6771343427eff7fbf276122eac1d242e03a9b26d654ede3b272eda1fe\", \"storage\": {\"hello\": \"world\"}}"`
+    * `curl --basic -u user:password "127.0.0.1:3000/private/concludecontract" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"start_hash\": \"c6a350a6771343427eff7fbf276122eac1d242e03a9b26d654ede3b272eda1fe\", \"storage\": {\"hello\": \"world\"}}"`
 * Response
 ```json
 {

@@ -1,5 +1,5 @@
 from bc4py.config import C, V, BlockChainError
-from bc4py.user import CoinBalance
+from bc4py.user import Balance
 from bc4py.user.api import web_base
 from bc4py.database.builder import builder, tx_builder, user_account
 from bc4py.database.create import closing, create_db
@@ -73,7 +73,7 @@ async def move_one(request):
         ant_to = post['to']
         coin_id = int(post.get('coin_id', 0))
         amount = int(post['amount'])
-        coins = CoinBalance(coin_id, amount)
+        coins = Balance(coin_id, amount)
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
             _from = read_name2user(ant_from, cur)
@@ -92,7 +92,7 @@ async def move_many(request):
         post = await web_base.content_type_json_check(request)
         ant_from = post.get('from', C.ANT_NAME_UNKNOWN)
         ant_to = post['to']
-        coins = CoinBalance()
+        coins = Balance()
         for k, v in post['coins'].items():
             coins[int(k)] += int(v)
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:

@@ -2,7 +2,7 @@ from bc4py.config import C, V, BlockChainError
 from bc4py.chain import TX
 from bc4py.database.mintcoin import *
 from bc4py.database.account import create_new_user_keypair, read_user2name, insert_log
-from bc4py.user import CoinBalance, UserCoins
+from bc4py.user import Balance, Accounting
 from bc4py.user.txcreation.utils import *
 import random
 import bjson
@@ -41,9 +41,9 @@ def issue_mintcoin(name, unit, digit, amount, cur, description=None, image=None,
     fee_coin_id = 0
     input_address = fill_inputs_outputs(tx=tx, cur=cur, fee_coin_id=fee_coin_id, additional_gas=additional_gas)
     # input_address.add(mint_address)
-    fee_coins = CoinBalance(coin_id=fee_coin_id, amount=tx.gas_price * tx.gas_amount)
+    fee_coins = Balance(coin_id=fee_coin_id, amount=tx.gas_price * tx.gas_amount)
     # check amount
-    check_enough_amount(sender=sender, send_coins=CoinBalance(0, amount), fee_coins=fee_coins)
+    check_enough_amount(sender=sender, send_coins=Balance(0, amount), fee_coins=fee_coins)
     # replace dummy address
     replace_redeem_dummy_address(tx=tx, cur=cur)
     # replace dummy mint_id
@@ -52,8 +52,8 @@ def issue_mintcoin(name, unit, digit, amount, cur, description=None, image=None,
     tx.serialize()
     setup_signature(tx=tx, input_address=input_address)
     # movement
-    movements = UserCoins()
-    minting_coins = CoinBalance(mint_id, amount)
+    movements = Accounting()
+    minting_coins = Balance(mint_id, amount)
     movements[sender] += minting_coins
     movements[C.ANT_OUTSIDE] -= minting_coins
     movements[sender] -= fee_coins
@@ -91,11 +91,11 @@ def change_mintcoin(mint_id, cur, amount=None, description=None, image=None, set
         'message': msg_body})
     if amount:
         tx.outputs.append((MINTCOIN_DUMMY_ADDRESS, 0, amount))
-        send_coins = CoinBalance(0, amount)
-        minting_coins = CoinBalance(mint_id, amount)
+        send_coins = Balance(0, amount)
+        minting_coins = Balance(mint_id, amount)
     else:
-        send_coins = CoinBalance(0, 0)
-        minting_coins = CoinBalance(0, 0)
+        send_coins = Balance(0, 0)
+        minting_coins = Balance(0, 0)
     tx.update_time(retention)
     additional_gas = C.MINTCOIN_GAS + C.SIGNATURE_GAS  # for mint_coin user signature
     tx.gas_amount = tx.size + C.SIGNATURE_GAS + additional_gas
@@ -104,7 +104,7 @@ def change_mintcoin(mint_id, cur, amount=None, description=None, image=None, set
     fee_coin_id = 0
     input_address = fill_inputs_outputs(tx=tx, cur=cur, fee_coin_id=fee_coin_id, additional_gas=additional_gas)
     input_address.add(m_before.address)
-    fee_coins = CoinBalance(coin_id=fee_coin_id, amount=tx.gas_price * tx.gas_amount)
+    fee_coins = Balance(coin_id=fee_coin_id, amount=tx.gas_price * tx.gas_amount)
     # check amount
     check_enough_amount(sender=sender, send_coins=send_coins, fee_coins=fee_coins)
     # replace dummy address
@@ -115,7 +115,7 @@ def change_mintcoin(mint_id, cur, amount=None, description=None, image=None, set
     tx.serialize()
     setup_signature(tx=tx, input_address=input_address)
     # movement
-    movements = UserCoins()
+    movements = Accounting()
     movements[sender] += minting_coins
     movements[C.ANT_OUTSIDE] -= minting_coins
     movements[sender] -= fee_coins

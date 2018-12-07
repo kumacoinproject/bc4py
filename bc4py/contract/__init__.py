@@ -1,7 +1,9 @@
 from bc4py.config import P, NewInfo
 from bc4py.contract.watch import *
 from bc4py.contract.em import *
-from bc4py.database.contract import M_INIT, M_UPDATE
+from bc4py.database.builder import tx_builder
+from bc4py.database.contract import *
+from bc4py.user import Accounting
 from bc4py.user.network.sendnew import *
 from bc4py.user.txcreation.contract import create_conclude_tx
 from threading import Thread, Lock
@@ -15,8 +17,9 @@ lock = Lock()
 
 
 class Emulate:
-    def __init__(self, c_address):
+    def __init__(self, c_address, f_claim_gas=True):
         self.c_address = c_address
+        self.f_claim_gas = f_claim_gas
         for e in emulators:
             if c_address == e.c_address:
                 raise Exception('Already registered c_address {}'.format(c_address))
@@ -30,22 +33,21 @@ class Emulate:
         with lock:
             emulators.remove(self)
 
-    def debug(self, genesis_block, start_tx, c_method, c_args):
+    def debug(self, genesis_block, start_tx, c_method, redeem_address, c_args, gas_limit=None):
         f_debug = True
         result, emulate_gas = execute(
             c_address=self.c_address, genesis_block=genesis_block, start_tx=start_tx,
-            c_method=c_method, c_args=c_args, f_debug=f_debug)
-        broadcast(c_address=self.c_address, start_tx=start_tx, emulate_gas=emulate_gas,
-                  result=result, f_debug=f_debug)
+            c_method=c_method, redeem_address=redeem_address, c_args=c_args, gas_limit=gas_limit, f_debug=f_debug)
+        broadcast(c_address=self.c_address, start_tx=start_tx, redeem_address=redeem_address,
+                  emulate_gas=emulate_gas, result=result, f_debug=f_debug)
 
 
-def execute(c_address, genesis_block, start_tx, c_method, c_args, f_debug=False):
+def execute(c_address, genesis_block, start_tx, c_method, redeem_address, c_args, gas_limit, f_debug=False):
     """ execute contract emulator """
     file = StringIO()
-    gas_limit = 100000000 if f_debug else None
     is_success, result, emulate_gas, work_line = emulate(
         genesis_block=genesis_block, start_tx=start_tx, c_address=c_address,
-        c_method=c_method, c_args=c_args, gas_limit=gas_limit, file=file)
+        c_method=c_method, redeem_address=redeem_address, c_args=c_args, gas_limit=gas_limit, file=file)
     if is_success:
         logging.info('Success gas={} line={} result={}'.format(emulate_gas, work_line, result))
         if f_debug:
@@ -61,24 +63,46 @@ def execute(c_address, genesis_block, start_tx, c_method, c_args, f_debug=False)
     return result, emulate_gas
 
 
-def broadcast(c_address, start_tx, emulate_gas, result, f_debug=False):
+def broadcast(c_address, start_tx, redeem_address, emulate_gas, result, f_debug=False):
     """ broadcast conclude tx """
     if isinstance(result, tuple) and len(result) == 2:
-        send_pairs, c_storage = result
+        returns, c_storage = result
+        assert returns is None or isinstance(returns, Accounting)
+        assert c_storage is None or isinstance(c_storage, dict)
+        # get
+        if returns is None:
+            send_pairs = None
+        else:
+            send_pairs = list()
+            for address, coins in returns:
+                for coin_id, amount in coins:
+                    send_pairs.append((address, coin_id, amount))
     else:
         return
     # create conclude tx
-    tx = create_conclude_tx(c_address=c_address, start_tx=start_tx,
-                            send_pairs=send_pairs, c_storage=c_storage, emulate_gas=emulate_gas)
+    conclude_tx = create_conclude_tx(c_address=c_address, start_tx=start_tx, redeem_address=redeem_address,
+                                     send_pairs=send_pairs, c_storage=c_storage, emulate_gas=emulate_gas)
     # send tx
     if f_debug:
         logging.debug("Not broadcast, send_pairs={} c_storage={} tx={}"
-                      .format(send_pairs, c_storage, tx.getinfo()))
-    elif send_newtx(new_tx=tx):
-        logging.info("Broadcast success {}".format(tx))
+                      .format(send_pairs, c_storage, conclude_tx.getinfo()))
+    elif send_newtx(new_tx=conclude_tx):
+        logging.info("Broadcast success {}".format(conclude_tx))
     else:
         logging.error("Failed broadcast, send_pairs={} c_storage={} tx={}"
-                      .format(send_pairs, c_storage, tx.getinfo()))
+                      .format(send_pairs, c_storage, conclude_tx.getinfo()))
+        # Check already confirmed another conclude tx
+        another_conclude_hash = get_conclude_hash_by_start_hash(
+            c_address=c_address, start_hash=start_tx.hash, stop_txhash=conclude_tx.hash)
+        another_tx = tx_builder.get_tx(txhash=another_conclude_hash)
+        if another_tx is None:
+            logging.warning("Another problem occur on broadcast.")
+        elif another_tx.height is not None:
+            logging.info("Already complete contract by {}".format(another_tx))
+        else:
+            # TODO: Inputs以外は同じである事を確認
+            logging.error("Unstable result?\nAnother=> {}\nMyResult=> {}"
+                         .format(another_tx.getinfo(), conclude_tx.getinfo()))
 
 
 def start_emulators(genesis_block, f_debug=False):
@@ -97,7 +121,7 @@ def start_emulators(genesis_block, f_debug=False):
                 cmd, is_public, data_list = data
                 if cmd == C_RequestConclude:
                     # c_transfer tx is confirmed, create conclude tx
-                    _time, start_tx, related_list, c_address, c_method, c_args = data_list
+                    _time, start_tx, related_list, c_address, c_method, redeem_address, c_args = data_list
                     for e in emulators:
                         if e.c_address != c_address:
                             continue
@@ -106,11 +130,19 @@ def start_emulators(genesis_block, f_debug=False):
                         # elif c_method == M_UPDATE:
                         #    pass
                         else:
+                            if e.f_claim_gas:
+                                gas_limit = 0
+                                for address, coin_id, amount in start_tx.outputs:
+                                    if address == c_address and coin_id == 0:
+                                        gas_limit += amount
+                            else:
+                                gas_limit = None  # No limit on gas consumption, turing-complete
                             result, emulate_gas = execute(
-                                c_address=c_address, genesis_block=genesis_block, start_tx=start_tx,
-                                c_method=c_method, c_args=c_args, f_debug=f_debug)
-                            broadcast(c_address=c_address, start_tx=start_tx, emulate_gas=emulate_gas,
-                                      result=result, f_debug=f_debug)
+                                c_address=c_address, genesis_block=genesis_block, start_tx=start_tx, c_method=c_method,
+                                redeem_address=redeem_address, c_args=c_args, gas_limit=gas_limit, f_debug=f_debug)
+                            claim_emulate_gas = emulate_gas if e.f_claim_gas else None
+                            broadcast(c_address=c_address, start_tx=start_tx, redeem_address=redeem_address,
+                                      emulate_gas=claim_emulate_gas, result=result, f_debug=f_debug)
 
                 # elif cmd == C_Conclude:
                 #    # sign already created conclude tx

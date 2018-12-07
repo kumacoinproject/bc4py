@@ -5,8 +5,6 @@ from bc4py.chain.difficulty import get_bits_by_hash, get_bias_by_hash
 from bc4py.database.create import closing, create_db
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.keylock import is_locked_database
-# from bc4py.database.tools import get_validator_info
-# from bc4py.user.utils import im_a_validator
 from bc4py.user.api import web_base
 from bc4py.user.generate import generating_threads
 from binascii import hexlify
@@ -74,7 +72,7 @@ async def system_private_info(request):
             'connections': len(V.PC_OBJ.p2p.user),
             'unconfirmed': [hexlify(txhash).decode() for txhash in tx_builder.unconfirmed.keys()],
             'directory': V.DB_HOME_DIR,
-            'encryption': '*'*len(V.ENCRYPT_KEY) if V.ENCRYPT_KEY else V.ENCRYPT_KEY,
+            'encryption': '*'*len(V.ENCRYPT_KEY) if V.ENCRYPT_KEY else None,
             'generate': {
                 'address': V.MINING_ADDRESS,
                 'message': V.MINING_MESSAGE,

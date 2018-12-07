@@ -1,10 +1,10 @@
 from bc4py.contract.basiclib.basic import *
 from bc4py.contract.basiclib import basic
-from bc4py.user import CoinBalance, UserCoins
+from bc4py.user import Balance, Accounting
 import binascii
 
 __all__ = [
-    "CoinBalance", "UserCoins", "binascii",
+    "Balance", "Accounting", "binascii",
 ]
 __all__ += basic.__all__
 

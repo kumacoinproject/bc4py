@@ -38,6 +38,11 @@ class Storage(dict):
         return "<Storage of {} ver={} {}>".\
             format(self.c_address, self.version, dict(self.items()))
 
+    def copy(self):
+        s = Storage(c_address=self.c_address, init_storage=dict(self))
+        s.version = self.version
+        return s
+
     def marge_diff(self, diff):
         if diff is None:
             return  # skip
@@ -131,7 +136,7 @@ class Contract:
 
 
 def decode(b):
-    # transfer: [c_address]-[c_method]-[c_args]
+    # transfer: [c_address]-[c_method]-[redeem_address]-[c_args]
     # conclude: [c_address]-[start_hash]-[c_storage]
     return bjson.loads(b)
 
@@ -167,7 +172,7 @@ def contract_fill(c: Contract, best_block=None, best_chain=None, stop_txhash=Non
             if c_address != c.c_address:
                 continue
             start_tx = tx_builder.get_tx(txhash=start_hash)
-            dummy, c_method, c_args = decode(start_tx.message)
+            dummy, c_method, redeem_address, c_args = decode(start_tx.message)
             c.update(start_hash=start_hash, finish_hash=tx.hash,
                      c_method=c_method, c_args=c_args, c_storage=c_storage)
     # unconfirmed
@@ -181,7 +186,7 @@ def contract_fill(c: Contract, best_block=None, best_chain=None, stop_txhash=Non
             if c_address != c.c_address:
                 continue
             start_tx = tx_builder.get_tx(txhash=start_hash)
-            dummy, c_method, c_args = decode(start_tx.message)
+            dummy, c_method, redeem_address, c_args = decode(start_tx.message)
             c.update(start_hash=start_hash, finish_hash=tx.hash,
                      c_method=c_method, c_args=c_args, c_storage=c_storage)
 

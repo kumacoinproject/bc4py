@@ -60,7 +60,7 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
     if start_tx.time != tx.time or start_tx.deadline != tx.deadline:
         raise BlockChainError('time of conclude_tx and start_tx is same, {}!={}.'.format(start_tx.time, tx.time))
     try:
-        c_start_address, c_method, c_args = bjson.loads(start_tx.message)
+        c_start_address, c_method, redeem_address, c_args = bjson.loads(start_tx.message)
     except Exception as e:
         raise BlockChainError('BjsonError: {}'.format(e))
     if c_address != c_start_address:
