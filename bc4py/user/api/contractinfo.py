@@ -5,7 +5,7 @@ from bc4py.database.validator import get_validator_object
 from bc4py.database.contract import get_contract_object
 from bc4py.contract.watch import watching_tx
 import logging
-from binascii import hexlify
+from binascii import hexlify, a2b_hex
 import bjson
 import pickle
 from base64 import b64encode
@@ -15,8 +15,11 @@ async def contract_info(request):
     try:
         c_address = request.query['c_address']
         f_confirmed = bool(request.query.get('confirmed', False))
+        stop_hash = request.query.get('stophash', None)
+        if stop_hash:
+            stop_hash = a2b_hex(stop_hash)
         best_block = builder.best_block if f_confirmed else None
-        c = get_contract_object(c_address=c_address, best_block=best_block)
+        c = get_contract_object(c_address=c_address, best_block=best_block, stop_txhash=stop_hash)
         return web_base.json_res(c.info)
     except Exception as e:
         logging.error(e)
@@ -27,8 +30,11 @@ async def validator_info(request):
     try:
         c_address = request.query['c_address']
         f_confirmed = bool(request.query.get('confirmed', False))
+        stop_hash = request.query.get('stophash', None)
+        if stop_hash:
+            stop_hash = a2b_hex(stop_hash)
         best_block = builder.best_block if f_confirmed else None
-        v = get_validator_object(c_address=c_address, best_block=best_block)
+        v = get_validator_object(c_address=c_address, best_block=best_block, stop_txhash=stop_hash)
         return web_base.json_res(v.info)
     except Exception as e:
         logging.error(e)
@@ -118,9 +124,12 @@ async def contract_storage(request):
     try:
         c_address = request.query['c_address']
         f_confirmed = bool(request.query.get('confirmed', False))
+        stop_hash = request.query.get('stophash', None)
+        if stop_hash:
+            stop_hash = a2b_hex(stop_hash)
         f_pickle = bool(request.query.get('pickle', False))
         best_block = builder.best_block if f_confirmed else None
-        c = get_contract_object(c_address=c_address, best_block=best_block)
+        c = get_contract_object(c_address=c_address, best_block=best_block, stop_txhash=stop_hash)
         if c is None:
             return web_base.json_res({})
         elif f_pickle:

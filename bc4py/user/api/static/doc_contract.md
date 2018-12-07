@@ -6,6 +6,7 @@ get contract info
 * Arguments
     1. c_address (string, required) Contract address
     2. confirmed (bool, optional, default=False)
+    3. stophash  (hex, optional, default=False)
 * Request example
     * `curl -H "accept: application/json" "127.0.0.1:3000/public/getcontractinfo?c_address="`
 * Response
@@ -31,6 +32,7 @@ get validator info
 * Arguments
     1. c_address     (string, required)  Contract address
     2. confirmed     (bool, optional, default=False)
+    3. stophash  (hex, optional, default=False)
 * Request example
     * `curl -H "accept: application/json" "127.0.0.1:3000/public/getvalidatorinfo?c_address=CJ4QZ7FDEH5J7B2O3OLPASBHAFEDP6I7UKI2YMKF"`
 * Response
@@ -113,7 +115,8 @@ get contract storage
 * Arguments
     1. c_address     (string, required)  Contract address
     2. confirmed     (bool, optional, default=False)
-    3. pickle        (bool, optional, default=False)
+    3. stophash      (hex, optional, default=False)
+    4. pickle        (bool, optional, default=False)
 * Request example
     * `curl -H "accept: application/json" "127.0.0.1:3000/public/contractstorage?c_address=CJ4QZ7FDEH5J7B2O3OLPASBHAFEDP6I7UKI2YMKF"`
 * Response
