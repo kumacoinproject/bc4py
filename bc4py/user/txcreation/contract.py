@@ -158,7 +158,7 @@ def create_signed_tx_as_validator(tx: TX):
     stop_txhash = copied_tx.hash if copied_tx.type == C.TX_VALIDATOR_EDIT else None
     v = get_validator_object(c_address=c_address, stop_txhash=stop_txhash)
     if setup_contract_signature(copied_tx, v.validators) == 0:
-        raise BlockChainError('Cannot sign, you are not validator.')
+        raise BlockChainError('Cannot sign, you are not validator or already signed.')
     return copied_tx
 
 

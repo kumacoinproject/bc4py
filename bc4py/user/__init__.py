@@ -10,8 +10,7 @@ class Balance(defaultdict):
             self[coin_id] = amount
         elif balance and isinstance(balance, dict):
             for k, v in balance.items():
-                if v != 0:
-                    self[k] = v
+                self[k] = v
 
     def __repr__(self):
         return "<Balance {}>".format(dict(self))
@@ -41,6 +40,11 @@ class Balance(defaultdict):
             if v != 0:
                 return False
         return True
+
+    def cleanup(self):
+        for k, v in list(self.items()):
+            if v == 0:
+                del self[k]
 
     def __add__(self, other):
         assert isinstance(other, Balance)
@@ -78,6 +82,12 @@ class Accounting(defaultdict):
     def add_coins(self, user, coin_id, amount):
         balance = self[user]
         balance[coin_id] += amount
+
+    def cleanup(self):
+        for k, v in list(self.items()):
+            v.cleanup()
+            if v.is_empty():
+                del self[k]
 
     def __add__(self, other):
         assert isinstance(other, Accounting)

@@ -5,7 +5,7 @@ from bc4py.database.builder import tx_builder
 from bc4py.database.contract import *
 from bc4py.user import Accounting
 from bc4py.user.network.sendnew import *
-from bc4py.user.txcreation.contract import create_conclude_tx
+from bc4py.user.txcreation.contract import create_conclude_tx, create_signed_tx_as_validator
 from threading import Thread, Lock
 import logging
 from io import StringIO
@@ -100,9 +100,38 @@ def broadcast(c_address, start_tx, redeem_address, emulate_gas, result, f_debug=
         elif another_tx.height is not None:
             logging.info("Already complete contract by {}".format(another_tx))
         else:
-            # TODO: Inputs以外は同じである事を確認
-            logging.error("Unstable result?\nAnother=> {}\nMyResult=> {}"
-                         .format(another_tx.getinfo(), conclude_tx.getinfo()))
+            # check same action ConcludeTX and broadcast
+            a_another = calc_tx_movement(tx=another_tx, c_address=c_address,
+                                         redeem_address=redeem_address, emulate_gas=emulate_gas)
+            a_conclude = calc_tx_movement(tx=conclude_tx, c_address=c_address,
+                                          redeem_address=redeem_address, emulate_gas=emulate_gas)
+            a_another.cleanup()
+            a_conclude.cleanup()
+            if another_tx.message == conclude_tx.message and a_another == a_conclude:
+                logging.info("anotherTX is same with my ConcludeTX.")
+                new_tx = create_signed_tx_as_validator(tx=another_tx)
+                assert another_tx is not new_tx, 'tx={}, new_tx={}'.format(id(another_tx), id(new_tx))
+                if send_newtx(new_tx=new_tx):
+                    logging.info("Broadcast success {}".format(new_tx))
+                    return
+            # Failed check AnotherTX
+            logging.error("Failed, unstable result?\nAnother=> {}\nMyResult=> {}"
+                          .format(another_tx.getinfo(), conclude_tx.getinfo()))
+            logging.error("Account \nAnother=> {}\nMyResult=> {}".format(a_another, a_conclude))
+
+
+def calc_tx_movement(tx, c_address, redeem_address, emulate_gas):
+    account = Accounting()
+    for txhash, txindex in tx.inputs:
+        input_tx = tx_builder.get_tx(txhash=txhash)
+        address, coin_id, amount = input_tx.outputs[txindex]
+        account[address][coin_id] += amount
+    fee = (tx.gas_amount+emulate_gas) * tx.gas_price
+    account[redeem_address][0] += fee
+    account[c_address][0] -= fee
+    for address, coin_id, amount in tx.outputs:
+        account[address][coin_id] -= amount
+    return account
 
 
 def start_emulators(genesis_block, f_debug=False):
