@@ -2,7 +2,7 @@ from bc4py.config import V, P, BlockChainError
 from bc4py.user.network.directcmd import DirectCmd
 import logging
 import random
-import collections
+from collections import Counter
 import time
 
 
@@ -13,34 +13,36 @@ best_height_on_network = None
 
 
 def set_good_node():
-    _node = list()
+    node = list()
     pc = V.PC_OBJ
-    blockhash = collections.Counter()
-    blockheight = collections.Counter()
-    for _user in pc.p2p.user:
+    status_counter = Counter()
+    f_all_booting = True  # flag: there is no stable node
+    for user in pc.p2p.user:
         try:
-            dummy, r = pc.send_direct_cmd(cmd=DirectCmd.BEST_INFO, data=None, user=_user)
+            dummy, r = pc.send_direct_cmd(cmd=DirectCmd.BEST_INFO, data=None, user=user)
             if isinstance(r, str):
                 continue
         except TimeoutError:
             logging.debug("timeout", exc_info=True)
             continue
-        blockhash[r['hash']] += 1
-        blockheight[r['height']] += 1
-        _node.append((_user, r['hash'], r['height'], r['booting']))
+        status_counter[(r['height'], r['hash'])] += 1
+        if r['booting'] is False:
+            f_all_booting = False
+        node.append((user, r['hash'], r['height'], r['booting']))
     global best_hash_on_network, best_height_on_network
-    best_hash_on_network, num0 = blockhash.most_common()[0]
-    best_height_on_network, num1 = blockheight.most_common()[0]
+    # get best height and best hash
+    (best_height, best_hash), count = status_counter.most_common()
+    if count == 1:
+        best_height, best_hash = sorted(status_counter, key=lambda x: x[0], reverse=True)[0]
+    best_hash_on_network = best_hash
+    best_height_on_network = best_height
     good_node.clear()
     bad_node.clear()
-    if num0 <= 1 or num1 <= 1:
-        good_node.extend(_user for _user, _hash, _height, _booting in _node)
-    else:
-        for _user, _hash, _height, _booting in _node:
-            if _hash == best_hash_on_network or _height == best_height_on_network:
-                good_node.append(_user)
-            else:
-                bad_node.append(_user)
+    for user, blockhash, height, f_booting in node:
+        if blockhash == best_hash_on_network and height == best_height_on_network:
+            good_node.append(user)
+        else:
+            bad_node.append(user)
 
 
 def reset_good_node():
