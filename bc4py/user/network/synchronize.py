@@ -232,11 +232,11 @@ def fast_sync_chain():
     my_best_height = builder.best_block.height
     best_height_on_network, best_hash_on_network = get_best_conn_info()
     if best_height_on_network <= my_best_height:
-        logging.info("Finish update chain data by network. {}Sec [{}<={}]"
-                     .format(round(time() - start, 1), best_height_on_network, my_best_height))
+        logging.info("Finish update chain data by network. {}Sec [best={}, now={}]"
+                     .format(round(time()-start, 1), best_height_on_network, my_best_height))
         return True
     else:
-        logging.debug("Continue update chain, {}<={}".format(best_height_on_network, my_best_height))
+        logging.debug("Continue update chain, best={}, now={}".format(best_height_on_network, my_best_height))
         return False
 
 
