@@ -724,7 +724,7 @@ class ChainBuilder:
         self.chain[block.hash] = block
         # BestChainの変化を調べる
         new_best_block, new_best_chain = self.get_best_chain()
-        if new_best_block == self.best_block:
+        if self.best_block and new_best_block == self.best_block:
             return  # 操作を加える必要は無い
         # tx heightを合わせる
         old_best_chain = self.best_chain.copy()
