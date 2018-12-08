@@ -62,6 +62,8 @@ def ask_node(cmd, data=None, f_continue_asking=False):
         try:
             if len(user_list) == 0:
                 break
+            if len(good_node) == 0:
+                set_good_node()
             user = user_list.pop()
             if user in good_node:
                 dummy, r = pc.send_direct_cmd(cmd=cmd, data=data, user=user)
