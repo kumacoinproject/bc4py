@@ -167,7 +167,7 @@ def fast_sync_chain():
         # Base check
         base_check_failed_msg = None
         if before_block.hash != new_block.previous_hash:
-            base_check_failed_msg = "Not correct previous hash {}".format(new_block)
+            base_check_failed_msg = "Not correct previous hash new={} before={}".format(new_block, before_block)
         # proof of work check
         if not new_block.pow_check():
             base_check_failed_msg = "Not correct work hash {}".format(new_block)
@@ -251,6 +251,7 @@ def sync_chain_loop():
             try:
                 if P.F_NOW_BOOTING:
                     if fast_sync_chain():
+                        logging.warning("Reset booting mode.")
                         P.F_NOW_BOOTING = False
                         if builder.best_block:
                             update_mining_staking_all_info()

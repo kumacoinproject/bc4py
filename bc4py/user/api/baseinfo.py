@@ -53,7 +53,7 @@ async def chain_private_info(request):
         orphan_chain = [block.getinfo() for block in builder.chain.values() if block not in builder.best_chain]
         data = {
             'main': main_chain,
-            'orphan': orphan_chain,
+            'orphan': sorted(orphan_chain, key=lambda x: x['height']),
             'root': builder.root_block.getinfo()}
         return web_base.json_res(data)
     except Exception:

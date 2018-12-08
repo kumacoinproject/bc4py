@@ -4,7 +4,7 @@ from bc4py.chain.checking.checktx import check_tx, check_tx_time
 from bc4py.chain.checking.signature import batch_sign_cashe, delete_signed_cashe
 from bc4py.database.builder import builder, user_account
 import threading
-import time
+from time import time
 import logging
 from collections import deque
 
@@ -13,19 +13,20 @@ failed_deque = deque([], maxlen=10)
 
 
 def add_failed_mark():
-    failed_deque.append(time.time())
-    if min(failed_deque) < time.time() - 3600:
+    failed_deque.append(time())
+    if min(failed_deque) < time() - 3600:
         return
     elif len(failed_deque) >= 10:
         builder.make_failemark("Too many block check fail.")
         failed_deque.clear()
+        logging.warning("22 Set booting mode.")
         P.F_NOW_BOOTING = True
 
 
 def new_insert_block(block, time_check=False):
-    t = time.time()
+    t = time()
     with global_lock:
-        fixed_delay = time.time() - t
+        fixed_delay = time() - t
         try:
             # Check
             if time_check:
@@ -47,13 +48,14 @@ def new_insert_block(block, time_check=False):
                 delete_txhash_set.update({tx.hash for tx in del_block.txs})
             delete_signed_cashe(delete_txhash_set)
             NewInfo.put(obj=block)
-            logging.info("New block accepted {}Sec {}.".format(round(time.time()-t, 3), block))
+            logging.info("New block accepted {}Sec {}.".format(round(time()-t, 3), block))
             return True
         except BlockChainError as e:
             logging.warning("Reject new block by \"{}\"".format(e))
-            delay = time.time() - builder.best_block.time - V.BLOCK_GENESIS_TIME
+            delay = time() - builder.best_block.time - V.BLOCK_GENESIS_TIME
             if delay > 10800:  # 3hours
                 logging.warning("{}Min before block inserted, too old on DB!".format(delay//60))
+                logging.warning("58 Set booting mode.")
                 P.F_NOW_BOOTING = True
             return False
         except BaseException as e:

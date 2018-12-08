@@ -61,7 +61,7 @@ def ask_node(cmd, data=None, f_continue_asking=False):
     while 0 < count:
         try:
             if len(user_list) == 0:
-                raise BlockChainError('Asked all nodes, no node to ask.')
+                raise BlockChainError('Check connection count, no node to ask.')
             user = user_list.pop()
             if user in bad_node:
                 count -= 1

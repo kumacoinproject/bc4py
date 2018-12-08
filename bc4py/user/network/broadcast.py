@@ -21,6 +21,7 @@ def add_failed_mark(error=None):
     elif len(failed_deque) >= 10:
         builder.make_failemark(error)
         failed_deque.clear()
+        logging.warning("24 Set booting mode.")
         P.F_NOW_BOOTING = True
 
 
@@ -91,6 +92,7 @@ class BroadcastCmd:
 
 def fill_newblock_info(data):
     new_block = Block(binary=data['block'])
+    logging.debug("Fill newblock={}".format(hexlify(new_block.hash).decode()))
     proof = TX(binary=data['proof'])
     new_block.txs.append(proof)
     new_block.flag = data['block_flag']

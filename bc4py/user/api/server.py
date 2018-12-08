@@ -219,6 +219,7 @@ async def web_page(request):
 
 async def resync(request):
     from bc4py.config import P
+    logging.warning("222 Set booting mode.")
     P.F_NOW_BOOTING = True
     return web.Response(text='Resync')
 
