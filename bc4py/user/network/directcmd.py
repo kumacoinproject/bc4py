@@ -112,7 +112,6 @@ class DirectCmd:
         except BlockChainError as e:
             return str(e)
 
-
     @staticmethod
     def block_by_hash(data):
         if 'blockhash' not in data:

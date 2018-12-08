@@ -29,10 +29,9 @@ class Block:
         return hash(self.hash)
 
     def __repr__(self):
-        name = 'DeleteBlock' if self.delete_time else 'Block'
-        return "<{} {} {} {} {} txs={}>".format(
-            name, self.height, C.consensus2name[self.flag], "ORPHAN" if self.f_orphan else "",
-            hexlify(self.hash).decode(), len(self.txs))
+        return "<{} {} {} {} {} score={} txs={}>".format(
+            'DeleteBlock' if self.delete_time else 'Block', self.height, C.consensus2name[self.flag],
+            "ORPHAN" if self.f_orphan else "", hexlify(self.hash).decode(), round(self.score, 4), len(self.txs))
 
     def __init__(self, binary=None, block=None):
         self.b = None
