@@ -31,7 +31,7 @@ def set_good_node():
         node.append((user, r['hash'], r['height'], r['booting']))
     global best_hash_on_network, best_height_on_network
     # get best height and best hash
-    (best_height, best_hash), count = status_counter.most_common()
+    (best_height, best_hash), count = status_counter.most_common()[0]
     if count == 1:
         best_height, best_hash = sorted(status_counter, key=lambda x: x[0], reverse=True)[0]
     best_hash_on_network = best_hash
