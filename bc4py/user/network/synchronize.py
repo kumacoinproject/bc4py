@@ -247,7 +247,7 @@ def sync_chain_loop():
         global f_changed_status, f_working
         failed = 5
         while f_working:
-            check_connection()
+            check_network_connection()
             try:
                 if P.F_NOW_BOOTING:
                     if fast_sync_chain():

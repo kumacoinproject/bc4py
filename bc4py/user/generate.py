@@ -16,6 +16,7 @@ import queue
 from binascii import hexlify
 from collections import deque
 from nem_ed25519.key import is_address
+import traceback
 
 
 generating_threads = list()
@@ -76,7 +77,7 @@ class Generate(Thread):
             except BlockChainError as e:
                 logging.warning(e)
             except AttributeError as e:
-                if 'previous_block.' in str(e):
+                if 'previous_block.' in str(traceback.format_exc()):
                     logging.debug("attribute error of previous_block, passed.")
                 else:
                     logging.error("Unknown error wait60s...", exc_info=True)

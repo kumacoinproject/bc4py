@@ -53,46 +53,41 @@ def reset_good_node():
 
 
 def ask_node(cmd, data=None, f_continue_asking=False):
-    check_connection()
-    count = 10
+    check_network_connection()
+    failed = 0
     pc = V.PC_OBJ
     user_list = pc.p2p.user.copy()
     random.shuffle(user_list)
-    while 0 < count:
+    while failed < 10:
         try:
             if len(user_list) == 0:
-                raise BlockChainError('Check connection count, no node to ask.')
+                break
             user = user_list.pop()
-            if user in bad_node:
-                count -= 1
-                continue
-            elif user not in good_node:
+            if user in good_node:
+                dummy, r = pc.send_direct_cmd(cmd=cmd, data=data, user=user)
+                if isinstance(r, str):
+                    failed += 1
+                    if f_continue_asking:
+                        logging.warning("Failed cmd={} to {} by \"{}\"".format(cmd, user.name, r))
+                        continue
+                return r
+            elif user in bad_node:
+                pass
+            else:
                 set_good_node()
-                if len(good_node) == 0:
-                    raise BlockChainError('No good node found.')
-                else:
-                    logging.debug("Get good node {}".format(len(good_node)))
-                    continue
-            dummy, r = pc.send_direct_cmd(cmd=cmd, data=data, user=user)
-            if f_continue_asking and isinstance(r, str):
-                if count > 0:
-                    logging.warning("Failed DirectCmd:{} to {} by \"{}\"".format(cmd, user.name, r))
-                    count -= 1
-                    continue
-                else:
-                    raise BlockChainError('Node return error "{}"'.format(r))
         except TimeoutError:
-            continue
-        return r
-    raise BlockChainError('Too many retry ask_node.')
+            pass
+    raise BlockChainError('Too many retry ask_node. good={} bad={} failed={} cmd={}'
+                          .format(len(good_node), len(bad_node), failed, cmd))
 
 
 def get_best_conn_info():
     return best_height_on_network, best_hash_on_network
 
 
-def check_connection(f_3_conn=3):
-    c, need = 0,  3 if f_3_conn else 1
+def check_network_connection(f_3_conn=3):
+    c = 0
+    need = 3 if f_3_conn else 1
     while not P.F_STOP and len(V.PC_OBJ.p2p.user) < need:
         if c % 90 == 0:
             logging.debug("Waiting for new connections.. {}".format(len(V.PC_OBJ.p2p.user)))
@@ -102,5 +97,5 @@ def check_connection(f_3_conn=3):
 
 __all__ = [
     "set_good_node", "reset_good_node", "ask_node",
-    "get_best_conn_info", "check_connection"
+    "get_best_conn_info", "check_network_connection"
 ]
