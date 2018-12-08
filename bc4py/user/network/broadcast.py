@@ -104,7 +104,15 @@ def fill_newblock_info(data):
         raise BlockChainError('Already inserted block.')
     before_block = builder.get_block(new_block.previous_hash)
     if before_block is None:
-        raise BlockChainError('Not found beforeBlock {}.'.format(hexlify(new_block.previous_hash).decode()))
+        logging.debug("Cannot find beforeBlock {}, try to ask outside node."
+                      .format(hexlify(new_block.previous_hash).decode()))
+        # not found beforeBlock, need to check other node have the the block
+        new_block.inner_score *= 0.70  # unknown previousBlock, score down
+        before_block = make_block_by_node(blockhash=new_block.previous_hash)
+        if not new_insert_block(before_block, time_check=True):
+            # require time_check, it was generated only a few seconds ago
+            raise BlockChainError('Failed insert beforeBlock {}'.format(before_block))
+        print([block for block in builder.chain.values()])
     new_height = before_block.height + 1
     proof.height = new_height
     new_block.height = new_height
@@ -136,3 +144,24 @@ def broadcast_check(data):
         return BroadcastCmd.new_tx(data=data['data'])
     else:
         return False
+
+
+def make_block_by_node(blockhash):
+    """ create Block by outside node """
+    r = ask_node(cmd=DirectCmd.BLOCK_BY_HASH, data={'blockhash': blockhash})
+    if isinstance(r, str):
+        raise BlockChainError('Not found BeforeHash={} by {}'.format(hexlify(blockhash).decode(), r))
+    block = Block(binary=r['block'])
+    block.height = r['height']
+    block.flag = r['flag']
+    before_block = builder.get_block(blockhash=block.previous_hash)
+    if before_block is None:
+        raise BlockChainError('Not found BeforeBeforeBlock {}'.format(hexlify(block.previous_hash).decode()))
+    if before_block.height+1 != block.height:
+        block.height = before_block.height + 1
+    for tx in r['txs']:
+        _tx = TX(binary=tx['tx'])
+        _tx.height = block.height
+        _tx.signature = tx['sign']
+        block.txs.append(_tx)
+    return block
