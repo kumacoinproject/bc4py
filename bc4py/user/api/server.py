@@ -5,7 +5,7 @@ from aiohttp import web
 from aiohttp_basicauth_middleware import basic_auth_middleware
 from aiohttp_basicauth_middleware.strategy import BaseStrategy
 import aiohttp_cors
-from .mainstatus import *
+from .baseinfo import *
 from .accountinfo import *
 from .editaccount import *
 from .chaininfo import *
