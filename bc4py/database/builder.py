@@ -735,12 +735,14 @@ class ChainBuilder:
                 except IndexError: pass
                 for tx in block.txs:
                     tx.height = None
+                block.f_orphan = True
         for index, block in enumerate(new_best_chain):
             if block not in commons:
                 try: new_best_chain[index+1].next_hash = block.hash
                 except IndexError: pass
                 for tx in block.txs:
                     tx.height = block.height
+                block.f_orphan = False
         # 変化しているので反映する
         self.best_block, self.best_chain = new_best_block, new_best_chain
         tx_builder.affect_new_chain(
