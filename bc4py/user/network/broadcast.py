@@ -111,8 +111,8 @@ def fill_newblock_info(data):
         before_block = make_block_by_node(blockhash=new_block.previous_hash)
         if not new_insert_block(before_block, time_check=True):
             # require time_check, it was generated only a few seconds ago
+            # print([block for block in builder.chain.values()])
             raise BlockChainError('Failed insert beforeBlock {}'.format(before_block))
-        print([block for block in builder.chain.values()])
     new_height = before_block.height + 1
     proof.height = new_height
     new_block.height = new_height
