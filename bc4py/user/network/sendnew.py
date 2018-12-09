@@ -44,8 +44,8 @@ def mined_newblock(que, pc):
             except TimeoutError:
                 logging.warning("Failed broadcast new block, other nodes don\'t accept {}"
                                 .format(new_block.getinfo()))
-                logging.warning("47 Set booting mode.")
-                P.F_NOW_BOOTING = True
+                # logging.warning("47 Set booting mode.")
+                # P.F_NOW_BOOTING = True
         except queue.Empty:
             if pc.f_stop:
                 logging.debug("Mined new block closed.")

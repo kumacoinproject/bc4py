@@ -3,7 +3,7 @@ from bc4py.user.network.directcmd import DirectCmd
 import logging
 import random
 from collections import Counter
-import time
+from time import sleep
 
 
 good_node = list()
@@ -111,14 +111,14 @@ def get_best_conn_info():
     return best_height_on_network, best_hash_on_network
 
 
-def check_network_connection(f_3_conn=3):
-    c = 0
-    need = 3 if f_3_conn else 1
-    while not P.F_STOP and len(V.PC_OBJ.p2p.user) < need:
-        if c % 90 == 0:
-            logging.debug("Waiting for new connections.. {}".format(len(V.PC_OBJ.p2p.user)))
-        time.sleep(1)
-        c += 1
+def check_network_connection(minimum=None):
+    count = 0
+    need = minimum or 2
+    while not P.F_STOP and len(V.PC_OBJ.p2p.user) <= need:
+        count += 1
+        if count % 30 == 0:
+            logging.debug("{} connections, waiting for new.. {}Sec".format(len(V.PC_OBJ.p2p.user), count))
+        sleep(1)
 
 
 __all__ = [
