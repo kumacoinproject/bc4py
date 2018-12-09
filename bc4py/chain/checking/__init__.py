@@ -48,7 +48,7 @@ def new_insert_block(block, time_check=False):
                 delete_txhash_set.update({tx.hash for tx in del_block.txs})
             delete_signed_cashe(delete_txhash_set)
             NewInfo.put(obj=block)
-            logging.info("New block accepted {}Sec {}.".format(round(time()-t, 3), block))
+            logging.info("new_insert_block() check success {}Sec {}.".format(round(time()-t, 3), block))
             return True
         except BlockChainError as e:
             logging.warning("Reject new block by \"{}\"".format(e))

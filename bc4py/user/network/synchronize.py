@@ -279,6 +279,7 @@ def sync_chain_loop():
                         P.F_NOW_BOOTING = False
                         if builder.best_block:
                             update_mining_staking_all_info()
+                        failed = 0
                         builder.remove_failmark()
                     elif failed < 0:
                         exit_msg = 'Failed sync.'

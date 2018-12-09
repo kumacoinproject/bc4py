@@ -8,21 +8,6 @@ from bc4py.user.network.directcmd import DirectCmd
 from bc4py.user.network.connection import ask_node
 import logging
 from binascii import hexlify
-from collections import deque
-import time
-
-failed_deque = deque([], maxlen=10)
-
-
-def add_failed_mark(error=None):
-    failed_deque.append(time.time())
-    if min(failed_deque) < time.time() - 7200:
-        return
-    elif len(failed_deque) >= 10:
-        builder.make_failemark(error)
-        failed_deque.clear()
-        logging.warning("24 Set booting mode.")
-        P.F_NOW_BOOTING = True
 
 
 class BroadcastCmd:
@@ -37,10 +22,9 @@ class BroadcastCmd:
             warning = 'Do not accept block "{}"'.format(e)
             logging.warning(warning)
             return False
-        except BaseException:
+        except Exception:
             error = "error on accept new block"
             logging.error(error, exc_info=True)
-            add_failed_mark(error)
             return False
         try:
             if new_insert_block(new_block, time_check=True):
@@ -53,10 +37,9 @@ class BroadcastCmd:
             error = 'Failed accept new block "{}"'.format(e)
             logging.error(error, exc_info=True)
             return False
-        except BaseException:
+        except Exception:
             error = "error on accept new block"
             logging.error(error, exc_info=True)
-            add_failed_mark(error)
             return False
 
     @staticmethod
@@ -81,12 +64,10 @@ class BroadcastCmd:
         except BlockChainError as e:
             error = 'Failed accept new tx "{}"'.format(e)
             logging.error(error)
-            add_failed_mark(error)
             return False
-        except BaseException:
+        except Exception:
             error = "Failed accept new tx"
             logging.error(error, exc_info=True)
-            add_failed_mark(error)
             return False
 
 
