@@ -83,6 +83,30 @@ def ask_node(cmd, data=None, f_continue_asking=False):
                           .format(len(good_node), len(bad_node), failed, cmd))
 
 
+def ask_all_nodes(cmd, data=None):
+    check_network_connection()
+    pc = V.PC_OBJ
+    user_list = pc.p2p.user.copy()
+    random.shuffle(user_list)
+    result = list()
+    for user in pc.p2p.user.copy():
+        try:
+            if len(good_node) == 0:
+                set_good_node()
+            if user in good_node or user in bad_node:
+                dummy, r = pc.send_direct_cmd(cmd=cmd, data=data, user=user)
+                if not isinstance(r, str):
+                    result.append(r)
+            else:
+                set_good_node()
+        except TimeoutError:
+            pass
+    if len(result) > 0:
+        return result
+    raise BlockChainError('Cannot get any data. good={} bad={} cmd={}'
+                          .format(len(good_node), len(bad_node), cmd))
+
+
 def get_best_conn_info():
     return best_height_on_network, best_hash_on_network
 
@@ -98,6 +122,10 @@ def check_network_connection(f_3_conn=3):
 
 
 __all__ = [
-    "set_good_node", "reset_good_node", "ask_node",
-    "get_best_conn_info", "check_network_connection"
+    "set_good_node",
+    "reset_good_node",
+    "ask_node",
+    "ask_all_nodes",
+    "get_best_conn_info",
+    "check_network_connection"
 ]
