@@ -17,6 +17,7 @@ from binascii import hexlify
 from collections import deque
 from nem_ed25519.key import is_address
 import traceback
+from random import random
 
 
 generating_threads = list()
@@ -126,7 +127,7 @@ class Generate(Thread):
                                  .format(how_many, "Up" if bias > 1 else "Down"))
             except ZeroDivisionError:
                 pass
-            sleep(sleep_span)
+            sleep(sleep_span+random()-0.5)
         logging.info("Close signal")
 
     def proof_of_stake(self):
@@ -199,7 +200,7 @@ class Generate(Thread):
                 if int(time()) % 90 == 0:
                     logging.info("Staking... margin={}% limit={}".format(round(remain*100, 1), staking_limit))
                 self.hashrate = (calculate_nam, time())
-                sleep(max(0.0, remain))
+                sleep(max(0.0, remain)+random()-0.5)
         logging.info("Close signal")
 
 

@@ -82,7 +82,6 @@ def work(port, sub_dir=None):
         close_contract_watch()
         close_generate()
         close_work_hash()
-        close_sync()
     except KeyboardInterrupt:
         logging.debug("KeyboardInterrupt.")
 

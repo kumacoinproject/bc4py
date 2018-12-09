@@ -17,7 +17,6 @@ from threading import Thread, Lock
 from binascii import hexlify
 
 
-f_working = False
 f_changed_status = False
 block_stack = dict()
 backend_processing_lock = Lock()
@@ -241,12 +240,10 @@ def fast_sync_chain():
 
 
 def sync_chain_loop():
-    global f_working
-
     def loop():
-        global f_changed_status, f_working
+        global f_changed_status
         failed = 5
-        while f_working:
+        while not P.F_STOP:
             check_network_connection()
             try:
                 if P.F_NOW_BOOTING:
@@ -261,8 +258,11 @@ def sync_chain_loop():
                         builder.make_failemark(exit_msg)
                         logging.critical(exit_msg)
                         system_exit()
-                        f_working = False
+                        # out of loop
+                        logging.debug("Close sync loop.")
+                        return
                     elif f_changed_status is False:
+                        logging.warning("Resync mode failed, retry={}".format(failed))
                         failed -= 1
                     elif f_changed_status is True:
                         f_changed_status = False
@@ -276,16 +276,7 @@ def sync_chain_loop():
                 reset_good_node()
                 logging.error('Update chain failed "{}"'.format(e), exc_info=True)
                 sleep(5)
-        # out of loop
-        logging.debug("Close sync loop.")
 
-    if f_working:
-        raise Exception('Already sync_chain_loop working.')
-    f_working = True
     logging.info("Start sync now {} connections.".format(len(V.PC_OBJ.p2p.user)))
     Thread(target=loop, name='Sync').start()
 
-
-def close_sync():
-    global f_working
-    f_working = False
