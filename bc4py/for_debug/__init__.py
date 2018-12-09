@@ -2,6 +2,7 @@ from bc4py.config import V
 from bc4py.database.create import closing, create_db, sql_info
 import socket
 import logging
+import os
 
 
 def f_already_bind(port):
@@ -17,15 +18,18 @@ def f_already_bind(port):
     return r
 
 
-def set_logger(level, prefix='main', fileout=False):
+def set_logger(level, prefix='main', f_file=False, f_remove=False):
     logger = logging.getLogger()
     for sh in logger.handlers:
         logger.removeHandler(sh)
     logger.propagate = False
     logger.setLevel(logging.DEBUG)
     formatter = logging.Formatter('[%(levelname)-6s] [%(threadName)-10s] [%(asctime)-24s] %(message)s')
-    if fileout:
-        sh = logging.FileHandler('debug.{}.log'.format(prefix))
+    if f_file:
+        filepath = 'debug.{}.log'.format(prefix)
+        if f_remove and os.path.exists(filepath):
+            os.remove(filepath)
+        sh = logging.FileHandler(filepath)
         sh.setLevel(level)
         sh.setFormatter(formatter)
         logger.addHandler(sh)

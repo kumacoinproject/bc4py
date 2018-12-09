@@ -119,7 +119,7 @@ def connection():
         if f_already_bind(port):
             port += 1
             continue
-        set_logger(level=logging.DEBUG, prefix=port, fileout=bool(port==2000))
+        set_logger(level=logging.DEBUG, prefix=port, f_file=bool(port == 2000))
         logging.info("\n{}\n=====\n{}, chain-ver={}\n{}\n"
                      .format(__logo__, __version__, __chain_version__, __message__))
         work(port=port, sub_dir=str(port))
