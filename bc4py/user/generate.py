@@ -228,7 +228,8 @@ def create_mining_block(consensus):
         'previous_hash': previous_block.hash,
         'bits': bits,
         'nonce': b'\xff\xff\xff\xff'})
-    mining_block.height = previous_block.height + 1
+    proof_tx.height = previous_block.height + 1
+    mining_block.height = proof_tx.height
     mining_block.flag = consensus
     mining_block.bits2target()
     mining_block.txs.append(proof_tx)

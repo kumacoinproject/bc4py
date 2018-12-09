@@ -48,7 +48,7 @@ def check_new_tx(tx: TX):
 def check_new_block(block: Block):
     for tx in block.txs:
         if tx.height is None:
-            raise CheckWatchError('is not confirmed? {}'.format(tx))
+            raise CheckWatchError('is unconfirmed? {}'.format(tx))
         elif tx.message_type != C.MSG_BYTE:
             continue
         elif tx.type == C.TX_TRANSFER:
