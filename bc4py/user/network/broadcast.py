@@ -81,8 +81,9 @@ def fill_newblock_info(data):
     # Check the block is correct info
     if not new_block.pow_check():
         raise BlockChainError('Proof of work is not satisfied.')
-    if builder.get_block(new_block.hash):
-        raise BlockChainError('Already inserted block.')
+    my_block = builder.get_block(new_block.hash)
+    if my_block:
+        raise BlockChainError('Already inserted block {}'.format(my_block))
     before_block = builder.get_block(new_block.previous_hash)
     if before_block is None:
         logging.debug("Cannot find beforeBlock {}, try to ask outside node."
@@ -131,15 +132,13 @@ def make_block_by_node(blockhash):
     """ create Block by outside node """
     r = ask_node(cmd=DirectCmd.BLOCK_BY_HASH, data={'blockhash': blockhash})
     if isinstance(r, str):
-        raise BlockChainError('Not found BeforeHash={} by {}'.format(hexlify(blockhash).decode(), r))
+        raise BlockChainError('make_block_by_node() failed, by "{}"'.format(hexlify(blockhash).decode(), r))
     block = Block(binary=r['block'])
-    block.height = r['height']
     block.flag = r['flag']
     before_block = builder.get_block(blockhash=block.previous_hash)
+    block.height = before_block.height + 1
     if before_block is None:
         raise BlockChainError('Not found BeforeBeforeBlock {}'.format(hexlify(block.previous_hash).decode()))
-    if before_block.height+1 != block.height:
-        block.height = before_block.height + 1
     for tx in r['txs']:
         _tx = TX(binary=tx['tx'])
         _tx.height = block.height
