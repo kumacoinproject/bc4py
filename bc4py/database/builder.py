@@ -629,6 +629,7 @@ class ChainBuilder:
         for block in best_chain:
             for tx in block.txs:
                 tx.height = block.height
+        assert best_block, 'Cannot find best_block on get_best_chain? chain={}'.format(list(self.chain))
         # best_chain = [<height=n>, <height=n-1>, ...]
         return best_block, best_chain
 

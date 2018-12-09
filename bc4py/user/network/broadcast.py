@@ -136,9 +136,9 @@ def make_block_by_node(blockhash):
     block = Block(binary=r['block'])
     block.flag = r['flag']
     before_block = builder.get_block(blockhash=block.previous_hash)
-    block.height = before_block.height + 1
     if before_block is None:
         raise BlockChainError('Not found BeforeBeforeBlock {}'.format(hexlify(block.previous_hash).decode()))
+    block.height = before_block.height + 1
     for tx in r['txs']:
         _tx = TX(binary=tx['tx'])
         _tx.height = block.height

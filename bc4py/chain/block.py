@@ -132,7 +132,7 @@ class Block:
     @property
     def score(self):
         # fixed_diff = difficulty / bias
-        return log(max(1.0, self.inner_score * self.difficulty / self.bias))
+        return log(max(1.0, self.inner_score * self.difficulty / self.bias * 1000000))
 
     @property
     def difficulty(self):
