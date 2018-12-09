@@ -237,10 +237,10 @@ def fast_sync_chain():
             logging.debug("Update block {} now...".format(index_height + 1))
     # Unconfirmed txを取得
     logging.info("Finish get block, next get unconfirmed.")
-    r = None
-    while not isinstance(r, dict):
-        r = ask_node(cmd=DirectCmd.UNCONFIRMED_TX, f_continue_asking=True)
-    for txhash in r['txs']:
+    unconfirmed_txhash_set = set()
+    for data in ask_all_nodes(cmd=DirectCmd.UNCONFIRMED_TX):
+        unconfirmed_txhash_set.update(data['txs'])
+    for txhash in unconfirmed_txhash_set:
         if txhash in tx_builder.unconfirmed:
             continue
         try:
