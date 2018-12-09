@@ -21,6 +21,7 @@ f_changed_status = False
 block_stack = dict()
 backend_processing_lock = Lock()
 write_protect_lock = Lock()
+back_thread = None
 
 
 def _generate_workhash(height, block_flag, block_b, **kwargs):
@@ -56,6 +57,7 @@ def batch_workhash(blocks):
 
 
 def put_to_block_stack(r, before_waiter):
+    """ Get next blocks """
     block_tmp = dict()
     batch_txs = list()
     for block_b, block_height, block_flag, txs in r:
@@ -98,19 +100,20 @@ def fill_block_stack(before_waiter):
     return None
 
 
-def background_sync_chain():
+def background_process():
     waiter = Waiter(0)
     waiter.set()
-    sleep_count = 500
-    while True:
+    sleep_count = 200
+    while not P.F_STOP:
         if sleep_count < 0:
             logging.info("Close background_sync_chain() by timeout.")
             return
         if len(block_stack) == 0:
-            sleep(0.1)
+            sleep(0.05)
             sleep_count -= 1
         elif 400 < len(block_stack):
-            sleep(0.1)
+            sleep(0.05)
+            sleep_count -= 1
         else:
             sleep_count = 500
             with backend_processing_lock:
@@ -122,8 +125,16 @@ def background_sync_chain():
 
 def fast_sync_chain():
     assert V.PC_OBJ is not None, "Need PeerClient start before."
-    global f_changed_status
-    back_thread = Thread(target=background_sync_chain, name='BackSync', daemon=True)
+    global f_changed_status, back_thread
+    # wait for back_thread is closed status
+    count = 0
+    while back_thread and back_thread.is_alive():
+        block_stack.clear()
+        sleep(1)
+        count += 1
+        if count % 30 == 0:
+            logging.warning("Waiting for back_thread closed... {}Sec".format(count))
+    back_thread = Thread(target=background_process, name='BackSync', daemon=True)
     back_thread.start()
     start = time()
 
@@ -131,7 +142,7 @@ def fast_sync_chain():
     failed_num = 0
     before_block = builder.best_block
     index_height = before_block.height + 1
-    logging.debug("Start sync by {}".format(before_block))
+    logging.debug("Start fast sync by {}".format(before_block))
     while failed_num < 5:
         if index_height in block_stack:
             new_block = block_stack[index_height]
@@ -172,12 +183,28 @@ def fast_sync_chain():
             base_check_failed_msg = "Not correct work hash {}".format(new_block)
         # rollback
         if base_check_failed_msg is not None:
-            before_block = builder.get_block(before_block.previous_hash)
-            index_height = before_block.height + 1
             failed_num += 1
             for height in tuple(block_stack.keys()):
                 if height >= index_height:
                     del block_stack[height]
+            next_index_block = index_height - 1
+            editable_height = builder.root_block.height + 1
+            if next_index_block <= editable_height:
+                logging.error("Try to rollback to editable height {}".format(editable_height))
+                f_changed_status = False
+                return False
+            elif next_index_block not in block_stack:
+                # back 20 height, no blocks to recombine in block_stack
+                index_height = max(3, editable_height, index_height - 20)
+                index_block = builder.get_block(blockhash=builder.get_block_hash(index_height))
+                before_block = builder.get_block(blockhash=index_block.previous_hash)
+                with write_protect_lock:
+                    block_stack.clear()
+                    block_stack[index_height] = index_block
+            else:
+                # back 1 height
+                before_block = builder.get_block(before_block.previous_hash)
+                index_height = before_block.height + 1
             logging.debug(base_check_failed_msg)
             continue
         # TX check
