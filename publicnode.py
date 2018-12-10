@@ -42,7 +42,9 @@ def work(port, sub_dir=None):
     V.PC_OBJ = pc
 
     if pc.p2p.create_connection('tipnem.tk', 2000):
-        logging.info("Connect!")
+        logging.info("1Connect!")
+    elif pc.p2p.create_connection('nekopeg.tk', 2000):
+        logging.info("2Connect!")
 
     for host, port in connections:
         pc.p2p.create_connection(host, port)
