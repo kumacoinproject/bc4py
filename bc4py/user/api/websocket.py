@@ -127,7 +127,7 @@ def start_ws_listen_loop():
                         send_data['flag'] = flag
                         send_data['sig_diff'] = sig_diff
                     elif cmd == C_RequestConclude:
-                        _time, tx, related_list, c_address, c_method, c_args = data_list
+                        _time, tx, related_list, c_address, c_method, redeem_address, c_args = data_list
                         send_data = OrderedDict()
                         send_data['c_address'] = c_address
                         send_data['hash'] = hexlify(tx.hash).decode()
@@ -135,6 +135,7 @@ def start_ws_listen_loop():
                         send_data['tx'] = tx.getinfo()
                         send_data['related'] = related_list
                         send_data['c_method'] = c_method
+                        send_data['redeem_address'] = redeem_address
                         send_data['c_args'] = decode(c_args)
                     elif cmd == C_FinishConclude or cmd == C_FinishValidator:
                         _time, tx = data_list

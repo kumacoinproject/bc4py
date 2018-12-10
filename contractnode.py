@@ -69,7 +69,7 @@ def work(port, sub_dir=None):
     # Contract watcher
     start_contract_watch()
     Emulate(c_address='CJ4QZ7FDEH5J7B2O3OLPASBHAFEDP6I7UKI2YMKF')
-    start_emulators()
+    start_emulators(genesis_block)
     Thread(target=mined_newblock, name='GeneBlock', args=(output_que, pc)).start()
     logging.info("Finished all initialize.")
 
@@ -82,7 +82,6 @@ def work(port, sub_dir=None):
         close_contract_watch()
         close_generate()
         close_work_hash()
-        close_sync()
     except KeyboardInterrupt:
         logging.debug("KeyboardInterrupt.")
 

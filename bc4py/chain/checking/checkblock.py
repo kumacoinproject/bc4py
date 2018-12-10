@@ -7,9 +7,7 @@ import time
 
 def check_block(block: Block):
     # 挿入前にBlockの正当性チェック
-    if block.f_orphan:
-        raise BlockChainError('Block is orphan.')
-    elif len(block.txs) == 0:
+    if len(block.txs) == 0:
         raise BlockChainError('Block don\'t have any txs.')
     elif block.getsize() > C.SIZE_BLOCK_LIMIT:
         raise BlockChainError('Block size is too large [{}b>{}b]'.format(block.getsize(), C.SIZE_BLOCK_LIMIT))

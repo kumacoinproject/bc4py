@@ -1,8 +1,8 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.database.builder import builder, tx_builder
-from bc4py.database.tools import get_usedindex  # , get_validator_info
+from bc4py.database.tools import get_usedindex
 from bc4py.chain.checking.signature import get_signed_cks
-from bc4py.user import CoinObject
+from bc4py.user import Balance
 from nem_ed25519.key import is_address
 from binascii import hexlify
 from collections import deque
@@ -53,7 +53,7 @@ def inputs_origin_check(tx, include_block):
 
 def amount_check(tx, payfee_coin_id):
     # Inputs
-    input_coins = CoinObject()
+    input_coins = Balance()
     for txhash, txindex in tx.inputs:
         input_tx = tx_builder.get_tx(txhash)
         if input_tx is None:
@@ -62,19 +62,19 @@ def amount_check(tx, payfee_coin_id):
         input_coins[coin_id] += amount
 
     # Outputs
-    output_coins = CoinObject()
+    output_coins = Balance()
     for address, coin_id, amount in tx.outputs:
         if amount <= 0:
             raise BlockChainError('Input amount is more than 0')
         output_coins[coin_id] += amount
 
     # Fee
-    fee_coins = CoinObject(coin_id=payfee_coin_id, amount=tx.gas_price*tx.gas_amount)
+    fee_coins = Balance(coin_id=payfee_coin_id, amount=tx.gas_price * tx.gas_amount)
 
     # Check all plus amount
     remain_amount = input_coins - output_coins - fee_coins
-    if not remain_amount.is_all_plus_amount():
-        raise BlockChainError('There are minus amount coins. {}={}-{}-{}'
+    if not remain_amount.is_empty():
+        raise BlockChainError('77 Don\'t match input/output. {}={}-{}-{}'
                               .format(remain_amount, input_coins, output_coins, fee_coins))
 
 

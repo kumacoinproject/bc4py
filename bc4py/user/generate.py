@@ -16,6 +16,8 @@ import queue
 from binascii import hexlify
 from collections import deque
 from nem_ed25519.key import is_address
+import traceback
+from random import random
 
 
 generating_threads = list()
@@ -75,6 +77,12 @@ class Generate(Thread):
                     self.proof_of_work()
             except BlockChainError as e:
                 logging.warning(e)
+            except AttributeError as e:
+                if 'previous_block.' in str(traceback.format_exc()):
+                    logging.debug("attribute error of previous_block, passed.")
+                else:
+                    logging.error("Unknown error wait60s...", exc_info=True)
+                    sleep(60)
             except Exception:
                 logging.error("GeneratingError wait60s...", exc_info=True)
                 sleep(60)
@@ -119,7 +127,7 @@ class Generate(Thread):
                                  .format(how_many, "Up" if bias > 1 else "Down"))
             except ZeroDivisionError:
                 pass
-            sleep(sleep_span)
+            sleep(sleep_span+random()-0.5)
         logging.info("Close signal")
 
     def proof_of_stake(self):
@@ -192,7 +200,7 @@ class Generate(Thread):
                 if int(time()) % 90 == 0:
                     logging.info("Staking... margin={}% limit={}".format(round(remain*100, 1), staking_limit))
                 self.hashrate = (calculate_nam, time())
-                sleep(max(0.0, remain))
+                sleep(max(0.0, remain)+random()-0.5)
         logging.info("Close signal")
 
 
@@ -220,7 +228,8 @@ def create_mining_block(consensus):
         'previous_hash': previous_block.hash,
         'bits': bits,
         'nonce': b'\xff\xff\xff\xff'})
-    mining_block.height = previous_block.height + 1
+    proof_tx.height = previous_block.height + 1
+    mining_block.height = proof_tx.height
     mining_block.flag = consensus
     mining_block.bits2target()
     mining_block.txs.append(proof_tx)

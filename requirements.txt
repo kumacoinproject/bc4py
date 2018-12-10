@@ -2,9 +2,9 @@ aiohttp>=3.0.0b0 # ver3 required
 aiohttp_cors
 aiohttp-basicauth-middleware==1.1.0
 pycryptodomex
-bjson>=0.2.7
+bjson>=0.2.9
 nem-ed25519
-p2p_python>=1.0.14
+p2p_python>=1.0.19
 dill
 psutil
 pysha3

@@ -65,7 +65,6 @@ def work(port, sub_dir=None):
         P.F_STOP = True
         builder.close()
         pc.close()
-        close_sync()
     except KeyboardInterrupt:
         logging.debug("KeyboardInterrupt.")
 

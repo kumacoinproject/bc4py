@@ -6,6 +6,7 @@ get contract info
 * Arguments
     1. c_address (string, required) Contract address
     2. confirmed (bool, optional, default=False)
+    3. stophash  (hex, optional, default=False)
 * Request example
     * `curl -H "accept: application/json" "127.0.0.1:3000/public/getcontractinfo?c_address="`
 * Response
@@ -31,6 +32,7 @@ get validator info
 * Arguments
     1. c_address     (string, required)  Contract address
     2. confirmed     (bool, optional, default=False)
+    3. stophash  (hex, optional, default=False)
 * Request example
     * `curl -H "accept: application/json" "127.0.0.1:3000/public/getvalidatorinfo?c_address=CJ4QZ7FDEH5J7B2O3OLPASBHAFEDP6I7UKI2YMKF"`
 * Response
@@ -113,6 +115,8 @@ get contract storage
 * Arguments
     1. c_address     (string, required)  Contract address
     2. confirmed     (bool, optional, default=False)
+    3. stophash      (hex, optional, default=False)
+    4. pickle        (bool, optional, default=False)
 * Request example
     * `curl -H "accept: application/json" "127.0.0.1:3000/public/contractstorage?c_address=CJ4QZ7FDEH5J7B2O3OLPASBHAFEDP6I7UKI2YMKF"`
 * Response
@@ -193,7 +197,7 @@ Disassembly of test:
     2. path    (file path, optional, default=None)
 * Request example
     * by source `curl  --basic -u user:password "127.0.0.1:3000/private/sourcecompile" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"source\": \"class Contract:\n    def __init__(self, start_tx, c_address):\n        self.start_tx = start_tx\n        self.c_address = c_address\n\n    def test(self, *args):\n        return\n\"}"`
-    * by filepath `curl  --basic -u user:password 127.0.0.1:3000/private/sourcecompile" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"path\": \"C:\\Users\\pycoin\\Source\\eample.py\"}"`
+    * by filepath `curl  --basic -u user:password "127.0.0.1:3000/private/sourcecompile" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"path\": \"C:\\Users\\pycoin\\Source\\eample.py\"}"`
 * Response
 ```json
 {
@@ -278,12 +282,11 @@ contract transfer
 conclude contract
 ----
 * Arguments
-    1. c_address     (string, required)  Contract address
-    2. start_hash    (hex string, required)
-    3. send_pairs    (list, optional, default=None)  `[(address, coin_id, amount),..]`
-    4. storage       (dict, optional, default=None)
+    1. start_hash    (hex string, required)
+    2. send_pairs    (list, optional, default=None)  `[(address, coin_id, amount),..]`
+    3. storage       (dict, optional, default=None)
 * Request example
-    * `curl --basic -u user:password "127.0.0.1:3000/private/concludecontract" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"c_address\": \"CJ4QZ7FDEH5J7B2O3OLPASBHAFEDP6I7UKI2YMKF\", \"start_hash\": \"c6a350a6771343427eff7fbf276122eac1d242e03a9b26d654ede3b272eda1fe\", \"storage\": {\"hello\": \"world\"}}"`
+    * `curl --basic -u user:password "127.0.0.1:3000/private/concludecontract" -H "Accept: application/json" -H "Content-Type: application/json" -d "{\"start_hash\": \"c6a350a6771343427eff7fbf276122eac1d242e03a9b26d654ede3b272eda1fe\", \"storage\": {\"hello\": \"world\"}}"`
 * Response
 ```json
 {

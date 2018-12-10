@@ -17,11 +17,11 @@ from threading import Thread, Lock
 from binascii import hexlify
 
 
-f_working = False
 f_changed_status = False
 block_stack = dict()
 backend_processing_lock = Lock()
 write_protect_lock = Lock()
+back_thread = None
 
 
 def _generate_workhash(height, block_flag, block_b, **kwargs):
@@ -57,6 +57,7 @@ def batch_workhash(blocks):
 
 
 def put_to_block_stack(r, before_waiter):
+    """ Get next blocks """
     block_tmp = dict()
     batch_txs = list()
     for block_b, block_height, block_flag, txs in r:
@@ -99,19 +100,20 @@ def fill_block_stack(before_waiter):
     return None
 
 
-def background_sync_chain():
+def background_process():
     waiter = Waiter(0)
     waiter.set()
-    sleep_count = 500
-    while True:
+    sleep_count = 200
+    while not P.F_STOP:
         if sleep_count < 0:
             logging.info("Close background_sync_chain() by timeout.")
             return
         if len(block_stack) == 0:
-            sleep(0.1)
+            sleep(0.05)
             sleep_count -= 1
         elif 400 < len(block_stack):
-            sleep(0.1)
+            sleep(0.05)
+            sleep_count -= 1
         else:
             sleep_count = 500
             with backend_processing_lock:
@@ -123,8 +125,16 @@ def background_sync_chain():
 
 def fast_sync_chain():
     assert V.PC_OBJ is not None, "Need PeerClient start before."
-    global f_changed_status
-    back_thread = Thread(target=background_sync_chain, name='BackSync', daemon=True)
+    global f_changed_status, back_thread
+    # wait for back_thread is closed status
+    count = 0
+    while back_thread and back_thread.is_alive():
+        block_stack.clear()
+        sleep(1)
+        count += 1
+        if count % 30 == 0:
+            logging.warning("Waiting for back_thread closed... {}Sec".format(count))
+    back_thread = Thread(target=background_process, name='BackSync', daemon=True)
     back_thread.start()
     start = time()
 
@@ -132,7 +142,7 @@ def fast_sync_chain():
     failed_num = 0
     before_block = builder.best_block
     index_height = before_block.height + 1
-    logging.debug("Start sync by {}".format(before_block))
+    logging.debug("Start fast sync by {}".format(before_block))
     while failed_num < 5:
         if index_height in block_stack:
             new_block = block_stack[index_height]
@@ -167,18 +177,34 @@ def fast_sync_chain():
         # Base check
         base_check_failed_msg = None
         if before_block.hash != new_block.previous_hash:
-            base_check_failed_msg = "Not correct previous hash {}".format(new_block)
+            base_check_failed_msg = "Not correct previous hash new={} before={}".format(new_block, before_block)
         # proof of work check
         if not new_block.pow_check():
             base_check_failed_msg = "Not correct work hash {}".format(new_block)
         # rollback
         if base_check_failed_msg is not None:
-            before_block = builder.get_block(before_block.previous_hash)
-            index_height = before_block.height + 1
             failed_num += 1
             for height in tuple(block_stack.keys()):
                 if height >= index_height:
                     del block_stack[height]
+            next_index_block = index_height - 1
+            editable_height = builder.root_block.height + 1
+            if next_index_block <= editable_height:
+                logging.error("Try to rollback to editable height {}".format(editable_height))
+                f_changed_status = False
+                return False
+            elif next_index_block not in block_stack:
+                # back 20 height, no blocks to recombine in block_stack
+                index_height = max(3, editable_height, index_height - 20)
+                index_block = builder.get_block(blockhash=builder.get_block_hash(index_height))
+                before_block = builder.get_block(blockhash=index_block.previous_hash)
+                with write_protect_lock:
+                    block_stack.clear()
+                    block_stack[index_height] = index_block
+            else:
+                # back 1 height
+                before_block = builder.get_block(before_block.previous_hash)
+                index_height = before_block.height + 1
             logging.debug(base_check_failed_msg)
             continue
         # TX check
@@ -211,10 +237,10 @@ def fast_sync_chain():
             logging.debug("Update block {} now...".format(index_height + 1))
     # Unconfirmed txを取得
     logging.info("Finish get block, next get unconfirmed.")
-    r = None
-    while not isinstance(r, dict):
-        r = ask_node(cmd=DirectCmd.UNCONFIRMED_TX, f_continue_asking=True)
-    for txhash in r['txs']:
+    unconfirmed_txhash_set = set()
+    for data in ask_all_nodes(cmd=DirectCmd.UNCONFIRMED_TX):
+        unconfirmed_txhash_set.update(data['txs'])
+    for txhash in unconfirmed_txhash_set:
         if txhash in tx_builder.unconfirmed:
             continue
         try:
@@ -232,36 +258,39 @@ def fast_sync_chain():
     my_best_height = builder.best_block.height
     best_height_on_network, best_hash_on_network = get_best_conn_info()
     if best_height_on_network <= my_best_height:
-        logging.info("Finish update chain data by network. {}Sec [{}<={}]"
-                     .format(round(time() - start, 1), best_height_on_network, my_best_height))
+        logging.info("Finish update chain data by network. {}Sec [best={}, now={}]"
+                     .format(round(time()-start, 1), best_height_on_network, my_best_height))
         return True
     else:
-        logging.debug("Continue update chain, {}<={}".format(best_height_on_network, my_best_height))
+        logging.debug("Continue update chain, best={}, now={}".format(best_height_on_network, my_best_height))
         return False
 
 
 def sync_chain_loop():
-    global f_working
-
     def loop():
-        global f_changed_status, f_working
+        global f_changed_status
         failed = 5
-        while f_working:
-            check_connection()
+        while not P.F_STOP:
+            check_network_connection()
             try:
                 if P.F_NOW_BOOTING:
                     if fast_sync_chain():
+                        logging.warning("Reset booting mode.")
                         P.F_NOW_BOOTING = False
                         if builder.best_block:
                             update_mining_staking_all_info()
+                        failed = 0
                         builder.remove_failmark()
                     elif failed < 0:
                         exit_msg = 'Failed sync.'
                         builder.make_failemark(exit_msg)
                         logging.critical(exit_msg)
                         system_exit()
-                        f_working = False
+                        # out of loop
+                        logging.debug("Close sync loop.")
+                        return
                     elif f_changed_status is False:
+                        logging.warning("Resync mode failed, retry={}".format(failed))
                         failed -= 1
                     elif f_changed_status is True:
                         f_changed_status = False
@@ -275,16 +304,7 @@ def sync_chain_loop():
                 reset_good_node()
                 logging.error('Update chain failed "{}"'.format(e), exc_info=True)
                 sleep(5)
-        # out of loop
-        logging.debug("Close sync loop.")
 
-    if f_working:
-        raise Exception('Already sync_chain_loop working.')
-    f_working = True
     logging.info("Start sync now {} connections.".format(len(V.PC_OBJ.p2p.user)))
     Thread(target=loop, name='Sync').start()
 
-
-def close_sync():
-    global f_working
-    f_working = False

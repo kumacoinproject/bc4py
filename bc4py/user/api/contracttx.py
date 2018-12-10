@@ -8,6 +8,7 @@ from bc4py.user.network.sendnew import send_newtx
 from bc4py.user.api import web_base
 from binascii import hexlify, unhexlify
 from time import time
+import bjson
 
 
 async def contract_init(request):
@@ -102,14 +103,15 @@ async def conclude_contract(request):
     start = time()
     post = await web_base.content_type_json_check(request)
     try:
-        c_address = post['c_address']
         start_hash = unhexlify(post['start_hash'].encode())
         start_tx = tx_builder.get_tx(txhash=start_hash)
         if start_tx is None:
             return web_base.error_res('Not found start_tx {}'.format(post['start_hash']))
+        c_address, c_method, redeem_address, c_args = bjson.loads(start_tx.message)
         send_pairs = post.get('send_pairs', None)
         c_storage = post.get('storage', None)
-        tx = create_conclude_tx(c_address=c_address, start_tx=start_tx, send_pairs=send_pairs, c_storage=c_storage)
+        tx = create_conclude_tx(c_address=c_address, start_tx=start_tx,
+                                redeem_address=redeem_address, send_pairs=send_pairs, c_storage=c_storage)
         if not send_newtx(new_tx=tx):
             raise Exception('Failed to send new tx.')
         return web_base.json_res({
@@ -175,13 +177,13 @@ async def validate_unconfirmed(request):
 
 async def source_compile(request):
     post = await web_base.content_type_json_check(request)
+    # Warning: do not execute unknown source code!
     try:
-        extra_imports = post.get('extra_imports', None)
         if 'source' in post:
             source = str(post['source'])
-            c_obj = string2contract(string=source, extra_imports=extra_imports)
+            c_obj = string2contract(string=source, is_safe=True)
         elif 'path' in post:
-            c_obj = path2contract(path=post['path'], extra_imports=extra_imports)
+            c_obj = path2contract(path=post['path'], is_safe=True)
         else:
             raise Exception('You need set "source" or "path".')
         c_bin = contract2binary(c_obj)

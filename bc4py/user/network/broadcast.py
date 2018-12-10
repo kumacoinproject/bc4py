@@ -8,20 +8,6 @@ from bc4py.user.network.directcmd import DirectCmd
 from bc4py.user.network.connection import ask_node
 import logging
 from binascii import hexlify
-from collections import deque
-import time
-
-failed_deque = deque([], maxlen=10)
-
-
-def add_failed_mark(error=None):
-    failed_deque.append(time.time())
-    if min(failed_deque) < time.time() - 7200:
-        return
-    elif len(failed_deque) >= 10:
-        builder.make_failemark(error)
-        failed_deque.clear()
-        P.F_NOW_BOOTING = True
 
 
 class BroadcastCmd:
@@ -36,10 +22,9 @@ class BroadcastCmd:
             warning = 'Do not accept block "{}"'.format(e)
             logging.warning(warning)
             return False
-        except BaseException:
+        except Exception:
             error = "error on accept new block"
             logging.error(error, exc_info=True)
-            add_failed_mark(error)
             return False
         try:
             if new_insert_block(new_block, time_check=True):
@@ -52,10 +37,9 @@ class BroadcastCmd:
             error = 'Failed accept new block "{}"'.format(e)
             logging.error(error, exc_info=True)
             return False
-        except BaseException:
+        except Exception:
             error = "error on accept new block"
             logging.error(error, exc_info=True)
-            add_failed_mark(error)
             return False
 
     @staticmethod
@@ -80,17 +64,16 @@ class BroadcastCmd:
         except BlockChainError as e:
             error = 'Failed accept new tx "{}"'.format(e)
             logging.error(error)
-            add_failed_mark(error)
             return False
-        except BaseException:
+        except Exception:
             error = "Failed accept new tx"
             logging.error(error, exc_info=True)
-            add_failed_mark(error)
             return False
 
 
 def fill_newblock_info(data):
     new_block = Block(binary=data['block'])
+    logging.debug("Fill newblock={}".format(hexlify(new_block.hash).decode()))
     proof = TX(binary=data['proof'])
     new_block.txs.append(proof)
     new_block.flag = data['block_flag']
@@ -98,11 +81,20 @@ def fill_newblock_info(data):
     # Check the block is correct info
     if not new_block.pow_check():
         raise BlockChainError('Proof of work is not satisfied.')
-    if builder.get_block(new_block.hash):
-        raise BlockChainError('Already inserted block.')
+    my_block = builder.get_block(new_block.hash)
+    if my_block:
+        raise BlockChainError('Already inserted block {}'.format(my_block))
     before_block = builder.get_block(new_block.previous_hash)
     if before_block is None:
-        raise BlockChainError('Not found beforeBlock {}.'.format(hexlify(new_block.previous_hash).decode()))
+        logging.debug("Cannot find beforeBlock {}, try to ask outside node."
+                      .format(hexlify(new_block.previous_hash).decode()))
+        # not found beforeBlock, need to check other node have the the block
+        new_block.inner_score *= 0.70  # unknown previousBlock, score down
+        before_block = make_block_by_node(blockhash=new_block.previous_hash)
+        if not new_insert_block(before_block, time_check=True):
+            # require time_check, it was generated only a few seconds ago
+            # print([block for block in builder.chain.values()])
+            raise BlockChainError('Failed insert beforeBlock {}'.format(before_block))
     new_height = before_block.height + 1
     proof.height = new_height
     new_block.height = new_height
@@ -134,3 +126,22 @@ def broadcast_check(data):
         return BroadcastCmd.new_tx(data=data['data'])
     else:
         return False
+
+
+def make_block_by_node(blockhash):
+    """ create Block by outside node """
+    r = ask_node(cmd=DirectCmd.BLOCK_BY_HASH, data={'blockhash': blockhash})
+    if isinstance(r, str):
+        raise BlockChainError('make_block_by_node() failed, by "{}"'.format(hexlify(blockhash).decode(), r))
+    block = Block(binary=r['block'])
+    block.flag = r['flag']
+    before_block = builder.get_block(blockhash=block.previous_hash)
+    if before_block is None:
+        raise BlockChainError('Not found BeforeBeforeBlock {}'.format(hexlify(block.previous_hash).decode()))
+    block.height = before_block.height + 1
+    for tx in r['txs']:
+        _tx = TX(binary=tx['tx'])
+        _tx.height = block.height
+        _tx.signature = tx['sign']
+        block.txs.append(_tx)
+    return block

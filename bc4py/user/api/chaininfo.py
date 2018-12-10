@@ -16,7 +16,7 @@ async def get_block_by_height(request):
     block = builder.get_block(blockhash)
     if f_pickled:
         block = pickle.dumps(block)
-        return web.Response(text=b64encode(block).decode())
+        return web_base.json_res(b64encode(block).decode())
     data = block.getinfo()
     data['size'] = block.getsize()
     data['hex'] = hexlify(block.b).decode()
@@ -33,7 +33,7 @@ async def get_block_by_hash(request):
             return web.Response(text="Not found block.", status=400)
         if f_pickled:
             block = pickle.dumps(block)
-            return web.Response(text=b64encode(block).decode())
+            return web_base.json_res(b64encode(block).decode())
         data = block.getinfo()
         data['size'] = block.getsize()
         data['hex'] = hexlify(block.b).decode()
@@ -52,7 +52,7 @@ async def get_tx_by_hash(request):
             return web.Response(text="Not found tx.", status=400)
         if f_pickled:
             tx = pickle.dumps(tx)
-            return web.Response(text=b64encode(tx).decode())
+            return web_base.json_res(b64encode(tx).decode())
         data = tx.getinfo()
         data['size'] = tx.size
         data['total_size'] = tx.size + len(tx.signature) * 96

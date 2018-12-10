@@ -3,7 +3,7 @@ from bc4py.config import C, BlockChainError
 from bc4py.database.builder import user_account
 from bc4py.database.account import create_new_user_keypair
 from bc4py.database.tools import get_unspents_iter, get_utxo_iter
-from bc4py.user import CoinObject
+from bc4py.user import Balance
 import logging
 
 
@@ -13,7 +13,7 @@ DUMMY_REDEEM_ADDRESS = '_____DUMMY______REDEEM______ADDRESS_____'  # 40letters
 def fill_inputs_outputs(tx, cur, fee_coin_id=0, additional_gas=0, dust_percent=0.8, utxo_cashe=None):
     assert tx.gas_price > 0, "Gas params is none zero."
     # outputsの合計を取得
-    output_coins = CoinObject()
+    output_coins = Balance()
     for address, coin_id, amount in tx.outputs.copy():
         if address == DUMMY_REDEEM_ADDRESS:
             # 償還Outputは再構築するので消す
@@ -21,11 +21,11 @@ def fill_inputs_outputs(tx, cur, fee_coin_id=0, additional_gas=0, dust_percent=0
             continue
         output_coins[coin_id] += amount
     # 一時的にfeeの概算
-    fee_coins = CoinObject(coin_id=fee_coin_id, amount=tx.gas_price * tx.gas_amount)
+    fee_coins = Balance(coin_id=fee_coin_id, amount=tx.gas_price * tx.gas_amount)
     # 必要なだけinputsを取得
     tx.inputs.clear()
     need_coins = output_coins + fee_coins
-    input_coins = CoinObject()
+    input_coins = Balance()
     input_address = set()
     f_dust_skipped = False
     if utxo_cashe is None:
@@ -82,7 +82,7 @@ def fill_contract_inputs_outputs(tx, c_address, additional_gas, dust_percent=0.8
     assert tx.gas_price > 0, "Gas params is none zero."
     fee_coin_id = 0
     # outputsの合計を取得
-    output_coins = CoinObject()
+    output_coins = Balance()
     for address, coin_id, amount in tx.outputs.copy():
         if address == DUMMY_REDEEM_ADDRESS:
             # 償還Outputは再構築するので消す
@@ -90,11 +90,11 @@ def fill_contract_inputs_outputs(tx, c_address, additional_gas, dust_percent=0.8
             continue
         output_coins[coin_id] += amount
     # 一時的にfeeの概算
-    fee_coins = CoinObject(coin_id=fee_coin_id, amount=tx.gas_price * tx.gas_amount)
+    fee_coins = Balance(coin_id=fee_coin_id, amount=tx.gas_price * tx.gas_amount)
     # 必要なだけinputsを取得
     tx.inputs.clear()
     need_coins = output_coins + fee_coins
-    input_coins = CoinObject()
+    input_coins = Balance()
     input_address = set()
     f_dust_skipped = False
     if utxo_cashe is None:

@@ -13,6 +13,7 @@ Index page
 |[/public/getsysteminfo](./public/getsysteminfo)    |GET    |public   | System public info.                    |
 |[/private/getsysteminfo](./private/getsysteminfo)  |GET    |private  | System private info.                   |
 |[/public/getchaininfo](./public/getchaininfo)      |GET    |public   | Blockchain info.                       |
+|[/private/getchaininfo](./private/getchaininfo)    |GET    |public   | inner chain info of database.          |
 |[/public/getnetworkinfo](./public/getnetworkinfo)  |GET    |public   | System network info.                   |
 |[/private/resync](./private/resync)                |GET    |private  | Make system resync status.              |
 |[/private/stop](./private/stop)                    |GET    |private  | Stop system.                            |

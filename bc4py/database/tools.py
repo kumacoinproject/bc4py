@@ -2,7 +2,7 @@ from bc4py.config import C, V, BlockChainError
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.create import closing, create_db
 from bc4py.database.account import read_pooled_address_iter
-
+from time import sleep
 
 best_block_cashe = None
 best_chain_cashe = None
@@ -28,7 +28,15 @@ def _get_best_chain_all(best_block):
 
 def get_utxo_iter(target_address, best_block=None, best_chain=None):
     assert isinstance(target_address, set), 'TargetAddress is set.'
-    best_chain = best_chain or _get_best_chain_all(best_block)
+    failed = 0
+    while failed < 20:
+        best_chain = best_chain or _get_best_chain_all(best_block)
+        if best_chain:
+            break
+        failed += 1
+        sleep(0.05)
+    else:
+        raise BlockChainError('Cannot get best_chain by {}'.format(best_block))
     allow_mined_height = best_chain[0].height - C.MATURE_HEIGHT
     # DataBaseより
     for address in target_address:

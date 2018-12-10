@@ -90,8 +90,8 @@ def work(port, sub_dir):
     Generate(consensus=C.BLOCK_POS, power_limit=0.3).start()
     # Contract watcher
     start_contract_watch()
-    # Emulate(c_address='CJ4QZ7FDEH5J7B2O3OLPASBHAFEDP6I7UKI2YMKF')
-    start_emulators()
+    Emulate(c_address='CJ4QZ7FDEH5J7B2O3OLPASBHAFEDP6I7UKI2YMKF')
+    start_emulators(genesis_block)
     # Stratum
     # Stratum(port=port+2000, consensus=C.BLOCK_HMQ_POW, first_difficulty=4)
     Thread(target=mined_newblock, name='GeneBlock', args=(output_que, pc)).start()
@@ -109,7 +109,6 @@ def work(port, sub_dir):
         close_contract_watch()
         close_generate()
         close_work_hash()
-        close_sync()
     except KeyboardInterrupt:
         logging.debug("KeyboardInterrupt.")
 
@@ -120,7 +119,7 @@ def connection():
         if f_already_bind(port):
             port += 1
             continue
-        set_logger(level=logging.DEBUG, prefix=port)
+        set_logger(level=logging.DEBUG, prefix=port, f_file=bool(port == 2000))
         logging.info("\n{}\n=====\n{}, chain-ver={}\n{}\n"
                      .format(__logo__, __version__, __chain_version__, __message__))
         work(port=port, sub_dir=str(port))

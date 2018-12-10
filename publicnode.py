@@ -71,20 +71,19 @@ def work(port, sub_dir=None):
     logging.info("Finished all initialize.")
 
     try:
-        create_rest_server(f_local=True, port=port + 1000, user='user', pwd='password')
+        create_rest_server(f_local=False, port=port + 1000, user='user', pwd='password')
         P.F_STOP = True
         builder.close()
         pc.close()
         close_contract_watch()
         close_generate()
         close_work_hash()
-        close_sync()
     except KeyboardInterrupt:
         logging.debug("KeyboardInterrupt.")
 
 
 if __name__ == '__main__':
-    set_logger(level=logging.DEBUG)
+    set_logger(level=logging.DEBUG, f_file=True, f_remove=True)
     logging.info("\n{}\n====\n{}, chain-ver={}\n{}\n"
                  .format(__logo__, __version__, __chain_version__, __message__))
     work(port=2000)

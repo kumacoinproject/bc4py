@@ -2,7 +2,7 @@ from bc4py.config import C, V, P, NewInfo
 from bc4py.chain.utils import signature2bin, bin2signature
 from bc4py.chain.tx import TX
 from bc4py.chain.block import Block
-from bc4py.user import CoinObject, UserCoins
+from bc4py.user import Balance, Accounting
 from bc4py.database.account import *
 from bc4py.database.create import closing, create_db
 import struct
@@ -629,6 +629,7 @@ class ChainBuilder:
         for block in best_chain:
             for tx in block.txs:
                 tx.height = block.height
+        assert best_block, 'Cannot find best_block on get_best_chain? chain={}'.format(list(self.chain))
         # best_chain = [<height=n>, <height=n-1>, ...]
         return best_block, best_chain
 
@@ -696,7 +697,7 @@ class ChainBuilder:
                         elif tx.type == C.TX_CONCLUDE_CONTRACT:
                             c_address, start_hash, c_storage = bjson.loads(tx.message)
                             start_tx = tx_builder.get_tx(txhash=start_hash)
-                            dummy, c_method, c_args = bjson.loads(start_tx.message)
+                            dummy, c_method, redeem_address, c_args = bjson.loads(start_tx.message)
                             self.db.write_contract(c_address=c_address, start_hash=start_hash,
                                                    finish_hash=tx.hash, message=(c_method, c_args, c_storage))
 
@@ -724,7 +725,7 @@ class ChainBuilder:
         self.chain[block.hash] = block
         # BestChainの変化を調べる
         new_best_block, new_best_chain = self.get_best_chain()
-        if new_best_block == self.best_block:
+        if self.best_block and new_best_block == self.best_block:
             return  # 操作を加える必要は無い
         # tx heightを合わせる
         old_best_chain = self.best_chain.copy()
@@ -735,12 +736,14 @@ class ChainBuilder:
                 except IndexError: pass
                 for tx in block.txs:
                     tx.height = None
+                block.f_orphan = True
         for index, block in enumerate(new_best_chain):
             if block not in commons:
                 try: new_best_chain[index+1].next_hash = block.hash
                 except IndexError: pass
                 for tx in block.txs:
                     tx.height = block.height
+                block.f_orphan = False
         # 変化しているので反映する
         self.best_block, self.best_chain = new_best_block, new_best_chain
         tx_builder.affect_new_chain(
@@ -865,7 +868,7 @@ class TransactionBuilder:
 
 class UserAccount:
     def __init__(self):
-        self.db_balance = UserCoins()
+        self.db_balance = Accounting()
         # {txhash: (_type, movement, _time),..}
         self.memory_movement = dict()
 
@@ -873,7 +876,7 @@ class UserAccount:
         assert f_delete is False, 'Unsafe function!'
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
-            memory_sum = UserCoins()
+            memory_sum = Accounting()
             for move_log in read_log_iter(cur):
                 # logに記録されてもBlockに取り込まれていないならTXは存在せず
                 if builder.db.read_tx(move_log.txhash):
@@ -924,12 +927,12 @@ class UserAccount:
         return balance
 
     def move_balance(self, _from, _to, coins, outer_cur=None):
-        assert isinstance(coins, CoinObject),  'coins is CoinObject.'
+        assert isinstance(coins, Balance), 'coins is Balance.'
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = outer_cur or db.cursor()
             try:
                 # DataBaseに即書き込む(Memoryに入れない)
-                movements = UserCoins()
+                movements = Accounting()
                 movements[_from] -= coins
                 movements[_to] += coins
                 txhash = insert_log(movements, cur)
@@ -1012,7 +1015,7 @@ class UserAccount:
     def affect_new_tx(self, tx, outer_cur=None):
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = outer_cur or db.cursor()
-            movement = UserCoins()
+            movement = Accounting()
             # send_from_applyで登録済み
             if tx.hash in self.memory_movement:
                 return
@@ -1028,7 +1031,7 @@ class UserAccount:
                 if user is not None:
                     movement.add_coins(user, coin_id, amount)
             # check
-            if len(movement.users) == 0:
+            if len(movement) == 0:
                 return  # 無関係である
             move_log = MoveLog(tx.hash, tx.type, movement, tx.time, True, tx)
             self.memory_movement[tx.hash] = move_log

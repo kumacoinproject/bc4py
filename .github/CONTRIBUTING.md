@@ -22,6 +22,11 @@ Before pull request
 * Migrations, do you confirm the migration has backward compatibility?
 * Tools, do you confirm the tool is backed by realistic scenarios? check dependency?
 
+Before issue
+----
+* Duplication, already raised same issues?
+* Documents, already written in documents?
+* Question, easily solved if you search by Google?
 
 In Japanese
 ----
@@ -30,3 +35,5 @@ In Japanese
 * コア開発者は、`develop`での開発が一段落したらSubVer上げて`master`にMargeする。
 * コントリビュータは、`develop`よりForkして変更点を加えた後に`develop`へプルリクエストする。
 * プルリクエストへのMarge可否がコア開発者より返信されます。
+* コントリビュータは、プルリクエスト/イシュー作成前にご確認よろしくお願いします。
+

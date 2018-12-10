@@ -2,8 +2,8 @@ from bc4py.config import V, P, BlockChainError
 from bc4py.user.network.directcmd import DirectCmd
 import logging
 import random
-import collections
-import time
+from collections import Counter
+from time import sleep
 
 
 good_node = list()
@@ -13,34 +13,36 @@ best_height_on_network = None
 
 
 def set_good_node():
-    _node = list()
+    node = list()
     pc = V.PC_OBJ
-    blockhash = collections.Counter()
-    blockheight = collections.Counter()
-    for _user in pc.p2p.user:
+    status_counter = Counter()
+    f_all_booting = True  # flag: there is no stable node
+    for user in pc.p2p.user:
         try:
-            dummy, r = pc.send_direct_cmd(cmd=DirectCmd.BEST_INFO, data=None, user=_user)
+            dummy, r = pc.send_direct_cmd(cmd=DirectCmd.BEST_INFO, data=None, user=user)
             if isinstance(r, str):
                 continue
         except TimeoutError:
             logging.debug("timeout", exc_info=True)
             continue
-        blockhash[r['hash']] += 1
-        blockheight[r['height']] += 1
-        _node.append((_user, r['hash'], r['height'], r['booting']))
+        status_counter[(r['height'], r['hash'])] += 1
+        if r['booting'] is False:
+            f_all_booting = False
+        node.append((user, r['hash'], r['height'], r['booting']))
     global best_hash_on_network, best_height_on_network
-    best_hash_on_network, num0 = blockhash.most_common()[0]
-    best_height_on_network, num1 = blockheight.most_common()[0]
+    # get best height and best hash
+    (best_height, best_hash), count = status_counter.most_common()[0]
+    if count == 1:
+        best_height, best_hash = sorted(status_counter, key=lambda x: x[0], reverse=True)[0]
+    best_hash_on_network = best_hash
+    best_height_on_network = best_height
     good_node.clear()
     bad_node.clear()
-    if num0 <= 1 or num1 <= 1:
-        good_node.extend(_user for _user, _hash, _height, _booting in _node)
-    else:
-        for _user, _hash, _height, _booting in _node:
-            if _hash == best_hash_on_network or _height == best_height_on_network:
-                good_node.append(_user)
-            else:
-                bad_node.append(_user)
+    for user, blockhash, height, f_booting in node:
+        if blockhash == best_hash_on_network and height == best_height_on_network:
+            good_node.append(user)
+        else:
+            bad_node.append(user)
 
 
 def reset_good_node():
@@ -51,54 +53,79 @@ def reset_good_node():
 
 
 def ask_node(cmd, data=None, f_continue_asking=False):
-    check_connection()
-    count = 10
+    check_network_connection()
+    failed = 0
     pc = V.PC_OBJ
     user_list = pc.p2p.user.copy()
     random.shuffle(user_list)
-    while 0 < count:
+    while failed < 10:
         try:
             if len(user_list) == 0:
-                raise BlockChainError('Asked all nodes, no node to ask.')
-            user = user_list.pop()
-            if user in bad_node:
-                count -= 1
-                continue
-            elif user not in good_node:
+                break
+            if len(good_node) == 0:
                 set_good_node()
-                if len(good_node) == 0:
-                    raise BlockChainError('No good node found.')
-                else:
-                    logging.debug("Get good node {}".format(len(good_node)))
-                    continue
-            dummy, r = pc.send_direct_cmd(cmd=cmd, data=data, user=user)
-            if f_continue_asking and isinstance(r, str):
-                if count > 0:
-                    logging.warning("Failed DirectCmd:{} to {} by \"{}\"".format(cmd, user.name, r))
-                    count -= 1
-                    continue
-                else:
-                    raise BlockChainError('Node return error "{}"'.format(r))
+            user = user_list.pop()
+            if user in good_node:
+                dummy, r = pc.send_direct_cmd(cmd=cmd, data=data, user=user)
+                if isinstance(r, str):
+                    failed += 1
+                    if f_continue_asking:
+                        logging.warning("Failed cmd={} to {} by \"{}\"".format(cmd, user.name, r))
+                        continue
+                return r
+            elif user in bad_node:
+                pass
+            else:
+                set_good_node()
         except TimeoutError:
-            continue
-        return r
-    raise BlockChainError('Too many retry ask_node.')
+            pass
+    raise BlockChainError('Too many retry ask_node. good={} bad={} failed={} cmd={}'
+                          .format(len(good_node), len(bad_node), failed, cmd))
+
+
+def ask_all_nodes(cmd, data=None):
+    check_network_connection()
+    pc = V.PC_OBJ
+    user_list = pc.p2p.user.copy()
+    random.shuffle(user_list)
+    result = list()
+    for user in pc.p2p.user.copy():
+        try:
+            if len(good_node) == 0:
+                set_good_node()
+            if user in good_node or user in bad_node:
+                dummy, r = pc.send_direct_cmd(cmd=cmd, data=data, user=user)
+                if not isinstance(r, str):
+                    result.append(r)
+            else:
+                set_good_node()
+        except TimeoutError:
+            pass
+    if len(result) > 0:
+        return result
+    raise BlockChainError('Cannot get any data. good={} bad={} cmd={}'
+                          .format(len(good_node), len(bad_node), cmd))
 
 
 def get_best_conn_info():
     return best_height_on_network, best_hash_on_network
 
 
-def check_connection(f_3_conn=3):
-    c, need = 0,  3 if f_3_conn else 1
-    while not P.F_STOP and len(V.PC_OBJ.p2p.user) < need:
-        if c % 90 == 0:
-            logging.debug("Waiting for new connections.. {}".format(len(V.PC_OBJ.p2p.user)))
-        time.sleep(1)
-        c += 1
+def check_network_connection(minimum=None):
+    count = 0
+    need = minimum or 2
+    while not P.F_STOP and len(V.PC_OBJ.p2p.user) <= need:
+        count += 1
+        if count % 30 == 0:
+            logging.debug("{} connections, waiting for new.. {}Sec".format(len(V.PC_OBJ.p2p.user), count))
+        sleep(1)
 
 
 __all__ = [
-    "set_good_node", "reset_good_node", "ask_node",
-    "get_best_conn_info", "check_connection"
+    "set_good_node",
+    "reset_good_node",
+    "ask_node",
+    "ask_all_nodes",
+    "get_best_conn_info",
+    "check_network_connection"
 ]

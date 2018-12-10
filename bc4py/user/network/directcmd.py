@@ -45,7 +45,7 @@ def _block_by_hash(blockhash):
         'block': block.b,
         'height': block.height,
         'flag': block.flag,
-        'orphan': block.f_orphan,
+        'orphan': bool(block.f_orphan is True),
         'next_hash': block.next_hash,
         'difficulty': block.difficulty,
         'txs': txs}
@@ -111,7 +111,6 @@ class DirectCmd:
             return _block_by_height(height=data['height'])
         except BlockChainError as e:
             return str(e)
-
 
     @staticmethod
     def block_by_hash(data):

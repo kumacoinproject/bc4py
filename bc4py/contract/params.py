@@ -1,7 +1,11 @@
 
 
 allow_globals = [
-    '__name__', '__doc__', '__package__', '__loader__', '__spec__', '__builtins__'
+    '__name__', '__doc__', '__package__', '__spec__', '__annotations__', 'SourceFileLoader'
+]
+
+deny_globals = [
+    '__loader__', '__builtins__',
 ]
 
 allow_builtins = [
@@ -19,9 +23,9 @@ allow_builtins = [
     'TimeoutError', 'True', 'TypeError', 'UnboundLocalError', 'UnicodeDecodeError', 'UnicodeEncodeError',
     'UnicodeError', 'UnicodeTranslateError', 'UnicodeWarning', 'UserWarning', 'ValueError', 'Warning',
     'WindowsError', 'ZeroDivisionError',
-    '_', '__name__', '__loader__', '__package__', '__spec__',
+    '__name__', '__package__',
     'locals', 'globals', 'staticmethod', 'super', 'callable', 'classmethod',
-    'issubclass', '__build_class__', '__debug__', '__doc__',
+    'issubclass', '__build_class__', '__debug__',
     'abs', 'all', 'any', 'ascii', 'bin', 'bool', 'bytearray', 'bytes', 'chr', 'complex', 'delattr', 'dict',
     'dir', 'divmod', 'enumerate', 'filter', 'float', 'format', 'frozenset', 'getattr', 'hasattr', 'hash',
     'hex', 'id', 'int', 'isinstance', 'iter', 'len', 'list', 'map', 'max', 'min', 'next', 'object', 'oct',
@@ -29,12 +33,14 @@ allow_builtins = [
     'sorted', 'str', 'sum', 'tuple', 'type', 'vars', 'zip']
 
 deny_builtins = [
-    '__import__',
+    '__import__', '__loader__', '__doc__', '__spec__',
     'memoryview', 'compile', 'copyright', 'credits', 'eval', 'exec', 'exit',
     'help', 'input', 'license', 'open', 'quit',
 ]
 
 __all__ = [
-    "allow_builtins", "allow_globals",
+    "allow_globals",
+    "deny_globals",
+    "allow_builtins",
     "deny_builtins"
 ]

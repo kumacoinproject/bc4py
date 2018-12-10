@@ -33,7 +33,7 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
     # check already created conclude tx
     check_finish_hash = get_conclude_hash_by_start_hash(
         c_address=c_address, start_hash=start_hash, best_block=include_block, stop_txhash=tx.hash)
-    if check_finish_hash is not None:
+    if check_finish_hash and check_finish_hash != tx.hash:
         raise BlockChainError('Already start_hash used. {}'.format(hexlify(check_finish_hash).decode()))
     # inputs address check
     for txhash, txindex in tx.inputs:
@@ -60,7 +60,7 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
     if start_tx.time != tx.time or start_tx.deadline != tx.deadline:
         raise BlockChainError('time of conclude_tx and start_tx is same, {}!={}.'.format(start_tx.time, tx.time))
     try:
-        c_start_address, c_method, c_args = bjson.loads(start_tx.message)
+        c_start_address, c_method, redeem_address, c_args = bjson.loads(start_tx.message)
     except Exception as e:
         raise BlockChainError('BjsonError: {}'.format(e))
     if c_address != c_start_address:
@@ -205,7 +205,7 @@ def contract_signature_check(extra_tx: TX, v: Validator, include_block: Block):
 
 def contract_required_gas_check(tx: TX, v: Validator, extra_gas=0):
     # gas/cosigner fee check
-    require_gas = len(tx.b) + extra_gas + (C.SIGNATURE_GAS + 96) * v.require
+    require_gas = tx.size + C.SIGNATURE_GAS*v.require + extra_gas
     if tx.gas_amount < require_gas:
         raise BlockChainError('Unsatisfied required gas. [{}<{}]'.format(tx.gas_amount, require_gas))
 
