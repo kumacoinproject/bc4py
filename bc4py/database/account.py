@@ -225,7 +225,7 @@ class MoveLog:
     def get_dict_data(self, outer_cur=None):
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = outer_cur or db.cursor()
-            movement = {read_user2name(user, cur): coins.coins for user, coins in self.movement.items()}
+            movement = {read_user2name(user, cur): dict(balance) for user, balance in self.movement.items()}
         return {
             'txhash': hexlify(self.txhash).decode(),
             'height':  self.height,
