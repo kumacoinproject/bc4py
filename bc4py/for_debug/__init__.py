@@ -18,7 +18,14 @@ def f_already_bind(port):
     return r
 
 
-def set_logger(level, prefix='main', f_file=False, f_remove=False):
+def set_logger(level=logging.INFO, prefix='main', f_file=False, f_remove=False):
+    """
+    Setup logger
+    :param level: logging level.
+    :param prefix: output filename. debug.{prefix}.log
+    :param f_file: write down to log file
+    :param f_remove: remove log file when restart.
+    """
     logger = logging.getLogger()
     for sh in logger.handlers:
         logger.removeHandler(sh)
