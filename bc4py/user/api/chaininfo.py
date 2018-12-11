@@ -68,7 +68,7 @@ async def get_mintcoin_info(request):
         mint_id = int(request.query.get('mint_id', 0))
         m = get_mintcoin_object(coin_id=mint_id)
         return web_base.json_res(m.info)
-    except BaseException:
+    except Exception:
         return web_base.error_res()
 
 
@@ -83,7 +83,7 @@ async def get_mintcoin_history(request):
                 'params': params,
                 'setting': setting})
         return web_base.json_res(data)
-    except BaseException:
+    except Exception:
         return web_base.error_res()
 
 

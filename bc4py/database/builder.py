@@ -445,7 +445,7 @@ class ChainBuilder:
             logging.info("Connect database.")
         except leveldb.LevelDBError:
             logging.warning("Already connect database.")
-        except BaseException as e:
+        except Exception as e:
             logging.debug("Failed connect database, {}.".format(e))
 
     def init(self, genesis_block: Block, batch_size=None):
@@ -461,7 +461,7 @@ class ChainBuilder:
             elif genesis_block != self.db.read_block(genesis_block.hash):
                 raise BlockBuilderError("Don't match genesis binary [{}!={}]".format(
                     hexlify(genesis_block.b).decode(), hexlify(self.db.read_block(genesis_block.hash).b).decode()))
-        except BaseException:
+        except Exception:
             # GenesisBlockしか無いのでDummyBlockを入れる処理
             self.root_block = Block()
             self.root_block.hash = b'\xff' * 32
@@ -715,7 +715,7 @@ class ChainBuilder:
                 # アカウントへ反映↓
                 user_account.new_batch_apply(batched_blocks)
                 return batched_blocks  # [<height=n>, <height=n+1>, .., <height=n+m>]
-            except BaseException as e:
+            except Exception as e:
                 self.db.batch_rollback()
                 logging.warning("Failed batch block builder. '{}'".format(e), exc_info=True)
                 return list()
@@ -940,7 +940,8 @@ class UserAccount:
                     db.commit()
                 self.db_balance += movements
                 return txhash
-            except BaseException:
+            except Exception:
+                logging.error("Failed move_balance,", exc_info=True)
                 db.rollback()
 
     def get_movement_iter(self, start=0, f_dict=False):

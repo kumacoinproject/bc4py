@@ -78,7 +78,7 @@ def send_newtx(new_tx, outer_cur=None):
             tx_builder.put_unconfirmed(new_tx, outer_cur)
             logging.info("Success broadcast new tx {}".format(new_tx))
         return True
-    except BaseException as e:
+    except Exception as e:
         logging.warning("Failed broadcast new tx, other nodes don\'t accept {}"
                         .format(new_tx.getinfo()))
         logging.warning("Reason is \"{}\"".format(e))

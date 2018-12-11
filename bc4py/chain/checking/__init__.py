@@ -58,7 +58,7 @@ def new_insert_block(block, time_check=False):
                 logging.warning("58 Set booting mode.")
                 P.F_NOW_BOOTING = True
             return False
-        except BaseException as e:
+        except Exception as e:
             message = "New insert block error, \"{}\"".format(e)
             logging.warning(message, exc_info=True)
             add_failed_mark()
