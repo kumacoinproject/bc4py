@@ -43,7 +43,9 @@ def work(port, sub_dir=None):
     V.PC_OBJ = pc
 
     if pc.p2p.create_connection('tipnem.tk', 2000):
-        logging.info("Connect!")
+        logging.info("1Connect!")
+    elif pc.p2p.create_connection('nekopeg.tk', 2000):
+        logging.info("2Connect!")
 
     for host, port in connections:
         pc.p2p.create_connection(host, port)
@@ -87,7 +89,7 @@ def work(port, sub_dir=None):
 
 
 if __name__ == '__main__':
-    set_logger(level=logging.DEBUG)
+    set_logger(level=logging.DEBUG, f_file=True, f_remove=True)
     logging.info("\n{}\n====\n{}, chain-ver={}\n{}\n"
                  .format(__logo__, __version__, __chain_version__, __message__))
     work(port=2000)

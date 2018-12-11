@@ -61,7 +61,7 @@ def work(port, sub_dir=None):
     logging.info("Finished all initialize. (no mining and staking)")
 
     try:
-        create_rest_server(f_local=True, port=port+1000, user='user', pwd='password')
+        create_rest_server(f_local=False, port=port+1000, user='user', pwd='password')
         P.F_STOP = True
         builder.close()
         pc.close()
@@ -70,7 +70,7 @@ def work(port, sub_dir=None):
 
 
 if __name__ == '__main__':
-    set_logger(level=logging.DEBUG)
+    set_logger(level=logging.DEBUG, f_file=True, f_remove=True)
     logging.info("\n{}\n====\n{}, chain-ver={}\n{}\n"
                  .format(__logo__, __version__, __chain_version__, __message__))
     work(port=2000)
