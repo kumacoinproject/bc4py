@@ -28,6 +28,7 @@ class Storage(dict):
         for k, v in init_storage.items():
             if v is None:
                 raise Exception('Not allowed None value...')
+            self[k] = v
         # check key type
         if len({type(k) for k in init_storage}) > 1:
             raise Exception("All key type is same {}".format([type(k) for k in init_storage]))
