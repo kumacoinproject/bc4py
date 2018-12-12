@@ -73,6 +73,7 @@ Documents
 * [Ho to mining](doc/Mining.md)
 * [API doc](bc4py/user/api/static/index.md)
 * [Development Guidelines](.github/CONTRIBUTING.md)
+* [Proxy introduction](doc/Proxy.md)
 
 Build for windows
 ----
