@@ -206,14 +206,15 @@ def get_contract_object(c_address, best_block=None, best_chain=None, stop_txhash
     return c
 
 
-def get_conclude_hash_by_start_hash(c_address, start_hash, best_block=None, best_chain=None, stop_txhash=None):
+def get_conclude_by_start_iter(c_address, start_hash, best_block=None, best_chain=None, stop_txhash=None):
+    """ return ConcludeTX's hashes by start_hash iter """
     # database
     c_iter = builder.db.read_contract_iter(c_address=c_address)
     for index, _start_hash, finish_hash, (c_method, c_args, c_storage) in c_iter:
         if finish_hash == stop_txhash:
-            return None
+            raise StopIteration
         if _start_hash == start_hash:
-            return finish_hash
+            yield finish_hash
     # memory
     if best_chain:
         _best_chain = None
@@ -224,27 +225,27 @@ def get_conclude_hash_by_start_hash(c_address, start_hash, best_block=None, best
     for block in reversed(best_chain or _best_chain):
         for tx in block.txs:
             if tx.hash == stop_txhash:
-                return None
+                raise StopIteration
             if tx.type != C.TX_CONCLUDE_CONTRACT:
                 continue
             _c_address, _start_hash, c_storage = decode(tx.message)
             if _c_address != c_address:
                 continue
             if _start_hash == start_hash:
-                return tx.hash
+                yield tx.hash
     # unconfirmed
     if best_block is None:
         for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.time):
             if tx.hash == stop_txhash:
-                return None
+                raise StopIteration
             if tx.type != C.TX_CONCLUDE_CONTRACT:
                 continue
             _c_address, _start_hash, c_storage = decode(tx.message)
             if _c_address != c_address:
                 continue
             if _start_hash == start_hash:
-                return tx.hash
-    return None
+                yield tx.hash
+    raise StopIteration
 
 
 __all__ = [
@@ -253,5 +254,5 @@ __all__ = [
     "Contract",
     "contract_fill",
     "get_contract_object",
-    "get_conclude_hash_by_start_hash",
+    "get_conclude_by_start_iter",
 ]

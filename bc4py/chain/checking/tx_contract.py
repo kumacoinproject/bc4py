@@ -31,10 +31,10 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
     if not (c_storage is None or isinstance(c_storage, dict)):
         raise BlockChainError('3. Not correct format. {}'.format(c_storage))
     # check already created conclude tx
-    check_finish_hash = get_conclude_hash_by_start_hash(
-        c_address=c_address, start_hash=start_hash, best_block=include_block, stop_txhash=tx.hash)
-    if check_finish_hash and check_finish_hash != tx.hash:
-        raise BlockChainError('Already start_hash used. {}'.format(hexlify(check_finish_hash).decode()))
+    for finish_hash in get_conclude_by_start_iter(c_address=c_address, start_hash=start_hash,
+                                                  best_block=include_block, stop_txhash=tx.hash):
+        if finish_hash and finish_hash != tx.hash:
+            raise BlockChainError('Already start_hash used. {}'.format(hexlify(finish_hash).decode()))
     # inputs address check
     for txhash, txindex in tx.inputs:
         input_tx = tx_builder.get_tx(txhash)

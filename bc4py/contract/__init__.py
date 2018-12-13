@@ -93,32 +93,33 @@ def broadcast(c_address, start_tx, redeem_address, emulate_gas, result, f_debug=
         logging.error("Failed broadcast, send_pairs={} c_storage={} tx={}"
                       .format(send_pairs, c_storage, conclude_tx.getinfo()))
         # Check already confirmed another conclude tx
-        another_conclude_hash = get_conclude_hash_by_start_hash(
-            c_address=c_address, start_hash=start_tx.hash, stop_txhash=conclude_tx.hash)
-        another_tx = tx_builder.get_tx(txhash=another_conclude_hash)
-        if another_tx is None:
-            logging.warning("Another problem occur on broadcast.")
-        elif another_tx.height is not None:
-            logging.info("Already complete contract by {}".format(another_tx))
-        else:
-            # check same action ConcludeTX and broadcast
-            a_another = calc_tx_movement(tx=another_tx, c_address=c_address,
-                                         redeem_address=redeem_address, emulate_gas=emulate_gas)
-            a_conclude = calc_tx_movement(tx=conclude_tx, c_address=c_address,
-                                          redeem_address=redeem_address, emulate_gas=emulate_gas)
-            a_another.cleanup()
-            a_conclude.cleanup()
-            if another_tx.message == conclude_tx.message and a_another == a_conclude:
-                logging.info("anotherTX is same with my ConcludeTX.")
-                new_tx = create_signed_tx_as_validator(tx=another_tx)
-                assert another_tx is not new_tx, 'tx={}, new_tx={}'.format(id(another_tx), id(new_tx))
-                if send_newtx(new_tx=new_tx):
-                    logging.info("Broadcast success {}".format(new_tx))
-                    return
-            # Failed check AnotherTX
-            logging.error("Failed, unstable result?\nAnother=> {}\nMyResult=> {}"
-                          .format(another_tx.getinfo(), conclude_tx.getinfo()))
-            logging.error("Account \nAnother=> {}\nMyResult=> {}".format(a_another, a_conclude))
+        a_conclude = calc_tx_movement(
+            tx=conclude_tx, c_address=c_address, redeem_address=redeem_address, emulate_gas=emulate_gas)
+        a_conclude.cleanup()
+        for another_conclude_hash in get_conclude_by_start_iter(
+                c_address=c_address, start_hash=start_tx.hash, stop_txhash=conclude_tx.hash):
+            another_tx = tx_builder.get_tx(txhash=another_conclude_hash)
+            logging.debug("Try to check {} is same TX.".format(another_tx))
+            if another_tx is None:
+                logging.warning("Another problem occur on broadcast.")
+            elif another_tx.height is not None:
+                logging.info("Already complete contract by {}".format(another_tx))
+            else:
+                # check same action ConcludeTX and broadcast
+                a_another = calc_tx_movement(tx=another_tx, c_address=c_address,
+                                             redeem_address=redeem_address, emulate_gas=emulate_gas)
+                a_another.cleanup()
+                if another_tx.message == conclude_tx.message and a_another == a_conclude:
+                    logging.info("anotherTX is same with my ConcludeTX.")
+                    new_tx = create_signed_tx_as_validator(tx=another_tx)
+                    assert another_tx is not new_tx, 'tx={}, new_tx={}'.format(id(another_tx), id(new_tx))
+                    if send_newtx(new_tx=new_tx):
+                        logging.info("Broadcast success {}".format(new_tx))
+                        return
+                # Failed check AnotherTX
+                logging.error("Failed, unstable result?\nAnother=> {}\nMyResult=> {}"
+                              .format(another_tx.getinfo(), conclude_tx.getinfo()))
+                logging.error("Account \nAnother=> {}\nMyResult=> {}".format(a_another, a_conclude))
 
 
 def calc_tx_movement(tx, c_address, redeem_address, emulate_gas):
