@@ -34,15 +34,16 @@ class Emulate:
             emulators.remove(self)
 
     def debug(self, genesis_block, start_tx, c_method, redeem_address, c_args, gas_limit=None):
+        f_show_log = True
         f_debug = True
         result, emulate_gas = execute(
             c_address=self.c_address, genesis_block=genesis_block, start_tx=start_tx,
-            c_method=c_method, redeem_address=redeem_address, c_args=c_args, gas_limit=gas_limit, f_debug=f_debug)
+            c_method=c_method, redeem_address=redeem_address, c_args=c_args, gas_limit=gas_limit, f_show_log=f_show_log)
         broadcast(c_address=self.c_address, start_tx=start_tx, redeem_address=redeem_address,
                   emulate_gas=emulate_gas, result=result, f_debug=f_debug)
 
 
-def execute(c_address, genesis_block, start_tx, c_method, redeem_address, c_args, gas_limit, f_debug=False):
+def execute(c_address, genesis_block, start_tx, c_method, redeem_address, c_args, gas_limit, f_show_log=False):
     """ execute contract emulator """
     file = StringIO()
     is_success, result, emulate_gas, work_line = emulate(
@@ -50,7 +51,7 @@ def execute(c_address, genesis_block, start_tx, c_method, redeem_address, c_args
         c_method=c_method, redeem_address=redeem_address, c_args=c_args, gas_limit=gas_limit, file=file)
     if is_success:
         logging.info('Success gas={} line={} result={}'.format(emulate_gas, work_line, result))
-        if f_debug:
+        if f_show_log:
             logging.debug("#### Start log ####")
             for data in file.getvalue().split("\n"):
                 logging.debug(data)
@@ -168,8 +169,8 @@ def start_emulators(genesis_block, f_debug=False):
                                 gas_limit = None  # No limit on gas consumption, turing-complete
                             result, emulate_gas = execute(
                                 c_address=c_address, genesis_block=genesis_block, start_tx=start_tx, c_method=c_method,
-                                redeem_address=redeem_address, c_args=c_args, gas_limit=gas_limit, f_debug=f_debug)
-                            claim_emulate_gas = emulate_gas if e.f_claim_gas else None
+                                redeem_address=redeem_address, c_args=c_args, gas_limit=gas_limit, f_show_log=True)
+                            claim_emulate_gas = emulate_gas if e.f_claim_gas else 0
                             broadcast(c_address=c_address, start_tx=start_tx, redeem_address=redeem_address,
                                       emulate_gas=claim_emulate_gas, result=result, f_debug=f_debug)
 

@@ -57,10 +57,11 @@ def create_contract_transfer_tx(c_address, cur, c_method, c_args=None,
     return tx
 
 
-def create_conclude_tx(c_address, start_tx, redeem_address, send_pairs=None, c_storage=None, emulate_gas=None):
+def create_conclude_tx(c_address, start_tx, redeem_address, send_pairs=None, c_storage=None, emulate_gas=0):
     assert isinstance(start_tx, TX)
     assert send_pairs is None or isinstance(send_pairs, list)
     assert c_storage is None or isinstance(c_storage, dict)
+    assert isinstance(emulate_gas, int)
     message = bjson.dumps((c_address, start_tx.hash, c_storage), compress=False)
     v = get_validator_object(c_address=c_address)
     send_pairs = send_pairs or list()
@@ -80,7 +81,7 @@ def create_conclude_tx(c_address, start_tx, redeem_address, send_pairs=None, c_s
     # replace dummy address
     replace_redeem_dummy_address(tx=tx, replace_by=c_address)
     # fix redeem fees
-    if send_pairs and emulate_gas:
+    if send_pairs:
         # conclude_txで使用したGasを、ユーザーから引いてコントラクトに戻す処理
         conclude_fee = (emulate_gas + tx.gas_amount) * tx.gas_price
         fee_coin_id = 0

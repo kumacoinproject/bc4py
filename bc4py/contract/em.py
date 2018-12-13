@@ -23,8 +23,6 @@ EMU_QUIT = 'quit'
 EMU_UNTIL = 'until'
 EMU_RETURN = 'return'
 
-WORKING_FILE_NAME = 'em.py'
-
 cxt = get_context('spawn')
 
 
@@ -118,24 +116,34 @@ def emulate(genesis_block, start_tx, c_address, c_method, redeem_address, c_args
                 data = b''
             else:
                 continue
+
             if gas_limit and gas_limit < total_gas:
                 error = 'Reach gas_limit. [{}<{}]'.format(gas_limit, total_gas)
                 break
             elif cmd in (EMU_STEP, EMU_NEXT, EMU_UNTIL, EMU_RETURN):
                 working_file = os.path.split(working_path)[1]
-                if working_file.startswith('contract('):
-                    total_gas += 1
-                    cmd = EMU_STEP
-                elif working_file.startswith(WORKING_FILE_NAME):
-                    cmd = EMU_STEP
-                else:
-                    cmd = EMU_NEXT
-                # Calculate total_gas
-                for func, gas in __price__.items():
-                    if func in working_code and working_code.startswith('def ' + func + '('):
-                        total_gas += gas
+                # logging for debug
                 print("{} d={} {} >> type={} gas={} path={} code=\"{}\"".format(
                     work_line, code_depth, cmd, working_type, total_gas, working_file, working_code), file=file)
+
+                # select action by code_depth
+                if code_depth == 0:
+                    # pre Contract code: _em()
+                    cmd = EMU_STEP
+                elif code_depth == 1:
+                    # Contract code body: Contract()
+                    cmd = EMU_STEP
+                    total_gas += 1
+                else:
+                    # Deep in basiclib functions
+                    cmd = EMU_NEXT
+
+                # Calculate total_gas
+                if code_depth == 2 and working_type == 'Call':
+                    for func, gas in __price__.items():
+                        if func in working_code and working_code.startswith('def ' + func + '('):
+                            total_gas += gas
+                # next work line
                 work_line += 1
             else:
                 print("NOP [{}] >> {}".format(cmd, ', '.join(msgs)), file=file)
