@@ -128,9 +128,8 @@ def calc_tx_movement(tx, c_address, redeem_address, emulate_gas):
         input_tx = tx_builder.get_tx(txhash=txhash)
         address, coin_id, amount = input_tx.outputs[txindex]
         account[address][coin_id] += amount
-    fee = (tx.gas_amount+emulate_gas) * tx.gas_price
-    account[redeem_address][0] += fee
-    account[c_address][0] -= fee
+    account[redeem_address][0] -= (tx.gas_amount+emulate_gas) * tx.gas_price
+    account[c_address][0] += emulate_gas * tx.gas_price
     for address, coin_id, amount in tx.outputs:
         account[address][coin_id] -= amount
     return account
