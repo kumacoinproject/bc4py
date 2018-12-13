@@ -87,7 +87,7 @@ def broadcast(c_address, start_tx, redeem_address, emulate_gas, result, f_debug=
     if f_debug:
         logging.debug("Not broadcast, send_pairs={} c_storage={} tx={}"
                       .format(send_pairs, c_storage, conclude_tx.getinfo()))
-    elif send_newtx(new_tx=conclude_tx):
+    elif send_newtx(new_tx=conclude_tx, exc_info=False):
         logging.info("Broadcast success {}".format(conclude_tx))
     else:
         logging.error("Failed broadcast, send_pairs={} c_storage={} tx={}"

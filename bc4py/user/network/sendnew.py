@@ -56,9 +56,10 @@ def mined_newblock(que, pc):
             logging.error("mined_newblock()", exc_info=True)
 
 
-def send_newtx(new_tx, outer_cur=None):
+def send_newtx(new_tx, outer_cur=None, exc_info=True):
     assert V.PC_OBJ, "PeerClient is None."
     try:
+        check_tx_time(new_tx)
         check_tx(new_tx, include_block=None)
         data = {
             'cmd': BroadcastCmd.NEW_TX,
@@ -74,7 +75,6 @@ def send_newtx(new_tx, outer_cur=None):
             logging.info("Marge contract tx {}".format(new_tx))
         else:
             # normal tx
-            check_tx_time(new_tx)
             tx_builder.put_unconfirmed(new_tx, outer_cur)
             logging.info("Success broadcast new tx {}".format(new_tx))
         return True
@@ -82,7 +82,7 @@ def send_newtx(new_tx, outer_cur=None):
         logging.warning("Failed broadcast new tx, other nodes don\'t accept {}"
                         .format(new_tx.getinfo()))
         logging.warning("Reason is \"{}\"".format(e))
-        logging.debug("traceback,", exc_info=True)
+        logging.debug("traceback,", exc_info=exc_info)
         return False
 
 
