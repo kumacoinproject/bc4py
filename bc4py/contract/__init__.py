@@ -96,6 +96,7 @@ def broadcast(c_address, start_tx, redeem_address, emulate_gas, result, f_debug=
         a_conclude = calc_tx_movement(
             tx=conclude_tx, c_address=c_address, redeem_address=redeem_address, emulate_gas=emulate_gas)
         a_conclude.cleanup()
+        count = 0
         for another_conclude_hash in get_conclude_by_start_iter(
                 c_address=c_address, start_hash=start_tx.hash, stop_txhash=conclude_tx.hash):
             another_tx = tx_builder.get_tx(txhash=another_conclude_hash)
@@ -106,32 +107,36 @@ def broadcast(c_address, start_tx, redeem_address, emulate_gas, result, f_debug=
                 logging.info("Already complete contract by {}".format(another_tx))
             else:
                 # check same action ConcludeTX and broadcast
+                count += 1
                 a_another = calc_tx_movement(tx=another_tx, c_address=c_address,
                                              redeem_address=redeem_address, emulate_gas=emulate_gas)
                 a_another.cleanup()
                 if another_tx.message == conclude_tx.message and a_another == a_conclude:
-                    logging.info("anotherTX is same with my ConcludeTX.")
+                    logging.info("{}: anotherTX is same with my ConcludeTX, {}".format(count, another_tx))
                     new_tx = create_signed_tx_as_validator(tx=another_tx)
                     assert another_tx is not new_tx, 'tx={}, new_tx={}'.format(id(another_tx), id(new_tx))
-                    if send_newtx(new_tx=new_tx):
-                        logging.info("Broadcast success {}".format(new_tx))
+                    if send_newtx(new_tx=new_tx, exc_info=False):
+                        logging.info("{}: Broadcast success {}".format(count, new_tx))
                         return
                 # Failed check AnotherTX
-                logging.error("Failed, unstable result?\nAnother=> {}\nMyResult=> {}"
-                              .format(another_tx.getinfo(), conclude_tx.getinfo()))
-                logging.error("Account \nAnother=> {}\nMyResult=> {}".format(a_another, a_conclude))
+                logging.info("{}: Failed confirm same ConcludeTX\nAnother=>{}\nMyResult=>{}"
+                             .format(count, another_tx, conclude_tx))
+                logging.debug("{}: Account \nAnother=> {}\nMyResult=> {}".format(count, a_another, a_conclude))
+        # Failed confirm AnotherTXs
+        logging.error("Unstable contract result? ignore request, {}".format(conclude_tx.getinfo()))
 
 
 def calc_tx_movement(tx, c_address, redeem_address, emulate_gas):
+    """ Calc tx inner movement """
     account = Accounting()
     for txhash, txindex in tx.inputs:
         input_tx = tx_builder.get_tx(txhash=txhash)
         address, coin_id, amount = input_tx.outputs[txindex]
-        account[address][coin_id] += amount
-    account[redeem_address][0] -= (tx.gas_amount+emulate_gas) * tx.gas_price
-    account[c_address][0] += emulate_gas * tx.gas_price
-    for address, coin_id, amount in tx.outputs:
         account[address][coin_id] -= amount
+    account[redeem_address][0] += (tx.gas_amount+emulate_gas) * tx.gas_price
+    account[c_address][0] -= emulate_gas * tx.gas_price
+    for address, coin_id, amount in tx.outputs:
+        account[address][coin_id] += amount
     return account
 
 
