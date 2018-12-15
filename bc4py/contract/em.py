@@ -12,18 +12,17 @@ from time import time
 import os
 import bdb
 
-
+# inner commands
 CMD_ERROR = 'CMD_ERROR'
 CMD_SUCCESS = 'CMD_SUCCESS'
 CMD_PORT = 'CMD_PORT'
 
+# pdb commands
 EMU_STEP = 'step'
 EMU_NEXT = 'next'
 EMU_QUIT = 'quit'
 EMU_UNTIL = 'until'
 EMU_RETURN = 'return'
-
-cxt = get_context('spawn')
 
 
 def _vm(genesis_block, start_tx, que, c, c_address, c_method, redeem_address, c_args):
@@ -57,7 +56,20 @@ def _vm(genesis_block, start_tx, que, c, c_address, c_method, redeem_address, c_
 
 
 def emulate(genesis_block, start_tx, c_address, c_method, redeem_address, c_args, gas_limit=None, file=None):
+    """
+    emulate Contract code
+    :param genesis_block: GenesisBlock
+    :param start_tx: emulate StartTX
+    :param c_address: contract address
+    :param c_method: contract method name
+    :param redeem_address: to redeem address
+    :param c_args: arguments list
+    :param gas_limit: gas limit to use, None is unlimited
+    :param file: logging output file object
+    :return: status, error, total_gas, work_line
+    """
     start = time()
+    cxt = get_context('spawn')
     que = cxt.Queue()
     c = get_contract_object(c_address=c_address, stop_txhash=start_tx.hash)
     if c.index == -1 or c.binary is None:
@@ -173,3 +185,8 @@ def emulate(genesis_block, start_tx, c_address, c_method, redeem_address, c_args
         if error is None:
             error = str(traceback.format_exc())
         return False, error, total_gas, work_line
+
+
+__all__ = [
+    "emulate"
+]

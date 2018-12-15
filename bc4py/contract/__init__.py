@@ -1,4 +1,4 @@
-from bc4py.config import P, NewInfo
+from bc4py.config import P, NewInfo, BlockChainError
 from bc4py.contract.watch import *
 from bc4py.contract.em import *
 from bc4py.database.builder import tx_builder
@@ -141,6 +141,7 @@ def calc_tx_movement(tx, c_address, redeem_address, emulate_gas):
 
 
 def start_emulators(genesis_block, f_debug=False):
+    """ start emulation listen, need close by close_emulators() """
     def run():
         global f_running
         with lock:

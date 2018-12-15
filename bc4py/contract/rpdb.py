@@ -1,4 +1,7 @@
-"""Remote Python Debugger (pdb wrapper)."""
+"""
+Remote Python Debugger (pdb wrapper)
+https://github.com/tamentis/rpdb/blob/master/LICENSE.txt
+"""
 
 __author__ = "Bertrand Janin <b@janin.com>"
 __version__ = "0.1.6"
