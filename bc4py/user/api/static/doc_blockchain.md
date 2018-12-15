@@ -4,7 +4,7 @@ Blockchain
 get block by height
 ----
 * Arguments
-    1. height   (numeric, optional, default=0)
+    1. height   (numeric, required)
     2. pickle   (bool, optional, default=false)
 * Request example
     * `curl -H "accept: application/json" -H "Content-Type: application/json" "127.0.0.1:3000/public/getblockbyheight?height=10"`
