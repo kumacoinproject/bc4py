@@ -50,7 +50,7 @@ async def get_contract_history(request):
                 builder.db.read_contract_iter(c_address=c_address):
             data.append({
                 'index': index,
-                'height': None,
+                'height': index // 0xffffffff,
                 'start_hash': hexlify(start_hash).decode(),
                 'finish_hash': hexlify(finish_hash).decode(),
                 'c_method': c_method,
@@ -58,7 +58,6 @@ async def get_contract_history(request):
                 'c_storage': {decode(k): decode(v) for k, v in c_storage.items()} if c_storage else None
             })
         # memory
-        index = len(data)
         for block in reversed(builder.best_chain):
             for tx in block.txs:
                 if tx.type != C.TX_CONCLUDE_CONTRACT:
@@ -68,8 +67,9 @@ async def get_contract_history(request):
                     continue
                 start_tx = tx_builder.get_tx(txhash=start_hash)
                 dummy, c_method, redeem_address, c_args = bjson.loads(start_tx.message)
+                include_block = builder.get_block(blockhash=builder.get_block_hash(height=start_tx.height))
                 data.append({
-                    'index': index,
+                    'index': start_tx.height * 0xffffffff + include_block.txs.index(start_tx),
                     'height': tx.height,
                     'start_hash': hexlify(start_hash).decode(),
                     'finish_hash': hexlify(tx.hash).decode(),
@@ -78,7 +78,6 @@ async def get_contract_history(request):
                     'c_storage': {decode(k): decode(v) for k, v in c_storage.items()} if c_storage else None,
                     # 'redeem_address': redeem_address,
                 })
-                index += 1
         return web_base.json_res(data)
     except Exception as e:
         logging.error(e)

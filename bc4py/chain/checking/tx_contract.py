@@ -74,8 +74,8 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
     if c_method == M_INIT:
         if len(c_args) != 3:
             raise BlockChainError('c_args is 3 items.')
-        if c_before.index != -1:
-            raise BlockChainError('Already created contract. {}'.format(c_before.index))
+        if c_before.version != -1:
+            raise BlockChainError('Already created contract. {}'.format(c_before.version))
         c_bin, c_extra_imports, c_settings = c_args
         if not isinstance(c_bin, bytes):
             raise BlockChainError('5. Not correct format. {}'.format(c_args))
