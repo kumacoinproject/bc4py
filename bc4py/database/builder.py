@@ -36,7 +36,7 @@ struct_tx = struct.Struct('>4I')
 struct_address = struct.Struct('>40s32sB')
 struct_address_idx = struct.Struct('>IQ?')
 struct_coins = struct.Struct('>II')
-struct_construct_key = struct.Struct('>40sI')
+struct_construct_key = struct.Struct('>40sQ')
 struct_construct_value = struct.Struct('>32s32s')
 struct_validator_key = struct.Struct('>40sI')
 struct_validator_value = struct.Struct('>40sb32sb')
@@ -278,20 +278,20 @@ class DataBase:
                     txhash, (params, setting) = v[:32], bjson.loads(v[32:])
                     yield index, txhash, params, setting
 
-    def read_contract_iter(self, c_address):
+    def read_contract_iter(self, c_address, start=None):
         f_batch = self.is_batch_thread()
         batch_copy = self.batch['_contract'].copy() if self.batch else dict()
         b_c_address = c_address.encode()
-        start = b_c_address + b'\x00'*4
-        stop = b_c_address + b'\xff'*4
+        start = b_c_address + (start or b'\x00'*8)
+        stop = b_c_address + b'\xff'*8
         if is_plyvel:
             contract_iter = self._contract.iterator(start=start, stop=stop)
         else:
             contract_iter = self._contract.RangeIter(key_from=start, key_to=stop)
         for k, v in contract_iter:
             k, v = bytes(k), bytes(v)
-            # KEY: [c_address 40s]-[index uint4]
-            # VALUE: [start_hash 32s]-[finish_hash 32s]-[len uint4]-[bjson(c_method, c_args, c_storage)]
+            # KEY: [c_address 40s]-[index uint8]
+            # VALUE: [start_hash 32s]-[finish_hash 32s]-[bjson(c_method, c_args, c_storage)]
             # c_address, index, start_hash, finish_hash, message
             if f_batch and k in batch_copy:
                 v = batch_copy[k]
@@ -388,14 +388,18 @@ class DataBase:
         self.batch['_coins'][k] = v
         logging.debug("Insert new coins id={}".format(coin_id))
 
-    def write_contract(self, c_address, start_hash, finish_hash, message):
+    def write_contract(self, c_address, start_tx, finish_hash, message):
         assert self.is_batch_thread(), 'Not created batch.'
         assert len(message) == 3
-        index = -1
-        for index, *dummy in self.read_contract_iter(c_address=c_address): pass
-        index += 1
-        k = c_address.encode() + index.to_bytes(4, ITER_ORDER)
-        v = start_hash + finish_hash + bjson.dumps(message, compress=False)
+        include_block = self.read_block(blockhash=self.read_block_hash(height=start_tx.height))
+        index = start_tx.height * 0xffffffff + include_block.txs.index(start_tx)
+        # check newer index already inserted
+        last_index = None
+        for last_index, *dummy in self.read_contract_iter(c_address=c_address):
+            pass
+        assert last_index is None or last_index < index, 'Not allow older ConcludeTX insert.'
+        k = c_address.encode() + index.to_bytes(8, ITER_ORDER)
+        v = start_tx.hash + finish_hash + bjson.dumps(message, compress=False)
         self.batch['_contract'][k] = v
         logging.debug("Insert new contract {} {}".format(c_address, index))
 
@@ -698,7 +702,7 @@ class ChainBuilder:
                             c_address, start_hash, c_storage = bjson.loads(tx.message)
                             start_tx = tx_builder.get_tx(txhash=start_hash)
                             dummy, c_method, redeem_address, c_args = bjson.loads(start_tx.message)
-                            self.db.write_contract(c_address=c_address, start_hash=start_hash,
+                            self.db.write_contract(c_address=c_address, start_tx=start_tx,
                                                    finish_hash=tx.hash, message=(c_method, c_args, c_storage))
 
                 # block挿入終了
