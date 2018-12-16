@@ -852,6 +852,7 @@ class TransactionBuilder:
                 if tx.hash in self.unconfirmed:
                     del self.unconfirmed[tx.hash]
 
+        # delete expired unconfirmed txs
         limit = int(time.time() - V.BLOCK_GENESIS_TIME - C.ACCEPT_MARGIN_TIME)
         for txhash, tx in self.unconfirmed.copy().items():
             if P.F_NOW_BOOTING:

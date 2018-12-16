@@ -165,7 +165,7 @@ def start_emulators(genesis_block, f_debug=False):
                         break
                 else:
                     continue
-                start_tx = builder.get_block(blockhash=start_hash)
+                start_tx = tx_builder.get_tx(txhash=start_hash)
                 c_address2, c_method, redeem_address, c_args = bjson.loads(start_tx.message)
                 if c_address != c_address2:
                     continue
