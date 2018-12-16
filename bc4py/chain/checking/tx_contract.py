@@ -72,10 +72,12 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
     # contract check
     c_before = get_contract_object(c_address=c_address, best_block=include_block, stop_txhash=tx.hash)
     # contract index check
-    new_index = start_tx2index(start_tx=start_tx)
-    before_index = start_tx2index(start_hash=c_before.start_hash)
-    if before_index >= new_index:
-        raise BlockChainError('The ConcludeTX is too old, before={} new={}'.format(before_index, new_index))
+    if c_before.version != -1:
+        new_index = start_tx2index(start_tx=start_tx)
+        before_index = start_tx2index(start_hash=c_before.start_hash)
+        if before_index >= new_index:
+            raise BlockChainError('The index is old on execute order, before={} new={}'.format(before_index, new_index))
+    # c_method check, init, update and others..
     if c_method == M_INIT:
         if len(c_args) != 3:
             raise BlockChainError('c_args is 3 items.')

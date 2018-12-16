@@ -265,6 +265,8 @@ def start_tx2index(start_hash=None, start_tx=None):
     if start_hash:
         start_tx = tx_builder.get_tx(txhash=start_hash)
     block = builder.get_block(blockhash=builder.get_block_hash(height=start_tx.height))
+    if block is None:
+        raise BlockChainError('Not found block of start_tx included? {}'.format(start_tx))
     if start_tx not in block.txs:
         raise BlockChainError('Not found start_tx in block? {}'.format(block))
     return start_tx.height * 0xffffffff + block.txs.index(start_tx)
