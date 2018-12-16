@@ -75,12 +75,12 @@ class Storage(dict):
 
 
 class Contract:
-    __slots__ = ("c_address", "index", "binary", "extra_imports",
+    __slots__ = ("c_address", "version", "binary", "extra_imports",
                  "storage", "settings", "start_hash", "finish_hash")
 
     def __init__(self, c_address):
         self.c_address = c_address
-        self.index = -1
+        self.version = -1
         self.binary = None
         self.extra_imports = None
         self.storage = None
@@ -89,15 +89,15 @@ class Contract:
         self.finish_hash = None
 
     def __repr__(self):
-        return "<Contract {} ver={}>".format(self.c_address, self.index)
+        return "<Contract {} ver={}>".format(self.c_address, self.version)
 
     @property
     def info(self):
-        if self.index == -1:
+        if self.version == -1:
             return None
         d = OrderedDict()
         d['c_address'] = self.c_address
-        d['index'] = self.index
+        d['version'] = self.version
         d['binary'] = hexlify(self.binary).decode()
         d['extra_imports'] = self.extra_imports
         d['storage_key'] = len(self.storage)
@@ -108,7 +108,7 @@ class Contract:
 
     def update(self, start_hash, finish_hash, c_method, c_args, c_storage):
         if c_method == M_INIT:
-            assert self.index == -1
+            assert self.version == -1
             c_bin, c_extra_imports, c_settings = c_args
             self.binary = c_bin
             self.extra_imports = c_extra_imports or list()
@@ -118,7 +118,7 @@ class Contract:
             c_storage = c_storage or dict()
             self.storage = Storage(c_address=self.c_address, init_storage=c_storage)
         elif c_method == M_UPDATE:
-            assert self.index != -1
+            assert self.version != -1
             c_bin, c_extra_imports, c_settings = c_args
             if self.settings['update_binary']:
                 self.binary = c_bin
@@ -129,9 +129,9 @@ class Contract:
                 if c_settings and not c_settings.get('update_extra_imports', False):
                     self.settings['update_extra_imports'] = False
         else:
-            assert self.index != -1
+            assert self.version != -1
             self.storage.marge_diff(c_storage)
-        self.index += 1
+        self.version += 1
         self.start_hash = start_hash
         self.finish_hash = finish_hash
 
@@ -148,7 +148,7 @@ def encode(*args):
 
 
 def contract_fill(c: Contract, best_block=None, best_chain=None, stop_txhash=None):
-    assert c.index == -1, 'Already updated'
+    assert c.version == -1, 'Already updated'
     # database
     c_iter = builder.db.read_contract_iter(c_address=c.c_address)
     for index, start_hash, finish_hash, (c_method, c_args, c_storage) in c_iter:

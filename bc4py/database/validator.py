@@ -13,18 +13,18 @@ cashe = ExpiringDict(max_len=100, max_age_seconds=1800)
 
 
 class Validator:
-    __slots__ = ("c_address", "validators", "require", "index", "txhash")
+    __slots__ = ("c_address", "validators", "require", "version", "txhash")
 
     def __init__(self, c_address):
         self.c_address = c_address
         self.validators = list()
         self.require = 0
-        self.index = -1
+        self.version = -1
         self.txhash = None
 
     def __repr__(self):
         return "<Validator {} ver={} {}/{}>".format(
-            self.c_address, self.index, self.require, len(self.validators))
+            self.c_address, self.version, self.require, len(self.validators))
 
     def update(self, flag, address, sig_diff, txhash):
         # cosigner
@@ -35,15 +35,15 @@ class Validator:
         else:
             pass
         self.require += sig_diff
-        self.index += 1
+        self.version += 1
         self.txhash = txhash
 
     @property
     def info(self):
-        if self.index == -1:
+        if self.version == -1:
             return None
         d = OrderedDict()
-        d['index'] = self.index
+        d['index'] = self.version
         d['c_address'] = self.c_address
         d['txhash'] = hexlify(self.txhash).decode()
         d['validators'] = self.validators
@@ -62,7 +62,7 @@ def encode(*args):
 
 
 def validator_fill(v: Validator, best_block=None, best_chain=None, stop_txhash=None):
-    assert v.index == -1, 'Already updated'
+    assert v.version == -1, 'Already updated'
     # database
     for index, address, flag, txhash, sig_diff in builder.db.read_validator_iter(c_address=v.c_address):
         if txhash == stop_txhash:

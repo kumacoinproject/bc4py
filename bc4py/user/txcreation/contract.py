@@ -102,7 +102,7 @@ def create_conclude_tx(c_address, start_tx, redeem_address, send_pairs=None, c_s
                                   .format(f_finish_add, f_finish_sub))
         logging.debug("Move conclude fee {}:{}".format(fee_coin_id, conclude_fee))
     tx.serialize()
-    if v.index == -1:
+    if v.version == -1:
         raise BlockChainError('Not init validator address. {}'.format(c_address))
     if setup_contract_signature(tx, v.validators) == 0:
         raise BlockChainError('Cannot sign, you are not validator.')
@@ -116,7 +116,7 @@ def create_validator_edit_tx(c_address, new_address=None,
         raise BlockChainError('No cosigner edit, but flag is not NOP.')
     # validator object
     v = get_validator_object(c_address=c_address)
-    if v.index == -1:
+    if v.version == -1:
         if new_address is None or flag != F_ADD or sig_diff != 1:
             raise BlockChainError('Not correct info.')
     else:

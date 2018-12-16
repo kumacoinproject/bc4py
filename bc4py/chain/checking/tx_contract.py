@@ -86,7 +86,7 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
     elif c_method == M_UPDATE:
         if len(c_args) != 3:
             raise BlockChainError('c_args is 3 items.')
-        if c_before.index == -1:
+        if c_before.version == -1:
             raise BlockChainError('Not created contract.')
         c_bin, c_extra_imports, c_settings = c_args
         if not (c_bin is None or isinstance(c_bin, bytes)):
@@ -136,7 +136,7 @@ def check_tx_validator_edit(tx: TX, include_block: Block):
             raise BlockChainError('new_address is normal prefix.')
         elif flag == F_NOP:
             raise BlockChainError('input new_address, but NOP.')
-    if v_before.index == -1:
+    if v_before.version == -1:
         # create validator for the first time
         if new_address is None:
             raise BlockChainError('Not setup new_address.')
