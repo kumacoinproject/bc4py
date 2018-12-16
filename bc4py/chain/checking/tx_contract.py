@@ -71,6 +71,11 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
         raise BlockChainError('4. Not correct format. {}'.format(c_args))
     # contract check
     c_before = get_contract_object(c_address=c_address, best_block=include_block, stop_txhash=tx.hash)
+    # contract index check
+    new_index = start_tx2index(start_tx=start_tx)
+    before_index = start_tx2index(start_hash=c_before.start_hash)
+    if before_index >= new_index:
+        raise BlockChainError('The ConcludeTX is too old, before={} new={}'.format(before_index, new_index))
     if c_method == M_INIT:
         if len(c_args) != 3:
             raise BlockChainError('c_args is 3 items.')

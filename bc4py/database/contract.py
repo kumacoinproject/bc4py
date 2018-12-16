@@ -261,6 +261,15 @@ def get_conclude_by_start_iter(c_address, start_hash, best_block=None, best_chai
     raise StopIteration
 
 
+def start_tx2index(start_hash=None, start_tx=None):
+    if start_hash:
+        start_tx = tx_builder.get_tx(txhash=start_hash)
+    block = builder.get_block(blockhash=builder.get_block_hash(height=start_tx.height))
+    if start_tx not in block.txs:
+        raise BlockChainError('Not found start_tx in block? {}'.format(block))
+    return start_tx.height * 0xffffffff + block.txs.index(start_tx)
+
+
 __all__ = [
     "M_INIT", "M_UPDATE",
     "Storage",
@@ -268,4 +277,5 @@ __all__ = [
     "contract_fill",
     "get_contract_object",
     "get_conclude_by_start_iter",
+    "start_tx2index",
 ]
