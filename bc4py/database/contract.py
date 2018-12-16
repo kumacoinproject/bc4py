@@ -152,7 +152,7 @@ def contract_fill(c: Contract, best_block=None, best_chain=None, stop_txhash=Non
     # database
     c_iter = builder.db.read_contract_iter(c_address=c.c_address)
     for index, start_hash, finish_hash, (c_method, c_args, c_storage) in c_iter:
-        if finish_hash == stop_txhash:
+        if start_hash == stop_txhash or finish_hash == stop_txhash:
             return
         c.update(start_hash=start_hash, finish_hash=finish_hash,
                  c_method=c_method, c_args=c_args, c_storage=c_storage)
@@ -172,27 +172,40 @@ def contract_fill(c: Contract, best_block=None, best_chain=None, stop_txhash=Non
             c_address, start_hash, c_storage = decode(tx.message)
             if c_address != c.c_address:
                 continue
+            if start_hash == stop_txhash:
+                return
             start_tx = tx_builder.get_tx(txhash=start_hash)
             dummy, c_method, redeem_address, c_args = decode(start_tx.message)
             c.update(start_hash=start_hash, finish_hash=tx.hash,
                      c_method=c_method, c_args=c_args, c_storage=c_storage)
     # unconfirmed
     if best_block is None:
-        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.time):
-            if tx.hash == stop_txhash:
-                return
-            if tx.type != C.TX_CONCLUDE_CONTRACT:
+        unconfirmed = list()
+        for conclude_tx in tuple(tx_builder.unconfirmed.values()):
+            if conclude_tx.hash == stop_txhash:
+                break
+            if conclude_tx.type != C.TX_CONCLUDE_CONTRACT:
                 continue
-            c_address, start_hash, c_storage = decode(tx.message)
+            c_address, start_hash, c_storage = decode(conclude_tx.message)
             if c_address != c.c_address:
                 continue
+            if start_hash == stop_txhash:
+                break
             start_tx = tx_builder.get_tx(txhash=start_hash)
+            if start_tx.height is None:
+                continue
+            include_block = builder.get_block(blockhash=builder.get_block_hash(height=start_tx.height))
+            sort_key = start_tx.height * 0xffffffff + include_block.txs.index(start_tx)
+            unconfirmed.append((c_address, start_tx, conclude_tx, c_storage, sort_key))
+
+        for c_address, start_tx, conclude_tx, c_storage, sort_key in sorted(unconfirmed, key=lambda x: x[4]):
             dummy, c_method, redeem_address, c_args = decode(start_tx.message)
-            c.update(start_hash=start_hash, finish_hash=tx.hash,
+            c.update(start_hash=start_tx.hash, finish_hash=conclude_tx.hash,
                      c_method=c_method, c_args=c_args, c_storage=c_storage)
 
 
 def get_contract_object(c_address, best_block=None, best_chain=None, stop_txhash=None):
+    # stop_txhash is StartHash or ConcludeHash. Don't include the hash.
     if best_block:
         key = (best_block.hash, stop_txhash)
         if key in cashe:
