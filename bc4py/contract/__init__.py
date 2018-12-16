@@ -1,7 +1,7 @@
-from bc4py.config import P, NewInfo, BlockChainError
+from bc4py.config import C, P, NewInfo, BlockChainError
 from bc4py.contract.watch import *
 from bc4py.contract.em import *
-from bc4py.database.builder import tx_builder
+from bc4py.database.builder import tx_builder, builder
 from bc4py.database.contract import *
 from bc4py.user import Accounting
 from bc4py.user.network.sendnew import *
@@ -9,7 +9,9 @@ from bc4py.user.txcreation.contract import create_conclude_tx, create_signed_tx_
 from threading import Thread, Lock
 import logging
 from io import StringIO
-from time import sleep
+from time import sleep, time
+import bjson
+
 
 emulators = list()
 f_running = False
@@ -146,12 +148,41 @@ def start_emulators(genesis_block, f_debug=False):
         global f_running
         with lock:
             f_running = True
+
+        # wait for booting_mode finish
         while P.F_NOW_BOOTING:
             sleep(1)
-        logging.info("Start emulators debug={}".format(f_debug))
+
+        logging.info("Start emulators, check unconfirmed.")
+        unconfirmed_data = list()
+        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.time):
+            if tx.type != C.TX_CONCLUDE_CONTRACT:
+                continue
+            try:
+                c_address, start_hash, c_storage = bjson.loads(tx.message)
+                for em in emulators:
+                    if c_address == em.c_address:
+                        break
+                else:
+                    continue
+                start_tx = builder.get_block(blockhash=start_hash)
+                c_address2, c_method, redeem_address, c_args = bjson.loads(start_tx.message)
+                if c_address != c_address2:
+                    continue
+                is_public = False
+                data_list = (time(), start_tx, 'dummy', c_address, c_method, redeem_address, c_args)
+                data = (C_RequestConclude, is_public, data_list)
+                unconfirmed_data.append(data)
+            except Exception:
+                logging.debug("Failed check unconfirmed ConcludeTX,", exc_info=True)
+
+        logging.info("Start listening NewInfo, need to emulate {} txs.".format(len(unconfirmed_data)))
         while f_running:
             try:
-                data = NewInfo.get(channel='emulator', timeout=1)
+                if len(unconfirmed_data) > 0:
+                    data = unconfirmed_data.pop(0)
+                else:
+                    data = NewInfo.get(channel='emulator', timeout=1)
                 if not isinstance(data, tuple) or len(data) != 3:
                     continue
                 cmd, is_public, data_list = data
