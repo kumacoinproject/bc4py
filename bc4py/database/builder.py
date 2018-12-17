@@ -40,6 +40,8 @@ struct_construct_key = struct.Struct('>40sQ')
 struct_construct_value = struct.Struct('>32s32s')
 struct_validator_key = struct.Struct('>40sI')
 struct_validator_value = struct.Struct('>40sb32sb')
+
+# constant
 ITER_ORDER = 'big'
 DB_VERSION = 0  # increase if you change database structure
 ZERO_FILLED_HASH = b'\x00' * 32

@@ -1,7 +1,7 @@
 from bc4py.config import C, V, P, Debug
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.tools import is_usedindex
-from bc4py.database.validator import get_validator_object
+from bc4py.database.validator import *
 from bc4py.database.contract import *
 from bc4py.chain.checking.signature import get_signed_cks
 from bc4py.chain.checking.utils import sticky_failed_txhash
@@ -50,8 +50,9 @@ def _update_unconfirmed_info():
     with unconfirmed_lock:
         s = time()
         # sort unconfirmed txs
-        unconfirmed_txs = sorted(tx_builder.unconfirmed.values(), key=lambda x: x.time)
-        unconfirmed_txs = sorted(unconfirmed_txs, key=lambda x: x.gas_price, reverse=True)
+        unconfirmed_txs = sorted(
+            iterable=tx_builder.unconfirmed.values(),
+            key=lambda x: (x.gas_price, -1*x.time), reverse=True)
 
         # reject tx (input tx is unconfirmed)
         limit_height = builder.best_block.height - C.MATURE_HEIGHT
