@@ -41,8 +41,7 @@ struct_construct_value = struct.Struct('>32s32s')
 struct_validator_key = struct.Struct('>40sI')
 struct_validator_value = struct.Struct('>40sb32sb')
 ITER_ORDER = 'big'
-
-
+DB_VERSION = 0  # increase if you change database structure
 ZERO_FILLED_HASH = b'\x00' * 32
 DUMMY_VALIDATOR_ADDRESS = b'\x00' * 40
 STARTER_NUM = 3
@@ -55,7 +54,10 @@ config = {
 
 
 class DataBase:
-    def __init__(self, dirs, **kwargs):
+    def __init__(self, f_dummy=False, **kwargs):
+        if f_dummy:
+            return
+        dirs = os.path.join(V.DB_HOME_DIR, 'db-ver{}'.format(DB_VERSION))
         self.dirs = dirs
         self.sync = True
         self.timeout = None
@@ -79,7 +81,7 @@ class DataBase:
         self._validator = create_level_db(os.path.join(dirs, 'validator'), create_if_missing=f_create)
         self.batch = None
         self.batch_thread = None
-        logging.debug(':create database connect, plyvel={} {}'.format(is_plyvel, dirs))
+        logging.debug(':create database connect, plyvel={} path={}'.format(is_plyvel, dirs.replace("\\", "/")))
 
     def close(self):
         if is_plyvel:
@@ -430,11 +432,7 @@ class ChainBuilder:
         self.best_chain = None
         self.root_block = None
         self.best_block = None
-        self.db = None
-        try:
-            self.db = DataBase(os.path.join(V.DB_HOME_DIR, 'db'))
-        except Exception:
-            pass
+        self.db = DataBase(f_dummy=True)
         # levelDBのStreamHandlerを削除
         logging.getLogger().handlers.clear()
 
@@ -445,7 +443,7 @@ class ChainBuilder:
 
     def set_database_path(self, **kwargs):
         try:
-            self.db = DataBase(os.path.join(V.DB_HOME_DIR, 'db'), **kwargs)
+            self.db = DataBase(f_dummy=False, **kwargs)
             logging.info("Connect database.")
         except leveldb.LevelDBError:
             logging.warning("Already connect database.")
@@ -541,20 +539,20 @@ class ChainBuilder:
 
     def save_starter(self):
         for index in reversed(range(STARTER_NUM)):
-            target_path = os.path.join(V.DB_HOME_DIR, 'db', 'starter.{}.dat'.format(index))
+            target_path = os.path.join(self.db.dirs, 'starter.{}.dat'.format(index))
             if os.path.exists(target_path):
-                old_file_path = os.path.join(V.DB_HOME_DIR, 'db', 'starter.{}.dat'.format(index+1))
+                old_file_path = os.path.join(self.db.dirs, 'starter.{}.dat'.format(index+1))
                 if os.path.exists(old_file_path):
                     os.remove(old_file_path)
                 os.rename(target_path, old_file_path)
-        with open(os.path.join(V.DB_HOME_DIR, 'db', 'starter.0.dat'), mode='bw') as fp:
+        with open(os.path.join(self.db.dirs, 'starter.0.dat'), mode='bw') as fp:
             pickle.dump(self.best_chain, fp, protocol=4)
 
     def load_starter(self, root_block):
         self.failmark_file_check()
         memorized_blocks = list()
         for index in range(STARTER_NUM+1):
-            target_path = os.path.join(V.DB_HOME_DIR, 'db', 'starter.{}.dat'.format(index))
+            target_path = os.path.join(self.db.dirs, 'starter.{}.dat'.format(index))
             if os.path.exists(target_path):
                 with open(target_path, mode='br') as fp:
                     for block in reversed(pickle.load(fp)):
@@ -567,11 +565,11 @@ class ChainBuilder:
         raise BlockBuilderError("Failed load block from file, cannot find starter.n.dat?")
 
     def failmark_file_check(self):
-        mark_file = os.path.join(V.DB_HOME_DIR, 'db', 'starter.failed.dat')
+        mark_file = os.path.join(self.db.dirs, 'starter.failed.dat')
         if not os.path.exists(mark_file):
             return
         for index in range(STARTER_NUM+1):
-            target_path = os.path.join(V.DB_HOME_DIR, 'db', 'starter.{}.dat'.format(index))
+            target_path = os.path.join(self.db.dirs, 'starter.{}.dat'.format(index))
             if os.path.exists(target_path):
                 os.remove(target_path)
                 os.remove(mark_file)
@@ -580,17 +578,17 @@ class ChainBuilder:
         logging.critical('System is in fork chain, so we delete "db" from "blockchain-py" '
                          'folder and resync blockchain from 0 height.')
         del self.db
-        os.removedirs(os.path.join(V.DB_HOME_DIR, 'db'))
+        os.removedirs(os.path.join(self.db.dirs))
         exit(1)
 
     def make_failemark(self, message=""):
-        mark_file = os.path.join(V.DB_HOME_DIR, 'db', 'starter.failed.dat')
+        mark_file = os.path.join(self.db.dirs, 'starter.failed.dat')
         with open(mark_file, mode='a') as fp:
             fp.write("[{}] {}\n".format(time.asctime(), message))
         logging.debug("Make failed mark '{}'".format(message))
 
     def remove_failmark(self):
-        mark_file = os.path.join(V.DB_HOME_DIR, 'db', 'starter.failed.dat')
+        mark_file = os.path.join(self.db.dirs, 'starter.failed.dat')
         if os.path.exists(mark_file):
             os.remove(mark_file)
 
