@@ -38,7 +38,7 @@ struct_address_idx = struct.Struct('>IQ?')
 struct_coins = struct.Struct('>II')
 struct_construct_key = struct.Struct('>40sQ')
 struct_construct_value = struct.Struct('>32s32s')
-struct_validator_key = struct.Struct('>40sI')
+struct_validator_key = struct.Struct('>40sQ')
 struct_validator_value = struct.Struct('>40sb32sb')
 
 # constant
@@ -247,13 +247,13 @@ class DataBase:
         for k, v in address_iter:
             k, v = bytes(k), bytes(v)
             # address, txhash, index, coin_id, amount, f_used
-            if f_batch and k in batch_copy:
+            if f_batch and k in batch_copy and start <= k <= stop:
                 v = batch_copy[k]
                 del batch_copy[k]
             yield struct_address.unpack(k) + struct_address_idx.unpack(v)
         if f_batch:
             for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
-                if k.startswith(b_address):
+                if k.startswith(b_address) and start <= k <= stop:
                     yield struct_address.unpack(k) + struct_address_idx.unpack(v)
 
     def read_coins_iter(self, coin_id):
@@ -269,7 +269,7 @@ class DataBase:
         for k, v in coins_iter:
             k, v = bytes(k), bytes(v)
             # coin_id, index, txhash
-            if f_batch and k in batch_copy:
+            if f_batch and k in batch_copy and start <= k <= stop:
                 v = batch_copy[k]
                 del batch_copy[k]
             dummy, index = struct_coins.unpack(k)
@@ -277,16 +277,17 @@ class DataBase:
             yield index, txhash, params, setting
         if f_batch:
             for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
-                if k.startswith(b_coin_id):
+                if k.startswith(b_coin_id) and start <= k <= stop:
                     dummy, index = struct_coins.unpack(k)
                     txhash, (params, setting) = v[:32], bjson.loads(v[32:])
                     yield index, txhash, params, setting
 
-    def read_contract_iter(self, c_address, start=None):
+    def read_contract_iter(self, c_address, start_idx=None):
         f_batch = self.is_batch_thread()
         batch_copy = self.batch['_contract'].copy() if self.batch else dict()
         b_c_address = c_address.encode()
-        start = b_c_address + (start or b'\x00'*8)
+        # caution: iterator/RangeIter's result include start and stop, need to add 1.
+        start = b_c_address + ((start_idx+1).to_bytes(8, ITER_ORDER) if start_idx else b'\x00'*8)
         stop = b_c_address + b'\xff'*8
         if is_plyvel:
             contract_iter = self._contract.iterator(start=start, stop=stop)
@@ -297,7 +298,7 @@ class DataBase:
             # KEY: [c_address 40s]-[index uint8]
             # VALUE: [start_hash 32s]-[finish_hash 32s]-[bjson(c_method, c_args, c_storage)]
             # c_address, index, start_hash, finish_hash, message
-            if f_batch and k in batch_copy:
+            if f_batch and k in batch_copy and start <= k <= stop:
                 v = batch_copy[k]
                 del batch_copy[k]
             dummy, index = struct_construct_key.unpack(k)
@@ -306,18 +307,19 @@ class DataBase:
             yield index, start_hash, finish_hash, message
         if f_batch:
             for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
-                if k.startswith(b_c_address):
+                if k.startswith(b_c_address) and start <= k <= stop:
                     dummy, index = struct_construct_key.unpack(k)
                     start_hash, finish_hash, raw_message = v[0:32], v[32:64], v[64:]
                     message = bjson.loads(raw_message)
                     yield index, start_hash, finish_hash, message
 
-    def read_validator_iter(self, c_address):
+    def read_validator_iter(self, c_address, start_idx=None):
         f_batch = self.is_batch_thread()
         batch_copy = self.batch['_validator'].copy() if self.batch else dict()
         b_c_address = c_address.encode()
-        start = b_c_address + b'\x00'*4
-        stop = b_c_address + b'\xff'*4
+        # caution: iterator/RangeIter's result include start and stop, need to add 1.
+        start = b_c_address + ((start_idx+1).to_bytes(8, ITER_ORDER) if start_idx else b'\x00' * 8)
+        stop = b_c_address + b'\xff'*8
         # from database
         if is_plyvel:
             validator_iter = self._validator.iterator(start=start, stop=stop)
@@ -325,9 +327,9 @@ class DataBase:
             validator_iter = self._validator.RangeIter(key_from=start, key_to=stop)
         for k, v in validator_iter:
             k, v = bytes(k), bytes(v)
-            # KEY [c_address 40s]-[index unit4]
+            # KEY [c_address 40s]-[index unit8]
             # VALUE [new_address 40s]-[flag int1]-[txhash 32s]-[sig_diff int1]
-            if f_batch and k in batch_copy:
+            if f_batch and k in batch_copy and start <= k <= stop:
                 v = batch_copy[k]
                 del batch_copy[k]
             dummy, index = struct_validator_key.unpack(k)
@@ -339,7 +341,7 @@ class DataBase:
         # from memory
         if f_batch:
             for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
-                if k.startswith(b_c_address):
+                if k.startswith(b_c_address) and start <= k <= stop:
                     dummy, index = struct_validator_key.unpack(k)
                     new_address, flag, txhash, sig_diff = struct_validator_value.unpack(v)
                     if new_address == DUMMY_VALIDATOR_ADDRESS:
@@ -399,25 +401,29 @@ class DataBase:
         index = start_tx.height * 0xffffffff + include_block.txs.index(start_tx)
         # check newer index already inserted
         last_index = None
-        for last_index, *dummy in self.read_contract_iter(c_address=c_address):
+        for last_index, *dummy in self.read_contract_iter(c_address=c_address, start_idx=index):
             pass
-        assert last_index is None or last_index < index, 'Not allow older ConcludeTX insert.'
+        assert last_index is None, 'Not allow older ConcludeTX insert. my={} last={}'.format(index, last_index)
         k = c_address.encode() + index.to_bytes(8, ITER_ORDER)
         v = start_tx.hash + finish_hash + bjson.dumps(message, compress=False)
         self.batch['_contract'][k] = v
         logging.debug("Insert new contract {} {}".format(c_address, index))
 
-    def write_validator(self, c_address, new_address, flag, txhash, sign_diff):
+    def write_validator(self, c_address, new_address, flag, tx, sign_diff):
         assert self.is_batch_thread(), 'Not created batch.'
-        index = -1
-        for index, *dummy in self.read_validator_iter(c_address=c_address): pass
-        index += 1
+        include_block = self.read_block(blockhash=self.read_block_hash(height=tx.height))
+        index = tx.height * 0xffffffff + include_block.txs.index(tx)
+        # check newer index already inserted
+        last_index = None
+        for last_index, *dummy in self.read_validator_iter(c_address=c_address, start_idx=index):
+            pass
+        assert last_index is None, 'Not allow older ValidatorEditTX insert. last={}'.format(last_index)
         if new_address is None:
             new_address = DUMMY_VALIDATOR_ADDRESS
         else:
             new_address = new_address.encode()
-        k = c_address.encode() + index.to_bytes(4, ITER_ORDER)
-        v = struct_validator_value.pack(new_address, flag, txhash, sign_diff)
+        k = c_address.encode() + index.to_bytes(8, ITER_ORDER)
+        v = struct_validator_value.pack(new_address, flag, tx.hash, sign_diff)
         self.batch['_validator'][k] = v
         logging.debug("Insert new validator {} {}".format(c_address, index))
 
@@ -696,7 +702,7 @@ class ChainBuilder:
                         elif tx.type == C.TX_VALIDATOR_EDIT:
                             c_address, new_address, flag, sig_diff = bjson.loads(tx.message)
                             self.db.write_validator(c_address=c_address, new_address=new_address,
-                                                    flag=flag, txhash=tx.hash, sign_diff=sig_diff)
+                                                    flag=flag, tx=tx, sign_diff=sig_diff)
 
                         elif tx.type == C.TX_CONCLUDE_CONTRACT:
                             c_address, start_hash, c_storage = bjson.loads(tx.message)
