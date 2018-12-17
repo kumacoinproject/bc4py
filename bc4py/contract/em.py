@@ -42,8 +42,9 @@ def _vm(genesis_block, start_tx, que, c, c_address, c_method, redeem_address, c_
         result = fnc(*c_args)
         virtual_machine.do_quit(EMU_QUIT)
         que.put((CMD_SUCCESS, result))
-    except bdb.BdbQuit:
-        pass
+    except bdb.BdbQuit as e:
+        virtual_machine.do_quit(EMU_QUIT)
+        que.put((CMD_ERROR, str(e)))
     except Exception:
         virtual_machine.do_quit(EMU_QUIT)
         tb = traceback.format_exc()
@@ -79,7 +80,7 @@ def emulate(genesis_block, start_tx, c_address, c_method, redeem_address, c_args
     p = cxt.Process(target=_vm, kwargs=kwargs)
     p.start()
     logging.debug('wait for notify of listen port.')
-    cmd, port = que.get(timeout=5)
+    cmd, port = que.get(timeout=10)
     if cmd != CMD_PORT:
         raise Exception('Not correct command="{}" data="{}"'.format(cmd, port))
     logging.debug("Communication port={}.".format(port))

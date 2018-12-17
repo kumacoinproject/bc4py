@@ -11,6 +11,7 @@ import logging
 from io import StringIO
 from time import sleep, time
 import bjson
+from sys import version_info
 
 
 emulators = list()
@@ -121,9 +122,12 @@ def broadcast(c_address, start_tx, redeem_address, emulate_gas, result, f_debug=
                         logging.info("{}: Broadcast success {}".format(count, new_tx))
                         return
                 # Failed check AnotherTX
-                logging.info("{}: Failed confirm same ConcludeTX\nAnother=>{}\nMyResult=>{}"
-                             .format(count, another_tx, conclude_tx))
-                logging.debug("{}: Account \nAnother=> {}\nMyResult=> {}".format(count, a_another, a_conclude))
+                _c_address, _start_hash, another_storage = bjson.loads(another_tx.message)
+                logging.info("{}: Failed confirm same ConcludeTX, please check params\n"
+                             "   AnoAccount=>{}\n   MyAccount =>{}\n"
+                             "   AnoStorage=>{}\n   MyStorage =>{}\n"
+                             "   AnoTX=>{}\n   MyTX =>{}\n"
+                             .format(count, a_another, a_conclude, another_storage, c_storage, another_tx, conclude_tx))
         # Failed confirm AnotherTXs
         logging.error("Unstable contract result? ignore request, {}".format(conclude_tx.getinfo()))
 
@@ -223,6 +227,9 @@ def start_emulators(genesis_block, f_debug=False):
             except Exception:
                 logging.error("Emulator", exc_info=True)
     global f_running
+    # version check, emulator require Python3.6 or more
+    if version_info.major < 3 or version_info.minor < 6:
+        raise Exception('Emulator require 3.6.0 or more.')
     Thread(target=run, name='Emulator', daemon=True).start()
 
 
