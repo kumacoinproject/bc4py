@@ -51,7 +51,7 @@ def _update_unconfirmed_info():
         s = time()
         # sort unconfirmed txs
         unconfirmed_txs = sorted(
-            iterable=tx_builder.unconfirmed.values(),
+            tx_builder.unconfirmed.values(),
             key=lambda x: (x.gas_price, -1*x.time), reverse=True)
 
         # reject tx (input tx is unconfirmed)
