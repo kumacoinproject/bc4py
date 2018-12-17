@@ -1,8 +1,8 @@
 from bc4py.config import C, P
 from bc4py.user.api import web_base
 from bc4py.database.builder import builder, tx_builder
-from bc4py.database.validator import get_validator_object
-from bc4py.database.contract import get_contract_object
+from bc4py.database.validator import get_validator_object, validator_tx2index
+from bc4py.database.contract import get_contract_object, start_tx2index
 from bc4py.contract.watch import watching_tx
 import logging
 from binascii import hexlify, a2b_hex
@@ -67,9 +67,9 @@ async def get_contract_history(request):
                     continue
                 start_tx = tx_builder.get_tx(txhash=start_hash)
                 dummy, c_method, redeem_address, c_args = bjson.loads(start_tx.message)
-                include_block = builder.get_block(blockhash=builder.get_block_hash(height=start_tx.height))
+                index = start_tx2index(start_tx=start_tx)
                 data.append({
-                    'index': start_tx.height * 0xffffffff + include_block.txs.index(start_tx),
+                    'index': index,
                     'height': tx.height,
                     'start_hash': hexlify(start_hash).decode(),
                     'finish_hash': hexlify(tx.hash).decode(),
@@ -92,13 +92,12 @@ async def get_validator_history(request):
         for index, new_address, flag, txhash, sig_diff in builder.db.read_validator_iter(c_address=c_address):
             data.append({
                 'index': index,
-                'height': None,
+                'height': index // 0xffffffff,
                 'new_address': new_address,
                 'flag': flag,
                 'txhash': hexlify(txhash).decode(),
                 'sig_diff': sig_diff})
         # memory
-        index = len(data)
         for block in reversed(builder.best_chain):
             for tx in block.txs:
                 if tx.type != C.TX_VALIDATOR_EDIT:
@@ -106,6 +105,7 @@ async def get_validator_history(request):
                 _c_address, new_address, flag, sig_diff = bjson.loads(tx.message)
                 if _c_address != c_address:
                     continue
+                index = validator_tx2index(tx=tx)
                 data.append({
                     'index': index,
                     'height': tx.height,
@@ -113,7 +113,6 @@ async def get_validator_history(request):
                     'flag': flag,
                     'txhash': hexlify(tx.hash).decode(),
                     'sig_diff': sig_diff})
-                index += 1
         return web_base.json_res(data)
     except Exception as e:
         logging.error(e)
