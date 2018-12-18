@@ -9,7 +9,7 @@ from Cryptodome.Hash import SHA256
 from base64 import b64decode, b64encode
 import multiprocessing
 import os
-import time
+from time import time
 import bjson
 import psutil
 
@@ -117,12 +117,12 @@ class AESCipher:
 
 class TimeWatch:
     def __init__(self, limit=0.1):
-        self.data = [time.time()]
+        self.data = [time()]
         self.calculate = None
         self.limit = limit
 
     def watch(self):
-        self.data.append(time.time())
+        self.data.append(time())
 
     def calc(self):
         # もし遅い操作があるならTrueを返す

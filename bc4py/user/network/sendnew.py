@@ -5,7 +5,7 @@ from p2p_python.client import ClientCmd
 from bc4py.database.builder import tx_builder, builder
 from bc4py.user.network.update import update_mining_staking_all_info
 import logging
-import time
+from time import time
 import queue
 
 
@@ -14,7 +14,7 @@ def mined_newblock(que, pc):
     while True:
         try:
             new_block = que.get(timeout=1)
-            new_block.create_time = int(time.time())
+            new_block.create_time = int(time())
             if P.F_NOW_BOOTING:
                 logging.debug("Mined but now booting..")
                 continue

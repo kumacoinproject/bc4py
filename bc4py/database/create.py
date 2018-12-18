@@ -6,7 +6,7 @@ import sqlite3
 from contextlib import closing
 import re
 import logging
-import time
+from time import time
 
 
 def create_db(path, f_debug=False, f_on_memory=False, f_wal_mode=False):
@@ -31,7 +31,7 @@ def create_db(path, f_debug=False, f_on_memory=False, f_wal_mode=False):
 
 def sql_info(data):
     # db.set_trace_callback()に最適
-    logging.debug("SQL: {} {}".format(round(time.time()-V.BLOCK_GENESIS_TIME, 4), re.sub(r"\s+", " ", data)))
+    logging.debug("SQL: {} {}".format(round(time()-V.BLOCK_GENESIS_TIME, 4), re.sub(r"\s+", " ", data)))
 
 
 def make_account_db():

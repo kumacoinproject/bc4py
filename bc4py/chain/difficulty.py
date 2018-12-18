@@ -1,7 +1,7 @@
 from bc4py.config import C, V, Debug, BlockChainError
 from bc4py.database.builder import builder
 from bc4py.chain.utils import bits2target, target2bits
-import time
+from time import time
 from binascii import hexlify
 
 # https://github.com/zawy12/difficulty-algorithms/issues/3
@@ -49,7 +49,7 @@ class Cashe:
         self.limit = 300
 
     def __setitem__(self, key, value):
-        self.data[key] = (time.time(), value)
+        self.data[key] = (time(), value)
         if len(self.data) > self.limit:
             self.__refresh()
 

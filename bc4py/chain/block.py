@@ -7,7 +7,7 @@ from bc4py.chain.workhash import update_work_hash
 from hashlib import sha256
 from binascii import hexlify
 import struct
-import time
+from time import time
 from collections import OrderedDict
 from math import log
 
@@ -74,7 +74,7 @@ class Block:
             self.nonce = block['nonce']
             self.serialize()
         self.txs = list()
-        self.create_time = int(time.time())
+        self.create_time = int(time())
 
     def serialize(self):
         self.b = struct_block.pack(

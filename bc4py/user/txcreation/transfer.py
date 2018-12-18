@@ -5,7 +5,7 @@ from bc4py.database.account import insert_log
 from bc4py.user import Balance, Accounting
 from bc4py.user.txcreation.utils import *
 from nem_ed25519.key import is_address
-import time
+from time import time
 
 
 def send_many(sender, send_pairs, cur, fee_coin_id=0, gas_price=None,
@@ -24,7 +24,7 @@ def send_many(sender, send_pairs, cur, fee_coin_id=0, gas_price=None,
     movements[sender] -= coins
     movements[C.ANT_OUTSIDE] += coins
     # tx
-    now = int(time.time() - V.BLOCK_GENESIS_TIME)
+    now = int(time() - V.BLOCK_GENESIS_TIME)
     tx = TX(tx={
         'version': __chain_version__,
         'type': C.TX_TRANSFER,

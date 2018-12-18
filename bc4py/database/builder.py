@@ -12,7 +12,7 @@ import logging
 import threading
 import bjson
 from binascii import hexlify, unhexlify
-import time
+from time import time
 import pickle
 from nem_ed25519.key import is_address
 
@@ -463,7 +463,7 @@ class ChainBuilder:
         if batch_size is None:
             batch_size = self.cashe_limit
         # GenesisBlockか確認
-        t = time.time()
+        t = time()
         try:
             if genesis_block.hash != self.db.read_block_hash(0):
                 raise BlockBuilderError("Don't match genesis hash [{}!={}]".format(
@@ -542,8 +542,7 @@ class ChainBuilder:
         # UserAccount update
         user_account.new_batch_apply(batch_blocks)
         user_account.init()
-        logging.info("Init finished, last block is {} {}Sec"
-                     .format(before_block, round(time.time()-t, 3)))
+        logging.info("Init finished, last block is {} {}Sec".format(before_block, round(time()-t, 3)))
 
     def save_starter(self):
         for index in reversed(range(STARTER_NUM)):
@@ -809,7 +808,7 @@ class TransactionBuilder:
         elif tx.hash in self.unconfirmed:
             logging.debug('Already unconfirmed tx. {}'.format(tx))
             return
-        tx.create_time = time.time()
+        tx.create_time = time()
         self.unconfirmed[tx.hash] = tx
         if tx.hash in self.chained_tx:
             logging.debug('Already chained tx. {}'.format(tx))
@@ -889,7 +888,7 @@ class TransactionBuilder:
                     del self.unconfirmed[tx.hash]
 
         # delete expired unconfirmed txs
-        limit = int(time.time() - V.BLOCK_GENESIS_TIME - C.ACCEPT_MARGIN_TIME)
+        limit = int(time() - V.BLOCK_GENESIS_TIME - C.ACCEPT_MARGIN_TIME)
         for txhash, tx in self.unconfirmed.copy().items():
             if P.F_NOW_BOOTING:
                 break  # not delete on booting..

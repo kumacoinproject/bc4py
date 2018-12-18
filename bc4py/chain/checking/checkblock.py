@@ -2,7 +2,7 @@ from bc4py.config import C, V, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.chain.difficulty import get_bits_by_hash
 import logging
-import time
+from time import time
 
 
 def check_block(block: Block):
@@ -19,7 +19,7 @@ def check_block(block: Block):
 
 def check_block_time(block: Block, fix_delay):
     # 新規受け入れ時のみ検査
-    delay = int(time.time() - fix_delay) - block.create_time
+    delay = int(time()-fix_delay) - block.create_time
     create_time = block.create_time - V.BLOCK_GENESIS_TIME
     if C.ACCEPT_MARGIN_TIME < abs(block.time-create_time):
         raise BlockChainError('Block time is out of range [{}<{}-{}={},{}]'

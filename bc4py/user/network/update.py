@@ -49,7 +49,7 @@ def _update_block_info():
 def _update_unconfirmed_info():
     s = time()
     with unconfirmed_lock:
-        count = 0
+
         # Upgrade pre-unconfirmed to unconfirmed (check enough signature have)
         for tx in sorted(tx_builder.pre_unconfirmed.values(), key=lambda x: x.create_time):
             if tx.type == C.TX_CONCLUDE_CONTRACT:
@@ -72,8 +72,7 @@ def _update_unconfirmed_info():
                 # upgrade
                 del tx_builder.pre_unconfirmed[tx.hash]
                 tx_builder.put_unconfirmed(tx=tx)
-                count += 1
-        logging.info("Upgrade pre-unconfirmed {}TXs.".format(count))
+                logging.info("Upgrade pre-unconfirmed {}".format(tx))
 
         # sort unconfirmed txs
         unconfirmed_txs = sorted(tx_builder.unconfirmed.values(), key=lambda x: x.gas_price, reverse=True)

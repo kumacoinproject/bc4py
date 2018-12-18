@@ -1,7 +1,7 @@
 from bc4py.config import C, P, NewInfo, BlockChainError
 from bc4py.contract.watch import *
 from bc4py.contract.em import *
-from bc4py.database.builder import tx_builder, builder
+from bc4py.database.builder import tx_builder
 from bc4py.database.contract import *
 from bc4py.user import Accounting
 from bc4py.user.network.sendnew import *

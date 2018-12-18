@@ -8,12 +8,12 @@ from bc4py.database.keylock import is_locked_database
 from bc4py.user.api import web_base
 from bc4py.user.generate import generating_threads
 from binascii import hexlify
-import time
+from time import time
 import p2p_python
 
 
 MAX_256_INT = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-start_time = int(time.time())
+start_time = int(time())
 
 __api_version__ = '0.0.2'
 
@@ -69,7 +69,7 @@ async def system_info(request):
         'connections': len(V.PC_OBJ.p2p.user),
         'unconfirmed': [hexlify(txhash).decode() for txhash in tx_builder.unconfirmed.keys()],
         'pre_unconfirmed': [hexlify(txhash).decode() for txhash in tx_builder.pre_unconfirmed.keys()],
-        'access_time': int(time.time()),
+        'access_time': int(time()),
         'start_time': start_time}
     return web_base.json_res(data)
 
@@ -93,7 +93,7 @@ async def system_private_info(request):
                 'threads': [str(s) for s in generating_threads]
             },
             'locked': is_locked_database(cur),
-            'access_time': int(time.time()),
+            'access_time': int(time()),
             'start_time': start_time}
     return web_base.json_res(data)
 
