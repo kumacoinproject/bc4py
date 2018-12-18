@@ -17,6 +17,8 @@ CMD_NEW_BLOCK = 'Block'
 CMD_NEW_TX = 'TX'
 CMD_ERROR = 'Error'
 
+# TODO: fix error: "socket.send() raised exception." => https://github.com/aio-libs/aiohttp/issues/3448
+
 
 async def websocket_route(request):
     if request.rel_url.path.startswith('/public/'):
