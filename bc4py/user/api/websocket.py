@@ -107,50 +107,15 @@ def start_ws_listen_loop():
                     send_websocket_data(cmd=CMD_NEW_TX, data=data.getinfo(), is_public_data=True)
                 elif isinstance(data, tuple):
                     cmd, is_public, data_list = data
-                    if cmd == C_Conclude:
-                        _time, tx, related_list, c_address, start_hash, c_storage = data_list
-                        send_data = OrderedDict()
-                        send_data['c_address'] = c_address
-                        send_data['hash'] = hexlify(tx.hash).decode()
-                        send_data['time'] = _time
-                        send_data['tx'] = tx.getinfo()
-                        send_data['related'] = related_list
-                        send_data['start_hash'] = hexlify(start_hash).decode()
-                        send_data['c_storage'] = decode(c_storage)
-                    elif cmd == C_Validator:
-                        _time, tx, related_list, c_address, new_address, flag, sig_diff = data_list
-                        send_data = OrderedDict()
-                        send_data['c_address'] = c_address
-                        send_data['hash'] = hexlify(tx.hash).decode()
-                        send_data['time'] = _time
-                        send_data['tx'] = tx.getinfo()
-                        send_data['related'] = related_list
-                        send_data['new_address'] = new_address
-                        send_data['flag'] = flag
-                        send_data['sig_diff'] = sig_diff
-                    elif cmd == C_RequestConclude:
-                        _time, tx, related_list, c_address, c_method, redeem_address, c_args = data_list
-                        send_data = OrderedDict()
-                        send_data['c_address'] = c_address
-                        send_data['hash'] = hexlify(tx.hash).decode()
-                        send_data['time'] = _time
-                        send_data['tx'] = tx.getinfo()
-                        send_data['related'] = related_list
-                        send_data['c_method'] = c_method
-                        send_data['redeem_address'] = redeem_address
-                        send_data['c_args'] = decode(c_args)
-                    elif cmd == C_FinishConclude or cmd == C_FinishValidator:
-                        _time, tx = data_list
-                        send_data = OrderedDict()
-                        send_data['hash'] = hexlify(tx.hash).decode()
-                        send_data['time'] = _time
-                        send_data['tx'] = tx.getinfo()
-                    else:
-                        logging.warning("Not found cmd {}".format(cmd))
-                        continue
-                    send_websocket_data(cmd=cmd, data=send_data, is_public_data=is_public)
+                    send_data = new_info2json_data(cmd=cmd, data_list=data_list)
+                    if send_data:
+                        send_websocket_data(cmd=cmd, data=send_data, is_public_data=is_public)
+                else:
+                    pass
             except NewInfo.empty:
                 pass
+            except Exception:
+                logging.error("websocket loop error", exc_info=True)
         logging.info("close websocket loop.")
     Thread(target=_loop, name='WS', daemon=True).start()
 
@@ -174,9 +139,51 @@ def send_websocket_data(cmd, data, status=True, is_public_data=False):
     asyncio.run_coroutine_threadsafe(coro=exe(), loop=loop)
 
 
+def new_info2json_data(cmd, data_list):
+    send_data = OrderedDict()
+    if cmd == C_Conclude:
+        _time, tx, related_list, c_address, start_hash, c_storage = data_list
+        send_data['c_address'] = c_address
+        send_data['hash'] = hexlify(tx.hash).decode()
+        send_data['time'] = _time
+        send_data['tx'] = tx.getinfo()
+        send_data['related'] = related_list
+        send_data['start_hash'] = hexlify(start_hash).decode()
+        send_data['c_storage'] = decode(c_storage)
+    elif cmd == C_Validator:
+        _time, tx, related_list, c_address, new_address, flag, sig_diff = data_list
+        send_data['c_address'] = c_address
+        send_data['hash'] = hexlify(tx.hash).decode()
+        send_data['time'] = _time
+        send_data['tx'] = tx.getinfo()
+        send_data['related'] = related_list
+        send_data['new_address'] = new_address
+        send_data['flag'] = flag
+        send_data['sig_diff'] = sig_diff
+    elif cmd == C_RequestConclude:
+        _time, tx, related_list, c_address, c_method, redeem_address, c_args = data_list
+        send_data['c_address'] = c_address
+        send_data['hash'] = hexlify(tx.hash).decode()
+        send_data['time'] = _time
+        send_data['tx'] = tx.getinfo()
+        send_data['related'] = related_list
+        send_data['c_method'] = c_method
+        send_data['redeem_address'] = redeem_address
+        send_data['c_args'] = decode(c_args)
+    elif cmd == C_FinishConclude or cmd == C_FinishValidator:
+        _time, tx = data_list
+        send_data['hash'] = hexlify(tx.hash).decode()
+        send_data['time'] = _time
+        send_data['tx'] = tx.getinfo()
+    else:
+        logging.warning("Not found cmd {}".format(cmd))
+    return send_data
+
+
 def decode(b):
+    # decode Python obj to dump json data
     if isinstance(b, bytes) or isinstance(b, bytearray):
-        return b.decode(errors='ignore')
+        return hexlify(b).decode()
     elif isinstance(b, set) or isinstance(b, list) or isinstance(b, tuple):
         return tuple(decode(data) for data in b)
     elif isinstance(b, dict):

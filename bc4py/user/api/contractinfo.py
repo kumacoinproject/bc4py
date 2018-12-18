@@ -162,7 +162,7 @@ async def watching_info(request):
 
 def decode(b):
     if isinstance(b, bytes) or isinstance(b, bytearray):
-        return b.decode(errors='ignore')
+        return hexlify(b).decode()
     elif isinstance(b, set) or isinstance(b, list) or isinstance(b, tuple):
         return tuple(decode(data) for data in b)
     elif isinstance(b, dict):
