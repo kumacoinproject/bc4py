@@ -159,7 +159,7 @@ def start_emulators(genesis_block, f_debug=False):
 
         logging.info("Start emulators, check unconfirmed.")
         unconfirmed_data = list()
-        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.time):
+        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time):
             if tx.type != C.TX_CONCLUDE_CONTRACT:
                 continue
             try:

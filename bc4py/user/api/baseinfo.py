@@ -68,6 +68,7 @@ async def system_info(request):
         'booting': P.F_NOW_BOOTING,
         'connections': len(V.PC_OBJ.p2p.user),
         'unconfirmed': [hexlify(txhash).decode() for txhash in tx_builder.unconfirmed.keys()],
+        'pre_unconfirmed': [hexlify(txhash).decode() for txhash in tx_builder.pre_unconfirmed.keys()],
         'access_time': int(time.time()),
         'start_time': start_time}
     return web_base.json_res(data)

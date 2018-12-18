@@ -791,18 +791,25 @@ class ChainBuilder:
 
 class TransactionBuilder:
     def __init__(self):
-        # BLockに存在するTXのみ保持すればよい
-        self.unconfirmed = dict()  # Blockに取り込まれた事のないTX、参照保持用
-        self.chained_tx = weakref.WeakValueDictionary()  # 一度でもBlockに取り込まれた事のあるTX
-        self.tmp = weakref.WeakValueDictionary()  # 一時的
+        # TXs that Blocks don't contain
+        self.unconfirmed = dict()
+        # Contract/Validator related tx
+        # don't affect UTXO check. Ex, same inputs has or not enough signatures
+        self.pre_unconfirmed = dict()
+        # TXs that MAIN chain contains
+        self.chained_tx = weakref.WeakValueDictionary()
+        # DataBase contains TXs
+        self.cashe = weakref.WeakValueDictionary()
 
     def put_unconfirmed(self, tx, outer_cur=None):
         assert tx.height is None, 'Not unconfirmed tx {}'.format(tx)
+        assert tx.hash not in self.pre_unconfirmed
         if tx.type in (C.TX_POW_REWARD, C.TX_POS_REWARD):
             return  # It is Reword tx
         elif tx.hash in self.unconfirmed:
             logging.debug('Already unconfirmed tx. {}'.format(tx))
             return
+        tx.create_time = time.time()
         self.unconfirmed[tx.hash] = tx
         if tx.hash in self.chained_tx:
             logging.debug('Already chained tx. {}'.format(tx))
@@ -810,9 +817,32 @@ class TransactionBuilder:
         user_account.affect_new_tx(tx, outer_cur)
         NewInfo.put(obj=tx)
 
+    def put_pre_unconfirmed(self, tx):
+        assert tx.height is None, 'Not unconfirmed tx {}'.format(tx)
+        assert tx.type in (C.TX_CONCLUDE_CONTRACT, C.TX_VALIDATOR_EDIT)
+        # main check finished by check_tx_time() and check_tx()
+        if tx.hash in self.unconfirmed:
+            return  # no effect
+        elif tx.hash in self.pre_unconfirmed:
+            # try to marge signature (checked before signature manageable)
+            original_tx = self.pre_unconfirmed[tx.hash]
+            new_signature = list(set(tx.signature) | set(original_tx.signature))
+            original_tx.signature = new_signature
+            logging.info("Marge Contract/Validator TX")
+        else:
+            # new Pre-unconfirmed tx
+            self.pre_unconfirmed[tx.hash] = tx
+            NewInfo.put(obj=tx)
+            logging.info("Insert Contract/Validator TX")
+
     def get_tx(self, txhash, default=None):
-        if txhash in self.tmp:
-            return self.tmp[txhash]
+        if txhash in self.cashe:
+            return self.cashe[txhash]
+        elif txhash in self.pre_unconfirmed:
+            # pre-unconfirmedより
+            tx = self.pre_unconfirmed[txhash]
+            tx.f_on_memory = True
+            if tx.height is not None: logging.warning("Not unconfirmed. {}".format(tx))
         elif txhash in self.unconfirmed:
             # unconfirmedより
             tx = self.unconfirmed[txhash]
@@ -828,7 +858,7 @@ class TransactionBuilder:
             tx = builder.db.read_tx(txhash)
             if tx:
                 tx.f_on_memory = False
-                self.tmp[txhash] = tx
+                self.cashe[txhash] = tx
             else:
                 return default
         return tx
@@ -960,7 +990,7 @@ class UserAccount:
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
             # Unconfirmed
-            for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.time, reverse=True):
+            for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time, reverse=True):
                 move_log = read_txhash2log(tx.hash, cur)
                 if move_log is None:
                     if tx.hash in self.memory_movement:

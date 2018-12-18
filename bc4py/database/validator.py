@@ -98,7 +98,7 @@ def validator_fill(v: Validator, best_block=None, best_chain=None, stop_txhash=N
             v.update(db_index=index, flag=flag, address=address, sig_diff=sig_diff, txhash=tx.hash)
     # unconfirmed
     if best_block is None:
-        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.time):
+        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time):
             if tx.hash == stop_txhash:
                 return
             if tx.type != C.TX_VALIDATOR_EDIT:

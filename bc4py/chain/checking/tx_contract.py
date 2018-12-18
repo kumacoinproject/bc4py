@@ -74,9 +74,9 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
     # contract index check
     if c_before.version != -1:
         new_index = start_tx2index(start_tx=start_tx)
-        before_index = start_tx2index(start_hash=c_before.start_hash)
-        if before_index >= new_index:
-            raise BlockChainError('The index is old on execute order, before={} new={}'.format(before_index, new_index))
+        if not (c_before.db_index < new_index):
+            raise BlockChainError('The index is old on execute order, '
+                                  'before={} new={}'.format(c_before.db_index, new_index))
     # c_method check, init, update and others..
     if c_method == M_INIT:
         if len(c_args) != 3:

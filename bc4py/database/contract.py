@@ -256,7 +256,7 @@ def get_conclude_by_start_iter(c_address, start_hash, best_block=None, best_chai
                 yield tx.hash
     # unconfirmed
     if best_block is None:
-        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.time):
+        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time):
             if tx.hash == stop_txhash:
                 raise StopIteration
             if tx.type != C.TX_CONCLUDE_CONTRACT:
