@@ -1,6 +1,6 @@
 from bc4py.config import P, NewInfo
 from bc4py.chain import Block, TX
-from bc4py.contract.watch import *
+from bc4py.contract.emulator.watching import *
 from aiohttp import web
 from threading import Thread
 import asyncio

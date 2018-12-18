@@ -1,17 +1,12 @@
-from bc4py.config import C, P, NewInfo, BlockChainError
-from bc4py.contract.watch import *
 from bc4py.contract.emulator.virtualmachine import *
 from bc4py.database.builder import tx_builder
 from bc4py.database.contract import *
 from bc4py.user import Accounting
 from bc4py.user.network.sendnew import *
 from bc4py.user.txcreation.contract import create_conclude_tx, create_signed_tx_as_validator
-from threading import Thread, Lock
 import logging
 from io import StringIO
-from time import sleep, time
 import bjson
-from sys import version_info
 
 
 def execute(c_address, genesis_block, start_tx, c_method, redeem_address, c_args, gas_limit, f_show_log=False):

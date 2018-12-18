@@ -7,7 +7,7 @@ from bc4py.utils import set_database_path, set_blockchain_params
 from bc4py.user.boot import *
 from bc4py.user.network import *
 from bc4py.user.api import create_rest_server
-from bc4py.contract.watch import start_contract_watch
+from bc4py.contract.emulator.watching import start_contract_watch
 from bc4py.database.create import make_account_db
 from bc4py.database.builder import builder
 from p2p_python.utils import setup_p2p_params

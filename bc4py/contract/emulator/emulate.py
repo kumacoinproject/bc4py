@@ -1,6 +1,6 @@
 from bc4py.config import C, P, NewInfo, BlockChainError
 from bc4py.contract.emulator.tools import *
-from bc4py.contract.watch import *
+from bc4py.contract.emulator.watching import *
 from bc4py.database.builder import tx_builder
 from bc4py.database.contract import *
 from threading import Thread, Lock

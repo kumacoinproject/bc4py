@@ -158,7 +158,6 @@ get watching info
 ```
 * About
     * Do not use pickle data from outside because of security risk. 
-    * default disabled function. require `close_contract_watch()`
     * Your account related contract/validator tx displayed, check update by **time**.
     * If you want to sign, use **/private/validateunconfirmed** method.
 

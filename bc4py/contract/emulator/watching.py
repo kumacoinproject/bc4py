@@ -1,14 +1,16 @@
-from bc4py.config import C, V, NewInfo
-from bc4py.chain import Block, TX
+from bc4py.config import C, V, P, NewInfo
 from bc4py.database.create import closing, create_db
 from bc4py.database.account import read_address2user, read_user2name
 from bc4py.database.validator import *
 from expiringdict import ExpiringDict
 from time import time
+from bc4py.chain import Block, TX
+import logging
+from threading import Thread
 import bjson
 
 
-watching_tx = ExpiringDict(max_len=1000, max_age_seconds=10800)
+watching_tx = ExpiringDict(max_len=100, max_age_seconds=10800)
 
 
 C_Conclude = 'Conclude'
@@ -18,9 +20,28 @@ C_FinishConclude = 'FinishConclude'
 C_FinishValidator = 'FinishValidator'
 
 
+def loop():
+    logging.info("Watching contract start.")
+    while not P.F_STOP:
+        try:
+            obj = NewInfo.get(channel='watch contract', timeout=2)
+            if isinstance(obj, TX):
+                check_new_tx(tx=obj)
+            elif isinstance(obj, Block):
+                check_new_block(block=obj)
+            else:
+                pass
+        except NewInfo.empty:
+            pass
+        except Exception as e:
+            logging.error(e, exc_info=True)
+    logging.info("Close watching contract.")
+
+
 def check_new_tx(tx: TX):
     if tx.height is not None:
-        raise CheckWatchError('is not unconfirmed? {}'.format(tx))
+        logging.error('New tx, but is already confirmed, {}'.format(tx))
+        return
     elif tx.message_type != C.MSG_BYTE:
         return
     elif tx.type == C.TX_CONCLUDE_CONTRACT:
@@ -48,7 +69,8 @@ def check_new_tx(tx: TX):
 def check_new_block(block: Block):
     for tx in block.txs:
         if tx.height is None:
-            raise CheckWatchError('is unconfirmed? {}'.format(tx))
+            logging.error('New block\'s tx, but is unconfirmed, {}'.format(tx))
+            continue
         elif tx.message_type != C.MSG_BYTE:
             continue
         elif tx.type == C.TX_TRANSFER:
@@ -89,8 +111,8 @@ def check_related_address(address_list):
     return r
 
 
-class CheckWatchError(Exception):
-    pass  # use for check fail
+def start_contract_watch():
+    Thread(target=loop, name='Watching', daemon=True).start()
 
 
 __all__ = [
@@ -102,5 +124,5 @@ __all__ = [
     "watching_tx",
     "check_new_tx",
     "check_new_block",
-    "CheckWatchError"
+    "start_contract_watch",
 ]

@@ -115,9 +115,7 @@ class V:  # 起動時に設定される変数
 
 class P:  # 起動中もダイナミックに変化
     F_STOP = False  # Stop signal
-    VALIDATOR_OBJ = None  # Validation request
     F_NOW_BOOTING = True  # Booting mode flag
-    F_WATCH_CONTRACT = False  # Watching contract
 
 
 class Debug:

@@ -3,7 +3,7 @@ from bc4py.user.api import web_base
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.validator import get_validator_object, validator_tx2index
 from bc4py.database.contract import get_contract_object, start_tx2index
-from bc4py.contract.watch import watching_tx
+from bc4py.contract.emulator.watching import watching_tx
 import logging
 from binascii import hexlify, a2b_hex
 import bjson
@@ -144,8 +144,7 @@ async def contract_storage(request):
 async def watching_info(request):
     try:
         f_pickle = bool(request.query.get('pickle', False))
-        if not P.F_WATCH_CONTRACT:
-            return web_base.error_res(errors='You need to enable watching option!')
+        # You need to enable watching option!
         return web_base.json_res([{
             'hash': hexlify(txhash).decode(),
             'type': tx.type,
