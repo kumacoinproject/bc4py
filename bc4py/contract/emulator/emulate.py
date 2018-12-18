@@ -33,7 +33,7 @@ class Emulate:
             emulators.remove(self)
 
 
-def start_emulators(genesis_block, f_debug=False):
+def start_emulators(genesis_block):
     """ start emulation listen, need close by close_emulators() """
     def run():
         global f_running
@@ -45,6 +45,7 @@ def start_emulators(genesis_block, f_debug=False):
             sleep(1)
 
         logging.info("Start emulators, check unconfirmed.")
+        # TODO: check is this work reqiured?
         unconfirmed_data = list()
         for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time):
             if tx.type != C.TX_CONCLUDE_CONTRACT:
@@ -100,7 +101,7 @@ def start_emulators(genesis_block, f_debug=False):
                                 redeem_address=redeem_address, c_args=c_args, gas_limit=gas_limit, f_show_log=True)
                             claim_emulate_gas = emulate_gas if e.f_claim_gas else 0
                             broadcast(c_address=c_address, start_tx=start_tx, redeem_address=redeem_address,
-                                      emulate_gas=claim_emulate_gas, result=result, f_debug=f_debug)
+                                      emulate_gas=claim_emulate_gas, result=result, f_not_send=False)
 
                 # elif cmd == C_Conclude:
                 #    # sign already created conclude tx

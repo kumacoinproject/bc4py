@@ -227,15 +227,13 @@ def get_contract_object(c_address, best_block=None, best_chain=None, stop_txhash
     return c
 
 
-def get_conclude_by_start_iter(c_address, start_hash, best_block=None, best_chain=None, stop_txhash=None):
-    """ return ConcludeTX's hashes by start_hash iter """
+def get_conclude_hash_from_start(c_address, start_hash, best_block=None, best_chain=None):
+    """ return ConcludeTX's hash by start_hash """
     # database
     c_iter = builder.db.read_contract_iter(c_address=c_address)
-    for index, _start_hash, finish_hash, (c_method, c_args, c_storage) in c_iter:
-        if finish_hash == stop_txhash:
-            raise StopIteration
+    for index, _start_hash, conclude_hash, dummy in c_iter:
         if _start_hash == start_hash:
-            yield finish_hash
+            return conclude_hash
     # memory
     if best_chain:
         _best_chain = None
@@ -245,28 +243,24 @@ def get_conclude_by_start_iter(c_address, start_hash, best_block=None, best_chai
         dummy, _best_chain = builder.get_best_chain(best_block=best_block)
     for block in reversed(best_chain or _best_chain):
         for tx in block.txs:
-            if tx.hash == stop_txhash:
-                raise StopIteration
             if tx.type != C.TX_CONCLUDE_CONTRACT:
                 continue
             _c_address, _start_hash, c_storage = decode(tx.message)
             if _c_address != c_address:
                 continue
             if _start_hash == start_hash:
-                yield tx.hash
+                return tx.hash
     # unconfirmed
     if best_block is None:
         for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time):
-            if tx.hash == stop_txhash:
-                raise StopIteration
             if tx.type != C.TX_CONCLUDE_CONTRACT:
                 continue
             _c_address, _start_hash, c_storage = decode(tx.message)
             if _c_address != c_address:
                 continue
             if _start_hash == start_hash:
-                yield tx.hash
-    raise StopIteration
+                return tx.hash
+    return None
 
 
 def start_tx2index(start_hash=None, start_tx=None):
@@ -300,7 +294,7 @@ __all__ = [
     "Contract",
     "contract_fill",
     "get_contract_object",
-    "get_conclude_by_start_iter",
+    "get_conclude_hash_from_start",
     "start_tx2index",
     "update_contract_cashe",
 ]
