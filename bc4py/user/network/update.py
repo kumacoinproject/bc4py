@@ -3,7 +3,6 @@ from bc4py.database.builder import builder, tx_builder
 from bc4py.database.tools import is_usedindex
 from bc4py.database.validator import *
 from bc4py.database.contract import *
-from bc4py.chain.checking.signature import get_signed_cks
 from bc4py.chain.checking.utils import sticky_failed_txhash
 from bc4py.user.generate import *
 import logging
