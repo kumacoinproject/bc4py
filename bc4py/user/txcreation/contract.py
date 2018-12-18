@@ -57,10 +57,11 @@ def create_contract_transfer_tx(c_address, cur, c_method, c_args=None,
     return tx
 
 
-def create_conclude_tx(c_address, start_tx, redeem_address, send_pairs=None, c_storage=None, emulate_gas=None):
+def create_conclude_tx(c_address, start_tx, redeem_address, send_pairs=None, c_storage=None, emulate_gas=0):
     assert isinstance(start_tx, TX)
     assert send_pairs is None or isinstance(send_pairs, list)
     assert c_storage is None or isinstance(c_storage, dict)
+    assert isinstance(emulate_gas, int)
     message = bjson.dumps((c_address, start_tx.hash, c_storage), compress=False)
     v = get_validator_object(c_address=c_address)
     send_pairs = send_pairs or list()
@@ -80,7 +81,7 @@ def create_conclude_tx(c_address, start_tx, redeem_address, send_pairs=None, c_s
     # replace dummy address
     replace_redeem_dummy_address(tx=tx, replace_by=c_address)
     # fix redeem fees
-    if send_pairs and emulate_gas:
+    if send_pairs:
         # conclude_txで使用したGasを、ユーザーから引いてコントラクトに戻す処理
         conclude_fee = (emulate_gas + tx.gas_amount) * tx.gas_price
         fee_coin_id = 0
@@ -101,7 +102,7 @@ def create_conclude_tx(c_address, start_tx, redeem_address, send_pairs=None, c_s
                                   .format(f_finish_add, f_finish_sub))
         logging.debug("Move conclude fee {}:{}".format(fee_coin_id, conclude_fee))
     tx.serialize()
-    if v.index == -1:
+    if v.version == -1:
         raise BlockChainError('Not init validator address. {}'.format(c_address))
     if setup_contract_signature(tx, v.validators) == 0:
         raise BlockChainError('Cannot sign, you are not validator.')
@@ -115,7 +116,7 @@ def create_validator_edit_tx(c_address, new_address=None,
         raise BlockChainError('No cosigner edit, but flag is not NOP.')
     # validator object
     v = get_validator_object(c_address=c_address)
-    if v.index == -1:
+    if v.version == -1:
         if new_address is None or flag != F_ADD or sig_diff != 1:
             raise BlockChainError('Not correct info.')
     else:

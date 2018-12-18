@@ -4,8 +4,8 @@ aiohttp-basicauth-middleware==1.1.0
 pycryptodomex
 bjson>=0.2.9
 nem-ed25519
-p2p_python>=1.0.19
-dill
+p2p_python>=1.0.21
+# dill
 psutil
 pysha3
 xmltodict
@@ -13,3 +13,4 @@ requests
 more_itertools
 pooled_multiprocessing>=0.0.7
 expiringdict
+phe

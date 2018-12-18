@@ -22,7 +22,7 @@ def _verify(pubkey, signature, txhash, tx_b, prefix):
     except ValueError:
         error = "Failed verify tx {}".format(hexlify(txhash).decode())
         logging.debug(error)
-    except BaseException as e:
+    except Exception as e:
         error = 'Signature verification error. "{}"'.format(e)
         logging.error(error)
     return pubkey, signature, txhash, error

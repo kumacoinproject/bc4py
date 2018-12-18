@@ -18,8 +18,18 @@ def calc_return_balance(start_tx, c_address, redeem_address):
 
 
 def get_tx_obj(txhash):
-    tx = api_get('gettxbyhash', hash=b2a_hex(txhash), pickle='true')
-    return pickle.loads(b64decode(tx.encode()))
+    p_tx = api_get('gettxbyhash', hash=b2a_hex(txhash), pickle='true')
+    return pickle.loads(b64decode(p_tx.encode()))
+
+
+def get_block_obj(height=None, blockhash=None):
+    if height is not None:
+        p_block = api_get('getblockbyheight', height=height, pickle='true')
+    elif blockhash is not None:
+        p_block = api_get('getblockbyhash', hash=b2a_hex(blockhash), pickle='true')
+    else:
+        raise Exception('Both params are None.')
+    return pickle.loads(b64decode(p_block.encode()))
 
 
 def get_contract_storage(c_address, stop_hash):
@@ -54,6 +64,7 @@ def api_post(method, **kwargs):
 __price__ = {
     "calc_return_balance": 10,
     "get_tx_obj": 200,
+    "get_block_obj": 200,
     "get_contract_storage": 500,
     "calc_storage_diff": 500,
     "api_get": 200,

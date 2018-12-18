@@ -9,7 +9,7 @@ from base64 import b64encode
 
 async def get_block_by_height(request):
     f_pickled = request.query.get('pickle', False)
-    height = int(request.query.get('height', 0))
+    height = int(request.query['height'])
     blockhash = builder.get_block_hash(height)
     if blockhash is None:
         return web.Response(text="Not found height.", status=400)
@@ -68,7 +68,7 @@ async def get_mintcoin_info(request):
         mint_id = int(request.query.get('mint_id', 0))
         m = get_mintcoin_object(coin_id=mint_id)
         return web_base.json_res(m.info)
-    except BaseException:
+    except Exception:
         return web_base.error_res()
 
 
@@ -83,7 +83,7 @@ async def get_mintcoin_history(request):
                 'params': params,
                 'setting': setting})
         return web_base.json_res(data)
-    except BaseException:
+    except Exception:
         return web_base.error_res()
 
 

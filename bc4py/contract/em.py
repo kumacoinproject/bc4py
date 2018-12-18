@@ -12,20 +12,17 @@ from time import time
 import os
 import bdb
 
-
+# inner commands
 CMD_ERROR = 'CMD_ERROR'
 CMD_SUCCESS = 'CMD_SUCCESS'
 CMD_PORT = 'CMD_PORT'
 
+# pdb commands
 EMU_STEP = 'step'
 EMU_NEXT = 'next'
 EMU_QUIT = 'quit'
 EMU_UNTIL = 'until'
 EMU_RETURN = 'return'
-
-WORKING_FILE_NAME = 'em.py'
-
-cxt = get_context('spawn')
 
 
 def _vm(genesis_block, start_tx, que, c, c_address, c_method, redeem_address, c_args):
@@ -45,8 +42,9 @@ def _vm(genesis_block, start_tx, que, c, c_address, c_method, redeem_address, c_
         result = fnc(*c_args)
         virtual_machine.do_quit(EMU_QUIT)
         que.put((CMD_SUCCESS, result))
-    except bdb.BdbQuit:
-        pass
+    except bdb.BdbQuit as e:
+        virtual_machine.do_quit(EMU_QUIT)
+        que.put((CMD_ERROR, str(e)))
     except Exception:
         virtual_machine.do_quit(EMU_QUIT)
         tb = traceback.format_exc()
@@ -59,17 +57,30 @@ def _vm(genesis_block, start_tx, que, c, c_address, c_method, redeem_address, c_
 
 
 def emulate(genesis_block, start_tx, c_address, c_method, redeem_address, c_args, gas_limit=None, file=None):
+    """
+    emulate Contract code
+    :param genesis_block: GenesisBlock
+    :param start_tx: emulate StartTX
+    :param c_address: contract address
+    :param c_method: contract method name
+    :param redeem_address: to redeem address
+    :param c_args: arguments list
+    :param gas_limit: gas limit to use, None is unlimited
+    :param file: logging output file object
+    :return: status, error, total_gas, work_line
+    """
     start = time()
+    cxt = get_context('spawn')
     que = cxt.Queue()
     c = get_contract_object(c_address=c_address, stop_txhash=start_tx.hash)
-    if c.index == -1 or c.binary is None:
+    if c.version == -1 or c.binary is None:
         raise BlockChainError('Need register contract binary first.')
     kwargs = dict(genesis_block=genesis_block, start_tx=start_tx, que=que, c=c,
                   c_address=c_address, c_method=c_method, redeem_address=redeem_address, c_args=c_args)
     p = cxt.Process(target=_vm, kwargs=kwargs)
     p.start()
     logging.debug('wait for notify of listen port.')
-    cmd, port = que.get(timeout=5)
+    cmd, port = que.get(timeout=10)
     if cmd != CMD_PORT:
         raise Exception('Not correct command="{}" data="{}"'.format(cmd, port))
     logging.debug("Communication port={}.".format(port))
@@ -118,24 +129,34 @@ def emulate(genesis_block, start_tx, c_address, c_method, redeem_address, c_args
                 data = b''
             else:
                 continue
+
             if gas_limit and gas_limit < total_gas:
                 error = 'Reach gas_limit. [{}<{}]'.format(gas_limit, total_gas)
                 break
             elif cmd in (EMU_STEP, EMU_NEXT, EMU_UNTIL, EMU_RETURN):
                 working_file = os.path.split(working_path)[1]
-                if working_file.startswith('contract('):
-                    total_gas += 1
-                    cmd = EMU_STEP
-                elif working_file.startswith(WORKING_FILE_NAME):
-                    cmd = EMU_STEP
-                else:
-                    cmd = EMU_NEXT
-                # Calculate total_gas
-                for func, gas in __price__.items():
-                    if func in working_code and working_code.startswith('def ' + func + '('):
-                        total_gas += gas
+                # logging for debug
                 print("{} d={} {} >> type={} gas={} path={} code=\"{}\"".format(
                     work_line, code_depth, cmd, working_type, total_gas, working_file, working_code), file=file)
+
+                # select action by code_depth
+                if code_depth == 0:
+                    # pre Contract code: _em()
+                    cmd = EMU_STEP
+                elif code_depth == 1:
+                    # Contract code body: Contract()
+                    cmd = EMU_STEP
+                    total_gas += 1
+                else:
+                    # Deep in basiclib functions
+                    cmd = EMU_NEXT
+
+                # Calculate total_gas
+                if code_depth == 2 and working_type == 'Call':
+                    for func, gas in __price__.items():
+                        if func in working_code and working_code.startswith('def ' + func + '('):
+                            total_gas += gas
+                # next work line
                 work_line += 1
             else:
                 print("NOP [{}] >> {}".format(cmd, ', '.join(msgs)), file=file)
@@ -165,3 +186,8 @@ def emulate(genesis_block, start_tx, c_address, c_method, redeem_address, c_args
         if error is None:
             error = str(traceback.format_exc())
         return False, error, total_gas, work_line
+
+
+__all__ = [
+    "emulate"
+]

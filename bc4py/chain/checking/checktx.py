@@ -107,12 +107,21 @@ def check_tx(tx, include_block):
 def check_tx_time(tx):
     # For unconfirmed tx
     now = int(time.time()) - V.BLOCK_GENESIS_TIME
-    if tx.time > now + C.ACCEPT_MARGIN_TIME:
-        raise BlockChainError('TX time too early. {}>{}+{}'
-                              .format(tx.time, now, C.ACCEPT_MARGIN_TIME))
-    elif tx.deadline - tx.time < 10800:
+    if tx.type in (C.TX_VALIDATOR_EDIT, C.TX_CONCLUDE_CONTRACT):
+        if not (tx.time - C.ACCEPT_MARGIN_TIME < now < tx.deadline + C.ACCEPT_MARGIN_TIME):
+            raise BlockChainError('TX time is not correct range. {}<{}<{}'
+                                  .format(tx.time-C.ACCEPT_MARGIN_TIME, now, tx.deadline+C.ACCEPT_MARGIN_TIME))
+    else:
+        if tx.time > now + C.ACCEPT_MARGIN_TIME:
+            raise BlockChainError('TX time too early. {}>{}+{}'
+                                  .format(tx.time, now, C.ACCEPT_MARGIN_TIME))
+        if tx.deadline < now - C.ACCEPT_MARGIN_TIME:
+            raise BlockChainError('TX time is too late. [{}<{}-{}]'
+                                  .format(tx.deadline, now, C.ACCEPT_MARGIN_TIME))
+    # common check
+    if tx.deadline - tx.time < 10800:
         raise BlockChainError('TX acceptable spam is too short. {}-{}<{}'
                               .format(tx.deadline, tx.time, 10800))
-    elif tx.deadline < now - C.ACCEPT_MARGIN_TIME:
-        raise BlockChainError('TX time is too late. [{}<{}-{}]'
-                              .format(tx.deadline, now, C.ACCEPT_MARGIN_TIME))
+    if tx.deadline - tx.time > 43200:  # 12hours
+        raise BlockChainError('TX acceptable spam is too long. {}-{}<{}'
+                              .format(tx.deadline, tx.time, 10800))

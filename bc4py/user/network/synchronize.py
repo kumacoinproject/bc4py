@@ -300,7 +300,7 @@ def sync_chain_loop():
                 reset_good_node()
                 logging.warning('Update chain failed "{}"'.format(e))
                 sleep(5)
-            except BaseException as e:
+            except Exception as e:
                 reset_good_node()
                 logging.error('Update chain failed "{}"'.format(e), exc_info=True)
                 sleep(5)

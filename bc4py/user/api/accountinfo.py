@@ -17,7 +17,7 @@ async def list_balance(request):
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         cur = db.cursor()
         for user, balance in users.items():
-            data[read_user2name(user, cur)] = balance.coins
+            data[read_user2name(user, cur)] = dict(balance)
     return web_base.json_res(data)
 
 
@@ -121,9 +121,9 @@ async def new_address(request):
 
 
 async def get_keypair(request):
-    with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-        cur = db.cursor()
-        try:
+    try:
+        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+            cur = db.cursor()
             address = request.query['address']
             uuid, sk, pk = read_address2keypair(address, cur)
             return web_base.json_res({
@@ -131,8 +131,11 @@ async def get_keypair(request):
                 'address': address,
                 'private_key': sk,
                 'public_key': pk})
-        except BlockChainError as e:
-            return web.Response(text=str(e), status=400)
+    except BlockChainError as e:
+        return web.Response(text=str(e), status=400)
+    except Exception:
+        return web_base.error_res()
+
 
 __all__ = [
     "list_balance",

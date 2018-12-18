@@ -1,11 +1,13 @@
 from bc4py.config import C, V, P, Debug
 from bc4py.database.builder import builder, tx_builder
-from bc4py.database.tools import is_usedindex  #,  get_validator_info
-from bc4py.database.validator import get_validator_object
+from bc4py.database.tools import is_usedindex
+from bc4py.database.validator import *
+from bc4py.database.contract import *
 from bc4py.chain.checking.signature import get_signed_cks
 from bc4py.chain.checking.utils import sticky_failed_txhash
 from bc4py.user.generate import *
 import logging
+from collections import defaultdict
 from threading import Lock, Thread
 from time import time
 import bjson
@@ -48,8 +50,9 @@ def _update_unconfirmed_info():
     with unconfirmed_lock:
         s = time()
         # sort unconfirmed txs
-        unconfirmed_txs = sorted(tx_builder.unconfirmed.values(), key=lambda x: x.time)
-        unconfirmed_txs = sorted(unconfirmed_txs, key=lambda x: x.gas_price, reverse=True)
+        unconfirmed_txs = sorted(
+            tx_builder.unconfirmed.values(),
+            key=lambda x: (x.gas_price, -1*x.time), reverse=True)
 
         # reject tx (input tx is unconfirmed)
         limit_height = builder.best_block.height - C.MATURE_HEIGHT
@@ -88,6 +91,7 @@ def _update_unconfirmed_info():
                 used_pairs.add(input_pair)
 
         # contract tx
+        need_resort_txs = defaultdict(list)
         for tx in unconfirmed_txs.copy():
             if tx.type == C.TX_CONCLUDE_CONTRACT:
                 try:
@@ -105,6 +109,9 @@ def _update_unconfirmed_info():
                 if v.require > len(accept_cks):
                     unconfirmed_txs.remove(tx)
                     continue
+                # decide to include the ConcludeTx
+                index = start_tx2index(start_tx=start_tx)
+                need_resort_txs[c_address].append((index, tx))
             elif tx.type == C.TX_VALIDATOR_EDIT:
                 try:
                     c_address, address, flag, sig_diff = bjson.loads(tx.message)
@@ -119,6 +126,18 @@ def _update_unconfirmed_info():
                     continue
             else:
                 pass
+
+        # affect resort txs (for contract)
+        if len(need_resort_txs) > 0:
+            append_txs = list()
+            for c_address, data_list in need_resort_txs.items():
+                if len(data_list) < 2:
+                    continue
+                for index, tx in sorted(data_list, key=lambda x: x[0]):
+                    unconfirmed_txs.remove(tx)
+                    append_txs.append(tx)
+            else:
+                unconfirmed_txs.extend(append_txs)
 
         # limit per tx's in block
         if Debug.F_LIMIT_INCLUDE_TX_IN_BLOCK:

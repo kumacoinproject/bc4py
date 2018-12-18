@@ -200,7 +200,7 @@ class Generate(Thread):
                 if int(time()) % 90 == 0:
                     logging.info("Staking... margin={}% limit={}".format(round(remain*100, 1), staking_limit))
                 self.hashrate = (calculate_nam, time())
-                sleep(max(0.0, remain)+random()-0.5)
+                sleep(max(0.0, remain+random()-0.5))
         logging.info("Close signal")
 
 

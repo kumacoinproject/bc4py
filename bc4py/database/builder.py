@@ -36,13 +36,14 @@ struct_tx = struct.Struct('>4I')
 struct_address = struct.Struct('>40s32sB')
 struct_address_idx = struct.Struct('>IQ?')
 struct_coins = struct.Struct('>II')
-struct_construct_key = struct.Struct('>40sI')
+struct_construct_key = struct.Struct('>40sQ')
 struct_construct_value = struct.Struct('>32s32s')
-struct_validator_key = struct.Struct('>40sI')
+struct_validator_key = struct.Struct('>40sQ')
 struct_validator_value = struct.Struct('>40sb32sb')
+
+# constant
 ITER_ORDER = 'big'
-
-
+DB_VERSION = 0  # increase if you change database structure
 ZERO_FILLED_HASH = b'\x00' * 32
 DUMMY_VALIDATOR_ADDRESS = b'\x00' * 40
 STARTER_NUM = 3
@@ -55,7 +56,10 @@ config = {
 
 
 class DataBase:
-    def __init__(self, dirs, **kwargs):
+    def __init__(self, f_dummy=False, **kwargs):
+        if f_dummy:
+            return
+        dirs = os.path.join(V.DB_HOME_DIR, 'db-ver{}'.format(DB_VERSION))
         self.dirs = dirs
         self.sync = True
         self.timeout = None
@@ -79,7 +83,7 @@ class DataBase:
         self._validator = create_level_db(os.path.join(dirs, 'validator'), create_if_missing=f_create)
         self.batch = None
         self.batch_thread = None
-        logging.debug(':create database connect, plyvel={} {}'.format(is_plyvel, dirs))
+        logging.debug(':create database connect, plyvel={} path={}'.format(is_plyvel, dirs.replace("\\", "/")))
 
     def close(self):
         if is_plyvel:
@@ -243,13 +247,13 @@ class DataBase:
         for k, v in address_iter:
             k, v = bytes(k), bytes(v)
             # address, txhash, index, coin_id, amount, f_used
-            if f_batch and k in batch_copy:
+            if f_batch and k in batch_copy and start <= k <= stop:
                 v = batch_copy[k]
                 del batch_copy[k]
             yield struct_address.unpack(k) + struct_address_idx.unpack(v)
         if f_batch:
             for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
-                if k.startswith(b_address):
+                if k.startswith(b_address) and start <= k <= stop:
                     yield struct_address.unpack(k) + struct_address_idx.unpack(v)
 
     def read_coins_iter(self, coin_id):
@@ -265,7 +269,7 @@ class DataBase:
         for k, v in coins_iter:
             k, v = bytes(k), bytes(v)
             # coin_id, index, txhash
-            if f_batch and k in batch_copy:
+            if f_batch and k in batch_copy and start <= k <= stop:
                 v = batch_copy[k]
                 del batch_copy[k]
             dummy, index = struct_coins.unpack(k)
@@ -273,27 +277,28 @@ class DataBase:
             yield index, txhash, params, setting
         if f_batch:
             for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
-                if k.startswith(b_coin_id):
+                if k.startswith(b_coin_id) and start <= k <= stop:
                     dummy, index = struct_coins.unpack(k)
                     txhash, (params, setting) = v[:32], bjson.loads(v[32:])
                     yield index, txhash, params, setting
 
-    def read_contract_iter(self, c_address):
+    def read_contract_iter(self, c_address, start_idx=None):
         f_batch = self.is_batch_thread()
         batch_copy = self.batch['_contract'].copy() if self.batch else dict()
         b_c_address = c_address.encode()
-        start = b_c_address + b'\x00'*4
-        stop = b_c_address + b'\xff'*4
+        # caution: iterator/RangeIter's result include start and stop, need to add 1.
+        start = b_c_address + ((start_idx+1).to_bytes(8, ITER_ORDER) if start_idx else b'\x00'*8)
+        stop = b_c_address + b'\xff'*8
         if is_plyvel:
             contract_iter = self._contract.iterator(start=start, stop=stop)
         else:
             contract_iter = self._contract.RangeIter(key_from=start, key_to=stop)
         for k, v in contract_iter:
             k, v = bytes(k), bytes(v)
-            # KEY: [c_address 40s]-[index uint4]
-            # VALUE: [start_hash 32s]-[finish_hash 32s]-[len uint4]-[bjson(c_method, c_args, c_storage)]
+            # KEY: [c_address 40s]-[index uint8]
+            # VALUE: [start_hash 32s]-[finish_hash 32s]-[bjson(c_method, c_args, c_storage)]
             # c_address, index, start_hash, finish_hash, message
-            if f_batch and k in batch_copy:
+            if f_batch and k in batch_copy and start <= k <= stop:
                 v = batch_copy[k]
                 del batch_copy[k]
             dummy, index = struct_construct_key.unpack(k)
@@ -302,18 +307,19 @@ class DataBase:
             yield index, start_hash, finish_hash, message
         if f_batch:
             for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
-                if k.startswith(b_c_address):
+                if k.startswith(b_c_address) and start <= k <= stop:
                     dummy, index = struct_construct_key.unpack(k)
                     start_hash, finish_hash, raw_message = v[0:32], v[32:64], v[64:]
                     message = bjson.loads(raw_message)
                     yield index, start_hash, finish_hash, message
 
-    def read_validator_iter(self, c_address):
+    def read_validator_iter(self, c_address, start_idx=None):
         f_batch = self.is_batch_thread()
         batch_copy = self.batch['_validator'].copy() if self.batch else dict()
         b_c_address = c_address.encode()
-        start = b_c_address + b'\x00'*4
-        stop = b_c_address + b'\xff'*4
+        # caution: iterator/RangeIter's result include start and stop, need to add 1.
+        start = b_c_address + ((start_idx+1).to_bytes(8, ITER_ORDER) if start_idx else b'\x00' * 8)
+        stop = b_c_address + b'\xff'*8
         # from database
         if is_plyvel:
             validator_iter = self._validator.iterator(start=start, stop=stop)
@@ -321,9 +327,9 @@ class DataBase:
             validator_iter = self._validator.RangeIter(key_from=start, key_to=stop)
         for k, v in validator_iter:
             k, v = bytes(k), bytes(v)
-            # KEY [c_address 40s]-[index unit4]
+            # KEY [c_address 40s]-[index unit8]
             # VALUE [new_address 40s]-[flag int1]-[txhash 32s]-[sig_diff int1]
-            if f_batch and k in batch_copy:
+            if f_batch and k in batch_copy and start <= k <= stop:
                 v = batch_copy[k]
                 del batch_copy[k]
             dummy, index = struct_validator_key.unpack(k)
@@ -335,7 +341,7 @@ class DataBase:
         # from memory
         if f_batch:
             for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
-                if k.startswith(b_c_address):
+                if k.startswith(b_c_address) and start <= k <= stop:
                     dummy, index = struct_validator_key.unpack(k)
                     new_address, flag, txhash, sig_diff = struct_validator_value.unpack(v)
                     if new_address == DUMMY_VALIDATOR_ADDRESS:
@@ -388,28 +394,36 @@ class DataBase:
         self.batch['_coins'][k] = v
         logging.debug("Insert new coins id={}".format(coin_id))
 
-    def write_contract(self, c_address, start_hash, finish_hash, message):
+    def write_contract(self, c_address, start_tx, finish_hash, message):
         assert self.is_batch_thread(), 'Not created batch.'
         assert len(message) == 3
-        index = -1
-        for index, *dummy in self.read_contract_iter(c_address=c_address): pass
-        index += 1
-        k = c_address.encode() + index.to_bytes(4, ITER_ORDER)
-        v = start_hash + finish_hash + bjson.dumps(message, compress=False)
+        include_block = self.read_block(blockhash=self.read_block_hash(height=start_tx.height))
+        index = start_tx.height * 0xffffffff + include_block.txs.index(start_tx)
+        # check newer index already inserted
+        last_index = None
+        for last_index, *dummy in self.read_contract_iter(c_address=c_address, start_idx=index):
+            pass
+        assert last_index is None, 'Not allow older ConcludeTX insert. my={} last={}'.format(index, last_index)
+        k = c_address.encode() + index.to_bytes(8, ITER_ORDER)
+        v = start_tx.hash + finish_hash + bjson.dumps(message, compress=False)
         self.batch['_contract'][k] = v
         logging.debug("Insert new contract {} {}".format(c_address, index))
 
-    def write_validator(self, c_address, new_address, flag, txhash, sign_diff):
+    def write_validator(self, c_address, new_address, flag, tx, sign_diff):
         assert self.is_batch_thread(), 'Not created batch.'
-        index = -1
-        for index, *dummy in self.read_validator_iter(c_address=c_address): pass
-        index += 1
+        include_block = self.read_block(blockhash=self.read_block_hash(height=tx.height))
+        index = tx.height * 0xffffffff + include_block.txs.index(tx)
+        # check newer index already inserted
+        last_index = None
+        for last_index, *dummy in self.read_validator_iter(c_address=c_address, start_idx=index):
+            pass
+        assert last_index is None, 'Not allow older ValidatorEditTX insert. last={}'.format(last_index)
         if new_address is None:
             new_address = DUMMY_VALIDATOR_ADDRESS
         else:
             new_address = new_address.encode()
-        k = c_address.encode() + index.to_bytes(4, ITER_ORDER)
-        v = struct_validator_value.pack(new_address, flag, txhash, sign_diff)
+        k = c_address.encode() + index.to_bytes(8, ITER_ORDER)
+        v = struct_validator_value.pack(new_address, flag, tx.hash, sign_diff)
         self.batch['_validator'][k] = v
         logging.debug("Insert new validator {} {}".format(c_address, index))
 
@@ -426,11 +440,7 @@ class ChainBuilder:
         self.best_chain = None
         self.root_block = None
         self.best_block = None
-        self.db = None
-        try:
-            self.db = DataBase(os.path.join(V.DB_HOME_DIR, 'db'))
-        except Exception:
-            pass
+        self.db = DataBase(f_dummy=True)
         # levelDBのStreamHandlerを削除
         logging.getLogger().handlers.clear()
 
@@ -441,11 +451,11 @@ class ChainBuilder:
 
     def set_database_path(self, **kwargs):
         try:
-            self.db = DataBase(os.path.join(V.DB_HOME_DIR, 'db'), **kwargs)
+            self.db = DataBase(f_dummy=False, **kwargs)
             logging.info("Connect database.")
         except leveldb.LevelDBError:
             logging.warning("Already connect database.")
-        except BaseException as e:
+        except Exception as e:
             logging.debug("Failed connect database, {}.".format(e))
 
     def init(self, genesis_block: Block, batch_size=None):
@@ -461,7 +471,7 @@ class ChainBuilder:
             elif genesis_block != self.db.read_block(genesis_block.hash):
                 raise BlockBuilderError("Don't match genesis binary [{}!={}]".format(
                     hexlify(genesis_block.b).decode(), hexlify(self.db.read_block(genesis_block.hash).b).decode()))
-        except BaseException:
+        except Exception:
             # GenesisBlockしか無いのでDummyBlockを入れる処理
             self.root_block = Block()
             self.root_block.hash = b'\xff' * 32
@@ -537,20 +547,20 @@ class ChainBuilder:
 
     def save_starter(self):
         for index in reversed(range(STARTER_NUM)):
-            target_path = os.path.join(V.DB_HOME_DIR, 'db', 'starter.{}.dat'.format(index))
+            target_path = os.path.join(self.db.dirs, 'starter.{}.dat'.format(index))
             if os.path.exists(target_path):
-                old_file_path = os.path.join(V.DB_HOME_DIR, 'db', 'starter.{}.dat'.format(index+1))
+                old_file_path = os.path.join(self.db.dirs, 'starter.{}.dat'.format(index+1))
                 if os.path.exists(old_file_path):
                     os.remove(old_file_path)
                 os.rename(target_path, old_file_path)
-        with open(os.path.join(V.DB_HOME_DIR, 'db', 'starter.0.dat'), mode='bw') as fp:
+        with open(os.path.join(self.db.dirs, 'starter.0.dat'), mode='bw') as fp:
             pickle.dump(self.best_chain, fp, protocol=4)
 
     def load_starter(self, root_block):
         self.failmark_file_check()
         memorized_blocks = list()
         for index in range(STARTER_NUM+1):
-            target_path = os.path.join(V.DB_HOME_DIR, 'db', 'starter.{}.dat'.format(index))
+            target_path = os.path.join(self.db.dirs, 'starter.{}.dat'.format(index))
             if os.path.exists(target_path):
                 with open(target_path, mode='br') as fp:
                     for block in reversed(pickle.load(fp)):
@@ -563,11 +573,11 @@ class ChainBuilder:
         raise BlockBuilderError("Failed load block from file, cannot find starter.n.dat?")
 
     def failmark_file_check(self):
-        mark_file = os.path.join(V.DB_HOME_DIR, 'db', 'starter.failed.dat')
+        mark_file = os.path.join(self.db.dirs, 'starter.failed.dat')
         if not os.path.exists(mark_file):
             return
         for index in range(STARTER_NUM+1):
-            target_path = os.path.join(V.DB_HOME_DIR, 'db', 'starter.{}.dat'.format(index))
+            target_path = os.path.join(self.db.dirs, 'starter.{}.dat'.format(index))
             if os.path.exists(target_path):
                 os.remove(target_path)
                 os.remove(mark_file)
@@ -576,17 +586,17 @@ class ChainBuilder:
         logging.critical('System is in fork chain, so we delete "db" from "blockchain-py" '
                          'folder and resync blockchain from 0 height.')
         del self.db
-        os.removedirs(os.path.join(V.DB_HOME_DIR, 'db'))
+        os.removedirs(os.path.join(self.db.dirs))
         exit(1)
 
     def make_failemark(self, message=""):
-        mark_file = os.path.join(V.DB_HOME_DIR, 'db', 'starter.failed.dat')
+        mark_file = os.path.join(self.db.dirs, 'starter.failed.dat')
         with open(mark_file, mode='a') as fp:
             fp.write("[{}] {}\n".format(time.asctime(), message))
         logging.debug("Make failed mark '{}'".format(message))
 
     def remove_failmark(self):
-        mark_file = os.path.join(V.DB_HOME_DIR, 'db', 'starter.failed.dat')
+        mark_file = os.path.join(self.db.dirs, 'starter.failed.dat')
         if os.path.exists(mark_file):
             os.remove(mark_file)
 
@@ -692,13 +702,13 @@ class ChainBuilder:
                         elif tx.type == C.TX_VALIDATOR_EDIT:
                             c_address, new_address, flag, sig_diff = bjson.loads(tx.message)
                             self.db.write_validator(c_address=c_address, new_address=new_address,
-                                                    flag=flag, txhash=tx.hash, sign_diff=sig_diff)
+                                                    flag=flag, tx=tx, sign_diff=sig_diff)
 
                         elif tx.type == C.TX_CONCLUDE_CONTRACT:
                             c_address, start_hash, c_storage = bjson.loads(tx.message)
                             start_tx = tx_builder.get_tx(txhash=start_hash)
                             dummy, c_method, redeem_address, c_args = bjson.loads(start_tx.message)
-                            self.db.write_contract(c_address=c_address, start_hash=start_hash,
+                            self.db.write_contract(c_address=c_address, start_tx=start_tx,
                                                    finish_hash=tx.hash, message=(c_method, c_args, c_storage))
 
                 # block挿入終了
@@ -715,7 +725,7 @@ class ChainBuilder:
                 # アカウントへ反映↓
                 user_account.new_batch_apply(batched_blocks)
                 return batched_blocks  # [<height=n>, <height=n+1>, .., <height=n+m>]
-            except BaseException as e:
+            except Exception as e:
                 self.db.batch_rollback()
                 logging.warning("Failed batch block builder. '{}'".format(e), exc_info=True)
                 return list()
@@ -848,6 +858,7 @@ class TransactionBuilder:
                 if tx.hash in self.unconfirmed:
                     del self.unconfirmed[tx.hash]
 
+        # delete expired unconfirmed txs
         limit = int(time.time() - V.BLOCK_GENESIS_TIME - C.ACCEPT_MARGIN_TIME)
         for txhash, tx in self.unconfirmed.copy().items():
             if P.F_NOW_BOOTING:
@@ -940,7 +951,8 @@ class UserAccount:
                     db.commit()
                 self.db_balance += movements
                 return txhash
-            except BaseException:
+            except Exception:
+                logging.error("Failed move_balance,", exc_info=True)
                 db.rollback()
 
     def get_movement_iter(self, start=0, f_dict=False):

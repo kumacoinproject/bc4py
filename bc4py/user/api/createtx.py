@@ -59,7 +59,7 @@ async def create_raw_tx(request):
         return web_base.json_res({
             'tx': tx.getinfo(),
             'hex': hexlify(tx.b).decode()})
-    except BaseException:
+    except Exception:
         return web_base.error_res()
 
 
@@ -87,7 +87,7 @@ async def sign_raw_tx(request):
             'hash': data['hash'],
             'signature': data['signature'],
             'hex': hexlify(tx.b).decode()})
-    except BaseException:
+    except Exception:
         return web_base.error_res()
 
 
@@ -99,14 +99,14 @@ async def broadcast_tx(request):
         new_tx = TX(binary=binary)
         new_tx.signature = [(pk, unhexlify(_sign.encode())) for pk, _sign in post['signature']]
         if not send_newtx(new_tx=new_tx):
-            raise BaseException('Failed to send new tx.')
+            raise BlockChainError('Failed to send new tx.')
         return web_base.json_res({
             'hash': hexlify(new_tx.hash).decode(),
             'gas_amount': new_tx.gas_amount,
             'gas_price': new_tx.gas_price,
             'fee': new_tx.gas_amount * new_tx.gas_price,
             'time': round(time()-start, 3)})
-    except BaseException:
+    except Exception:
         return web_base.error_res()
 
 
@@ -133,7 +133,7 @@ async def send_from_user(request):
                 msg_body = b''
             new_tx = send_from(from_id, to_address, coins, cur, msg_type=msg_type, msg_body=msg_body)
             if not send_newtx(new_tx=new_tx, outer_cur=cur):
-                raise BaseException('Failed to send new tx.')
+                raise BlockChainError('Failed to send new tx.')
             db.commit()
             return web_base.json_res({
                 'hash': hexlify(new_tx.hash).decode(),
@@ -195,7 +195,7 @@ async def issue_mint_tx(request):
                 image=post.get('image', None),additional_issue=post.get('additional_issue', True),
                 sender=sender)
             if not send_newtx(new_tx=tx, outer_cur=cur):
-                raise BaseException('Failed to send new tx.')
+                raise BlockChainError('Failed to send new tx.')
             db.commit()
             return web_base.json_res({
                 'hash': hexlify(tx.hash).decode(),
@@ -221,7 +221,7 @@ async def change_mint_tx(request):
                 image=post.get('image'), setting=post.get('setting'), new_address=post.get('new_address'),
                 sender=sender)
             if not send_newtx(new_tx=tx, outer_cur=cur):
-                raise BaseException('Failed to send new tx.')
+                raise BlockChainError('Failed to send new tx.')
             db.commit()
             return web_base.json_res({
                 'hash': hexlify(tx.hash).decode(),

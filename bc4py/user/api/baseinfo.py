@@ -110,7 +110,7 @@ async def network_info(request):
             info['host_port'] = "{}:{}".format(*info['host_port'])
             data['networks'].append(info)
         return web_base.json_res(data)
-    except BaseException:
+    except Exception:
         return web_base.error_res()
 
 

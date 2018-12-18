@@ -31,10 +31,10 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
     if not (c_storage is None or isinstance(c_storage, dict)):
         raise BlockChainError('3. Not correct format. {}'.format(c_storage))
     # check already created conclude tx
-    check_finish_hash = get_conclude_hash_by_start_hash(
-        c_address=c_address, start_hash=start_hash, best_block=include_block, stop_txhash=tx.hash)
-    if check_finish_hash and check_finish_hash != tx.hash:
-        raise BlockChainError('Already start_hash used. {}'.format(hexlify(check_finish_hash).decode()))
+    for finish_hash in get_conclude_by_start_iter(c_address=c_address, start_hash=start_hash,
+                                                  best_block=include_block, stop_txhash=tx.hash):
+        if finish_hash and finish_hash != tx.hash:
+            raise BlockChainError('Already start_hash used. {}'.format(hexlify(finish_hash).decode()))
     # inputs address check
     for txhash, txindex in tx.inputs:
         input_tx = tx_builder.get_tx(txhash)
@@ -71,11 +71,18 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
         raise BlockChainError('4. Not correct format. {}'.format(c_args))
     # contract check
     c_before = get_contract_object(c_address=c_address, best_block=include_block, stop_txhash=tx.hash)
+    # contract index check
+    if c_before.version != -1:
+        new_index = start_tx2index(start_tx=start_tx)
+        before_index = start_tx2index(start_hash=c_before.start_hash)
+        if before_index >= new_index:
+            raise BlockChainError('The index is old on execute order, before={} new={}'.format(before_index, new_index))
+    # c_method check, init, update and others..
     if c_method == M_INIT:
         if len(c_args) != 3:
             raise BlockChainError('c_args is 3 items.')
-        if c_before.index != -1:
-            raise BlockChainError('Already created contract. {}'.format(c_before.index))
+        if c_before.version != -1:
+            raise BlockChainError('Already created contract. {}'.format(c_before.version))
         c_bin, c_extra_imports, c_settings = c_args
         if not isinstance(c_bin, bytes):
             raise BlockChainError('5. Not correct format. {}'.format(c_args))
@@ -86,7 +93,7 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
     elif c_method == M_UPDATE:
         if len(c_args) != 3:
             raise BlockChainError('c_args is 3 items.')
-        if c_before.index == -1:
+        if c_before.version == -1:
             raise BlockChainError('Not created contract.')
         c_bin, c_extra_imports, c_settings = c_args
         if not (c_bin is None or isinstance(c_bin, bytes)):
@@ -136,7 +143,7 @@ def check_tx_validator_edit(tx: TX, include_block: Block):
             raise BlockChainError('new_address is normal prefix.')
         elif flag == F_NOP:
             raise BlockChainError('input new_address, but NOP.')
-    if v_before.index == -1:
+    if v_before.version == -1:
         # create validator for the first time
         if new_address is None:
             raise BlockChainError('Not setup new_address.')
