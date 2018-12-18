@@ -185,9 +185,12 @@ def check_tx_validator_edit(tx: TX, include_block: Block):
 def contract_signature_check(extra_tx: TX, v: Validator, include_block: Block):
     signed_cks = get_signed_cks(extra_tx)
     accept_cks = signed_cks & set(v.validators)
-    if include_block:
+    reject_cks = signed_cks - set(v.validators)
+    if len(reject_cks) > 0:
+        raise BlockChainError('Unrelated signature include, reject={}'.format(reject_cks))
+    elif include_block:
         # check satisfy require?
-        if len(accept_cks) < v.require:
+        if len(accept_cks) != v.require:
             raise BlockChainError('Not satisfied require signature. [signed={}, accepted={}, require={}]'
                                   .format(signed_cks, accept_cks, v.require))
     else:
@@ -197,6 +200,8 @@ def contract_signature_check(extra_tx: TX, v: Validator, include_block: Block):
             # not accept before
             if 0 < v.require and len(accept_cks) == 0:
                 raise BlockChainError('No acceptable signature. signed={}'.format(signed_cks))
+            if len(accept_cks) > v.require:
+                raise BlockChainError('Too many signatures, accept={} req={}'.format(accept_cks, v.require))
         else:
             # need to marge signature
             if original_tx.height is not None:
@@ -208,6 +213,9 @@ def contract_signature_check(extra_tx: TX, v: Validator, include_block: Block):
             if len(accept_new_cks) == 0:
                 raise BlockChainError('No new acceptable cks. ({} - {}) & {}'
                                       .format(signed_cks, original_cks, set(v.validators)))
+            if len(accept_new_cks) + len(original_cks) > v.require:
+                raise BlockChainError('Too many signatures, new={} original={} req={}'
+                                      .format(accept_new_cks, original_cks, v.require))
 
 
 def contract_required_gas_check(tx: TX, v: Validator, extra_gas=0):
