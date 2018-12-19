@@ -40,9 +40,10 @@ def loop_emulator(index: int, em: Emulate, genesis_block):
         sleep(1)
     logging.info("Start emulator {}".format(em))
     waiting_start_tx = None
+    channel = 'emulator{}'.format(index)
     while not (P.F_STOP or em.f_close):
         try:
-            data = NewInfo.get(channel='emulator{}'.format(index), timeout=1)
+            data = NewInfo.get(channel=channel, timeout=1)
             if not isinstance(data, tuple) or len(data) != 3:
                 continue
             cmd, is_public, data_list = data
@@ -104,6 +105,7 @@ def loop_emulator(index: int, em: Emulate, genesis_block):
             logging.warning("Emulator", exc_info=True)
         except Exception:
             logging.error("Emulator", exc_info=True)
+    NewInfo.remove(channel)
     logging.debug("Close emulator listen {}".format(em))
 
 

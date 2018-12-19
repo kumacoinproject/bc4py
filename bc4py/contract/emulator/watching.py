@@ -22,9 +22,10 @@ C_FinishValidator = 'FinishValidator'
 
 def loop():
     logging.info("Watching contract start.")
+    channel = 'watching'
     while not P.F_STOP:
         try:
-            obj = NewInfo.get(channel='watch contract', timeout=2)
+            obj = NewInfo.get(channel=channel, timeout=1)
             if isinstance(obj, TX):
                 check_new_tx(tx=obj)
             elif isinstance(obj, Block):
@@ -35,6 +36,7 @@ def loop():
             pass
         except Exception as e:
             logging.error(e, exc_info=True)
+    NewInfo.remove(channel)
     logging.info("Close watching contract.")
 
 

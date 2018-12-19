@@ -98,9 +98,10 @@ class WsConnection:
 def start_ws_listen_loop():
     def _loop():
         logging.info("start websocket loop.")
+        channel = 'websocket'
         while not P.F_STOP:
             try:
-                data = NewInfo.get(channel='websocket', timeout=1)
+                data = NewInfo.get(channel=channel, timeout=1)
                 if isinstance(data, Block):
                     send_websocket_data(cmd=CMD_NEW_BLOCK, data=data.getinfo(), is_public_data=True)
                 elif isinstance(data, TX):
@@ -116,6 +117,7 @@ def start_ws_listen_loop():
                 pass
             except Exception:
                 logging.error("websocket loop error", exc_info=True)
+        NewInfo.remove(channel)
         logging.info("close websocket loop.")
     Thread(target=_loop, name='WS', daemon=True).start()
 
