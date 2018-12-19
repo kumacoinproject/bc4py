@@ -145,14 +145,24 @@ class NewInfo:
 
     @staticmethod
     def get(channel, timeout=None):
+        # caution: Don't forget remove! memory leak risk.
         while True:
             for q, ch in NewInfo.ques.copy():
                 if channel == ch:
                     return q.get(timeout=timeout)
             else:
-                que = LifoQueue(maxsize=10)
+                que = LifoQueue(maxsize=3000)
                 with NewInfo.lock:
                     NewInfo.ques.append((que, channel))
+
+    @staticmethod
+    def remove(channel):
+        for q, ch in NewInfo.ques.copy():
+            if ch == channel:
+                with NewInfo.lock:
+                    NewInfo.ques.remove((q, ch))
+                return True
+        return False
 
 
 class MyConfigParser(configparser.ConfigParser):
