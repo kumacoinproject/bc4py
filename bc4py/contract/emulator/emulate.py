@@ -34,7 +34,8 @@ class Emulate:
 
 def loop_emulator(index: int, em: Emulate, genesis_block):
     # wait for booting_mode finish
-    logging.debug("waiting for booting finish.")
+    if P.F_NOW_BOOTING:
+        logging.debug("waiting for booting finish.")
     while P.F_NOW_BOOTING:
         sleep(1)
     logging.info("Start emulator {}".format(em))
@@ -59,10 +60,10 @@ def loop_emulator(index: int, em: Emulate, genesis_block):
                             logging.debug("Not confirmed waiting StartTX? ignore.")
                             break  # unconfirmed? next contract.
                         elif check_conclude_hash in tx_builder.chained_tx:
-                            logging.debug("Confirmed waiting StartTX(chained)")
+                            logging.debug("Confirmed waiting StartTX(to chained)")
                             break  # confirmed!
                         elif check_conclude_hash in tx_builder.unconfirmed:
-                            logging.debug("Confirmed waiting StartTX(unconfirmed)")
+                            logging.debug("Confirmed waiting StartTX(to unconfirmed)")
                             break  # put unconfirmed!
                         elif check_conclude_hash in tx_builder.pre_unconfirmed:
                             logging.debug("Waiting before start_tx confirmed...")
@@ -72,7 +73,7 @@ def loop_emulator(index: int, em: Emulate, genesis_block):
                             sleep(5)
                     # reset waiting info
                     waiting_start_tx = None
-                # execute
+                # execute/broadcast
                 if c_method == M_INIT:
                     logging.warning("No work on init.")
                 else:

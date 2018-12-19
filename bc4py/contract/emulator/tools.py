@@ -71,7 +71,7 @@ def broadcast(c_address, start_tx, redeem_address, emulate_gas, result, f_not_se
         # get another ConcludeTX again
         another_hash_again = get_conclude_hash_from_start(c_address=c_address, start_hash=start_tx.hash)
         if another_hash_again is None:
-            logging.warning("Maybe execute expired contract request.")
+            logging.warning("Maybe Contract execution expired.")
             return
         another_tx = tx_builder.get_tx(txhash=another_hash_again)
         a_another = calc_tx_movement(tx=another_tx, c_address=c_address,
