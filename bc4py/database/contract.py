@@ -187,31 +187,27 @@ def contract_fill(c: Contract, best_block=None, best_chain=None, stop_txhash=Non
             index = start_tx2index(start_tx=start_tx)
             c.update(db_index=index, start_hash=start_hash, finish_hash=tx.hash,
                      c_method=c_method, c_args=c_args, c_storage=c_storage)
-    # unconfirmed (check validator condition satisfied)
+    # unconfirmed
     if best_block is None:
         unconfirmed = list()
         for conclude_tx in tuple(tx_builder.unconfirmed.values()):
-            if conclude_tx.hash == stop_txhash:
-                break
             if conclude_tx.type != C.TX_CONCLUDE_CONTRACT:
                 continue
             c_address, start_hash, c_storage = decode(conclude_tx.message)
             if c_address != c.c_address:
                 continue
-            if start_hash == stop_txhash:
-                break
             start_tx = tx_builder.get_tx(txhash=start_hash)
             if start_tx.height is None:
                 continue
             sort_key = start_tx2index(start_tx=start_tx)
             unconfirmed.append((c_address, start_tx, conclude_tx, c_storage, sort_key))
 
-        v = get_validator_object(c_address=c.c_address, best_block=best_block,
-                                 best_chain=best_chain, stop_txhash=stop_txhash)
         for c_address, start_tx, conclude_tx, c_storage, sort_key in sorted(unconfirmed, key=lambda x: x[4]):
-            if len(conclude_tx.signature) < v.require:
-                continue  # ignore unsatisfied ConcludeTXs
             dummy, c_method, redeem_address, c_args = decode(start_tx.message)
+            if start_tx.hash == stop_txhash:
+                break
+            if conclude_tx.hash == stop_txhash:
+                break
             c.update(db_index=sort_key, start_hash=start_tx.hash, finish_hash=conclude_tx.hash,
                      c_method=c_method, c_args=c_args, c_storage=c_storage)
 

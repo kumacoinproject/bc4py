@@ -72,7 +72,8 @@ def emulate(genesis_block, start_tx, c_address, c_method, redeem_address, c_args
     start = time()
     cxt = get_context('spawn')
     que = cxt.Queue()
-    c = get_contract_object(c_address=c_address, stop_txhash=start_tx.hash)
+    # get ContractObject with database, memory and unconfirmed (not pre-unconfirmed)
+    c = get_contract_object(c_address=c_address)
     if c.version == -1 or c.binary is None:
         raise BlockChainError('Need register contract binary first.')
     kwargs = dict(genesis_block=genesis_block, start_tx=start_tx, que=que, c=c,
