@@ -3,7 +3,7 @@
 
 
 import configparser
-from queue import LifoQueue, Full, Empty
+from queue import Queue, Full, Empty
 from threading import Lock
 
 
@@ -151,7 +151,7 @@ class NewInfo:
                 if channel == ch:
                     return q.get(timeout=timeout)
             else:
-                que = LifoQueue(maxsize=3000)
+                que = Queue(maxsize=3000)
                 with NewInfo.lock:
                     NewInfo.ques.append((que, channel))
 

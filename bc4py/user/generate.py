@@ -21,7 +21,7 @@ from random import random
 
 
 generating_threads = list()
-output_que = queue.LifoQueue()
+output_que = queue.Queue()
 # mining share info
 mining_address = None
 previous_block = None
