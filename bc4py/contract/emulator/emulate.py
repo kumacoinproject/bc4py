@@ -1,17 +1,14 @@
 from bc4py.config import C, P, NewInfo, BlockChainError
 from bc4py.contract.emulator.tools import *
 from bc4py.contract.emulator.watching import *
-from bc4py.database.builder import tx_builder
 from bc4py.database.contract import *
 from threading import Thread, Lock
 import logging
-from time import sleep, time
-import bjson
+from time import sleep
 from sys import version_info
 
 
 emulators = list()
-f_running = False
 lock = Lock()
 
 
@@ -36,45 +33,15 @@ class Emulate:
 def start_emulators(genesis_block):
     """ start emulation listen, need close by close_emulators() """
     def run():
-        global f_running
-        with lock:
-            f_running = True
-
         # wait for booting_mode finish
+        logging.debug("waiting for BootingMode finish.")
         while P.F_NOW_BOOTING:
             sleep(1)
 
-        logging.info("Start emulators, check unconfirmed.")
-        # TODO: check is this work reqiured?
-        unconfirmed_data = list()
-        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time):
-            if tx.type != C.TX_CONCLUDE_CONTRACT:
-                continue
+        logging.info("Start emulator.")
+        while not P.F_STOP:
             try:
-                c_address, start_hash, c_storage = bjson.loads(tx.message)
-                for em in emulators:
-                    if c_address == em.c_address:
-                        break
-                else:
-                    continue
-                start_tx = tx_builder.get_tx(txhash=start_hash)
-                c_address2, c_method, redeem_address, c_args = bjson.loads(start_tx.message)
-                if c_address != c_address2:
-                    continue
-                is_public = False
-                data_list = (time(), start_tx, 'dummy', c_address, c_method, redeem_address, c_args)
-                data = (C_RequestConclude, is_public, data_list)
-                unconfirmed_data.append(data)
-            except Exception:
-                logging.debug("Failed check unconfirmed ConcludeTX,", exc_info=True)
-
-        logging.info("Start listening NewInfo, need to emulate {} txs.".format(len(unconfirmed_data)))
-        while f_running:
-            try:
-                if len(unconfirmed_data) > 0:
-                    data = unconfirmed_data.pop(0)
-                else:
-                    data = NewInfo.get(channel='emulator', timeout=1)
+                data = NewInfo.get(channel='emulator', timeout=1)
                 if not isinstance(data, tuple) or len(data) != 3:
                     continue
                 cmd, is_public, data_list = data
@@ -106,6 +73,9 @@ def start_emulators(genesis_block):
                 # elif cmd == C_Conclude:
                 #    # sign already created conclude tx
                 #    _time, tx, related_list, c_address, start_hash, c_storage = data_list
+
+                elif cmd == C_FinishConclude:
+                    pass  # TODO: close 処理
                 else:
                     pass
             except NewInfo.empty:
@@ -114,24 +84,14 @@ def start_emulators(genesis_block):
                 logging.warning("Emulator", exc_info=True)
             except Exception:
                 logging.error("Emulator", exc_info=True)
-    global f_running
+        logging.debug("Close emulator listen.")
     # version check, emulator require Python3.6 or more
     if version_info.major < 3 or version_info.minor < 6:
         raise Exception('Emulator require 3.6.0 or more.')
     Thread(target=run, name='Emulator', daemon=True).start()
 
 
-def close_emulators():
-    global f_running
-    assert f_running is True
-    with lock:
-        f_running = False
-        emulators.clear()
-    logging.info("Close emulators.")
-
-
 __all__ = [
     "Emulate",
     "start_emulators",
-    "close_emulators",
 ]
