@@ -115,6 +115,7 @@ class Contract:
         return d
 
     def update(self, db_index, start_hash, finish_hash, c_method, c_args, c_storage):
+        assert self.db_index is None or self.db_index < db_index, 'Tyr to put old index data.'
         if c_method == M_INIT:
             assert self.version == -1
             c_bin, c_extra_imports, c_settings = c_args

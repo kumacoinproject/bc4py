@@ -51,6 +51,7 @@ async def get_contract_history(request):
             data.append({
                 'index': index,
                 'height': index // 0xffffffff,
+                'status': 'database',
                 'start_hash': hexlify(start_hash).decode(),
                 'finish_hash': hexlify(finish_hash).decode(),
                 'c_method': c_method,
@@ -71,13 +72,33 @@ async def get_contract_history(request):
                 data.append({
                     'index': index,
                     'height': tx.height,
+                    'status': 'memory',
                     'start_hash': hexlify(start_hash).decode(),
                     'finish_hash': hexlify(tx.hash).decode(),
                     'c_method': c_method,
                     'c_args': [decode(a) for a in c_args],
                     'c_storage': {decode(k): decode(v) for k, v in c_storage.items()} if c_storage else None,
-                    # 'redeem_address': redeem_address,
                 })
+        # unconfirmed
+        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x:x.create_time):
+            if tx.type != C.TX_CONCLUDE_CONTRACT:
+                continue
+            _c_address, start_hash, c_storage = bjson.loads(tx.message)
+            if _c_address != c_address:
+                continue
+            start_tx = tx_builder.get_tx(txhash=start_hash)
+            dummy, c_method, redeem_address, c_args = bjson.loads(start_tx.message)
+            index = start_tx2index(start_tx=start_tx)
+            data.append({
+                'index': index,
+                'height': tx.height,
+                'status': 'unconfirmed',
+                'start_hash': hexlify(start_hash).decode(),
+                'finish_hash': hexlify(tx.hash).decode(),
+                'c_method': c_method,
+                'c_args': [decode(a) for a in c_args],
+                'c_storage': {decode(k): decode(v) for k, v in c_storage.items()} if c_storage else None,
+            })
         return web_base.json_res(data)
     except Exception as e:
         logging.error(e)
