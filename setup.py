@@ -11,10 +11,6 @@ except IOError:
     readme = ''
 
 
-def _requires_from_file(filename):
-    return open(filename).read().splitlines()
-
-
 # version
 here = os.path.dirname(os.path.abspath(__file__))
 init_path = os.path.join(here, 'bc4py', '__init__.py')
@@ -23,6 +19,11 @@ version = next((line.split('=')[1].strip().replace("'", '')
                 if line.startswith('__version__ = ')),
                '0.0.dev0')
 
+# requirements
+with open(os.path.join(here, 'requirements.txt')) as fp:
+    install_requires = fp.read().splitlines()
+with open(os.path.join(here, 'requirements-c.txt')) as fp:
+    install_requires += fp.read().splitlines()
 
 setup(
     name="bc4py",
@@ -32,11 +33,10 @@ setup(
     description='Simple blockchain library for python3.',
     long_description=readme,
     packages=find_packages(),
+    install_requires=install_requires,
     include_package_data=True,
     license="MIT Licence",
     classifiers=[
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'License :: OSI Approved :: MIT License',
     ],
