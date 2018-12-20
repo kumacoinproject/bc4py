@@ -40,6 +40,7 @@ def loop_emulator(index: int, em: Emulate, genesis_block):
         sleep(1)
     logging.info("Start emulator {}".format(em))
     waiting_start_tx = None
+    waiting_conclude_hash = None
     channel = 'emulator{}'.format(index)
     while not (P.F_STOP or em.f_close):
         try:
@@ -52,28 +53,31 @@ def loop_emulator(index: int, em: Emulate, genesis_block):
                 _time, start_tx, related_list, c_address, c_method, redeem_address, c_args = data_list
                 if em.c_address != c_address:
                     continue
-                if waiting_start_tx:
+                if waiting_start_tx and waiting_conclude_hash:
                     logging.info("Wait for StartTX confirmed {}".format(waiting_start_tx))
                     while True:
-                        check_conclude_hash = get_conclude_hash_from_start(
-                            c_address=c_address, start_hash=waiting_start_tx.hash)
-                        if check_conclude_hash is None:
-                            logging.debug("Not confirmed waiting StartTX? ignore.")
-                            break  # unconfirmed? next contract.
-                        elif check_conclude_hash in tx_builder.chained_tx:
+                        if waiting_conclude_hash in tx_builder.chained_tx:
                             logging.debug("Confirmed waiting StartTX(to chained)")
                             break  # confirmed!
-                        elif check_conclude_hash in tx_builder.unconfirmed:
+                        elif waiting_conclude_hash in tx_builder.unconfirmed:
                             logging.debug("Confirmed waiting StartTX(to unconfirmed)")
                             break  # put unconfirmed!
-                        elif check_conclude_hash in tx_builder.pre_unconfirmed:
+                        elif waiting_conclude_hash in tx_builder.pre_unconfirmed:
                             logging.debug("Waiting before start_tx confirmed...")
                             sleep(5)
                         else:
-                            logging.debug("Lost before StartTX? continue. ")
-                            sleep(5)
+                            # check another ConcludeTX confirmed/unconfirmed?
+                            check_conclude_hash = get_conclude_hash_from_start(
+                                c_address=c_address, start_hash=waiting_start_tx.hash)
+                            if check_conclude_hash is None:
+                                logging.debug("Not confirmed waiting StartTX? ignore.")
+                                break  # unconfirmed? next contract.
+                            else:
+                                logging.debug("Another ConcludeTX is confirmed? next. ")
+                                break
                     # reset waiting info
                     waiting_start_tx = None
+                    waiting_conclude_hash = None
                 # execute/broadcast
                 if c_method == M_INIT:
                     logging.warning("No work on init.")
@@ -89,8 +93,9 @@ def loop_emulator(index: int, em: Emulate, genesis_block):
                         c_address=c_address, genesis_block=genesis_block, start_tx=start_tx, c_method=c_method,
                         redeem_address=redeem_address, c_args=c_args, gas_limit=gas_limit, f_show_log=True)
                     claim_emulate_gas = emulate_gas if em.f_claim_gas else 0
-                    broadcast(c_address=c_address, start_tx=start_tx, redeem_address=redeem_address,
-                              emulate_gas=claim_emulate_gas, result=result, f_not_send=False)
+                    waiting_conclude_hash = broadcast(
+                        c_address=c_address, start_tx=start_tx, redeem_address=redeem_address,
+                        emulate_gas=claim_emulate_gas, result=result, f_not_send=False)
                     waiting_start_tx = start_tx
 
             # elif cmd == C_Conclude:

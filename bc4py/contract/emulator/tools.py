@@ -45,7 +45,7 @@ def broadcast(c_address, start_tx, redeem_address, emulate_gas, result, f_not_se
                 for coin_id, amount in coins:
                     send_pairs.append((address, coin_id, amount))
     else:
-        return
+        return None
     # create conclude tx
     conclude_tx = create_conclude_tx(c_address=c_address, start_tx=start_tx, redeem_address=redeem_address,
                                      send_pairs=send_pairs, c_storage=c_storage, emulate_gas=emulate_gas)
@@ -56,11 +56,14 @@ def broadcast(c_address, start_tx, redeem_address, emulate_gas, result, f_not_se
             logging.debug("Already confirmed same concludeTX.")
         else:
             logging.warning("Already confirmed different concludeTX.")
+        return None  # Already put confirmed or unconfirmed, don't need wait
     elif f_not_send:
         logging.debug("Not broadcast, send_pairs={} c_storage={} tx={}"
                       .format(send_pairs, c_storage, conclude_tx.getinfo()))
+        return None
     elif send_newtx(new_tx=conclude_tx, exc_info=False):
         logging.info("Broadcast success {}".format(conclude_tx))
+        return conclude_tx.hash
     else:
         logging.error("Failed broadcast, send_pairs={} c_storage={} tx={}"
                       .format(send_pairs, c_storage, conclude_tx.getinfo()))
@@ -72,7 +75,7 @@ def broadcast(c_address, start_tx, redeem_address, emulate_gas, result, f_not_se
         another_hash_again = get_conclude_hash_from_start(c_address=c_address, start_hash=start_tx.hash)
         if another_hash_again is None:
             logging.warning("Maybe Contract execution expired.")
-            return
+            return None
         another_tx = tx_builder.get_tx(txhash=another_hash_again)
         a_another = calc_tx_movement(tx=another_tx, c_address=c_address,
                                      redeem_address=redeem_address, emulate_gas=emulate_gas)
@@ -83,6 +86,7 @@ def broadcast(c_address, start_tx, redeem_address, emulate_gas, result, f_not_se
                       "   AnoStorage=>{}\n   MyStorage =>{}\n"
                       "   AnoTX=>{}\n   MyTX =>{}\n"
                       .format(a_another, a_conclude, another_storage, c_storage, another_tx, conclude_tx))
+        return None
 
 
 def calc_tx_movement(tx, c_address, redeem_address, emulate_gas):

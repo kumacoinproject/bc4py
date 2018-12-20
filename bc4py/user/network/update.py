@@ -58,7 +58,6 @@ def _update_unconfirmed_info():
                 if c.db_index and index < c.db_index:
                     # delete
                     del tx_builder.pre_unconfirmed[tx.hash]
-                    print(c.db_index, index)
                     logging.debug("Delete old ConcludeTX {}".format(tx))
                     continue
             elif tx.type == C.TX_VALIDATOR_EDIT:
