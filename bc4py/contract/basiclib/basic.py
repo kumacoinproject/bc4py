@@ -1,5 +1,5 @@
 from bc4py.user import Accounting
-from bc4py.contract.basiclib import config
+from bc4py.contract.basiclib.config import config
 from requests import get, post
 from base64 import b64decode
 from binascii import b2a_hex
