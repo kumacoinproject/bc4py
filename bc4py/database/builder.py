@@ -43,7 +43,7 @@ struct_validator_value = struct.Struct('>40sb32sb')
 
 # constant
 ITER_ORDER = 'big'
-DB_VERSION = 0  # increase if you change database structure
+DB_VERSION = 1  # increase if you change database structure
 ZERO_FILLED_HASH = b'\x00' * 32
 DUMMY_VALIDATOR_ADDRESS = b'\x00' * 40
 STARTER_NUM = 3
@@ -53,6 +53,18 @@ database_tuple = ("_block", "_tx", "_used_index", "_block_index",
 config = {
     'full_address_index': True,  # all address index?
 }
+
+
+class RestrictedUnpickler(pickle.Unpickler):
+    def find_class(self, module, name):
+        # Only allow safe classes from builtins.
+        if module == "bc4py.chain.block" and name == "Block":
+            return Block
+        elif module == "bc4py.chain.tx" and name == "TX":
+            return TX
+        else:
+            # Forbid everything else.
+            raise pickle.UnpicklingError("global '{}'.'{}' is forbidden".format(module, name))
 
 
 class DataBase:
@@ -446,7 +458,7 @@ class ChainBuilder:
 
     def close(self):
         self.db.batch_create()
-        self.save_starter()
+        self.save_memory_file()
         self.db.close()
 
     def set_database_path(self, **kwargs):
@@ -528,7 +540,7 @@ class ChainBuilder:
                 logging.debug("UserAccount batched at {} height.".format(block.height))
         # import from starter.dat
         self.root_block = before_block
-        memorized_blocks, self.best_block = self.load_starter(before_block)
+        memorized_blocks, self.best_block = self.load_memory_file(before_block)
         # Memory化されたChainを直接復元
         for block in memorized_blocks:
             batch_blocks.append(block)
@@ -544,60 +556,52 @@ class ChainBuilder:
         user_account.init()
         logging.info("Init finished, last block is {} {}Sec".format(before_block, round(time()-t, 3)))
 
-    def save_starter(self):
-        for index in reversed(range(STARTER_NUM)):
-            target_path = os.path.join(self.db.dirs, 'starter.{}.dat'.format(index))
-            if os.path.exists(target_path):
-                old_file_path = os.path.join(self.db.dirs, 'starter.{}.dat'.format(index+1))
-                if os.path.exists(old_file_path):
-                    os.remove(old_file_path)
-                os.rename(target_path, old_file_path)
-        with open(os.path.join(self.db.dirs, 'starter.0.dat'), mode='bw') as fp:
-            pickle.dump(self.best_chain, fp, protocol=4)
+    def save_memory_file(self):
+        odd_path = os.path.join(self.db.dirs, 'memory.odd.dat')
+        even_path = os.path.join(self.db.dirs, 'memory.even.dat')
+        if not os.path.exists(odd_path):
+            recode_path = odd_path
+        elif not os.path.exists(even_path):
+            recode_path = even_path
+        elif os.stat(odd_path).st_mtime > os.stat(even_path).st_mtime:
+            recode_path = even_path
+        else:
+            recode_path = odd_path
+        with open(recode_path, mode='bw') as fp:
+            pickle.dump(self.best_chain, fp)
 
-    def load_starter(self, root_block):
-        self.failmark_file_check()
+    def load_memory_file(self, root_block):
         memorized_blocks = list()
-        for index in range(STARTER_NUM+1):
-            target_path = os.path.join(self.db.dirs, 'starter.{}.dat'.format(index))
-            if os.path.exists(target_path):
-                with open(target_path, mode='br') as fp:
-                    for block in reversed(pickle.load(fp)):
+        odd_path = os.path.join(self.db.dirs, 'memory.odd.dat')
+        even_path = os.path.join(self.db.dirs, 'memory.even.dat')
+        # load by file date order
+        check_order = list()
+        if os.path.exists(odd_path) and os.path.exists(even_path):
+            if os.stat(odd_path).st_mtime < os.stat(even_path).st_mtime:
+                check_order.extend([odd_path, even_path])
+            else:
+                check_order.extend([even_path, odd_path])
+        elif os.path.exists(odd_path):
+            check_order.append(odd_path)
+        elif os.path.exists(even_path):
+            check_order.append(even_path)
+        else:
+            raise Exception('Not found memory files.')
+        # load by check_order
+        for path in check_order:
+            try:
+                with open(path, mode='br') as fp:
+                    for block in reversed(RestrictedUnpickler(fp).load()):
                         if root_block.hash == block.previous_hash:
                             memorized_blocks.append(block)
                             root_block = block
-            if len(memorized_blocks) > 0:
-                logging.debug("Load {} blocks, best={}".format(len(memorized_blocks), root_block))
-                return memorized_blocks, root_block
-        raise BlockBuilderError("Failed load block from file, cannot find starter.n.dat?")
-
-    def failmark_file_check(self):
-        mark_file = os.path.join(self.db.dirs, 'starter.failed.dat')
-        if not os.path.exists(mark_file):
-            return
-        for index in range(STARTER_NUM+1):
-            target_path = os.path.join(self.db.dirs, 'starter.{}.dat'.format(index))
-            if os.path.exists(target_path):
-                os.remove(target_path)
-                os.remove(mark_file)
-                logging.debug("Removed starter.{}.dat".format(index))
-                return
-        logging.critical('System is in fork chain, so we delete "db" from "blockchain-py" '
-                         'folder and resync blockchain from 0 height.')
-        del self.db
-        os.removedirs(os.path.join(self.db.dirs))
-        exit(1)
-
-    def make_failemark(self, message=""):
-        mark_file = os.path.join(self.db.dirs, 'starter.failed.dat')
-        with open(mark_file, mode='a') as fp:
-            fp.write("[{}] {}\n".format(time.asctime(), message))
-        logging.debug("Make failed mark '{}'".format(message))
-
-    def remove_failmark(self):
-        mark_file = os.path.join(self.db.dirs, 'starter.failed.dat')
-        if os.path.exists(mark_file):
-            os.remove(mark_file)
+            except Exception as e:
+                logging.error("Failed load, \"{}\"".format(e))
+        if len(memorized_blocks) > 0:
+            logging.debug("Load {} blocks, best={}".format(len(memorized_blocks), root_block))
+            return memorized_blocks, root_block
+        else:
+            raise BlockBuilderError("Failed load memory files.")
 
     def get_best_chain(self, best_block=None):
         assert self.root_block, 'Do not init.'
@@ -714,7 +718,7 @@ class ChainBuilder:
                 self.best_chain = best_chain
                 self.root_block = block
                 self.db.batch_commit()
-                self.save_starter()
+                self.save_memory_file()
                 # root_blockよりHeightの小さいBlockを消す
                 for blockhash, block in self.chain.copy().items():
                     if self.root_block.height >= block.height:

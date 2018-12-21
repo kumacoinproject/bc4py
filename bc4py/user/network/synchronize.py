@@ -280,10 +280,8 @@ def sync_chain_loop():
                         if builder.best_block:
                             update_mining_staking_all_info()
                         failed = 0
-                        builder.remove_failmark()
                     elif failed < 0:
                         exit_msg = 'Failed sync.'
-                        builder.make_failemark(exit_msg)
                         logging.critical(exit_msg)
                         system_exit()
                         # out of loop
