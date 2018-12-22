@@ -13,6 +13,7 @@ from binascii import hexlify
 class BroadcastCmd:
     NEW_BLOCK = 'cmd/new-block'
     NEW_TX = 'cmd/new-tx'
+    fail = 0
 
     @staticmethod
     def new_block(data):
@@ -116,11 +117,21 @@ def broadcast_check(data):
     if P.F_NOW_BOOTING:
         return False
     elif BroadcastCmd.NEW_BLOCK == data['cmd']:
-        return BroadcastCmd.new_block(data=data['data'])
+        result = BroadcastCmd.new_block(data=data['data'])
     elif BroadcastCmd.NEW_TX == data['cmd']:
-        return BroadcastCmd.new_tx(data=data['data'])
+        result = BroadcastCmd.new_tx(data=data['data'])
     else:
         return False
+    # check failed count over
+    if result:
+        BroadcastCmd.fail = 0
+    else:
+        BroadcastCmd.fail += 1
+        if BroadcastCmd.fail > 100:
+            P.F_NOW_BOOTING = True
+            BroadcastCmd.fail = 0
+            logging.warning("Set booting mode, too many fail on broadcast_check().")
+    return result
 
 
 def make_block_by_node(blockhash):
