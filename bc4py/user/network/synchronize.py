@@ -240,6 +240,7 @@ def fast_sync_chain():
     unconfirmed_txhash_set = set()
     for data in ask_all_nodes(cmd=DirectCmd.UNCONFIRMED_TX):
         unconfirmed_txhash_set.update(data['txs'])
+    unconfirmed_txs = list()
     for txhash in unconfirmed_txhash_set:
         if txhash in tx_builder.unconfirmed:
             continue
@@ -247,11 +248,16 @@ def fast_sync_chain():
             r = ask_node(cmd=DirectCmd.TX_BY_HASH, data={'txhash': txhash}, f_continue_asking=True)
             tx = TX(binary=r['tx'])
             tx.signature = r['sign']
+            unconfirmed_txs.append(tx)
+        except BlockChainError as e:
+            logging.debug("1: Failed get unconfirmed {} '{}'".format(hexlify(txhash).decode(), e))
+    for tx in sorted(unconfirmed_txs, key=lambda x: x.time):
+        try:
             check_tx_time(tx)
             check_tx(tx, include_block=None)
             tx_builder.put_unconfirmed(tx)
-        except BlockChainError:
-            logging.debug("Failed get unconfirmed {}".format(hexlify(txhash).decode()))
+        except BlockChainError as e:
+            logging.debug("2: Failed get unconfirmed '{}'".format(e))
     # 最終判断
     reset_good_node()
     set_good_node()

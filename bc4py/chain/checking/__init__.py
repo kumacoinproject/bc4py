@@ -41,7 +41,7 @@ def new_insert_block(block, time_check=False):
             return True
         except BlockChainError as e:
             logging.warning("Reject new block by \"{}\"".format(e))
-            logging.debug("Reject block => {}".format(dict(block)))
+            logging.debug("Reject block => {}".format(block.getinfo()))
             delay = time() - builder.best_block.time - V.BLOCK_GENESIS_TIME
             if delay > 10800:  # 3hours
                 logging.warning("{}Min before block inserted, too old on DB!".format(delay//60))
