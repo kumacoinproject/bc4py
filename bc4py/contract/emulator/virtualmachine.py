@@ -1,7 +1,7 @@
 from bc4py.config import BlockChainError
 from bc4py.database.contract import get_contract_object
 from bc4py.utils import set_blockchain_params
-from bc4py.contract.tools import *
+from bc4py.contract.serializer import *
 from bc4py.contract.basiclib import __price__, config
 from bc4py.contract import rpdb
 from multiprocessing import get_context
@@ -32,15 +32,15 @@ def _vm(genesis_block, new_config, start_tx, que, c, c_address, c_method, redeem
     c_args = c_args or list()
     virtual_machine = rpdb.Rpdb(port=0)
     try:
-        c_obj = binary2contract(c_bin=c.binary, extra_imports=c.extra_imports)
         # notify listen port
         que.put((CMD_PORT, virtual_machine.port))
-        # start emulate
+        # setup emulator
         virtual_machine.server_start()
+        args = (start_tx, c_address, c.storage, redeem_address)
+        contract = binary2contract(b=c.binary, extra_imports=c.extra_imports, args=args)
+        fnc = getattr(contract, c_method)
+        # start emulation
         virtual_machine.set_trace()
-        # get method
-        obj = c_obj(start_tx, c_address, c.storage, redeem_address)
-        fnc = getattr(obj, c_method)
         result = fnc(*c_args)
         virtual_machine.do_quit(EMU_QUIT)
         que.put((CMD_SUCCESS, result))
