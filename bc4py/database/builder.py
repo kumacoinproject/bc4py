@@ -893,21 +893,27 @@ class TransactionBuilder:
 
         # delete expired unconfirmed txs
         limit = int(time() - V.BLOCK_GENESIS_TIME - C.ACCEPT_MARGIN_TIME)
+        before_num = len(self.unconfirmed)
         for txhash, tx in self.unconfirmed.copy().items():
             if P.F_NOW_BOOTING:
                 break  # not delete on booting..
             # Remove expired unconfirmed tx
             if limit > tx.deadline:
+                logging.debug("Remove unconfirmed 'expired' {}".format(tx))
                 del self.unconfirmed[txhash]
                 continue
             # Remove tx include by both best_chain & unconfirmed
             if txhash in self.chained_tx:
+                logging.debug("Remove unconfirmed 'include on chain' {}".format(tx))
                 del self.unconfirmed[txhash]
                 continue
-            # check inputs usedindex on only database
+            # check inputs usedindex on database (not memory, not unconfirmed)
             if input_check(tx):
+                logging.debug("Remove unconfirmed 'use used inputs' {}".format(tx))
                 del self.unconfirmed[txhash]
                 continue
+        if before_num != len(self.unconfirmed):
+            logging.warning("Removed {} unconfirmed txs".format(len(self.unconfirmed)-before_num))
 
 
 class UserAccount:

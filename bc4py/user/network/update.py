@@ -81,8 +81,9 @@ def _update_unconfirmed_info():
         used_pairs = set()
         for tx in unconfirmed_txs.copy():
             if tx.height is not None:
-                if tx.hash in tx_builder.unconfirmed:
-                    del tx_builder.unconfirmed[tx.hash]
+                # delete only by affect_new_chain()
+                # if tx.hash in tx_builder.unconfirmed:
+                #    del tx_builder.unconfirmed[tx.hash]
                 unconfirmed_txs.remove(tx)
                 continue
             if Debug.F_STICKY_TX_REJECTION and tx.hash in sticky_failed_txhash:

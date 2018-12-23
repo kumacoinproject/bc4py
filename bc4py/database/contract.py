@@ -93,7 +93,8 @@ class Contract:
         self.finish_hash = None
 
     def __repr__(self):
-        return "<Contract {} ver={}>".format(self.c_address, self.version)
+        return "<Contract {} ver={} idx={}>"\
+            .format(self.c_address, self.version, self.db_index)
 
     def copy(self):
         return deepcopy(self)

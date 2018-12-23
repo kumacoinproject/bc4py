@@ -78,10 +78,9 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
             raise BlockChainError('The index is old on execute order, '
                                   'before={} new={}'.format(c_before.db_index, new_index))
         # check:  Do not skip old contract?
-        c_before_with_unconfirmed = get_contract_object(c_address=c_address, best_block=None, stop_txhash=tx.hash)
-        if c_before.db_index != c_before_with_unconfirmed.db_index:
-            raise BlockChainError('Block skip old ConcludeTXs my={} block={}'
-                                  .format(c_before_with_unconfirmed.db_index, c_before.db_index))
+        c_my_before = get_contract_object(c_address=c_address, best_block=None, stop_txhash=tx.hash)
+        if c_my_before.version != c_before.version or c_my_before.db_index != c_before.db_index:
+            raise BlockChainError('Block skip old ConcludeTX, my={} block={}'.format(c_my_before, c_before))
     else:
         pass  # init ConcludeTX, no action
     # c_method check, init, update and others..
