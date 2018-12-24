@@ -1,8 +1,9 @@
-from bc4py.config import C, V, P, Debug
+from bc4py.config import C, V, P, Debug, BlockChainError
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.tools import is_usedindex
 from bc4py.database.validator import *
 from bc4py.database.contract import *
+from bc4py.chain.checking.checktx import check_tx
 from bc4py.chain.checking.utils import sticky_failed_txhash
 from bc4py.user.generate import *
 import logging
@@ -72,9 +73,17 @@ def _update_unconfirmed_info():
             v = get_validator_object(c_address=c_address)
             if v.require == len(tx.signature):  # not "=<"
                 # upgrade
-                del tx_builder.pre_unconfirmed[tx.hash]
-                tx_builder.put_unconfirmed(tx=tx)
-                logging.info("Upgrade pre-unconfirmed {}".format(tx))
+                try:
+                    check_tx(tx=tx, include_block=None)
+                    del tx_builder.pre_unconfirmed[tx.hash]
+                    tx_builder.put_unconfirmed(tx=tx)
+                    logging.info("Upgrade pre-unconfirmed {}".format(tx))
+                except BlockChainError as e:
+                    logging.debug("Not upgrade pre-unconfirmed {}".format(tx))
+                except Exception:
+                    logging.error("Failed check pre-unconfirmed upgrade {}".format(tx), exc_info=True)
+            else:
+                pass
 
         # sort unconfirmed txs
         unconfirmed_txs = sorted(tx_builder.unconfirmed.values(), key=lambda x: x.gas_price, reverse=True)
