@@ -125,6 +125,10 @@ def get_validator_object(c_address, best_block=None, best_chain=None, stop_txhas
 def validator_tx2index(txhash=None, tx=None):
     if txhash:
         tx = tx_builder.get_tx(txhash=txhash)
+    if tx is None:
+        raise BlockChainError('Not found ValidatorTX {}'.format(tx))
+    if tx.height is None:
+        raise BlockChainError('Not confirmed ValidatorTX {}'.format(tx))
     block = builder.get_block(blockhash=builder.get_block_hash(height=tx.height))
     if block is None:
         raise BlockChainError('Not found block of start_tx included? {}'.format(tx))
