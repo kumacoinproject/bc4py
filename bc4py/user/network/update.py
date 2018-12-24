@@ -18,22 +18,20 @@ unconfirmed_lock = Lock()
 
 
 def update_mining_staking_all_info(u_block=True, u_unspent=True, u_unconfirmed=True):
+    def _updates():
+        consensus = tuple(t.consensus for t in generating_threads)
+        info = ''
+        if u_block and not block_lock.locked():
+            info += _update_block_info()
+        if u_unspent and (C.BLOCK_POS in consensus) and not unspent_lock.locked():
+            info += _update_unspent_info()
+        if u_unconfirmed and not unconfirmed_lock.locked():
+            info += _update_unconfirmed_info()
+        if info:
+            logging.debug("Update finish{}".format(info))
     global update_count
-    consensus = tuple(t.consensus for t in generating_threads)
-    if u_block and not block_lock.locked():
-        Thread(target=_update_block_info, name="B-Update{}".format(update_count)).start()
-    if u_unspent and (C.BLOCK_POS in consensus) and not unspent_lock.locked():
-        Thread(target=_update_unspent_info, name="U-Update{}".format(update_count)).start()
-    if u_unconfirmed and not unconfirmed_lock.locked():
-        Thread(target=_update_unconfirmed_info, name="C-Update{}".format(update_count)).start()
+    Thread(target=_updates, name='Update-{}'.format(update_count), daemon=True).start()
     update_count += 1
-
-
-def _update_unspent_info():
-    with unspent_lock:
-        s = time()
-        all_num, next_num = update_unspents_txs()
-        logging.debug("Update unspent={}/{} {}Sec".format(next_num, all_num, round(time()-s, 3)))
 
 
 def _update_block_info():
@@ -41,14 +39,20 @@ def _update_block_info():
         s = time()
         if builder.best_block is not None:
             update_previous_block(builder.best_block)
-            logging.debug('Update generating height={} {}Sec'
-                          .format(builder.best_block.height+1, round(time()-s, 3)))
+            return ',  height={} {}mS'.format(builder.best_block.height+1, int((time()-s)*1000))
+    return ',  height=No'
+
+
+def _update_unspent_info():
+    with unspent_lock:
+        s = time()
+        all_num, next_num = update_unspents_txs()
+    return ',  unspents={}/{} {}mS'.format(next_num, all_num, int((time()-s)*1000))
 
 
 def _update_unconfirmed_info():
-    s = time()
     with unconfirmed_lock:
-
+        s = time()
         # Upgrade pre-unconfirmed to unconfirmed (check enough signature have)
         for tx in sorted(tx_builder.pre_unconfirmed.values(), key=lambda x: x.create_time):
             if tx.type == C.TX_CONCLUDE_CONTRACT:
@@ -144,7 +148,7 @@ def _update_unconfirmed_info():
         if Debug.F_LIMIT_INCLUDE_TX_IN_BLOCK:
             unconfirmed_txs = unconfirmed_txs[:Debug.F_LIMIT_INCLUDE_TX_IN_BLOCK]
 
+        # update
         update_unconfirmed_txs(unconfirmed_txs)
-        logging.debug("Update unconfirmed={}/{} pre={} {}Sec"
-                      .format(len(unconfirmed_txs), len(tx_builder.unconfirmed),
-                              len(tx_builder.pre_unconfirmed), round(time()-s, 3)))
+    return ',  unconfirmed={}/{}/{} {}mS'.format(len(unconfirmed_txs), len(tx_builder.unconfirmed),
+                                                len(tx_builder.pre_unconfirmed), int((time()-s)*1000))
