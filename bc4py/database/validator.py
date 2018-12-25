@@ -71,13 +71,11 @@ def encode(*args):
     return bjson.dumps(args, compress=False)
 
 
-def validator_fill(v: Validator, best_block=None, best_chain=None, stop_txhash=None):
+def validator_fill_iter(v: Validator, best_block=None, best_chain=None):
     # database
     v_iter = builder.db.read_validator_iter(c_address=v.c_address, start_idx=v.db_index)
     for index, address, flag, txhash, sig_diff in v_iter:
-        if txhash == stop_txhash:
-            return
-        v.update(db_index=index, flag=flag, address=address, sig_diff=sig_diff, txhash=txhash)
+        yield index, flag, address, sig_diff, txhash
     # memory
     if best_chain:
         _best_chain = None
@@ -87,42 +85,45 @@ def validator_fill(v: Validator, best_block=None, best_chain=None, stop_txhash=N
         dummy, _best_chain = builder.get_best_chain(best_block=best_block)
     for block in reversed(best_chain or _best_chain):
         for tx in block.txs:
-            if tx.hash == stop_txhash:
-                return
             if tx.type != C.TX_VALIDATOR_EDIT:
                 continue
             c_address, address, flag, sig_diff = decode(tx.message)
             if c_address != v.c_address:
                 continue
             index = validator_tx2index(tx=tx)
-            v.update(db_index=index, flag=flag, address=address, sig_diff=sig_diff, txhash=tx.hash)
-
-
-def unconfirmed_validator_fill(v: Validator, stop_txhash=None):
+            yield index, flag, address, sig_diff, tx.hash
     # unconfirmed
-    for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time):
-        if tx.hash == stop_txhash:
-            return
-        if tx.type != C.TX_VALIDATOR_EDIT:
-            continue
-        c_address, address, flag, sig_diff = decode(tx.message)
-        if c_address != v.c_address:
-            continue
-        if len(tx.signature) < v.require:
-            continue
-        v.update(db_index=None, flag=flag, address=address, sig_diff=sig_diff, txhash=tx.hash)
+    if best_block is None:
+        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time):
+            if tx.type != C.TX_VALIDATOR_EDIT:
+                continue
+            c_address, address, flag, sig_diff = decode(tx.message)
+            if c_address != v.c_address:
+                continue
+            if len(tx.signature) < v.require:
+                continue
+            yield None, flag, address, sig_diff, tx.hash
 
 
-def get_validator_object(c_address, best_block=None, best_chain=None, stop_txhash=None):
+def get_validator_object(c_address, best_block=None, best_chain=None, stop_txhash=None, select_hash=None):
     if c_address in cashe:
         with lock:
             v = cashe[c_address].copy()
     else:
         v = Validator(c_address=c_address)
-    validator_fill(v=v, best_block=best_block, best_chain=best_chain, stop_txhash=stop_txhash)
-    if best_block is None:
-        unconfirmed_validator_fill(v=v, stop_txhash=stop_txhash)
-    return v
+    for index, flag, address, sig_diff, txhash in validator_fill_iter(
+            v=v, best_block=best_block, best_chain=best_chain):
+        if txhash == stop_txhash:
+            return v
+        v.update(db_index=index, flag=flag, address=address, sig_diff=sig_diff, txhash=txhash)
+        if txhash == select_hash:
+            return v  # caution: select_hash works only on memory/unconfirmed!
+    if select_hash:
+        raise BlockChainError('Failed get Validator by select_hash {}'.format(hexlify(select_hash)))
+    elif stop_txhash:
+        raise BlockChainError('Failed get Validator by stop_txhash {}'.format(hexlify(stop_txhash)))
+    else:
+        return v
 
 
 def validator_tx2index(txhash=None, tx=None):
@@ -157,7 +158,7 @@ def update_validator_cashe():
 __all__ = [
     "F_ADD", "F_REMOVE", "F_NOP",
     "Validator",
-    "validator_fill",
+    "validator_fill_iter",
     "get_validator_object",
     "validator_tx2index",
 ]
