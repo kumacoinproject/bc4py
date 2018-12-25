@@ -134,6 +134,20 @@ async def get_validator_history(request):
                     'flag': flag,
                     'txhash': hexlify(tx.hash).decode(),
                     'sig_diff': sig_diff})
+        # unconfirmed
+        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time):
+            if tx.type != C.TX_VALIDATOR_EDIT:
+                continue
+            _c_address, new_address, flag, sig_diff = bjson.loads(tx.message)
+            if _c_address != c_address:
+                continue
+            data.append({
+                'index': None,
+                'height': None,
+                'new_address': new_address,
+                'flag': flag,
+                'txhash': hexlify(tx.hash).decode(),
+                'sig_diff': sig_diff})
         return web_base.json_res(data)
     except Exception as e:
         logging.error(e)

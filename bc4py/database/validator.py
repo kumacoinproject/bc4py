@@ -73,7 +73,7 @@ def encode(*args):
 
 def validator_fill(v: Validator, best_block=None, best_chain=None, stop_txhash=None):
     # database
-    v_iter =  builder.db.read_validator_iter(c_address=v.c_address, start_idx=v.db_index)
+    v_iter = builder.db.read_validator_iter(c_address=v.c_address, start_idx=v.db_index)
     for index, address, flag, txhash, sig_diff in v_iter:
         if txhash == stop_txhash:
             return
@@ -96,20 +96,21 @@ def validator_fill(v: Validator, best_block=None, best_chain=None, stop_txhash=N
                 continue
             index = validator_tx2index(tx=tx)
             v.update(db_index=index, flag=flag, address=address, sig_diff=sig_diff, txhash=tx.hash)
+
+
+def unconfirmed_validator_fill(v: Validator, stop_txhash=None):
     # unconfirmed
-    if best_block is None:
-        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time):
-            if tx.hash == stop_txhash:
-                return
-            if tx.type != C.TX_VALIDATOR_EDIT:
-                continue
-            c_address, address, flag, sig_diff = decode(tx.message)
-            if c_address != v.c_address:
-                continue
-            if len(tx.signature) < v.require:
-                continue
-            index = validator_tx2index(tx=tx)
-            v.update(db_index=index, flag=flag, address=address, sig_diff=sig_diff, txhash=tx.hash)
+    for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time):
+        if tx.hash == stop_txhash:
+            return
+        if tx.type != C.TX_VALIDATOR_EDIT:
+            continue
+        c_address, address, flag, sig_diff = decode(tx.message)
+        if c_address != v.c_address:
+            continue
+        if len(tx.signature) < v.require:
+            continue
+        v.update(db_index=None, flag=flag, address=address, sig_diff=sig_diff, txhash=tx.hash)
 
 
 def get_validator_object(c_address, best_block=None, best_chain=None, stop_txhash=None):
@@ -119,6 +120,8 @@ def get_validator_object(c_address, best_block=None, best_chain=None, stop_txhas
     else:
         v = Validator(c_address=c_address)
     validator_fill(v=v, best_block=best_block, best_chain=best_chain, stop_txhash=stop_txhash)
+    if best_block is None:
+        unconfirmed_validator_fill(v=v, stop_txhash=stop_txhash)
     return v
 
 
