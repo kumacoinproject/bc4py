@@ -133,6 +133,7 @@ class TX:
         r['message'] = self.message.decode() if self.message_type == C.MSG_PLAIN else hexlify(self.message).decode()
         r['signature'] = [(pubkey, hexlify(signature).decode()) for pubkey, signature in self.signature]
         r['f_on_memory'] = self.f_on_memory
+        r['create_time'] = self.create_time
         return r
 
     @property

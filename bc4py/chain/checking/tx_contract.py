@@ -198,7 +198,7 @@ def contract_signature_check(extra_tx: TX, v: Validator, include_block: Block):
         raise BlockChainError('Unrelated signature include, reject={}'.format(reject_cks))
     elif include_block:
         # check satisfy require?
-        if len(accept_cks) != v.require:
+        if len(accept_cks) >= v.require:
             raise BlockChainError('Not satisfied require signature. [signed={}, accepted={}, require={}]'
                                   .format(signed_cks, accept_cks, v.require))
     else:

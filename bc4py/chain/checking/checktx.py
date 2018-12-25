@@ -62,10 +62,12 @@ def check_tx(tx, include_block):
 
     elif tx.type == C.TX_VALIDATOR_EDIT:
         f_signature_check = False
+        f_minimum_fee_check = False
         check_tx_validator_edit(tx=tx, include_block=include_block)
 
     elif tx.type == C.TX_CONCLUDE_CONTRACT:
         f_signature_check = False
+        f_minimum_fee_check = False
         check_tx_contract_conclude(tx=tx, include_block=include_block)
 
     else:
