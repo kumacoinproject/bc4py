@@ -820,23 +820,28 @@ class TransactionBuilder:
         user_account.affect_new_tx(tx, outer_cur)
         NewInfo.put(obj=tx)
 
-    def put_pre_unconfirmed(self, tx):
-        assert tx.height is None, 'Not unconfirmed tx {}'.format(tx)
-        assert tx.type in (C.TX_CONCLUDE_CONTRACT, C.TX_VALIDATOR_EDIT)
-        # main check finished by check_tx_time() and check_tx()
+    def marge_signature(self, tx):
+        # try to marge signature
+        # check before signature manageable
         if tx.hash in self.unconfirmed:
-            return  # no effect
+            original_tx = self.unconfirmed[tx.hash]
+            new_signature = list(set(tx.signature) | set(original_tx.signature))
+            logging.info("Marge unconfirmed TX's signature sign={}>{}"
+                         .format(len(original_tx.signature), len(new_signature)))
+            original_tx.signature = new_signature
         elif tx.hash in self.pre_unconfirmed:
-            # try to marge signature (checked before signature manageable)
             original_tx = self.pre_unconfirmed[tx.hash]
             new_signature = list(set(tx.signature) | set(original_tx.signature))
+            logging.info("Marge pre-unconfirmed TX's signature sign={}>{}"
+                         .format(len(original_tx.signature), len(new_signature)))
             original_tx.signature = new_signature
-            logging.info("Marge Contract/Validator TX")
+        elif tx.hash in self.chained_tx:
+            logging.error("Try to marge already confirmed TX's signature {}".format(tx))
         else:
-            # new Pre-unconfirmed tx
+            # new pre-unconfirmed tx
             self.pre_unconfirmed[tx.hash] = tx
             NewInfo.put(obj=tx)
-            logging.info("Insert Contract/Validator TX")
+            logging.info("Insert pre-unconfirmed TX")
 
     def get_tx(self, txhash, default=None):
         if txhash in self.cashe:

@@ -51,7 +51,7 @@ class BroadcastCmd:
             check_tx_time(new_tx)
             check_tx(tx=new_tx, include_block=None)
             if new_tx.type in (C.TX_VALIDATOR_EDIT, C.TX_CONCLUDE_CONTRACT):
-                tx_builder.put_pre_unconfirmed(tx=new_tx)
+                tx_builder.marge_signature(tx=new_tx)
             else:
                 tx_builder.put_unconfirmed(tx=new_tx)
             logging.info("Accept new tx {}".format(new_tx))
