@@ -35,14 +35,19 @@ class Validator:
         return deepcopy(self)
 
     def update(self, db_index, flag, address, sig_diff, txhash):
+        # DO NOT RAISE ERROR
         # cosigner
         if flag == F_ADD:
-            self.validators.append(address)
+            if address not in self.validators:
+                self.validators.append(address)
         elif flag == F_REMOVE:
-            self.validators.remove(address)
+            if address in self.validators:
+                self.validators.remove(address)
         else:
             pass
-        self.require += sig_diff
+        # 0 < new_sig_diff =< len(validators)
+        new_sig_diff = self.require + sig_diff
+        self.require = max(1, min(len(self.validators), new_sig_diff))
         self.db_index = db_index
         self.version += 1
         self.txhash = txhash
@@ -90,7 +95,7 @@ def validator_fill_iter(v: Validator, best_block=None, best_chain=None):
             c_address, address, flag, sig_diff = decode(tx.message)
             if c_address != v.c_address:
                 continue
-            index = validator_tx2index(tx=tx)
+            index = tx.height * 0xffffffff + block.txs.index(tx)
             yield index, flag, address, sig_diff, tx.hash
     # unconfirmed
     if best_block is None:
@@ -120,8 +125,8 @@ def get_validator_object(c_address, best_block=None, best_chain=None, stop_txhas
             return v  # caution: select_hash works only on memory/unconfirmed!
     if select_hash:
         raise BlockChainError('Failed get Validator by select_hash {}'.format(hexlify(select_hash)))
-    elif stop_txhash:
-        raise BlockChainError('Failed get Validator by stop_txhash {}'.format(hexlify(stop_txhash)))
+    # elif stop_txhash:
+    #    raise BlockChainError('Failed get Validator by stop_txhash {}'.format(hexlify(stop_txhash)))
     else:
         return v
 
