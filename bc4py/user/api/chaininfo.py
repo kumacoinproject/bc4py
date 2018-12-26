@@ -27,6 +27,8 @@ async def get_block_by_hash(request):
     try:
         f_pickled = request.query.get('pickle', False)
         blockhash = request.query.get('hash')
+        if blockhash is None:
+            return web.Response(text="Not found height.", status=400)
         blockhash = unhexlify(blockhash.encode())
         block = builder.get_block(blockhash)
         if block is None:
