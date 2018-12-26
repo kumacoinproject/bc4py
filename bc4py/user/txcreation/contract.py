@@ -1,5 +1,5 @@
 from bc4py.config import C, V, BlockChainError
-from bc4py.chain import TX
+from bc4py.chain.tx import TX
 from bc4py.database import contract
 from bc4py.database.validator import F_NOP, F_REMOVE, F_ADD, get_validator_object
 from bc4py.database.builder import tx_builder

@@ -1,6 +1,6 @@
 from bc4py import __chain_version__
 from bc4py.config import C, V, BlockChainError
-from bc4py.chain import TX
+from bc4py.chain.tx import TX
 from bc4py.database.account import insert_log
 from bc4py.user import Balance, Accounting
 from bc4py.user.txcreation.utils import *

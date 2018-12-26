@@ -1,5 +1,5 @@
 from bc4py.config import C, V, BlockChainError
-from bc4py.chain import TX
+from bc4py.chain.tx import TX
 from bc4py.database.mintcoin import *
 from bc4py.database.account import create_new_user_keypair, read_user2name, insert_log
 from bc4py.user import Balance, Accounting

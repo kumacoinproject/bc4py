@@ -4,7 +4,8 @@ from bc4py.database.account import read_address2user, read_user2name
 from bc4py.database.validator import *
 from expiringdict import ExpiringDict
 from time import time
-from bc4py.chain import Block, TX
+from bc4py.chain.block import Block
+from bc4py.chain.tx import TX
 import logging
 from threading import Thread
 import bjson
