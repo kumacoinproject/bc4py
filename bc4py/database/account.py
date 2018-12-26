@@ -2,7 +2,7 @@ from bc4py.config import C, V, BlockChainError
 from bc4py.user import Accounting
 from bc4py.utils import AESCipher
 from bc4py.database.create import closing, create_db
-import time
+from time import time
 import os
 from binascii import hexlify, unhexlify
 from pooled_multiprocessing import mp_map_async
@@ -36,7 +36,7 @@ def read_log_iter(cur, start=0):
 def insert_log(movements, cur, _type=None, _time=None, txhash=None):
     assert isinstance(movements, Accounting), 'movements is Accounting.'
     _type = _type or C.TX_INNER
-    _time = _time or int(time.time() - V.BLOCK_GENESIS_TIME)
+    _time = _time or int(time() - V.BLOCK_GENESIS_TIME)
     txhash = txhash or (b'\x00' * 24 + _time.to_bytes(4, 'big') + os.urandom(4))
     move = list()
     index = 0
@@ -141,7 +141,7 @@ def create_account(name, cur, description="", _time=None, is_root=False):
     assert isinstance(name, str)
     if not (name.startswith('@') == is_root):
         raise BlockChainError('prefix"@" is root user, is_root={} name={}'.format(is_root, name))
-    _time = _time or int(time.time() - V.BLOCK_GENESIS_TIME)
+    _time = _time or int(time() - V.BLOCK_GENESIS_TIME)
     cur.execute("""
         INSERT INTO `account` (`name`,`description`,`time`) VALUES (?,?,?)
     """, (name, description, _time))
@@ -157,7 +157,7 @@ def _single_generate(index, **kwargs):
     pk_hex = public_key(sk_hex)
     pk = unhexlify(pk_hex.encode())
     ck = get_address(pk=pk_hex, prefix=kwargs['prefix'])
-    t = int(time.time() - kwargs['genesis_time'])
+    t = int(time() - kwargs['genesis_time'])
     return sk, pk, ck, C.ANT_RESERVED, t
 
 

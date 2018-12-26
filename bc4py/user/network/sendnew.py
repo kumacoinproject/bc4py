@@ -5,7 +5,7 @@ from p2p_python.client import ClientCmd
 from bc4py.database.builder import tx_builder, builder
 from bc4py.user.network.update import update_mining_staking_all_info
 import logging
-import time
+from time import time
 import queue
 
 
@@ -14,7 +14,7 @@ def mined_newblock(que, pc):
     while True:
         try:
             new_block = que.get(timeout=1)
-            new_block.create_time = int(time.time())
+            new_block.create_time = int(time())
             if P.F_NOW_BOOTING:
                 logging.debug("Mined but now booting..")
                 continue
@@ -67,16 +67,12 @@ def send_newtx(new_tx, outer_cur=None, exc_info=True):
                 'tx': new_tx.b,
                 'sign': new_tx.signature}}
         V.PC_OBJ.send_command(cmd=ClientCmd.BROADCAST, data=data)
-        if new_tx.type in (C.TX_VALIDATOR_EDIT, C.TX_CONCLUDE_CONTRACT)and new_tx.hash in tx_builder.unconfirmed:
-            # marge contract signature
-            original_tx = tx_builder.unconfirmed[new_tx.hash]
-            new_signature = list(set(new_tx.signature) | set(original_tx.signature))
-            original_tx.signature = new_signature
-            logging.info("Marge contract tx {}".format(new_tx))
+        if new_tx.type in (C.TX_VALIDATOR_EDIT, C.TX_CONCLUDE_CONTRACT):
+            tx_builder.marge_signature(tx=new_tx)
         else:
-            # normal tx
-            tx_builder.put_unconfirmed(new_tx, outer_cur)
-            logging.info("Success broadcast new tx {}".format(new_tx))
+            tx_builder.put_unconfirmed(tx=new_tx)
+        logging.info("Success broadcast new tx {}".format(new_tx))
+        update_mining_staking_all_info()
         return True
     except Exception as e:
         logging.warning("Failed broadcast new tx, other nodes don\'t accept {}"

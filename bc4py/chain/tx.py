@@ -5,7 +5,7 @@ from bc4py import __chain_version__
 from bc4py.config import C, V, BlockChainError
 from hashlib import sha256
 from binascii import hexlify
-import time
+from  time import time
 import struct
 from collections import OrderedDict
 
@@ -20,7 +20,7 @@ class TX:
         "b", "hash", "height", "pos_amount",
         "version", "type", "time", "deadline", "inputs", "outputs",
         "gas_price", "gas_amount", "message_type", "message",
-        "signature", "f_on_memory", "__weakref__")
+        "signature", "f_on_memory", "create_time", "__weakref__")
 
     def __eq__(self, other):
         return self.hash == other.hash
@@ -54,6 +54,7 @@ class TX:
         self.signature = None  # [(pubkey, signature),.. ]
         # 処理には使わないが有用なデータ
         self.f_on_memory = None
+        self.create_time = time()
 
         if binary:
             self.b = binary
@@ -132,6 +133,7 @@ class TX:
         r['message'] = self.message.decode() if self.message_type == C.MSG_PLAIN else hexlify(self.message).decode()
         r['signature'] = [(pubkey, hexlify(signature).decode()) for pubkey, signature in self.signature]
         r['f_on_memory'] = self.f_on_memory
+        r['create_time'] = self.create_time
         return r
 
     @property
@@ -156,7 +158,7 @@ class TX:
     def update_time(self, retention=10800):
         if retention < 10800:
             raise BlockChainError('Retention time is too short.')
-        now = int(time.time())
+        now = int(time())
         self.time = now - V.BLOCK_GENESIS_TIME
         self.deadline = now - V.BLOCK_GENESIS_TIME + retention
         self.serialize()

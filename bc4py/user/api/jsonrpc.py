@@ -68,13 +68,14 @@ def res_success(result, id):
 
 
 async def get_mining_block(**kwargs):
+    s = time()
     while True:
         try:
             return create_mining_block(consensus=int(kwargs['password']))
         except Exception as e:
-            if int(time()) % 30 == 0:
-                logging.debug("Mining block creation failed by \"{}\"".format(e))
-            await asyncio.sleep(2)
+            if time() - s > 5:
+                raise TimeoutError("Mining block creation failed by '{}'".format(e))
+            await asyncio.sleep(0.1)
 
 
 async def getwork(*args, **kwargs):

@@ -13,7 +13,7 @@ Function
 Requirement
 ----
 * Windows/Linux
-* Python3 (3.5, 3.6~)
+* **Python3.5** or more, but Contract require **Python3.6** or more
 * [nem-ed25519](https://github.com/namuyan/nem-ed25519) my encryption lib
 * [p2p-python](https://github.com/namuyan/p2p-python) my peer2peer lib
 * LevelDB

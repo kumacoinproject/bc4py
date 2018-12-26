@@ -9,8 +9,7 @@ from bc4py.chain.tx import TX
 from bc4py.database.create import closing, create_db
 from bc4py.database.account import create_new_user_keypair
 from nem_ed25519.key import convert_address
-import time
-import logging
+from time import time
 import bjson
 from more_itertools import chunked
 
@@ -47,7 +46,7 @@ def create_genesis_block(all_supply, block_span, prefix=b'\x98', contract_prefix
 
     # params
     assert isinstance(minimum_price, int), 'minimum_price is INT'
-    genesis_time = int(time.time())
+    genesis_time = int(time())
     # premine
     premine_txs = list()
     for index, chunk in enumerate(chunked(premine or list(), 255)):
@@ -65,7 +64,7 @@ def create_genesis_block(all_supply, block_span, prefix=b'\x98', contract_prefix
         tx.height = 0
         premine_txs.append(tx)
     # validator
-    V.BLOCK_GENESIS_TIME = int(time.time())
+    V.BLOCK_GENESIS_TIME = int(time())
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         ck = create_new_user_keypair(C.ANT_NAME_CONTRACT, db.cursor())
         db.commit()

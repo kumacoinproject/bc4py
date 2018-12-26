@@ -1,8 +1,8 @@
 from bc4py.config import BlockChainError
 from bc4py.database.contract import get_contract_object
 from bc4py.utils import set_blockchain_params
-from bc4py.contract.tools import *
-from bc4py.contract.basiclib import __price__
+from bc4py.contract.serializer import *
+from bc4py.contract.basiclib import __price__, config
 from bc4py.contract import rpdb
 from multiprocessing import get_context
 import logging
@@ -25,20 +25,22 @@ EMU_UNTIL = 'until'
 EMU_RETURN = 'return'
 
 
-def _vm(genesis_block, start_tx, que, c, c_address, c_method, redeem_address, c_args):
+def _vm(genesis_block, new_config, start_tx, que, c, c_address, c_method, redeem_address, c_args):
+    if new_config:
+        config.update(new_config)
     set_blockchain_params(genesis_block)
     c_args = c_args or list()
     virtual_machine = rpdb.Rpdb(port=0)
     try:
-        c_obj = binary2contract(c_bin=c.binary, extra_imports=c.extra_imports)
         # notify listen port
         que.put((CMD_PORT, virtual_machine.port))
-        # start emulate
+        # setup emulator
         virtual_machine.server_start()
+        args = (start_tx, c_address, c.storage, redeem_address)
+        contract = binary2contract(b=c.binary, extra_imports=c.extra_imports, args=args)
+        fnc = getattr(contract, c_method)
+        # start emulation
         virtual_machine.set_trace()
-        # get method
-        obj = c_obj(start_tx, c_address, c.storage, redeem_address)
-        fnc = getattr(obj, c_method)
         result = fnc(*c_args)
         virtual_machine.do_quit(EMU_QUIT)
         que.put((CMD_SUCCESS, result))
@@ -56,7 +58,8 @@ def _vm(genesis_block, start_tx, que, c, c_address, c_method, redeem_address, c_
         pass
 
 
-def emulate(genesis_block, start_tx, c_address, c_method, redeem_address, c_args, gas_limit=None, file=None):
+def emulate(genesis_block, start_tx, c_address, c_method,
+            redeem_address, c_args, new_config=None, gas_limit=None, file=None):
     """
     emulate Contract code
     :param genesis_block: GenesisBlock
@@ -65,6 +68,7 @@ def emulate(genesis_block, start_tx, c_address, c_method, redeem_address, c_args
     :param c_method: contract method name
     :param redeem_address: to redeem address
     :param c_args: arguments list
+    :param new_config: update new emulator params, dict
     :param gas_limit: gas limit to use, None is unlimited
     :param file: logging output file object
     :return: status, error, total_gas, work_line
@@ -72,10 +76,11 @@ def emulate(genesis_block, start_tx, c_address, c_method, redeem_address, c_args
     start = time()
     cxt = get_context('spawn')
     que = cxt.Queue()
-    c = get_contract_object(c_address=c_address, stop_txhash=start_tx.hash)
+    # get ContractObject with database, memory and unconfirmed (not pre-unconfirmed)
+    c = get_contract_object(c_address=c_address)
     if c.version == -1 or c.binary is None:
         raise BlockChainError('Need register contract binary first.')
-    kwargs = dict(genesis_block=genesis_block, start_tx=start_tx, que=que, c=c,
+    kwargs = dict(genesis_block=genesis_block, new_config=new_config, start_tx=start_tx, que=que, c=c,
                   c_address=c_address, c_method=c_method, redeem_address=redeem_address, c_args=c_args)
     p = cxt.Process(target=_vm, kwargs=kwargs)
     p.start()

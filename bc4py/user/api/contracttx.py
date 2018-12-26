@@ -1,5 +1,5 @@
 from bc4py.config import C, V
-from bc4py.contract.tools import *
+from bc4py.contract.serializer import *
 from bc4py.user.txcreation.contract import *
 from bc4py.database.create import closing, create_db
 from bc4py.database.account import *
@@ -20,7 +20,8 @@ async def contract_init(request):
         c_extra_imports = post.get('extra_imports', None)
         c_settings = post.get('settings', None)
         send_pairs = post.get('send_pairs', None)
-        binary2contract(c_bin=c_bin, extra_imports=c_extra_imports)  # can compile?
+        args = ("start_tx", "c_address", "c_storage", "redeem_address")  # dummy data
+        binary2contract(b=c_bin, extra_imports=c_extra_imports, args=args)  # can compile?
         sender_name = post.get('from', C.ANT_NAME_UNKNOWN)
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
@@ -48,7 +49,8 @@ async def contract_update(request):
         c_extra_imports = post.get('extra_imports', None)
         if 'hex' in post:
             c_bin = unhexlify(post['hex'].encode())
-            binary2contract(c_bin=c_bin, extra_imports=c_extra_imports)  # can compile?
+            args = ("start_tx", "c_address", "c_storage", "redeem_address")  # dummy data
+            binary2contract(b=c_bin, extra_imports=c_extra_imports, args=args)  # can compile?
         else:
             c_bin = None
         c_settings = post.get('settings', None)
@@ -179,13 +181,7 @@ async def source_compile(request):
     post = await web_base.content_type_json_check(request)
     # Warning: do not execute unknown source code!
     try:
-        if 'source' in post:
-            source = str(post['source'])
-            c_obj = string2contract(string=source, is_safe=True)
-        elif 'path' in post:
-            c_obj = path2contract(path=post['path'], is_safe=True)
-        else:
-            raise Exception('You need set "source" or "path".')
+        c_obj = path2contract(path=post['path'])
         c_bin = contract2binary(c_obj)
         c_dis = contract2dis(c_obj)
         return web_base.json_res({

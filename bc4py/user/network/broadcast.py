@@ -13,6 +13,7 @@ from binascii import hexlify
 class BroadcastCmd:
     NEW_BLOCK = 'cmd/new-block'
     NEW_TX = 'cmd/new-tx'
+    fail = 0
 
     @staticmethod
     def new_block(data):
@@ -49,17 +50,12 @@ class BroadcastCmd:
             new_tx.signature = data['sign']
             check_tx_time(new_tx)
             check_tx(tx=new_tx, include_block=None)
-            if new_tx.type in (C.TX_VALIDATOR_EDIT, C.TX_CONCLUDE_CONTRACT) and new_tx.hash in tx_builder.unconfirmed:
-                # marge contract signature
-                original_tx = tx_builder.unconfirmed[new_tx.hash]
-                new_signature = list(set(new_tx.signature) | set(original_tx.signature))
-                original_tx.signature = new_signature
-                logging.info("Marge contract tx {}".format(new_tx))
+            if new_tx.type in (C.TX_VALIDATOR_EDIT, C.TX_CONCLUDE_CONTRACT):
+                tx_builder.marge_signature(tx=new_tx)
             else:
-                # normal tx
-                tx_builder.put_unconfirmed(new_tx)
-                update_mining_staking_all_info()
-                logging.info("Accept new tx {}".format(new_tx))
+                tx_builder.put_unconfirmed(tx=new_tx)
+            logging.info("Accept new tx {}".format(new_tx))
+            update_mining_staking_all_info()
             return True
         except BlockChainError as e:
             error = 'Failed accept new tx "{}"'.format(e)
@@ -121,11 +117,21 @@ def broadcast_check(data):
     if P.F_NOW_BOOTING:
         return False
     elif BroadcastCmd.NEW_BLOCK == data['cmd']:
-        return BroadcastCmd.new_block(data=data['data'])
+        result = BroadcastCmd.new_block(data=data['data'])
     elif BroadcastCmd.NEW_TX == data['cmd']:
-        return BroadcastCmd.new_tx(data=data['data'])
+        result = BroadcastCmd.new_tx(data=data['data'])
     else:
         return False
+    # check failed count over
+    if result:
+        BroadcastCmd.fail = 0
+    else:
+        BroadcastCmd.fail += 1
+        if BroadcastCmd.fail > 100:
+            P.F_NOW_BOOTING = True
+            BroadcastCmd.fail = 0
+            logging.warning("Set booting mode, too many fail on broadcast_check().")
+    return result
 
 
 def make_block_by_node(blockhash):

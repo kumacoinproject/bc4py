@@ -3,7 +3,7 @@
 
 
 import configparser
-from queue import LifoQueue, Full, Empty
+from queue import Queue, Full, Empty
 from threading import Lock
 
 
@@ -115,9 +115,7 @@ class V:  # 起動時に設定される変数
 
 class P:  # 起動中もダイナミックに変化
     F_STOP = False  # Stop signal
-    VALIDATOR_OBJ = None  # Validation request
     F_NOW_BOOTING = True  # Booting mode flag
-    F_WATCH_CONTRACT = False  # Watching contract
 
 
 class Debug:
@@ -147,14 +145,24 @@ class NewInfo:
 
     @staticmethod
     def get(channel, timeout=None):
+        # caution: Don't forget remove! memory leak risk.
         while True:
             for q, ch in NewInfo.ques.copy():
                 if channel == ch:
                     return q.get(timeout=timeout)
             else:
-                que = LifoQueue(maxsize=10)
+                que = Queue(maxsize=3000)
                 with NewInfo.lock:
                     NewInfo.ques.append((que, channel))
+
+    @staticmethod
+    def remove(channel):
+        for q, ch in NewInfo.ques.copy():
+            if ch == channel:
+                with NewInfo.lock:
+                    NewInfo.ques.remove((q, ch))
+                return True
+        return False
 
 
 class MyConfigParser(configparser.ConfigParser):

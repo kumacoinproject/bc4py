@@ -8,6 +8,7 @@ from bc4py.database.contract import *
 from nem_ed25519.key import is_address
 from binascii import hexlify
 import bjson
+import logging
 
 
 def check_tx_contract_conclude(tx: TX, include_block: Block):
@@ -31,10 +32,10 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
     if not (c_storage is None or isinstance(c_storage, dict)):
         raise BlockChainError('3. Not correct format. {}'.format(c_storage))
     # check already created conclude tx
-    for finish_hash in get_conclude_by_start_iter(c_address=c_address, start_hash=start_hash,
-                                                  best_block=include_block, stop_txhash=tx.hash):
-        if finish_hash and finish_hash != tx.hash:
-            raise BlockChainError('Already start_hash used. {}'.format(hexlify(finish_hash).decode()))
+    finish_hash = get_conclude_hash_from_start(
+        c_address=c_address, start_hash=start_hash, best_block=include_block)
+    if finish_hash and finish_hash != tx.hash:
+        raise BlockChainError('Already start_hash used. {}'.format(hexlify(finish_hash).decode()))
     # inputs address check
     for txhash, txindex in tx.inputs:
         input_tx = tx_builder.get_tx(txhash)
@@ -74,9 +75,17 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
     # contract index check
     if c_before.version != -1:
         new_index = start_tx2index(start_tx=start_tx)
-        before_index = start_tx2index(start_hash=c_before.start_hash)
-        if before_index >= new_index:
-            raise BlockChainError('The index is old on execute order, before={} new={}'.format(before_index, new_index))
+        if not (c_before.db_index < new_index):
+            raise BlockChainError('The index is old on execute order, '
+                                  'before={} new={}'.format(c_before.db_index, new_index))
+        # check:  Do not skip old contract?
+        if include_block:
+            c_my_before = get_contract_object(c_address=c_address, best_block=None, stop_txhash=tx.hash)
+            if c_my_before.version != c_before.version or c_my_before.db_index != c_before.db_index:
+                raise BlockChainError('Block skip old ConcludeTX, idx={} my={} block={}'
+                                      .format(new_index, c_my_before, c_before))
+    else:
+        pass  # init ConcludeTX, no action
     # c_method check, init, update and others..
     if c_method == M_INIT:
         if len(c_args) != 3:
@@ -185,7 +194,10 @@ def check_tx_validator_edit(tx: TX, include_block: Block):
 def contract_signature_check(extra_tx: TX, v: Validator, include_block: Block):
     signed_cks = get_signed_cks(extra_tx)
     accept_cks = signed_cks & set(v.validators)
-    if include_block:
+    reject_cks = signed_cks - set(v.validators)
+    if len(reject_cks) > 0:
+        raise BlockChainError('Unrelated signature include, reject={}'.format(reject_cks))
+    elif include_block:
         # check satisfy require?
         if len(accept_cks) < v.require:
             raise BlockChainError('Not satisfied require signature. [signed={}, accepted={}, require={}]'
@@ -197,6 +209,9 @@ def contract_signature_check(extra_tx: TX, v: Validator, include_block: Block):
             # not accept before
             if 0 < v.require and len(accept_cks) == 0:
                 raise BlockChainError('No acceptable signature. signed={}'.format(signed_cks))
+            if len(accept_cks) > v.require:
+                # accept signature more than required
+                logging.debug('Too many signatures, accept={} req={}'.format(accept_cks, v.require))
         else:
             # need to marge signature
             if original_tx.height is not None:
@@ -208,6 +223,10 @@ def contract_signature_check(extra_tx: TX, v: Validator, include_block: Block):
             if len(accept_new_cks) == 0:
                 raise BlockChainError('No new acceptable cks. ({} - {}) & {}'
                                       .format(signed_cks, original_cks, set(v.validators)))
+            if len(accept_new_cks) + len(original_cks) > v.require:
+                # accept signature more than required
+                logging.debug('Too many signatures, new={} original={} req={}'
+                              .format(accept_new_cks, original_cks, v.require))
 
 
 def contract_required_gas_check(tx: TX, v: Validator, extra_gas=0):

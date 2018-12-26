@@ -7,7 +7,7 @@ from bc4py.chain.workhash import update_work_hash
 from hashlib import sha256
 from binascii import hexlify
 import struct
-import time
+from time import time
 from collections import OrderedDict
 from math import log
 
@@ -44,7 +44,7 @@ class Block:
         self.height = None
         self._difficulty = None
         self._work_difficulty = None
-        self.create_time = None  # Objectの生成日時
+        self.create_time = int(time())  # Objectの生成日時
         self.delete_time = None  # Objectの削除日時
         self.flag = None  # mined consensus number
         self.f_orphan = None
@@ -74,7 +74,6 @@ class Block:
             self.nonce = block['nonce']
             self.serialize()
         self.txs = list()
-        self.create_time = int(time.time())
 
     def serialize(self):
         self.b = struct_block.pack(
@@ -120,6 +119,7 @@ class Block:
         r['bias'] = round(self.bias, 8)
         r['nonce'] = hexlify(self.nonce).decode() if self.nonce else None
         r['txs'] = [hexlify(tx.hash).decode() for tx in self.txs]
+        r['create_time'] = self.create_time
         return r
 
     @property

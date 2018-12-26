@@ -1,11 +1,9 @@
 from bc4py.user import Accounting
+from bc4py.contract.basiclib.config import config
 from requests import get, post
 from base64 import b64decode
 from binascii import b2a_hex
 import pickle
-
-
-API_BASE = 'http://127.0.0.1:3000/public/'
 
 
 def calc_return_balance(start_tx, c_address, redeem_address):
@@ -32,7 +30,7 @@ def get_block_obj(height=None, blockhash=None):
     return pickle.loads(b64decode(p_block.encode()))
 
 
-def get_contract_storage(c_address, stop_hash):
+def get_contract_storage(c_address, stop_hash=None):
     """ get storage object """
     if stop_hash:
         stop_hash = b2a_hex(stop_hash)
@@ -40,22 +38,17 @@ def get_contract_storage(c_address, stop_hash):
     return pickle.loads(b64decode(p_storage.encode()))
 
 
-def calc_storage_diff(c_storage, new_storage):
-    stop_hash = b2a_hex(c_storage.start_hash)
-    p_storage = api_get('contractstorage', c_address=c_storage.c_address, pickle='true', stophash=b2a_hex(c_storage.stop_hash))
-    c_storage = pickle.loads(b64decode(p_storage.encode()))
-    return new_storage.export_diff(c_storage)
-
-
 def api_get(method, **kwargs):
-    r = get(url=API_BASE+method, params=kwargs, timeout=3.5)
+    url = config['api-endpoint'] + method
+    r = get(url=url, params=kwargs, timeout=5)
     if not r.ok:
         raise Exception('Cannot use the method({})'.format(method))
     return r.json()
 
 
 def api_post(method, **kwargs):
-    r = post(url=API_BASE+method, json=kwargs)
+    url = config['api-endpoint'] + method
+    r = post(url=url, json=kwargs, timeout=5)
     if not r.ok:
         raise Exception('Cannot use the method({})'.format(method))
     return r.json()
@@ -66,7 +59,6 @@ __price__ = {
     "get_tx_obj": 200,
     "get_block_obj": 200,
     "get_contract_storage": 500,
-    "calc_storage_diff": 500,
     "api_get": 200,
     "api_post": 200,
 }

@@ -65,7 +65,7 @@ def get_utxo_iter(target_address, best_block=None, best_chain=None):
                         yield address, tx.height, tx.hash, index, coin_id, amount
     # Unconfirmedより
     if best_block is None:
-        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.time):
+        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time):
             used_index = get_usedindex(txhash=tx.hash, best_block=best_block, best_chain=best_chain)
             for index, (address, coin_id, amount) in enumerate(tx.outputs):
                 if index in used_index:

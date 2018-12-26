@@ -3,7 +3,7 @@ from bc4py.user.api import web_base
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.validator import get_validator_object, validator_tx2index
 from bc4py.database.contract import get_contract_object, start_tx2index
-from bc4py.contract.watch import watching_tx
+from bc4py.contract.emulator.watching import watching_tx
 import logging
 from binascii import hexlify, a2b_hex
 import bjson
@@ -51,6 +51,7 @@ async def get_contract_history(request):
             data.append({
                 'index': index,
                 'height': index // 0xffffffff,
+                'status': 'database',
                 'start_hash': hexlify(start_hash).decode(),
                 'finish_hash': hexlify(finish_hash).decode(),
                 'c_method': c_method,
@@ -71,13 +72,33 @@ async def get_contract_history(request):
                 data.append({
                     'index': index,
                     'height': tx.height,
+                    'status': 'memory',
                     'start_hash': hexlify(start_hash).decode(),
                     'finish_hash': hexlify(tx.hash).decode(),
                     'c_method': c_method,
                     'c_args': [decode(a) for a in c_args],
                     'c_storage': {decode(k): decode(v) for k, v in c_storage.items()} if c_storage else None,
-                    # 'redeem_address': redeem_address,
                 })
+        # unconfirmed
+        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x:x.create_time):
+            if tx.type != C.TX_CONCLUDE_CONTRACT:
+                continue
+            _c_address, start_hash, c_storage = bjson.loads(tx.message)
+            if _c_address != c_address:
+                continue
+            start_tx = tx_builder.get_tx(txhash=start_hash)
+            dummy, c_method, redeem_address, c_args = bjson.loads(start_tx.message)
+            index = start_tx2index(start_tx=start_tx)
+            data.append({
+                'index': index,
+                'height': tx.height,
+                'status': 'unconfirmed',
+                'start_hash': hexlify(start_hash).decode(),
+                'finish_hash': hexlify(tx.hash).decode(),
+                'c_method': c_method,
+                'c_args': [decode(a) for a in c_args],
+                'c_storage': {decode(k): decode(v) for k, v in c_storage.items()} if c_storage else None,
+            })
         return web_base.json_res(data)
     except Exception as e:
         logging.error(e)
@@ -113,6 +134,20 @@ async def get_validator_history(request):
                     'flag': flag,
                     'txhash': hexlify(tx.hash).decode(),
                     'sig_diff': sig_diff})
+        # unconfirmed
+        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time):
+            if tx.type != C.TX_VALIDATOR_EDIT:
+                continue
+            _c_address, new_address, flag, sig_diff = bjson.loads(tx.message)
+            if _c_address != c_address:
+                continue
+            data.append({
+                'index': None,
+                'height': None,
+                'new_address': new_address,
+                'flag': flag,
+                'txhash': hexlify(tx.hash).decode(),
+                'sig_diff': sig_diff})
         return web_base.json_res(data)
     except Exception as e:
         logging.error(e)
@@ -144,8 +179,7 @@ async def contract_storage(request):
 async def watching_info(request):
     try:
         f_pickle = bool(request.query.get('pickle', False))
-        if not P.F_WATCH_CONTRACT:
-            return web_base.error_res(errors='You need to enable watching option!')
+        # You need to enable watching option!
         return web_base.json_res([{
             'hash': hexlify(txhash).decode(),
             'type': tx.type,
@@ -163,7 +197,7 @@ async def watching_info(request):
 
 def decode(b):
     if isinstance(b, bytes) or isinstance(b, bytearray):
-        return b.decode(errors='ignore')
+        return hexlify(b).decode()
     elif isinstance(b, set) or isinstance(b, list) or isinstance(b, tuple):
         return tuple(decode(data) for data in b)
     elif isinstance(b, dict):

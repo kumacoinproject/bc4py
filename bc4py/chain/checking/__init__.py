@@ -12,17 +12,6 @@ global_lock = threading.Lock()
 failed_deque = deque([], maxlen=10)
 
 
-def add_failed_mark():
-    failed_deque.append(time())
-    if min(failed_deque) < time() - 3600:
-        return
-    elif len(failed_deque) >= 10:
-        builder.make_failemark("Too many block check fail.")
-        failed_deque.clear()
-        logging.warning("22 Set booting mode.")
-        P.F_NOW_BOOTING = True
-
-
 def new_insert_block(block, time_check=False):
     t = time()
     with global_lock:
@@ -52,6 +41,7 @@ def new_insert_block(block, time_check=False):
             return True
         except BlockChainError as e:
             logging.warning("Reject new block by \"{}\"".format(e))
+            logging.debug("Reject block => {}".format(block.getinfo()))
             delay = time() - builder.best_block.time - V.BLOCK_GENESIS_TIME
             if delay > 10800:  # 3hours
                 logging.warning("{}Min before block inserted, too old on DB!".format(delay//60))
@@ -61,7 +51,6 @@ def new_insert_block(block, time_check=False):
         except Exception as e:
             message = "New insert block error, \"{}\"".format(e)
             logging.warning(message, exc_info=True)
-            add_failed_mark()
             return False
 
 

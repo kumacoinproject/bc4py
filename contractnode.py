@@ -8,8 +8,8 @@ from bc4py.user.generate import *
 from bc4py.user.boot import *
 from bc4py.user.network import *
 from bc4py.user.api import create_rest_server
-from bc4py.contract import start_emulators, close_emulators, Emulate
-from bc4py.contract.watch import start_contract_watch, close_contract_watch
+from bc4py.contract.emulator import start_emulators, Emulate
+from bc4py.contract.emulator.watching import start_contract_watch
 from bc4py.database.create import make_account_db
 from bc4py.database.builder import builder
 from bc4py.chain.workhash import start_work_hash, close_work_hash
@@ -78,8 +78,6 @@ def work(port, sub_dir=None):
         P.F_STOP = True
         builder.close()
         pc.close()
-        close_emulators()
-        close_contract_watch()
         close_generate()
         close_work_hash()
     except KeyboardInterrupt:

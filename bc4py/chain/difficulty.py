@@ -1,8 +1,8 @@
 from bc4py.config import C, V, Debug, BlockChainError
 from bc4py.database.builder import builder
 from bc4py.chain.utils import bits2target, target2bits
-import time
 from binascii import hexlify
+from functools import lru_cache
 
 # https://github.com/zawy12/difficulty-algorithms/issues/3
 
@@ -43,44 +43,17 @@ def params(block_span=600):
     return N, K
 
 
-class Cashe:
-    def __init__(self):
-        self.data = dict()
-        self.limit = 300
-
-    def __setitem__(self, key, value):
-        self.data[key] = (time.time(), value)
-        if len(self.data) > self.limit:
-            self.__refresh()
-
-    def __getitem__(self, item):
-        if item in self.data:
-            return self.data[item][1]
-
-    def __contains__(self, item):
-        return item in self.data
-
-    def __refresh(self):
-        limit = self.limit * 4 // 5
-        for k, v in sorted(self.data.items(), key=lambda x: x[1][0]):
-            del self.data[k]
-            if len(self.data) < limit:
-                break
-
-
-cashe = Cashe()
 MAX_BITS = 0x1f0fffff
 MAX_TARGET = bits2target(MAX_BITS)
 GENESIS_PREVIOUS_HASH = b'\xff'*32
 
 
+@lru_cache(maxsize=1000)
 def get_bits_by_hash(previous_hash, consensus):
     if Debug.F_CONSTANT_DIFF:
         return MAX_BITS, MAX_TARGET
     elif previous_hash == GENESIS_PREVIOUS_HASH:
         return MAX_BITS, MAX_TARGET
-    elif (previous_hash, consensus) in cashe:
-        return cashe[(previous_hash, consensus)]
 
     # Get best block time
     block_time = round(V.BLOCK_TIME_SPAN / V.BLOCK_CONSENSUSES[consensus] * 100)
@@ -126,10 +99,10 @@ def get_bits_by_hash(previous_hash, consensus):
     new_bits = target2bits(new_target)
     if Debug.F_SHOW_DIFFICULTY:
         print("ratio", C.consensus2name[consensus], new_bits, hexlify(previous_hash).decode())
-    cashe[(previous_hash, consensus)] = (new_bits, new_target)
     return new_bits, new_target
 
 
+@lru_cache(maxsize=1000)
 def get_bias_by_hash(previous_hash, consensus):
     N = 30  # target blocks
 
@@ -137,8 +110,6 @@ def get_bias_by_hash(previous_hash, consensus):
         return 1.0
     elif consensus == C.BLOCK_GENESIS:
         return 1.0
-    elif (consensus, previous_hash) in cashe:
-        return cashe[(consensus, previous_hash)]
     elif previous_hash == GENESIS_PREVIOUS_HASH:
         return 1.0
 
@@ -160,7 +131,6 @@ def get_bias_by_hash(previous_hash, consensus):
             break
 
     bias = sum(base_diffs) / sum(target_diffs)
-    cashe[(consensus, previous_hash)] = bias
     if Debug.F_SHOW_DIFFICULTY:
         print("bias", bias, hexlify(previous_hash).decode())
     return bias
