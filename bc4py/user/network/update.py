@@ -188,8 +188,11 @@ def check_upgradable_pre_unconfirmed():
         v = get_validator_object(c_address=c_address)
         if v.require <= len(tx.signature):
             del tx_builder.pre_unconfirmed[tx.hash]
-            tx_builder.put_unconfirmed(tx=tx)
-            logging.info("Upgrade pre-unconfirmed {}".format(tx))
+            if tx.hash not in tx_builder.unconfirmed:
+                tx_builder.put_unconfirmed(tx=tx)
+                logging.info("Upgrade pre-unconfirmed {}".format(tx))
+            else:
+                logging.warning("Upgrade skip, already unconfirmed {}".format(tx))
 
 
 def signature_acceptable(v: Validator, tx):

@@ -46,7 +46,6 @@ ITER_ORDER = 'big'
 DB_VERSION = 1  # increase if you change database structure
 ZERO_FILLED_HASH = b'\x00' * 32
 DUMMY_VALIDATOR_ADDRESS = b'\x00' * 40
-STARTER_NUM = 3
 database_tuple = ("_block", "_tx", "_used_index", "_block_index",
                   "_address_index", "_coins", "_contract", "_validator")
 # basic config
