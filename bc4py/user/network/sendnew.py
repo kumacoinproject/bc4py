@@ -72,7 +72,7 @@ def send_newtx(new_tx, outer_cur=None, exc_info=True):
         else:
             tx_builder.put_unconfirmed(tx=new_tx)
         logging.info("Success broadcast new tx {}".format(new_tx))
-        update_mining_staking_all_info()
+        update_mining_staking_all_info(u_block=False, u_unspent=True, u_unconfirmed=True)
         return True
     except Exception as e:
         logging.warning("Failed broadcast new tx, other nodes don\'t accept {}"

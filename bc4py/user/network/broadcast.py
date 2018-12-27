@@ -55,7 +55,7 @@ class BroadcastCmd:
             else:
                 tx_builder.put_unconfirmed(tx=new_tx)
             logging.info("Accept new tx {}".format(new_tx))
-            update_mining_staking_all_info()
+            update_mining_staking_all_info(u_block=False, u_unspent=False, u_unconfirmed=True)
             return True
         except BlockChainError as e:
             error = 'Failed accept new tx "{}"'.format(e)
