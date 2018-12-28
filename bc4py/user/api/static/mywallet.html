@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>PyContract</title>
+  <link type="image/vnd.microsoft.icon" href="favicon.ico">
+  <link href="https://unpkg.com/nes.css/css/nes.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css?family=Press+Start+2P" rel="stylesheet">
+  <script type="text/javascript" src="js/jquery-2.0.3.min.js"></script>
+  <script type="text/javascript" src="js/vue.min.js"></script>
+  <script type="text/javascript" src="js/vue-cookies.js"></script>
+  <script type="text/javascript" src="js/axios.min.js"></script>
+  <script type="text/javascript" src="js/mywallet.js"></script>
+</head>
+
+<!-- base style -->
+<style>
+  html, body, pre, code, kbd, samp {
+    font-family: "Press Start 2P";
+    font-size: 16px;
+  }
+  body {
+    margin: 20px;
+    padding: 10px;
+  }
+  div {
+    margin: 3px;
+    padding: 3px;
+
+  }
+</style>
+
+<body>
+<header>
+  <div>
+    <h1>
+      <img class="nes-avatar is-medium" src="image/python-min-x64.png">
+      <span>PyContract 8bit Wallet</span>
+    </h1>
+    PyContract 8bit wallet is an HTML-based GUI interface bind to bc4py library.
+    You can control accounts, send to, view history and edit contracts.
+    We use <a href="https://nostalgic-css.github.io/NES.css/">NES.css</a>
+    for CSS template.
+  </div>
+</header>
+
+<div id="app">
+  <!-- select buttons -->
+  <div id="select-button">
+    <button type="button" onclick="topSelect(this.innerHTML);" class="nes-btn is-primary">System</button>
+    <button type="button" onclick="topSelect(this.innerHTML);" class="nes-btn">BlockChain</button>
+    <button type="button" onclick="topSelect(this.innerHTML);" class="nes-btn">Account</button>
+    <button type="button" onclick="topSelect(this.innerHTML);" class="nes-btn">Sendto</button>
+    <button type="button" onclick="topSelect(this.innerHTML);" class="nes-btn">History</button>
+    <button type="button" onclick="topSelect(this.innerHTML);" class="nes-btn">Contract</button>
+  </div>
+
+  <!-- status -->
+  <div id="status">
+    <section class="nes-container with-title">
+      <transition>
+        <h2 v-if="status==='guest'" class="title">status (guest)</h2>
+        <h2 v-if="status==='login'" class="title">status ({{username}})</h2>
+      </transition>
+      <section class="nes-container with-title">
+        <h2 class="title">message</h2>
+        <span class="common-message">no message.</span>
+      </section>
+      <span>no waiting work</span>
+      <progress class="nes-progress" value="1" max="100"></progress>
+    </section>
+  </div>
+
+  <div id="info">
+    <!-- System -->
+    <section class="nes-container with-title" style="display: block;">
+      <h2 class="title">System</h2>
+      <transition>
+        <div v-if="status==='guest'">
+          <div class="nes-field">
+            <label>username<input v-model:lazy="username" type="text" class="nes-input"></label>
+            <label>password<input v-model:lazy="password" type="password" class="nes-input"></label>
+            <label>endpoint<input v-model:lazy="endpoint" type="url" class="nes-input"></label>
+          </div>
+          <section class="nes-container">
+            <button v-on:click="loginCheck" class="nes-btn is-primary">Login</button>
+            <label>cookie<input v-model="useCookie" type="checkbox" disabled=""></label>
+            <label>websocket<input v-model="useWebsocket" type="checkbox" disabled=""></label>
+          </section>
+        </div>
+        <div v-if="status==='login'" id="login-info">
+          login by {{username}}:{{password}}
+          <button v-on:click="tryLogout" class="nes-btn is-warnig">Logout</button>
+        </div>
+      </transition>
+    </section>
+
+    <!-- BlockChain -->
+    <section class="nes-container with-title" style="display: none;">
+      <h2 class="title">BlockChain</h2>
+      <section class="nes-container with-title">
+        <h3 class="title">best</h3>
+        <pre id="bestblock-info"></pre>
+      </section>
+      <section class="nes-container with-title">
+        <h3 class="title">mining</h3>
+        <pre id="mining-info"></pre>
+      </section>
+      <button type="button" onclick="updateBlockInfo();" class="nes-btn is-primary">Update block info</button>
+    </section>
+
+    <!-- Account -->
+    <section class="nes-container with-title" style="display: none;">
+      <h2 class="title">Account</h2>
+      <div>
+        Account
+      </div>
+    </section>
+  </div>
+
+</div>
+<div>
+  <footer class="footer">
+    <p><a href="http://github.com/namuyan/bc4py">PyContract 8bit wallet</a>
+      <span>-</span>
+      <a href="https://twitter.com/namuyan_mine">@namuyan_mine</a></p>
+  </footer>
+</div>
+</body>
+<script type="text/javascript">
+
+  const app = new Vue({
+      el: '#app',
+      data: {
+          username: '',
+          password: '',
+          status: 'guest', // guest, login, unlocked
+          endpoint: location.origin,
+          useCookie: false,
+          useWebsocket: false,
+          ws: null,
+      },
+      methods: {
+          tryLogout: tryLogout,
+          loginCheck: loginCheck,
+      }
+  });
+
+  // on init
+  $(function () {
+      console.log("no init work");
+      updateBlockInfo();
+  });
+</script>
+</html>
