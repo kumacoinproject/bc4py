@@ -125,9 +125,13 @@ async def send_from_user(request):
             amount = int(post['amount'])
             coins = Balance(coin_id, amount)
             message = post.get('message', None)
+            message_hex = post.get('hex', None)
             if message:
                 msg_type = C.MSG_PLAIN
                 msg_body = message.encode()
+            elif message_hex:
+                msg_type = C.MSG_BYTE
+                msg_body = unhexlify(message_hex.encode())
             else:
                 msg_type = C.MSG_NONE
                 msg_body = b''
@@ -160,9 +164,13 @@ async def send_many_user(request):
             for address, coin_id, amount in post['pairs']:
                 send_pairs.append((address, int(coin_id), int(amount)))
             message = post.get('message', None)
+            message_hex = post.get('hex', None)
             if message:
                 msg_type = C.MSG_PLAIN
                 msg_body = message.encode()
+            elif message_hex:
+                msg_type = C.MSG_BYTE
+                msg_body = unhexlify(message_hex.encode())
             else:
                 msg_type = C.MSG_NONE
                 msg_body = b''
