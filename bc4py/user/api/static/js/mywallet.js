@@ -69,8 +69,8 @@
         mining.innerHTML = dict2PreText(response.data.mining, 15);
         commonMessage('update block info ' + response.data.best.height);
     }).catch(response => {
-        console.log(response.response.data);
-        commonMessage(response.response.data, true);
+        console.log(response);
+        commonMessage(response, true);
     });
   }
 
@@ -118,7 +118,6 @@
         b.innerHTML += `<button onclick="updateAccountInfo(6, ${page+1})">Next</button>`;
         console.log(response.data);
       }).catch(response => {
-        console.log(response);
         commonMessage(response, true);
       });
   }
@@ -138,7 +137,6 @@
             Vue.set(app.accounts, accountName, response.data[accountName]);
         }
     }).catch(response => {
-        console.log(response);
         commonMessage(response, true);
     });
   }
@@ -194,7 +192,10 @@
         url: app.endpoint+'/private/sendmany',
         headers: {'Content-Type': 'application/json'},
         responseType: 'json',
-
+        auth: {
+          username: app.username,
+          password: app.password
+        },
         data: {
           from: app.sendInfo.sender,
           pairs: app.sendInfo.recipients,
@@ -253,8 +254,7 @@
         app.status = 'login';
         actionCookie('update');
     }).catch(response => {
-        console.log(response.response.data);
-        commonMessage(response.response.data, true);
+        commonMessage(response, true);
     });
   }
 
