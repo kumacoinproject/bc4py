@@ -26,11 +26,14 @@ async def list_transactions(request):
     limit = int(request.query.get('limit', 25))
     data = list()
     f_next_page = False
+    start = page * limit
     for tx_dict in user_account.get_movement_iter(start=page, f_dict=True):
         if limit == 0:
             f_next_page = True
             break
+        tx_dict['index'] = start
         data.append(tx_dict)
+        start += 1
         limit -= 1
     return web_base.json_res({'txs': data, 'next': f_next_page})
 

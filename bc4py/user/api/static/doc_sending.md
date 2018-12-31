@@ -89,6 +89,7 @@ send from
     3. coin_id   (numeric, optional, default=0)
     4. amount    (numeric, required)
     5. message   (string, optional, default=None)
+    6. hex       (hex string, optional, default=None)
 * Request example
     * `curl --basic -u user:password -H "accept: application/json"  -H "Content-Type: application/json" "127.0.0.1:3000/private/sendfrom" -d "{\"address\": \"NB2YGMP4ISW5ALNATGE7LCH3WM5OSJHURFBYM3MS\", \"amount\": 10000000000}"`
 * Response
@@ -108,6 +109,7 @@ send many
     1. from      (string, optional, default="@Unknown")  Account name.
     2. pairs     (list, required) `[(address, coin_id, amount), ..]`
     3. message   (string, optional, default=None)
+    4. hex       (hex string, optional, default=None)
 * Request example
     * `curl --basic -u user:password -H "accept: application/json"  -H "Content-Type: application/json" "127.0.0.1:3000/private/sendmany" -d "{\"pairs\": [[\"NDVZY36JGIEEIX4A5R3Q6WQYRXUWNSKL3B2BEVOW\", 0, 100000], [\"NCMOZSSREWLEE4UDH5UQAT4HLEUQ66O5DJP3UHFM\", 0, 30000]]}"`
 * Response
