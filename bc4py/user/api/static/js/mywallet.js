@@ -223,6 +223,54 @@
       Vue.set(app, 'sendInfo', tmp);
   }
 
+  function tryContract(btnObj) {
+    const p = document.getElementById('contract-params'),
+        params = app.contracts[app.contractInfo.address][1][app.contractInfo.method];
+    var args = [];
+    for (let k in params){
+        const inputObj = p.children[k].lastElementChild.lastElementChild,
+            typeName = params[k][1];
+        if (inputObj.style['color']!=='black'){
+            commonMessage(`Please check JSON format of argument ${k}.`, true);
+            return;
+        }
+        const inputValue = JSON.parse(inputObj.value);
+        if (typeof inputValue!==typeName){
+            console.log(`failed: arg=${k} type=${typeName} input=${inputValue}`);
+            commonMessage(`Please check type format of argument ${k}.`, true);
+            return;
+        }
+        args.push(inputValue);
+    }
+    if (app.status!=='login'){
+        commonMessage('you are not login!', true);
+        return;
+    }
+    const axios_option = {
+        method: 'post',
+        url: app.endpoint+'/private/contracttransfer',
+        headers: {'Content-Type': 'application/json'},
+        responseType: 'json',
+        auth: {
+            username: app.username,
+            password: app.password
+        },
+        data: {
+            c_address: app.contractInfo.address,
+            c_method: app.contractInfo.method,
+            c_args: args,
+            // send_pairs:
+            // from:
+        }
+    };
+    axios(axios_option).then(response => {
+        btnObj.nextElementSibling.innerHTML = dict2PreText(response.data, 13);
+        commonMessage('success contract request!');
+    }).catch(response => {
+        commonMessage(response, true);
+    });
+  }
+
   function dict2PreText(dict, len=18, preSpace='') {
     let data = '';
     for (let key in dict){
@@ -239,6 +287,17 @@
         }
     }
     return data;
+  }
+
+  function inputJsonCheck(Obj){
+      // Set the input color red when failed json parse.
+      // <input type="text" oninput="inputJsonCheck(this);" style="color: black;">
+      try {
+          JSON.parse(Obj.value);
+          Obj.style['color'] = 'black';
+      }catch (e) {
+          Obj.style['color'] = 'red';
+      }
   }
 
   function loginCheck () {

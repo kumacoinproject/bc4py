@@ -7,6 +7,7 @@
   <link href="https://unpkg.com/nes.css/css/nes.min.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css?family=Press+Start+2P" rel="stylesheet">
   <script type="text/javascript" src="js/jquery-2.0.3.min.js"></script>
+  <!--<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/rxjs/6.3.3/rxjs.umd.min.js"></script>-->
   <script type="text/javascript" src="js/vue.min.js"></script>
   <script type="text/javascript" src="js/vue-cookies.js"></script>
   <script type="text/javascript" src="js/axios.min.js"></script>
@@ -76,9 +77,9 @@
       <transition>
         <div v-if="status==='guest'">
           <div class="nes-field">
-            <label>username<input v-model:lazy="username" type="text" class="nes-input"></label>
-            <label>password<input v-model:lazy="password" type="password" class="nes-input"></label>
-            <label>endpoint<input v-model:lazy="endpoint" type="url" class="nes-input"></label>
+            <label>username<input v-model="username" type="text" class="nes-input"></label>
+            <label>password<input v-model="password" type="password" class="nes-input"></label>
+            <label>endpoint<input v-model="endpoint" type="url" class="nes-input"></label>
           </div>
           <section class="nes-container">
             <button onclick="loginCheck();" class="nes-btn is-primary">Login</button>
@@ -163,6 +164,40 @@
         <pre id="send-result"></pre>
       </section>
     </section>
+
+    <!-- Contract -->
+    <section class="nes-container with-title" style="display: none;">
+      <h2 class="title">Contract</h2>
+      <select v-model="contractInfo.address">
+        <option v-for="(value, key) in contracts" :key="key">{{key}}</option>
+      </select>
+      <select v-model="contractInfo.method" v-if="contractInfo.address!==null">
+        <option v-for="(value, key) in contracts[contractInfo.address][1]">{{key}}</option>
+      </select>
+      <div v-if="contractInfo.address!==null&&contractInfo.method!==null">
+        <section class="nes-container with-title">
+          <h3 class="title">about</h3>
+          {{contracts[contractInfo.address][0]}}
+        </section>
+        <section class="nes-container with-title">
+          <h3 class="title">params</h3>
+          <ul id="contract-params" class="nes-list is-disc">
+            <li v-for="(item, index) in contracts[this.contractInfo.address][1][contractInfo.method]">
+              <section class="nes-container with-title">
+                <h4 class="title">argument {{index}}</h4>
+                description: {{item[0]}}<br>type format: {{item[1]}}<br>
+                <input type="text" oninput="inputJsonCheck(this);" style="width: 100%; color: black;">
+              </section>
+            </li>
+          </ul>
+        </section>
+        <section class="nes-container">
+          <button type="button" onclick="tryContract(this);" class="nes-btn is-primary">Send</button>
+          <pre></pre>
+        </section>
+      </div>
+
+    </section>
   </div>
 
 </div>
@@ -175,6 +210,19 @@
 </div>
 </body>
 <script type="text/javascript">
+
+  const knownContracts = {
+      // Address: String
+      'CLBKXHOTXTLK3FENVTCH6YPM5MFZS4BNAXFYNWBD': [
+          // about: String
+          'high low game (example contract)',
+          // method: {name : params, ..}
+          {
+              // params: [[String, typeof], ..]
+              game: [['User select (High=true, Low=false)', 'boolean'],]
+          }
+      ],
+  };
 
   const app = new Vue({
       el: '#app',
@@ -191,6 +239,11 @@
               recipients: [],  // [[Address, CoinID, Amount],.. ]
               message: ''
           },
+          contracts: knownContracts,
+          contractInfo: {
+              address: null,
+              method: null,
+          }
       },
       computed: {
           sendMessageInfo: function () {
