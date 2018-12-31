@@ -32,20 +32,20 @@
 </style>
 
 <body>
-<header>
+<div id="app">
+  <header>
   <div>
     <h1>
       <img class="nes-avatar is-medium" src="image/python-min-x64.png">
-      <span>PyContract 8bit Wallet</span>
+      <span>PyContract 8bit Wallet {{version}}</span>
     </h1>
     PyContract 8bit wallet is an HTML-based GUI interface bind to bc4py library.
-    You can control accounts, send to, view history and edit contracts.
+    You can control accounts, send to, view history and action contracts.
     We use <a href="https://nostalgic-css.github.io/NES.css/">NES.css</a>
     for CSS template.
   </div>
 </header>
 
-<div id="app">
   <!-- select buttons -->
   <div id="select-button">
     <button type="button" onclick="topSelect(this.innerHTML);" class="nes-btn is-primary">System</button>
@@ -53,6 +53,7 @@
     <button type="button" onclick="topSelect(this.innerHTML);" class="nes-btn">Account</button>
     <button type="button" onclick="topSelect(this.innerHTML);" class="nes-btn">Sendto</button>
     <button type="button" onclick="topSelect(this.innerHTML);" class="nes-btn">Contract</button>
+    <button type="button" onclick="topSelect(this.innerHTML);" class="nes-btn">AboutMe</button>
   </div>
 
   <!-- status -->
@@ -198,6 +199,26 @@
       </div>
 
     </section>
+
+    <!-- AboutMe -->
+    <section class="nes-container with-title" style="display: none;">
+      <h2 class="title">AboutMe</h2>
+      PyContract 8bit wallet is...
+      <ul>
+        <li>version {{version}} now</li>
+        <li>Designed for only on local environment</li>
+        <li>Made for normal users to attract interests, so have only basic functions.</li>
+        <li>Created by <a href="http://twitter.com/namuyan_mine">@namuyan_mine</a></li>
+        <li>Bind to bc4py library</li>
+        <li> not guaranteed, use at your own risk</li>
+        <li>Licensed by MIT</li>
+      </ul>
+      Release note
+      <ul>
+        <li>2018/12/31 Version up 0.0.1 and marge to develop branch</li>
+        <li>2018/12/29 start development</li>
+      </ul>
+    </section>
   </div>
 
 </div>
@@ -227,6 +248,7 @@
   const app = new Vue({
       el: '#app',
       data: {
+          version: '0.0.1',
           username: '',
           password: '',
           status: 'guest', // guest or login
