@@ -79,10 +79,6 @@ class Accounting(defaultdict):
     def copy(self):
         return Accounting(users=dict(self))
 
-    def add_coins(self, user, coin_id, amount):
-        balance = self[user]
-        balance[coin_id] += amount
-
     def cleanup(self):
         for k, v in list(self.items()):
             v.cleanup()

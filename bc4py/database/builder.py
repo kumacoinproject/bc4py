@@ -948,7 +948,7 @@ class UserAccount:
         assert confirm < builder.cashe_limit - builder.batch_size, 'Too few cashe size.'
         assert builder.best_block, 'Not DataBase init.'
         # DataBase
-        balance = self.db_balance.copy()
+        account = self.db_balance.copy()
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
             # Memory
@@ -964,9 +964,10 @@ class UserAccount:
                             for coin_id, amount in coins:
                                 if limit_height < block.height:
                                     if amount < 0:
-                                        balance.add_coins(user, coin_id, amount)
+                                        account[user][coin_id] += amount
                                 else:
-                                    balance.add_coins(user, coin_id, amount)
+                                    # allow incoming balance
+                                    account[user][coin_id] += amount
             # Unconfirmed
             for tx in list(tx_builder.unconfirmed.values()):
                 move_log = read_txhash2log(tx.hash, cur)
@@ -977,8 +978,8 @@ class UserAccount:
                     for user, coins in move_log.movement.items():
                         for coin_id, amount in coins:
                             if amount < 0:
-                                balance.add_coins(user, coin_id, amount)
-        return balance
+                                account[user][coin_id] += amount
+        return account
 
     def move_balance(self, _from, _to, coins, outer_cur=None):
         assert isinstance(coins, Balance), 'coins is Balance.'
@@ -1080,12 +1081,17 @@ class UserAccount:
                 address, coin_id, amount = input_tx.outputs[txindex]
                 user = read_address2user(address, cur)
                 if user is not None:
-                    movement.add_coins(user, coin_id, -1 * amount)
+                    balance = Balance(coin_id, amount)
+                    movement[user] -= balance
+                    movement[C.ANT_OUTSIDE] += balance
             for address, coin_id, amount in tx.outputs:
                 user = read_address2user(address, cur)
                 if user is not None:
-                    movement.add_coins(user, coin_id, amount)
+                    balance = Balance(coin_id, amount)
+                    movement[user] += balance
+                    movement[C.ANT_OUTSIDE] -= balance
             # check
+            movement.cleanup()
             if len(movement) == 0:
                 return  # 無関係である
             move_log = MoveLog(tx.hash, tx.type, movement, tx.time, True, tx)

@@ -20,7 +20,7 @@ def read_txhash2log(txhash, cur):
     movement = Accounting()
     _type = _time = None
     for _type, user, coin_id, amount, _time in d:
-        movement.add_coins(user, coin_id, amount)
+        movement[user][coin_id] += amount
     return MoveLog(txhash, _type, movement, _time, False)
 
 
