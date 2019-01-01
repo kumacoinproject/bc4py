@@ -34,7 +34,7 @@ create raw tx
         "message_type": "NONE",
         "message": "",
         "signature": [],
-        "f_on_memory": null
+        "recode_flag": "memory"
     },
     "hex": "020000000300000022fd0300522704006400000000000000270000000000000000000000000000"
 }

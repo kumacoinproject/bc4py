@@ -43,7 +43,7 @@ struct_validator_value = struct.Struct('>40sb32sb')
 
 # constant
 ITER_ORDER = 'big'
-DB_VERSION = 1  # increase if you change database structure
+DB_VERSION = 2  # increase if you change database structure
 ZERO_FILLED_HASH = b'\x00' * 32
 DUMMY_VALIDATOR_ADDRESS = b'\x00' * 40
 database_tuple = ("_block", "_tx", "_used_index", "_block_index",
@@ -772,13 +772,13 @@ class ChainBuilder:
         if blockhash in self.chain:
             # Memoryより
             block = self.chain[blockhash]
-            block.f_on_memory = True
+            block.recode_flag = 'memory'
             block.f_orphan = bool(block not in self.best_chain)
         else:
             # DataBaseより
             block = self.db.read_block(blockhash)
             if block:
-                block.f_on_memory = False
+                block.recode_flag = 'database'
                 block.f_orphan = False
             else:
                 return None
@@ -818,6 +818,7 @@ class TransactionBuilder:
             logging.debug('Already unconfirmed tx. {}'.format(tx))
             return
         tx.create_time = time()
+        tx.recode_flag = 'unconfirmed'
         self.unconfirmed[tx.hash] = tx
         if tx.hash in self.chained_tx:
             logging.debug('Already chained tx. {}'.format(tx))
@@ -844,6 +845,7 @@ class TransactionBuilder:
             logging.error("Try to marge already confirmed TX's signature {}".format(tx))
         else:
             # new pre-unconfirmed tx
+            tx.recode_flag = 'pre-unconfirmed'
             self.pre_unconfirmed[tx.hash] = tx
             NewInfo.put(obj=tx)
             logging.info("Insert pre-unconfirmed TX")
@@ -854,23 +856,23 @@ class TransactionBuilder:
         elif txhash in self.pre_unconfirmed:
             # pre-unconfirmedより
             tx = self.pre_unconfirmed[txhash]
-            tx.f_on_memory = True
+            tx.recode_flag = 'pre-unconfirmed'
             if tx.height is not None: logging.warning("Not unconfirmed. {}".format(tx))
         elif txhash in self.unconfirmed:
             # unconfirmedより
             tx = self.unconfirmed[txhash]
-            tx.f_on_memory = True
+            tx.recode_flag = 'unconfirmed'
             if tx.height is not None: logging.warning("Not unconfirmed. {}".format(tx))
         elif txhash in self.chained_tx:
             # Memoryより
             tx = self.chained_tx[txhash]
-            tx.f_on_memory = True
+            tx.recode_flag = 'memory'
             if tx.height is None: logging.warning("Is unconfirmed. {}".format(tx))
         else:
             # Databaseより
             tx = builder.db.read_tx(txhash)
             if tx:
-                tx.f_on_memory = False
+                tx.recode_flag = 'database'
                 self.cashe[txhash] = tx
             else:
                 return default
@@ -1100,7 +1102,7 @@ class UserAccount:
             movement.cleanup()
             if len(movement) == 0:
                 return  # 無関係である
-            move_log = MoveLog(tx.hash, tx.type, movement, tx.time, True, tx)
+            move_log = MoveLog(tx.hash, tx.type, movement, tx.time, tx)
             self.memory_movement[tx.hash] = move_log
             logging.debug("Affect account new tx. {}".format(tx))
 

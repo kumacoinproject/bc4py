@@ -21,7 +21,7 @@ def read_txhash2log(txhash, cur):
     _type = _time = None
     for _type, user, coin_id, amount, _time in d:
         movement[user][coin_id] += amount
-    return MoveLog(txhash, _type, movement, _time, False)
+    return MoveLog(txhash, _type, movement, _time)
 
 
 def read_log_iter(cur, start=0):
@@ -206,15 +206,14 @@ def create_new_user_keypair(name, cur):
 
 
 class MoveLog:
-    __slots__ = ("txhash", "type", "movement", "time", "on_memory", "pointer")
+    __slots__ = ("txhash", "type", "movement", "time", "tx_ref")
 
-    def __init__(self, txhash, _type, movement, _time, on_memory, tx=None):
+    def __init__(self, txhash, _type, movement, _time, tx=None):
         self.txhash = txhash
         self.type = _type
         self.movement = movement
         self.time = _time
-        self.on_memory = on_memory
-        self.pointer = ref(tx) if tx else object()
+        self.tx_ref = ref(tx) if tx else None
 
     def __repr__(self):
         return "<MoveLog {} {}>".format(C.txtype2name.get(self.type, None), hexlify(self.txhash).decode())
@@ -229,7 +228,7 @@ class MoveLog:
         return {
             'txhash': hexlify(self.txhash).decode(),
             'height':  self.height,
-            'on_memory': self.on_memory,
+            'recode_flag': self.recode_flag,
             'type': C.txtype2name.get(self.type, None),
             'movement': movement,
             'time': self.time + V.BLOCK_GENESIS_TIME}
@@ -239,8 +238,19 @@ class MoveLog:
 
     @property
     def height(self):
+        if not self.tx_ref:
+            return None
         try:
-            return self.pointer().height
+            return self.tx_ref().height
+        except Exception:
+            return None
+
+    @property
+    def recode_flag(self):
+        if not self.tx_ref:
+            return None
+        try:
+            return self.tx_ref().recode_flag
         except Exception:
             return None
 

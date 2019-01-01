@@ -18,7 +18,7 @@ class Block:
     __slots__ = (
         "b", "hash", "next_hash", "target_hash", "work_hash",
         "height", "_difficulty", "_work_difficulty", "create_time", "delete_time",
-        "flag", "f_orphan", "f_on_memory", "_bias", "inner_score",
+        "flag", "f_orphan", "recode_flag", "_bias", "inner_score",
         "version", "previous_hash", "merkleroot", "time", "bits", "nonce", "txs",
         "__weakref__")
 
@@ -48,7 +48,7 @@ class Block:
         self.delete_time = None  # Objectの削除日時
         self.flag = None  # mined consensus number
         self.f_orphan = None
-        self.f_on_memory = None
+        self.recode_flag = None
         self._bias = None  # bias 4bytes float
         self.inner_score = 1.0
         # block header
@@ -107,7 +107,7 @@ class Block:
         r['previous_hash'] = hexlify(self.previous_hash).decode() if self.previous_hash else None
         r['next_hash'] = hexlify(self.next_hash).decode() if self.next_hash else None
         r['f_orphan'] = self.f_orphan
-        r['f_on_memory'] = self.f_on_memory
+        r['recode_flag'] = self.recode_flag
         r['height'] = self.height
         r['difficulty'] = self.difficulty
         r['fixed_difficulty'] = round(self.difficulty / self.bias, 8)

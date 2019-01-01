@@ -41,7 +41,7 @@ list transactions
         {
             "txhash": "00000000000000000000000000000000000000000000000045ec03009dd522a7",
             "height": null,
-            "on_memory": false,
+            "recode_flag": "memory",
             "type": "TX_INNER",
             "movement": {
                 "@Unknown": {
@@ -56,7 +56,7 @@ list transactions
         {
             "txhash": "1f1d271207b51bb7cd5eb6a08fdf0310249b07ef20c3ef9c33875d3a7310132f",
             "height": 5227,
-            "on_memory": true,
+            "recode_flag": "memory",
             "type": "POW_REWARD",
             "movement": {
                 "@Unknown": {
@@ -68,7 +68,7 @@ list transactions
         {
             "txhash": "bb6fc3e23ee2cc6b816d5667f9074ab6115d68564b8491310743e06c77bdb122",
             "height": 5228,
-            "on_memory": true,
+            "recode_flag": "memory",
             "type": "POW_REWARD",
             "movement": {
                 "@Unknown": {
@@ -80,7 +80,7 @@ list transactions
         {
             "txhash": "e25a964be8ae41bfaec5ee3e1348e4520997a04de1891bec86a4dd1a89311857",
             "height": 5229,
-            "on_memory": true,
+            "recode_flag": "memory",
             "type": "POW_REWARD",
             "movement": {
                 "@Unknown": {
@@ -92,7 +92,7 @@ list transactions
         {
             "txhash": "04a8752e11a0d250f9ae6d1de48cf361d522fc91d64941223ac8573741cbdab1",
             "height": 5233,
-            "on_memory": true,
+            "recode_flag": "memory",
             "type": "POS_REWARD",
             "movement": {
                 "@Unknown": {
@@ -104,7 +104,7 @@ list transactions
         {
             "txhash": "61718d7a48b047380bdd15fb5714cb87143624b7e631a436c221710d015127a3",
             "height": 5236,
-            "on_memory": true,
+            "recode_flag": "memory",
             "type": "POW_REWARD",
             "movement": {
                 "@Unknown": {
@@ -116,7 +116,7 @@ list transactions
         {
             "txhash": "54bcdd3e5b3888126d0065de0b3e6db286a9c8a5f1f86c6ec2bbb21a605668d8",
             "height": 5244,
-            "on_memory": true,
+            "recode_flag": "memory",
             "type": "POW_REWARD",
             "movement": {
                 "@Unknown": {
@@ -128,7 +128,7 @@ list transactions
         {
             "txhash": "997d37dc67ed505f3dec52dc11577fd905705771991e08d5c3a2d868e0ac4433",
             "height": 5247,
-            "on_memory": true,
+            "recode_flag": "memory",
             "type": "POW_REWARD",
             "movement": {
                 "@Unknown": {
@@ -140,7 +140,7 @@ list transactions
         {
             "txhash": "a365d5129cfda174aeee086377b2c913c67944b2793bea5edd36a7dec329ab92",
             "height": 5249,
-            "on_memory": true,
+            "recode_flag": "memory",
             "type": "POW_REWARD",
             "movement": {
                 "@Unknown": {
@@ -152,7 +152,7 @@ list transactions
         {
             "txhash": "b0a284411a30db18f71960782a0ebf94512745948cbd4c6093bf6c13f103be2d",
             "height": 5264,
-            "on_memory": true,
+            "recode_flag": "memory",
             "type": "POW_REWARD",
             "movement": {
                 "@Unknown": {

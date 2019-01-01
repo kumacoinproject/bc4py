@@ -20,7 +20,7 @@ class TX:
         "b", "hash", "height", "pos_amount",
         "version", "type", "time", "deadline", "inputs", "outputs",
         "gas_price", "gas_amount", "message_type", "message",
-        "signature", "f_on_memory", "create_time", "__weakref__")
+        "signature", "recode_flag", "create_time", "__weakref__")
 
     def __eq__(self, other):
         return self.hash == other.hash
@@ -53,7 +53,7 @@ class TX:
         # proof
         self.signature = None  # [(pubkey, signature),.. ]
         # 処理には使わないが有用なデータ
-        self.f_on_memory = None
+        self.recode_flag = None
         self.create_time = time()
 
         if binary:
@@ -132,7 +132,7 @@ class TX:
         r['message_type'] = C.msg_type2name.get(self.message_type) or self.message_type
         r['message'] = self.message.decode() if self.message_type == C.MSG_PLAIN else hexlify(self.message).decode()
         r['signature'] = [(pubkey, hexlify(signature).decode()) for pubkey, signature in self.signature]
-        r['f_on_memory'] = self.f_on_memory
+        r['recode_flag'] = self.recode_flag
         r['create_time'] = self.create_time
         return r
 
