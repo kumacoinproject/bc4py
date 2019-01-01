@@ -559,15 +559,21 @@ class ChainBuilder:
         odd_path = os.path.join(self.db.dirs, 'memory.odd.dat')
         even_path = os.path.join(self.db.dirs, 'memory.even.dat')
         if not os.path.exists(odd_path):
-            recode_path = odd_path
+            priority_tuple = odd_path, even_path
         elif not os.path.exists(even_path):
-            recode_path = even_path
+            priority_tuple = even_path, odd_path
         elif os.stat(odd_path).st_mtime > os.stat(even_path).st_mtime:
-            recode_path = even_path
+            priority_tuple = even_path, odd_path
         else:
-            recode_path = odd_path
-        with open(recode_path, mode='bw') as fp:
-            pickle.dump(self.best_chain, fp)
+            priority_tuple = odd_path, even_path
+        for path in priority_tuple:
+            try:
+                with open(path, mode='bw') as fp:
+                    pickle.dump(self.best_chain, fp)
+                return
+            except Exception as e:
+                logging.warning("Failed recode by '{}'".format(e))
+        raise Exception("Cannot recode two memory files?")
 
     def load_memory_file(self, root_block):
         memorized_blocks = list()
