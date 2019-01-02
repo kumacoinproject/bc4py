@@ -1,4 +1,4 @@
-from bc4py.config import V, P, NewInfo, BlockChainError
+from bc4py.config import V, P, stream, BlockChainError
 from bc4py.chain.checking.checkblock import check_block, check_block_time
 from bc4py.chain.checking.checktx import check_tx, check_tx_time
 from bc4py.chain.checking.signature import batch_sign_cashe, delete_signed_cashe
@@ -36,7 +36,7 @@ def new_insert_block(block, time_check=False):
             for del_block in batched_blocks:
                 delete_txhash_set.update({tx.hash for tx in del_block.txs})
             delete_signed_cashe(delete_txhash_set)
-            NewInfo.put(obj=block)
+            stream.on_next(block)
             logging.info("new_insert_block() check success {}Sec {}.".format(round(time()-t, 3), block))
             return True
         except BlockChainError as e:

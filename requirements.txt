@@ -12,4 +12,5 @@ requests
 more_itertools
 pooled_multiprocessing>=0.0.9
 expiringdict
-phe
+phe  # paillier
+rx  # ReactiveX

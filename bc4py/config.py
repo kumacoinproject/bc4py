@@ -3,8 +3,13 @@
 
 
 import configparser
-from queue import Queue, Full, Empty
-from threading import Lock
+from rx.subjects import Subject
+import atexit
+
+# internal stream by ReactiveX
+# doc: https://github.com/ReactiveX/RxPY/blob/develop/notebooks/Getting%20Started.ipynb
+stream = Subject()
+atexit.register(stream.dispose)
 
 
 class C:  # Constant
@@ -126,45 +131,6 @@ class Debug:
     F_STICKY_TX_REJECTION = True
 
 
-class NewInfo:
-    ques = list()  # [(que, name), ..]
-    empty = Empty
-    lock = Lock()
-
-    def __init__(self):
-        raise Exception('Not init the class!')
-
-    @staticmethod
-    def put(obj):
-        for q, name in NewInfo.ques.copy():
-            try:
-                q.put_nowait(obj)
-            except Full:
-                with NewInfo.lock:
-                    NewInfo.ques.remove((q, name))
-
-    @staticmethod
-    def get(channel, timeout=None):
-        # caution: Don't forget remove! memory leak risk.
-        while True:
-            for q, ch in NewInfo.ques.copy():
-                if channel == ch:
-                    return q.get(timeout=timeout)
-            else:
-                que = Queue(maxsize=3000)
-                with NewInfo.lock:
-                    NewInfo.ques.append((que, channel))
-
-    @staticmethod
-    def remove(channel):
-        for q, ch in NewInfo.ques.copy():
-            if ch == channel:
-                with NewInfo.lock:
-                    NewInfo.ques.remove((q, ch))
-                return True
-        return False
-
-
 class MyConfigParser(configparser.ConfigParser):
     """
     config = MyConfigParser()
@@ -221,3 +187,11 @@ class MyConfigParser(configparser.ConfigParser):
 
 class BlockChainError(Exception):
     pass
+
+
+__all__ = [
+    'stream',
+    'C', 'V', 'P',
+    'Debug', 'MyConfigParser',
+    'BlockChainError'
+]

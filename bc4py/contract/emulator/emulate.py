@@ -1,9 +1,10 @@
-from bc4py.config import C, P, NewInfo, BlockChainError
+from bc4py.config import C, P, stream, BlockChainError
 from bc4py.contract.emulator.tools import *
 from bc4py.contract.emulator.watching import *
 from bc4py.database.builder import tx_builder
 from bc4py.database.contract import *
 from threading import Thread, Lock
+from queue import Queue, Empty
 import logging
 from time import sleep
 from sys import version_info
@@ -18,6 +19,7 @@ class Emulate:
         self.c_address = c_address
         self.f_claim_gas = f_claim_gas
         self.f_close = False
+        self.que = Queue()
         for e in emulators:
             if c_address == e.c_address:
                 raise Exception('Already registered c_address {}'.format(c_address))
@@ -32,6 +34,13 @@ class Emulate:
         emulators.remove(self)
 
 
+def on_next(data):
+    if not isinstance(data, tuple) or len(data) != 3:
+        return
+    for em in emulators:
+        em.que.put(data)
+
+
 def loop_emulator(index: int, em: Emulate, genesis_block):
     # wait for booting_mode finish
     if P.F_NOW_BOOTING:
@@ -41,13 +50,9 @@ def loop_emulator(index: int, em: Emulate, genesis_block):
     logging.info("Start emulator {}".format(em))
     waiting_start_tx = None
     waiting_conclude_hash = None
-    channel = 'emulator{}'.format(index)
     while not (P.F_STOP or em.f_close):
         try:
-            data = NewInfo.get(channel=channel, timeout=1)
-            if not isinstance(data, tuple) or len(data) != 3:
-                continue
-            cmd, is_public, data_list = data
+            cmd, is_public, data_list = em.que.get(timeout=1)
             if cmd == C_RequestConclude:
                 # c_transfer tx is confirmed, create conclude tx
                 _time, start_tx, related_list, c_address, c_method, redeem_address, c_args = data_list
@@ -104,13 +109,12 @@ def loop_emulator(index: int, em: Emulate, genesis_block):
 
             else:
                 pass
-        except NewInfo.empty:
+        except Empty:
             pass
         except BlockChainError:
             logging.warning("Emulator", exc_info=True)
         except Exception:
             logging.error("Emulator", exc_info=True)
-    NewInfo.remove(channel)
     logging.debug("Close emulator listen {}".format(em))
 
 
@@ -123,6 +127,7 @@ def start_emulators(genesis_block):
     for index, em in enumerate(emulators):
         Thread(target=loop_emulator, name='Emulator{}'.format(index),
                args=(index, em, genesis_block), daemon=True).start()
+    stream.subscribe(on_next=on_next)
     lock.acquire()
 
 

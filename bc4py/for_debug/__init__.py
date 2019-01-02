@@ -1,4 +1,4 @@
-from bc4py.config import V
+from bc4py.config import V, stream
 from bc4py.database.create import closing, create_db, sql_info
 import socket
 import logging
@@ -46,6 +46,10 @@ def set_logger(level=logging.INFO, prefix='main', f_file=False, f_remove=False):
     logger.addHandler(sh)
     logging.info("\n\n\n\n\n\n")
     logging.info("Start program")
+
+
+def stream_printer():
+    stream.subscribe(on_next=print)
 
 
 def _debug(sql, path, explain=True):

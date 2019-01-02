@@ -1,4 +1,4 @@
-from bc4py.config import P, NewInfo
+from bc4py.config import P, stream
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.contract.emulator.watching import *
@@ -96,33 +96,6 @@ class WsConnection:
             await self.ws.send_bytes(b)
 
 
-def start_ws_listen_loop():
-    def _loop():
-        logging.info("start websocket loop.")
-        channel = 'websocket'
-        while not P.F_STOP:
-            try:
-                data = NewInfo.get(channel=channel, timeout=1)
-                if isinstance(data, Block):
-                    send_websocket_data(cmd=CMD_NEW_BLOCK, data=data.getinfo(), is_public_data=True)
-                elif isinstance(data, TX):
-                    send_websocket_data(cmd=CMD_NEW_TX, data=data.getinfo(), is_public_data=True)
-                elif isinstance(data, tuple):
-                    cmd, is_public, data_list = data
-                    send_data = new_info2json_data(cmd=cmd, data_list=data_list)
-                    if send_data:
-                        send_websocket_data(cmd=cmd, data=send_data, is_public_data=is_public)
-                else:
-                    pass
-            except NewInfo.empty:
-                pass
-            except Exception:
-                logging.error("websocket loop error", exc_info=True)
-        NewInfo.remove(channel)
-        logging.info("close websocket loop.")
-    Thread(target=_loop, name='WS', daemon=True).start()
-
-
 def get_send_format(cmd, data, status=True):
     send_data = OrderedDict()
     send_data['cmd'] = cmd
@@ -194,6 +167,27 @@ def decode(b):
     else:
         return b
         # return 'Cannot decode type {}'.format(type(b))
+
+
+def on_next(data):
+    if isinstance(data, Block):
+        send_websocket_data(cmd=CMD_NEW_BLOCK, data=data.getinfo(), is_public_data=True)
+    elif isinstance(data, TX):
+        send_websocket_data(cmd=CMD_NEW_TX, data=data.getinfo(), is_public_data=True)
+    elif isinstance(data, tuple):
+        cmd, is_public, data_list = data
+        send_data = new_info2json_data(cmd=cmd, data_list=data_list)
+        if send_data:
+            send_websocket_data(cmd=cmd, data=send_data, is_public_data=is_public)
+    else:
+        pass
+
+
+def start_ws_listen_loop():
+    print("do nothing start_ws_listen_loop()")
+
+
+stream.subscribe(on_next=on_next)
 
 
 __all__ = [
