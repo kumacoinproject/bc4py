@@ -24,6 +24,7 @@ Index page
 |----   |----   |----   |----   |
 |[/private/listbalance](./private/listbalance)               |GET    |private  | List all user balance.                 |
 |[/private/listtransactions](./private/listtransactions)     |GET    |private  | List user related transaction info.    |
+|[/public/listunspents](./public/listunspents)                |GET    |public  | List unused outputs by addresses.      |
 |[/private/listunspents](./private/listunspents)              |GET    |private  | List system's unused outputs.         |
 |[/private/listaccountaddress](./private/listaccountaddress) |GET    |private  | List user related addresses.          |
 |[/private/lock](./private/lock)                               |POST   |private  | Encrypt keypair storage.              |

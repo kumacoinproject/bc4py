@@ -49,7 +49,7 @@ DUMMY_VALIDATOR_ADDRESS = b'\x00' * 40
 database_tuple = ("_block", "_tx", "_used_index", "_block_index",
                   "_address_index", "_coins", "_contract", "_validator")
 # basic config
-config = {
+db_config = {
     'full_address_index': True,  # all address index?
 }
 
@@ -74,7 +74,7 @@ class DataBase:
         self.dirs = dirs
         self.sync = True
         self.timeout = None
-        config.update(kwargs)  # extra settings
+        db_config.update(kwargs)  # extra settings
         self.event = threading.Event()
         self.event.set()
         # already used => LevelDBError
@@ -684,13 +684,13 @@ class ChainBuilder:
                             self.db.write_usedindex(txhash, usedindex)  # UsedIndex update
                             input_tx = tx_builder.get_tx(txhash)
                             address, coin_id, amount = input_tx.outputs[txindex]
-                            if config['full_address_index'] or is_address(ck=address, prefix=V.BLOCK_CONTRACT_PREFIX)\
+                            if db_config['full_address_index'] or is_address(ck=address, prefix=V.BLOCK_CONTRACT_PREFIX)\
                                     or read_address2user(address=address, cur=cur):
                                 # 必要なAddressのみ
                                 self.db.write_address_idx(address, txhash, txindex, coin_id, amount, True)
                         # outputs
                         for index, (address, coin_id, amount) in enumerate(tx.outputs):
-                            if config['full_address_index'] or is_address(ck=address, prefix=V.BLOCK_CONTRACT_PREFIX) \
+                            if db_config['full_address_index'] or is_address(ck=address, prefix=V.BLOCK_CONTRACT_PREFIX) \
                                     or read_address2user(address=address, cur=cur):
                                 # 必要なAddressのみ
                                 self.db.write_address_idx(address, tx.hash, index, coin_id, amount, False)
@@ -1120,5 +1120,8 @@ user_account = UserAccount()
 
 
 __all__ = [
-    "builder", "tx_builder", "user_account"
+    "db_config",
+    "builder",
+    "tx_builder",
+    "user_account"
 ]

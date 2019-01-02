@@ -83,7 +83,8 @@ def create_rest_server(f_local, port=3000, user=None, pwd=None, f_blocking=True,
     # Account
     app.router.add_get('/private/listbalance', list_balance)
     app.router.add_get('/private/listtransactions', list_transactions)
-    app.router.add_get('/private/listunspents', list_unspents)
+    app.router.add_get('/public/listunspents', list_unspents)
+    app.router.add_get('/private/listunspents', list_private_unspents)
     app.router.add_get('/private/listaccountaddress', list_account_address)
     # app.router.add_post('/private/lock', lock_database)  TODO: Work? Need?
     # app.router.add_post('/private/unlock', unlock_database) TODO: Work? Need?

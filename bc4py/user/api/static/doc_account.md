@@ -171,7 +171,53 @@ list transactions
     * If `height` is null, TX is on memory.
     * null height TX is older than recode limit or unconfirmed.
 
-list unspents
+list unspents (public)
+----
+* Arguments
+    1. address   (string , required) request more than one by comma.
+    2. page      (numeric, optional, default=0)
+    3. limit     (numeric, optional, default=25) page size, maxlimit 100
+* Request example
+    * `curl -H "accept: application/json" "127.0.0.1:3000/public/listunspents?address=NCSL6UQ4PU7PDWIHCTKGNA5WYO542T2H66DEHTRI,NA3UBTHRXMW7ZSZL2UA5V2TQC2UJLYGEVXVWZVQJ"`
+* Response
+```json
+{
+    "data": [
+        {
+            "address": "NCSL6UQ4PU7PDWIHCTKGNA5WYO542T2H66DEHTRI",
+            "height": 2482,
+            "confirmed": 2842,
+            "txhash": "562b9f023ba2389b97ae76c9f2aed45bae474e67dc3c9f7e2af2f855e805e6d9",
+            "txindex": 0,
+            "coin_id": 0,
+            "amount": 55359352906
+        },
+        {
+            "address": "NA3UBTHRXMW7ZSZL2UA5V2TQC2UJLYGEVXVWZVQJ",
+            "height": 5268,
+            "confirmed": 56,
+            "txhash": "274cf71bef7b499e10d3c77d5d7ee8d49a9472e7ef0d825ddaf1d76e0968fa6f",
+            "txindex": 0,
+            "coin_id": 0,
+            "amount": 608524360733
+        },
+        {
+            "address": "NCSL6UQ4PU7PDWIHCTKGNA5WYO542T2H66DEHTRI",
+            "height": null,
+            "confirmed": null,
+            "txhash": "bae474e67dc3c9f7e2af2f855e805e6d9562b9f023ba2389b97ae76c9f2aed45",
+            "txindex": 0,
+            "coin_id": 0,
+            "amount": 1000000000
+        }
+    ],
+    "next": false
+}
+```
+* About
+    * extract data from Database->Memory->Unconfirmed
+
+list unspents (private)
 ----
 * Request example
     * `curl --basic -u user:password -H "accept: application/json" "127.0.0.1:3000/private/listunspents"`
