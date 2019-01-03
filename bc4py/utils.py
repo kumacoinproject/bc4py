@@ -44,7 +44,7 @@ def set_blockchain_params(genesis_block):
     consensus = params.get('consensus')
     V.BLOCK_CONSENSUSES = consensus
     V.BLOCK_BASE_CONSENSUS = min(consensus.keys())
-    GompertzCurve.setup_params()
+    GompertzCurve.k = V.BLOCK_ALL_SUPPLY
 
 
 def delete_pid_file():

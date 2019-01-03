@@ -28,13 +28,6 @@ class GompertzCurve:
         return round(-g.k * r)
 
     @staticmethod
-    def round(i):
-        integer = int(i)
-        if i - integer >= 0.5:
-            return integer + 1
-        return integer
-
-    @staticmethod
     def base_total_supply():
         g = GompertzCurve
         e = math.exp(-g.c * g.x0)
@@ -46,11 +39,6 @@ class GompertzCurve:
         x = g.x0 + height / g.ybnum / 10.0
         e = math.exp(-g.c * x)
         return round(g.k * (g.b ** e)) - g.base_total_supply()
-
-    @staticmethod
-    def setup_params():
-        g = GompertzCurve
-        g.k = V.BLOCK_ALL_SUPPLY
 
 
 def bin2signature(b):
