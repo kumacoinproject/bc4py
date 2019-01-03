@@ -265,6 +265,8 @@ def get_conclude_hash_from_start(c_address, start_hash, best_block=None, best_ch
 def start_tx2index(start_hash=None, start_tx=None):
     if start_hash:
         start_tx = tx_builder.get_tx(txhash=start_hash)
+    if start_tx.height is None:
+        raise BlockChainError('Not confirmed startTX {}'.format(start_tx))
     block = builder.get_block(height=start_tx.height)
     if block is None:
         raise BlockChainError('Not found block of start_tx included? {}'.format(start_tx))

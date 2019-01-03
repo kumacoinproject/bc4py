@@ -166,33 +166,39 @@ def check_upgradable_pre_unconfirmed():
     # upgrade pre-unconfirmed => unconfirmed (check enough signature have)
     # caution: provisional check, need to check order and signature after!
     for tx in sorted(tx_builder.pre_unconfirmed.values(), key=lambda x: x.create_time):
-        if tx.hash in tx_builder.unconfirmed:
-            del tx_builder.pre_unconfirmed[tx.hash]
-            logging.debug("Remove from pre-unconfirmed, already unconfirmed. {}".format(tx))
-            continue
-        if tx.type == C.TX_CONCLUDE_CONTRACT:
-            c_address, start_hash, c_storage = bjson.loads(tx.message)
-            c = get_contract_object(c_address=c_address)
-            index = start_tx2index(start_hash=start_hash)
-            if c.db_index and index < c.db_index:
-                # delete
+        try:
+            if tx.hash in tx_builder.unconfirmed:
                 del tx_builder.pre_unconfirmed[tx.hash]
-                logging.debug("Delete old ConcludeTX {}".format(tx))
+                logging.debug("Remove from pre-unconfirmed, already unconfirmed. {}".format(tx))
                 continue
-        elif tx.type == C.TX_VALIDATOR_EDIT:
-            c_address, new_address, flag, sig_diff = bjson.loads(tx.message)
-        else:
-            logging.error("Why include pre-unconfirmed? {}".format(tx))
-            continue
-        # check upgradable
-        v = get_validator_object(c_address=c_address)
-        if v.require <= len(tx.signature):
-            del tx_builder.pre_unconfirmed[tx.hash]
-            if tx.hash not in tx_builder.unconfirmed:
-                tx_builder.put_unconfirmed(tx=tx)
-                logging.info("Upgrade pre-unconfirmed {}".format(tx))
+            if tx.type == C.TX_CONCLUDE_CONTRACT:
+                c_address, start_hash, c_storage = bjson.loads(tx.message)
+                c = get_contract_object(c_address=c_address)
+                index = start_tx2index(start_hash=start_hash)
+                if c.db_index and index < c.db_index:
+                    # delete
+                    del tx_builder.pre_unconfirmed[tx.hash]
+                    logging.debug("Delete old ConcludeTX {}".format(tx))
+                    continue
+            elif tx.type == C.TX_VALIDATOR_EDIT:
+                c_address, new_address, flag, sig_diff = bjson.loads(tx.message)
             else:
-                logging.warning("Upgrade skip, already unconfirmed {}".format(tx))
+                logging.error("Why include pre-unconfirmed? {}".format(tx))
+                continue
+            # check upgradable
+            v = get_validator_object(c_address=c_address)
+            if v.require <= len(tx.signature):
+                del tx_builder.pre_unconfirmed[tx.hash]
+                if tx.hash not in tx_builder.unconfirmed:
+                    tx_builder.put_unconfirmed(tx=tx)
+                    logging.info("Upgrade pre-unconfirmed {}".format(tx))
+                else:
+                    logging.warning("Upgrade skip, already unconfirmed {}".format(tx))
+            
+        except BlockChainError as e:
+            logging.debug("Skip '{}'".format(e))
+        except Exception:
+            logging.error("Skip error", exc_info=True)
 
 
 def signature_acceptable(v: Validator, tx):
