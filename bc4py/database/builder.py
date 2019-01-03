@@ -768,14 +768,19 @@ class ChainBuilder:
             new_best_chain=set(new_best_chain) - commons,
             old_best_chain=set(old_best_chain) - commons)
 
-    def get_block(self, blockhash):
+    def get_block(self, blockhash, height=None):
+        if height is not None:
+            blockhash = self.get_block_hash(height=height)
+            if blockhash is None:
+                return None
+        # Get by blockhash
         if blockhash in self.chain:
-            # Memoryより
+            # Memory
             block = self.chain[blockhash]
             block.recode_flag = 'memory'
             block.f_orphan = bool(block not in self.best_chain)
         else:
-            # DataBaseより
+            # DataBase
             block = self.db.read_block(blockhash)
             if block:
                 block.recode_flag = 'database'

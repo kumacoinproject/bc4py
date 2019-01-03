@@ -196,7 +196,7 @@ def fast_sync_chain():
             elif next_index_block not in block_stack:
                 # back 20 height, no blocks to recombine in block_stack
                 index_height = max(3, editable_height, index_height - 20)
-                index_block = builder.get_block(blockhash=builder.get_block_hash(index_height))
+                index_block = builder.get_block(height=index_height)
                 before_block = builder.get_block(blockhash=index_block.previous_hash)
                 with write_protect_lock:
                     block_stack.clear()

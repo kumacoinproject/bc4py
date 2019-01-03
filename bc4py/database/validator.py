@@ -138,7 +138,7 @@ def validator_tx2index(txhash=None, tx=None):
         raise BlockChainError('Not found ValidatorTX {}'.format(tx))
     if tx.height is None:
         raise BlockChainError('Not confirmed ValidatorTX {}'.format(tx))
-    block = builder.get_block(blockhash=builder.get_block_hash(height=tx.height))
+    block = builder.get_block(height=tx.height)
     if block is None:
         raise BlockChainError('Not found block of start_tx included? {}'.format(tx))
     if tx not in block.txs:
