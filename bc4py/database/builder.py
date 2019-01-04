@@ -857,7 +857,11 @@ class TransactionBuilder:
 
     def get_tx(self, txhash, default=None):
         if txhash in self.cashe:
-            return self.cashe[txhash]
+            try:
+                return self.cashe[txhash]
+            except KeyError:
+                # flashed WeakValueDictionary, need to retry
+                return self.get_tx(txhash=txhash, default=default)
         elif txhash in self.pre_unconfirmed:
             # pre-unconfirmedより
             tx = self.pre_unconfirmed[txhash]
@@ -870,7 +874,11 @@ class TransactionBuilder:
             if tx.height is not None: logging.warning("Not unconfirmed. {}".format(tx))
         elif txhash in self.chained_tx:
             # Memoryより
-            tx = self.chained_tx[txhash]
+            try:
+                tx = self.chained_tx[txhash]
+            except KeyError:
+                # flashed WeakValueDictionary, need to retry
+                return self.get_tx(txhash=txhash, default=default)
             tx.recode_flag = 'memory'
             if tx.height is None: logging.warning("Is unconfirmed. {}".format(tx))
         else:
