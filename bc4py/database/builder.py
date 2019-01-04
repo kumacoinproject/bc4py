@@ -768,7 +768,7 @@ class ChainBuilder:
             new_best_chain=set(new_best_chain) - commons,
             old_best_chain=set(old_best_chain) - commons)
 
-    def get_block(self, blockhash, height=None):
+    def get_block(self, blockhash=None, height=None):
         if height is not None:
             blockhash = self.get_block_hash(height=height)
             if blockhash is None:
