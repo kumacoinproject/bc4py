@@ -1,6 +1,6 @@
 from bc4py.contract.params import *
 from bc4py.contract import basiclib
-from types import FunctionType, CodeType, MethodType
+from types import FunctionType, CodeType, MethodType, ModuleType
 from io import BytesIO, StringIO
 from importlib import import_module
 import importlib.util
@@ -65,6 +65,8 @@ def get_limited_globals(extra_imports=None):
         if deny in g:
             del g[deny]
     __builtins__ = globals()['__builtins__']
+    if isinstance(__builtins__, ModuleType):
+        __builtins__ = {name: getattr(__builtins__, name) for name in dir(__builtins__)}
     builtin_dict = dict()
     for allow in allow_builtins:
         if allow in __builtins__:
