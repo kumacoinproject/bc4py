@@ -126,7 +126,7 @@ class Block:
     def bias(self):
         if not self._bias:
             from bc4py.chain.difficulty import get_bias_by_hash  # not good?
-            self._bias = get_bias_by_hash(self.previous_hash, self.flag)
+            self._bias = get_bias_by_hash(previous_hash=self.previous_hash, consensus=self.flag)
         return self._bias
 
     @property

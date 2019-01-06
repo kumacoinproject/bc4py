@@ -43,7 +43,6 @@ def set_blockchain_params(genesis_block):
     V.CONTRACT_MINIMUM_AMOUNT = params.get('contract_minimum_amount')
     consensus = params.get('consensus')
     V.BLOCK_CONSENSUSES = consensus
-    V.BLOCK_BASE_CONSENSUS = min(consensus.keys())
     GompertzCurve.k = V.BLOCK_ALL_SUPPLY
 
 

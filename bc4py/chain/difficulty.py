@@ -23,6 +23,7 @@ from functools import lru_cache
 # // https://github.com/graft-project/GraftNetwork/pull/118/files
 
 
+@lru_cache(maxsize=256)
 def params(block_span=600):
     # T=<target solvetime(s)>
     T = block_span
@@ -48,7 +49,7 @@ MAX_TARGET = bits2target(MAX_BITS)
 GENESIS_PREVIOUS_HASH = b'\xff'*32
 
 
-@lru_cache(maxsize=1000)
+@lru_cache(maxsize=512)
 def get_bits_by_hash(previous_hash, consensus):
     if Debug.F_CONSTANT_DIFF:
         return MAX_BITS, MAX_TARGET
@@ -102,18 +103,16 @@ def get_bits_by_hash(previous_hash, consensus):
     return new_bits, new_target
 
 
-@lru_cache(maxsize=1000)
+@lru_cache(maxsize=256)
 def get_bias_by_hash(previous_hash, consensus):
     N = 30  # target blocks
 
-    if consensus == V.BLOCK_BASE_CONSENSUS:
-        return 1.0
-    elif consensus == C.BLOCK_GENESIS:
+    if consensus == C.BLOCK_GENESIS:
         return 1.0
     elif previous_hash == GENESIS_PREVIOUS_HASH:
         return 1.0
 
-    base_diffs = list()
+    base_difficulty_sum = MAX_TARGET * N
     target_diffs = list()
     target_hash = previous_hash
     while True:
@@ -123,14 +122,12 @@ def get_bias_by_hash(previous_hash, consensus):
         target_hash = target_block.previous_hash
         if target_hash == GENESIS_PREVIOUS_HASH:
             return 1.0
-        elif target_block.flag == V.BLOCK_BASE_CONSENSUS and N > len(base_diffs):
-            base_diffs.append(bits2target(target_block.bits) * (N-len(base_diffs)))
         elif target_block.flag == consensus and N > len(target_diffs):
             target_diffs.append(bits2target(target_block.bits) * (N-len(target_diffs)))
-        if len(base_diffs) >= N and len(target_diffs) >= N:
+        elif len(target_diffs) >= N:
             break
 
-    bias = sum(base_diffs) / sum(target_diffs)
+    bias = base_difficulty_sum / sum(target_diffs)
     if Debug.F_SHOW_DIFFICULTY:
         print("bias", bias, hexlify(previous_hash).decode())
     return bias

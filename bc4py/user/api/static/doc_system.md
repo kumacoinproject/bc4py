@@ -58,65 +58,67 @@ get chain info (public)
 ```json
 {
     "best": {
-        "hash": "504c71e55ca19a283bc535ea38d15195e640c700bdc8563781530578818d8450",
-        "work_hash": "301de7ae678664202f4a0438d609822b93daaa13b51aa2931f48a0f9663f0d00",
-        "previous_hash": "e57712d323f4e74d8996e2c6254c8375e66b9d7b390a04a029e4ee188b78d088",
+        "hash": "d50a3896ab6e02829bc8f1e34d9ea106c56aa5a68a42d7080b2c850dc65973d3",
+        "work_hash": "6e5c2480c4958d4b7a11a9c14b67d2c3083266f82090f693e19404ef10890400",
+        "previous_hash": "52190675da80ab77f7593ac64d0fccf5c983205deebee0c71d6c459bca2bd73a",
         "next_hash": null,
-        "f_orphan": null,
-        "recode_flag": "database",
-        "height": 5021,
-        "difficulty": 0.001965,
-        "fixed_difficulty": 0.00064416,
-        "flag": "POW_X11",
-        "merkleroot": "d04e18946dc92b6f0e80801990af92744d2e056566beafeaa4951429b38a7854",
-        "time": 1542367541,
-        "bits": 522279172,
-        "bias": 3.05050734,
-        "nonce": "ce32041e",
+        "f_orphan": false,
+        "recode_flag": "memory",
+        "height": 117860,
+        "difficulty": 0.003388,
+        "fixed_difficulty": 0.06406275,
+        "score": 11.0676183,
+        "flag": "POW_YES",
+        "merkleroot": "d0ac7a141e7d7d0051fc94ba62a2291c0a04f20e40852afafc19ca0c0824ce67",
+        "time": 1546750370,
+        "bits": 521361167,
+        "bias": 0.05288565,
+        "nonce": "b48ca04e",
         "txs": [
-            "d04e18946dc92b6f0e80801990af92744d2e056566beafeaa4951429b38a7854"
-        ]
+            "d0ac7a141e7d7d0051fc94ba62a2291c0a04f20e40852afafc19ca0c0824ce67"
+        ],
+        "create_time": 1546750373
     },
     "mining": {
         "POW_YES": {
             "number": 1,
-            "diff": 0.0,
-            "bias": 1.0,
-            "fixed_diff": 2e-07,
-            "hashrate(kh/s)": 0.0,
-            "is_base": true
+            "bits": "1f135d2f",
+            "diff": 3.384e-05,
+            "bias": 0.05288565,
+            "fixed_diff": 0.00063987,
+            "hashrate(kh/s)": 0.051
         },
         "POS": {
             "number": 2,
-            "diff": 1e-08,
-            "bias": 124223.93047213,
-            "fixed_diff": 6.82e-06,
-            "hashrate(kh/s)": 423.425,
-            "is_base": false
+            "bits": "1d00f325",
+            "diff": 45.22041795,
+            "bias": 79901.15735973,
+            "fixed_diff": 0.00056595,
+            "hashrate(kh/s)": 22610.209
         },
         "POW_X11": {
             "number": 4,
-            "diff": 0.0,
-            "bias": 3.05050734,
-            "fixed_diff": 6.6e-06,
-            "hashrate(kh/s)": 0.03,
-            "is_base": false
+            "bits": "1e35c4ad",
+            "diff": 0.00312028,
+            "bias": 4.57213647,
+            "fixed_diff": 0.00068246,
+            "hashrate(kh/s)": 4.657
         },
         "POW_HMQ": {
             "number": 5,
-            "diff": 0.0,
-            "bias": 1601.40854757,
-            "fixed_diff": 1.67e-06,
-            "hashrate(kh/s)": 4.001,
-            "is_base": false
+            "bits": "1e7700d7",
+            "diff": 0.00140981,
+            "bias": 1.97356957,
+            "fixed_diff": 0.00071435,
+            "hashrate(kh/s)": 2.104
         }
     },
     "size": 171,
     "checkpoint": {
-        "height": 5020,
-        "blockhash": "e57712d323f4e74d8996e2c6254c8375e66b9d7b390a04a029e4ee188b78d088"
+        "height": 117859,
+        "blockhash": "52190675da80ab77f7593ac64d0fccf5c983205deebee0c71d6c459bca2bd73a"
     },
-    "money_supply": 278020758368594,
+    "money_supply": 6812647294965298,
     "total_supply": 1000000000000000000
 }
 ```
