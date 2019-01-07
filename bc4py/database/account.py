@@ -1,10 +1,9 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.user import Accounting
-from bc4py.utils import AESCipher
 from bc4py.database.create import closing, create_db
 from time import time
 import os
-from binascii import hexlify, unhexlify
+from binascii import hexlify
 from pooled_multiprocessing import mp_map_async
 from nem_ed25519.key import secret_key, public_key, get_address
 from weakref import ref
@@ -61,17 +60,8 @@ def read_address2keypair(address, cur):
     if d is None:
         raise BlockChainError('Not found address {}'.format(address))
     uuid, sk, pk = d
-    if len(sk) == 32:
-        pass
-    elif V.ENCRYPT_KEY:
-        sk = AESCipher.decrypt(V.ENCRYPT_KEY, sk)
-        if len(sk) != 32:
-            raise BlockChainError('Failed decrypt SecretKey. {}'.format(address))
-    else:
-        raise BlockChainError('Encrypted account.dat but no EncryptKey.')
-    sk = hexlify(sk).decode()
-    pk = hexlify(pk).decode()
-    return uuid, sk, pk
+    assert len(sk) == 32, 'Not correct length of SecretKey {}bytes'.format(len(sk))
+    return uuid, sk.hex(), pk.hex()
 
 
 def read_address2user(address, cur):
@@ -150,13 +140,9 @@ def create_account(name, cur, description="", _time=None, is_root=False):
 
 
 def _single_generate(index, **kwargs):
-    sk_hex = secret_key()
-    sk = unhexlify(sk_hex.encode())
-    if kwargs['encrypt_key']:
-        sk = AESCipher.encrypt(key=kwargs['encrypt_key'], raw=sk)
-    pk_hex = public_key(sk_hex)
-    pk = unhexlify(pk_hex.encode())
-    ck = get_address(pk=pk_hex, prefix=kwargs['prefix'])
+    sk = secret_key(encode=bytes)
+    pk = public_key(sk=sk, encode=bytes)
+    ck = get_address(pk=pk, prefix=kwargs['prefix'])
     t = int(time() - kwargs['genesis_time'])
     return sk, pk, ck, C.ANT_RESERVED, t
 
@@ -173,7 +159,6 @@ def _callback(data_list):
 
 def auto_insert_keypairs(num):
     kwards = {
-        'encrypt_key': V.ENCRYPT_KEY,
         'prefix': V.BLOCK_PREFIX,
         'genesis_time': V.BLOCK_GENESIS_TIME}
     mp_map_async(_single_generate, range(num), callback=_callback, **kwards)
@@ -189,9 +174,9 @@ def create_new_user_keypair(name, cur):
     all_reserved_keys = get_all_keys()
     if len(all_reserved_keys) == 0:
         pairs = list()
-        for i in range(5):
-            pairs.append(_single_generate(i, encrypt_key=V.ENCRYPT_KEY,
-                                          prefix=V.BLOCK_PREFIX, genesis_time=V.BLOCK_GENESIS_TIME))
+        for index in range(5):
+            pairs.append(_single_generate(
+                index=index, prefix=V.BLOCK_PREFIX, genesis_time=V.BLOCK_GENESIS_TIME))
         insert_keypairs(pairs, cur)
         all_reserved_keys = get_all_keys()
     elif len(all_reserved_keys) < 200:

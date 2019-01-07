@@ -2,9 +2,7 @@ from bc4py import __version__, __chain_version__, __message__
 from bc4py.config import C, V, P
 from bc4py.chain.utils import GompertzCurve
 from bc4py.chain.difficulty import get_bits_by_hash, get_bias_by_hash
-from bc4py.database.create import closing, create_db
 from bc4py.database.builder import builder, tx_builder
-from bc4py.database.keylock import is_locked_database
 from bc4py.user.api import web_base
 from bc4py.user.generate import generating_threads
 from binascii import hexlify
@@ -83,8 +81,7 @@ async def system_info(request):
 
 
 async def system_private_info(request):
-    with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-        cur = db.cursor()
+    try:
         data = {
             'system_ver': __version__,
             'api_ver': __api_version__,
@@ -94,16 +91,16 @@ async def system_private_info(request):
             'connections': len(V.PC_OBJ.p2p.user),
             'unconfirmed': [hexlify(txhash).decode() for txhash in tx_builder.unconfirmed.keys()],
             'directory': V.DB_HOME_DIR,
-            'encryption': '*'*len(V.ENCRYPT_KEY) if V.ENCRYPT_KEY else None,
             'generate': {
                 'address': V.MINING_ADDRESS,
                 'message': V.MINING_MESSAGE,
                 'threads': [str(s) for s in generating_threads]
             },
-            'locked': is_locked_database(cur),
             'access_time': int(time()),
             'start_time': start_time}
-    return web_base.json_res(data)
+        return web_base.json_res(data)
+    except Exception:
+        return web_base.error_res()
 
 
 async def network_info(request):

@@ -108,9 +108,6 @@ class V:  # 起動時に設定される変数
     DB_HOME_DIR = None
     DB_ACCOUNT_PATH = None
 
-    # encryption key
-    ENCRYPT_KEY = None
-
     # mining
     MINING_ADDRESS = None
     MINING_MESSAGE = None
