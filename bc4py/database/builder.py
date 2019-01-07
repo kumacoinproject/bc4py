@@ -1032,7 +1032,7 @@ class UserAccount:
                         move_log = self.memory_movement[tx.hash]
                 else:
                     if tx.hash in self.memory_movement:
-                        move_log.pointer = self.memory_movement[tx.hash].pointer
+                        move_log.tx_ref = self.memory_movement[tx.hash].tx_ref
                 if move_log:
                     if count >= start:
                         if f_dict:
@@ -1049,7 +1049,7 @@ class UserAccount:
                             move_log = self.memory_movement[tx.hash]
                     else:
                         if tx.hash in self.memory_movement:
-                            move_log.pointer = self.memory_movement[tx.hash].pointer
+                            move_log.tx_ref = self.memory_movement[tx.hash].tx_ref
                     if move_log:
                         if count >= start:
                             if f_dict:
