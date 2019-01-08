@@ -86,9 +86,9 @@ def create_rest_server(f_local, port=3000, user=None, pwd=None, f_blocking=True,
     app.router.add_get('/public/listunspents', list_unspents)
     app.router.add_get('/private/listunspents', list_private_unspents)
     app.router.add_get('/private/listaccountaddress', list_account_address)
-    # app.router.add_post('/private/lock', lock_database)  TODO: Work? Need?
-    # app.router.add_post('/private/unlock', unlock_database) TODO: Work? Need?
-    # app.router.add_post('/private/changepassword', change_password) TODO: Work? Need?
+    app.router.add_post('/private/lockwallet', lock_wallet)
+    app.router.add_post('/private/unlockwallet', unlock_wallet)
+    app.router.add_post('/private/createwallet', create_wallet)
     app.router.add_post('/private/move', move_one)
     app.router.add_post('/private/movemany', move_many)
     app.router.add_get('/private/newaddress', new_address)

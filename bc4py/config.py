@@ -57,6 +57,10 @@ class C:  # Constant
     # difficulty
     DIFF_RETARGET = 20  # difficultyの計算Block数
 
+    # BIP32
+    BIP44_COIN_TYPE = 0x800002aa
+    BIP44_GAP_LIMIT = 20
+
     # block params
     MATURE_HEIGHT = 20  # 採掘されたBlockのOutputsが成熟する期間
     CHECKPOINT_SPAN = 200  # checkpointの作成間隔
@@ -107,6 +111,12 @@ class V:  # 起動時に設定される変数
     SUB_DIR = None
     DB_HOME_DIR = None
     DB_ACCOUNT_PATH = None
+
+    # Wallet
+    # mnemonic =(decrypt)=> seed ==> 44' => coinType' => secret key
+    BIP44_ENCRYPTED_MNEMONIC = None
+    BIP44_ROOT_PUB_KEY = None  # path: m
+    BIP44_BRANCH_SEC_KEY = None  # path: m/44'/coin_type'
 
     # mining
     MINING_ADDRESS = None

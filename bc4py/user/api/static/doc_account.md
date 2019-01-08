@@ -289,6 +289,44 @@ list account address
 }
 ```
 
+lock wallet
+----
+* Request example
+    * `curl --basic -u user:password -H "accept: application/json" "127.0.0.1:3000/private/lockwallet"`
+* Response
+```json
+{"status":  true}
+```
+
+unlock wallet
+----
+* Arguments
+    1. passphrase      (string, optional, default="")  Encrypt root private key.
+    2. timeout         (numeric, optional, default=60) Auto delete inner private key, disabled by -1.
+* Request example
+    * `curl --basic -u user:password -H "accept: application/json" "127.0.0.1:3000/private/unlockwallet"`
+* Response
+```json
+{"status": true, "timeout": 60}
+```
+
+create wallet
+----
+* Arguments
+    1. passphrase      (string, optional, default="")  Encrypted by the passphrase
+    2. strength        (numeric, optional, default=12) mnemonic words number [12, 15, 18, 21, 24]
+* Request example
+    * `curl --basic -u user:password -H "accept: application/json" "127.0.0.1:3000/private/createwallet"`
+* Response
+```json
+{
+    "mnemonic": "blossom whisper daughter together gospel lava pledge pretty post valley erode ritual",
+    "encrypted": false,
+    "private_key": "xprv9s21ZrQH143K3K72TX1eLipb8bUHMC2V88QniZfWmakDtA8B4PBFNQwSEWHtLj56wczor9iwvYbXY6vGemtyjaweiv5vrcTSAX2TqGnGnAv",
+    "public_key": "xpub661MyMwAqRbcFoBVZYYehrmKgdJmkekLVMLPWx58KvHCkxTKbvVVvDFv5o8GoNsXUGcq7qcwYcs56oTPvWFtCSPfpGHYLVVCEGgLqV1D2tL"
+}
+```
+
 move account balance
 ----
 * Arguments
