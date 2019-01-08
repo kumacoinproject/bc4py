@@ -52,6 +52,7 @@ def make_account_db():
             `id` INTEGER PRIMARY KEY,
             `name` TEXT UNIQUE NOT NULL,
             `description` TEXT NOT NULL,
+            `last_index` INTEGER NOT NULL,
             `time` INTEGER NOT NULL
         )""")
         db.execute("""
@@ -79,3 +80,7 @@ def make_account_db():
             (C.ANT_CONTRACT, C.ANT_NAME_CONTRACT, "Contract bind address.", 0)]
         db.executemany("INSERT OR IGNORE INTO `account` VALUES (?,?,?,?)", accounts)
         db.commit()
+
+
+# add last_index to account
+# "ALTER TABLE `account` ADD COLUMN 'last_index' INTEGER NOT NULL AFTER `description`"

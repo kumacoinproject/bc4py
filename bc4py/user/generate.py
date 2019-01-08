@@ -32,8 +32,7 @@ staking_limit = 500
 
 def new_key(user=C.ANT_NAME_UNKNOWN):
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-        cur = db.cursor()
-        ck = create_new_user_keypair(user, cur)
+        ck = create_new_user_keypair(user, db.cursor())
         db.commit()
     return ck
 

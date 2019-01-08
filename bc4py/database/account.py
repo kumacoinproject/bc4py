@@ -4,8 +4,7 @@ from bc4py.database.create import closing, create_db
 from time import time
 import os
 from binascii import hexlify
-from pooled_multiprocessing import mp_map_async
-from nem_ed25519.key import secret_key, public_key, get_address
+from bc4py.user.utils import extract_keypair
 from weakref import ref
 import logging
 
@@ -73,16 +72,12 @@ def read_address2user(address, cur):
     return user[0]
 
 
-def update_keypair_user(uuid, user, cur):
-    cur.execute("UPDATE `pool` SET `user`=? WHERE `id`=?", (user, uuid))
-
-
-def insert_keypairs(pairs, cur):
-    sk, pk, ck, user, _time = pairs[0]
+def insert_keypair(keypair, cur):
+    sk, pk, ck, user, _time = keypair
     assert isinstance(sk, bytes) and isinstance(pk, bytes) and isinstance(ck, str) and isinstance(user, int)
     cur.executemany("""
     INSERT INTO `pool` (`sk`,`pk`,`ck`,`user`,`time`) VALUES (?,?,?,?,?)
-    """, pairs)
+    """, keypair)
 
 
 def read_account_info(user, cur):
@@ -133,60 +128,31 @@ def create_account(name, cur, description="", _time=None, is_root=False):
         raise BlockChainError('prefix"@" is root user, is_root={} name={}'.format(is_root, name))
     _time = _time or int(time() - V.BLOCK_GENESIS_TIME)
     cur.execute("""
-        INSERT INTO `account` (`name`,`description`,`time`) VALUES (?,?,?)
-    """, (name, description, _time))
+        INSERT INTO `account` (`name`,`description`,`last_index`,`time`) VALUES (?,?,?,?)
+    """, (name, description, 0, _time))
     d = cur.execute("SELECT last_insert_rowid()").fetchone()
     return d[0]
 
 
-def _single_generate(index, **kwargs):
-    sk = secret_key(encode=bytes)
-    pk = public_key(sk=sk, encode=bytes)
-    ck = get_address(pk=pk, prefix=kwargs['prefix'])
-    t = int(time() - kwargs['genesis_time'])
-    return sk, pk, ck, C.ANT_RESERVED, t
-
-
-def _callback(data_list):
-    if isinstance(data_list[0], str):
-        logging.error("Callback error, {}".format(data_list[0]))
-        return
-    with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-        insert_keypairs(data_list, db.cursor())
-        db.commit()
-    logging.debug("Generate {} keypairs.".format(len(data_list)))
-
-
-def auto_insert_keypairs(num):
-    kwards = {
-        'prefix': V.BLOCK_PREFIX,
-        'genesis_time': V.BLOCK_GENESIS_TIME}
-    mp_map_async(_single_generate, range(num), callback=_callback, **kwards)
-
-
 def create_new_user_keypair(name, cur):
-    def get_all_keys():
-        return cur.execute("""
-            SELECT `id`,`sk`,`pk`,`ck` FROM `pool` WHERE `user`=?
-        """, (C.ANT_RESERVED,)).fetchall()
     assert isinstance(name, str)
-    # ReservedKeypairを１つ取得
-    all_reserved_keys = get_all_keys()
-    if len(all_reserved_keys) == 0:
-        pairs = list()
-        for index in range(5):
-            pairs.append(_single_generate(
-                index=index, prefix=V.BLOCK_PREFIX, genesis_time=V.BLOCK_GENESIS_TIME))
-        insert_keypairs(pairs, cur)
-        all_reserved_keys = get_all_keys()
-    elif len(all_reserved_keys) < 200:
-        auto_insert_keypairs(250-len(all_reserved_keys))
-    uuid, sk, pk, ck = all_reserved_keys[0]
+    # get last_index
     user = read_name2user(name, cur)
-    if user is None:
-        # 新規にユーザー作成
-        user = create_account(name, cur)
-    update_keypair_user(uuid, user, cur)
+    d = cur.execute("""
+    SELECT `last_index` FROM `account` WHERE `id`=?
+    """, (user,)).fetchone()
+    last_index = d[0]
+    # check the keypair is used
+    while True:
+        sk, pk, ck = extract_keypair(user=user, is_inner=False, index=last_index)
+        last_index += 1
+        if read_address2user(address=ck, cur=cur) is None:
+            break
+    insert_keypair(keypair=(sk, pk, ck, int(time())), cur=cur)
+    # update last_index
+    cur.execute("""
+    UPDATE `account` SET `last_index`=? WHERE `id`=?
+    """, (last_index, user))
     return ck
 
 
@@ -242,7 +208,7 @@ class MoveLog:
 
 __all__ = [
     "read_txhash2log", "read_log_iter", "insert_log", "delete_log",
-    "read_address2keypair", "read_address2user", "update_keypair_user", "insert_keypairs",
+    "read_address2keypair", "read_address2user", "insert_keypair",
     "read_account_info", "read_pooled_address_iter", "read_address2account",
     "read_name2user", "read_user2name", "create_account", "create_new_user_keypair",
     "MoveLog"
