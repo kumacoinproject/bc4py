@@ -2,11 +2,11 @@ from bc4py.config import C, V, BlockChainError
 from bc4py.user import Accounting, extract_keypair
 from bc4py.database.create import closing, create_db
 from time import time
-import os
 from binascii import hexlify
 from bc4py.utils import AESCipher
 from nem_ed25519.key import public_key
 from weakref import ref
+import os
 
 
 def read_txhash2log(txhash, cur):
@@ -164,6 +164,7 @@ def create_account(name, cur, description="", _time=None, is_root=False):
 
 def create_new_user_keypair(name, cur, is_inner=False):
     assert isinstance(name, str)
+    assert isinstance(is_inner, bool)
     # get last_index
     user = read_name2user(name, cur)
     last_index = get_keypair_last_index(user=user, is_inner=is_inner, cur=cur)
