@@ -52,16 +52,16 @@ def make_account_db():
             `id` INTEGER PRIMARY KEY,
             `name` TEXT UNIQUE NOT NULL,
             `description` TEXT NOT NULL,
-            `last_index` INTEGER NOT NULL,
             `time` INTEGER NOT NULL
         )""")
         db.execute("""
             CREATE TABLE IF NOT EXISTS `pool` (
             `id` INTEGER PRIMARY KEY,
-            `sk` BINARY NOT NULL,
-            `pk` BINARY NOT NULL,
+            `sk` BINARY,
             `ck` TEXT NOT NULL,
             `user` INTEGER NOT NULL,
+            `is_inner` INTEGER,
+            `index` INTEGER,
             `time` INTEGER NOT NULL
         )""")
         # index

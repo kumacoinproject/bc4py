@@ -9,6 +9,10 @@ import logging
 import pickle
 import random
 from base64 import b64decode, b64encode
+from mnemonic import Mnemonic
+from bip32nem import BIP32Key, BIP32_HARDEN
+from threading import Timer
+import json
 
 
 def create_boot_file(genesis_block, network_ver=None, connections=None):
@@ -79,9 +83,65 @@ def load_bootstrap_file():
     logging.debug("load bootstrap.dat! last={}".format(block))
 
 
+def import_keystone(passphrase='', auto_create=True, language='english'):
+    def timeout_now():
+        V.BIP44_BRANCH_SEC_KEY = None
+        logging.info("Wallet secret kwy deleted now.")
+    if V.BIP44_ENCRYPTED_MNEMONIC:
+        raise Exception('Already imported, BIP32_ENCRYPTED_MNEMONIC.')
+    if V.BIP44_ROOT_PUB_KEY:
+        raise Exception('Already imported, BIP32_ROOT_PUBLIC_KEY.')
+    keystone_path = os.path.join(V.DB_HOME_DIR, 'keystone.json')
+    # params
+    try:
+        with open(keystone_path, mode='r') as fp:
+            wallet = json.load(fp)
+        pub = str(wallet['public_key'])
+        mnemonic = str(wallet['mnemonic'])
+        if 'passphrase' in wallet:
+            passphrase = str(wallet['passphrase'])
+            timeout = int(wallet.get('timeout', -1))
+            seed = Mnemonic.to_seed(mnemonic, passphrase)
+            bip = BIP32Key.fromEntropy(entropy=seed)
+            if pub != bip.ExtendedKey(private=False):
+                raise Exception('Don\'t match with public key.')
+        else:
+            bip = None
+            timeout = -1
+    except FileNotFoundError:
+        if not auto_create:
+            raise Exception('Cannot load wallet info from {}'.format(keystone_path))
+        mnemonic = Mnemonic(language).generate()
+        seed = Mnemonic.to_seed(mnemonic, passphrase)
+        bip = BIP32Key.fromEntropy(seed)
+        pub = bip.ExtendedKey(private=False)
+        timeout = -1
+        wallet = {
+            'private_key': bip.ExtendedKey(private=True),
+            'public_key': pub,
+            'mnemonic': mnemonic,
+            'passphrase': passphrase,
+            'timeout': timeout}
+        with open(keystone_path, mode='w') as fp:
+            json.dump(wallet, fp, indent=4)
+        logging.info('Auto create wallet.')
+    V.BIP44_ENCRYPTED_MNEMONIC = mnemonic
+    V.BIP44_ROOT_PUB_KEY = pub
+    if bip:
+        # m/44' / coin_type' / account' / change / address_index
+        V.BIP44_BRANCH_SEC_KEY = bip \
+            .ChildKey(44 + BIP32_HARDEN) \
+            .ChildKey(C.BIP44_COIN_TYPE) \
+            .ExtendedKey(private=True)
+    if timeout > 0:
+        Timer(timeout, function=timeout_now).start()
+    logging.info("import wallet, unlock={} timeout={}".format(bool(bip), timeout))
+
+
 __all__ = [
     "create_boot_file",
     "load_boot_file",
     "create_bootstrap_file",
-    "load_bootstrap_file"
+    "load_bootstrap_file",
+    "import_keystone"
 ]

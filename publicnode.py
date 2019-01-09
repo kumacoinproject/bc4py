@@ -23,6 +23,7 @@ import logging
 def work(port, sub_dir=None):
     # BlockChain setup
     set_database_path(sub_dir=sub_dir)
+    import_keystone(passphrase='hello python')
     builder.set_database_path()
     make_account_db()
     genesis_block, network_ver, connections = load_boot_file()

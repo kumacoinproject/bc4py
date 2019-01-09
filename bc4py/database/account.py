@@ -1,12 +1,12 @@
 from bc4py.config import C, V, BlockChainError
-from bc4py.user import Accounting
+from bc4py.user import Accounting, extract_keypair
 from bc4py.database.create import closing, create_db
 from time import time
 import os
 from binascii import hexlify
-from bc4py.user.utils import extract_keypair
+from bc4py.utils import AESCipher
+from nem_ed25519.key import public_key
 from weakref import ref
-import logging
 
 
 def read_txhash2log(txhash, cur):
@@ -54,12 +54,18 @@ def delete_log(txhash, cur):
 
 def read_address2keypair(address, cur):
     d = cur.execute("""
-        SELECT `id`,`sk`,`pk` FROM `pool` WHERE `ck`=?
+        SELECT `id`,`sk`,`user`,`is_inner`,`index` FROM `pool` WHERE `ck`=?
     """, (address,)).fetchone()
     if d is None:
         raise BlockChainError('Not found address {}'.format(address))
-    uuid, sk, pk = d
-    assert len(sk) == 32, 'Not correct length of SecretKey {}bytes'.format(len(sk))
+    uuid, sk, user, is_inner, index = d
+    if V.BIP44_BRANCH_SEC_KEY is None:
+        raise PermissionError('Cannot extract keypair!')
+    if sk is None:
+        sk, pk, _ck = extract_keypair(user=user, is_inner=is_inner, index=index)
+    else:
+        sk = AESCipher.decrypt(key=V.BIP44_BRANCH_SEC_KEY.encode(), enc=sk)
+        pk = public_key(sk=sk)
     return uuid, sk.hex(), pk.hex()
 
 
@@ -72,12 +78,34 @@ def read_address2user(address, cur):
     return user[0]
 
 
-def insert_keypair(keypair, cur):
-    sk, pk, ck, user, _time = keypair
-    assert isinstance(sk, bytes) and isinstance(pk, bytes) and isinstance(ck, str) and isinstance(user, int)
-    cur.executemany("""
-    INSERT INTO `pool` (`sk`,`pk`,`ck`,`user`,`time`) VALUES (?,?,?,?,?)
-    """, keypair)
+def insert_keypair_from_bip(ck, user, is_inner, index, cur):
+    assert isinstance(ck, str) and isinstance(user, int)\
+           and isinstance(is_inner, bool) and isinstance(index, int)
+    cur.execute("""
+    INSERT INTO `pool` (`ck`,`user`,`is_inner`,`index`,`time`) VALUES (?,?,?,?,?)
+    """, (ck, user, int(is_inner), index, int(time())))
+
+
+def insert_keypair_from_outside(sk, ck, user, cur):
+    assert isinstance(sk, bytes) and isinstance(ck, str) and isinstance(user, int)
+    if V.BIP44_BRANCH_SEC_KEY is None:
+        raise PermissionError('Cannot encrypt keypair!')
+    sk = AESCipher.encrypt(key=V.BIP44_BRANCH_SEC_KEY.encode(), raw=sk)
+    cur.execute("""
+    INSERT INTO `pool` (`sk`,`ck`,`user`,`time`) VALUES (?,?,?,?)
+    """, (sk, ck, user, int(time())))
+
+
+def get_keypair_last_index(user, is_inner, cur):
+    assert isinstance(user, int) and isinstance(is_inner, bool)
+    cur.execute("""
+    SELECT `index` FROM `pool` WHERE `user`=? AND `is_inner`=?
+    """, (user, int(is_inner)))
+    index = -1
+    for (index,) in cur:
+        pass
+    index += 1
+    return index
 
 
 def read_account_info(user, cur):
@@ -134,25 +162,13 @@ def create_account(name, cur, description="", _time=None, is_root=False):
     return d[0]
 
 
-def create_new_user_keypair(name, cur):
+def create_new_user_keypair(name, cur, is_inner=False):
     assert isinstance(name, str)
     # get last_index
     user = read_name2user(name, cur)
-    d = cur.execute("""
-    SELECT `last_index` FROM `account` WHERE `id`=?
-    """, (user,)).fetchone()
-    last_index = d[0]
-    # check the keypair is used
-    while True:
-        sk, pk, ck = extract_keypair(user=user, is_inner=False, index=last_index)
-        last_index += 1
-        if read_address2user(address=ck, cur=cur) is None:
-            break
-    insert_keypair(keypair=(sk, pk, ck, int(time())), cur=cur)
-    # update last_index
-    cur.execute("""
-    UPDATE `account` SET `last_index`=? WHERE `id`=?
-    """, (last_index, user))
+    last_index = get_keypair_last_index(user=user, is_inner=is_inner, cur=cur)
+    sk, pk, ck = extract_keypair(user=user, is_inner=is_inner, index=last_index)
+    insert_keypair_from_bip(ck=ck, user=user, is_inner=is_inner, index=last_index, cur=cur)
     return ck
 
 
@@ -208,7 +224,7 @@ class MoveLog:
 
 __all__ = [
     "read_txhash2log", "read_log_iter", "insert_log", "delete_log",
-    "read_address2keypair", "read_address2user", "insert_keypair",
+    "read_address2keypair", "read_address2user",
     "read_account_info", "read_pooled_address_iter", "read_address2account",
     "read_name2user", "read_user2name", "create_account", "create_new_user_keypair",
     "MoveLog"

@@ -154,7 +154,7 @@ def replace_redeem_dummy_address(tx, cur=None, replace_by=None):
         if address != DUMMY_REDEEM_ADDRESS:
             continue
         if replace_by is None:
-            new_address = create_new_user_keypair(C.ANT_NAME_UNKNOWN, cur)
+            new_address = create_new_user_keypair(C.ANT_NAME_UNKNOWN, cur, True)
         else:
             new_address = replace_by
         tx.outputs[index] = (new_address, coin_id, amount)

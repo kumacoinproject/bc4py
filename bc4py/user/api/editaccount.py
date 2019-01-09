@@ -50,7 +50,7 @@ async def unlock_wallet(request):
         # m/44' / coin_type' / account' / change / address_index
         V.BIP44_BRANCH_SEC_KEY = bip\
             .ChildKey(44 + BIP32_HARDEN)\
-            .ChildKey(C.BIP44_COIN_TYPE + BIP32_HARDEN)\
+            .ChildKey(C.BIP44_COIN_TYPE)\
             .ExtendedKey(private=True)
         return web_base.json_res({'status': True, 'timeout': timeout})
     except Exception:
