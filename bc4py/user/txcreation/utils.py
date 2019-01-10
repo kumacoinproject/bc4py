@@ -185,9 +185,9 @@ def setup_contract_signature(tx, validators):
     return count
 
 
-def check_enough_amount(sender, send_coins, fee_coins):
+def check_enough_amount(sender, send_coins, fee_coins, cur):
     assert isinstance(sender, int)
-    from_coins = user_account.get_balance()[sender]
+    from_coins = user_account.get_balance(outer_cur=cur)[sender]
     remain_coins = from_coins - send_coins - fee_coins
     if not remain_coins.is_all_plus_amount():
         raise BlockChainError('Not enough balance in id={} balance={} remains={}.'

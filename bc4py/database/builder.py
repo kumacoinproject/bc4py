@@ -493,66 +493,69 @@ class ChainBuilder:
             user_account.init()
             return
 
-        # 0HeightよりBlockを取得して確認
-        before_block = genesis_block
-        batch_blocks = list()
-        for height, blockhash in self.db.read_block_hash_iter(start_height=1):
-            block = self.db.read_block(blockhash)
-            if block.previous_hash != before_block.hash:
-                raise BlockBuilderError("PreviousHash != BlockHash [{}!={}]"
-                                        .format(block, before_block))
-            elif block.height != height:
-                raise BlockBuilderError("BlockHeight != DBHeight [{}!={}]"
-                                        .format(block.height, height))
-            elif height != before_block.height+1:
-                raise BlockBuilderError("DBHeight != BeforeHeight+1 [{}!={}+1]"
-                                        .format(height, before_block.height))
-            for tx in block.txs:
-                if tx.height != height:
-                    raise BlockBuilderError("TXHeight != BlockHeight [{}!{}]"
-                                            .format(tx.height, height))
-                # inputs
-                for txhash, txindex in tx.inputs:
-                    input_tx = self.db.read_tx(txhash)
-                    address, coin_id, amount = input_tx.outputs[txindex]
-                    _coin_id, _amount, f_used = self.db.read_address_idx(address, txhash, txindex)
-                    usedindex = self.db.read_usedindex(txhash)
-                    if coin_id != _coin_id or amount != _amount:
-                        raise BlockBuilderError("Inputs, coin_id != _coin_id or amount != _amount [{}!{}] [{}!={}]"
-                                                .format(coin_id, _coin_id, amount, _amount))
-                    elif txindex not in usedindex:
-                        raise BlockBuilderError("Already used but unused. [{} not in {}]".format(txindex, usedindex))
-                    elif not f_used:
-                        raise BlockBuilderError("Already used but unused flag. [{}:{}]".format(input_tx, txindex))
-                # outputs
-                for index, (address, coin_id, amount) in enumerate(tx.outputs):
-                    _coin_id, _amount, f_used = self.db.read_address_idx(address, tx.hash, index)
-                    if coin_id != _coin_id or amount != _amount:
-                        raise BlockBuilderError("Outputs, coin_id != _coin_id or amount != _amount [{}!{}] [{}!={}]"
-                                                .format(coin_id, _coin_id, amount, _amount))
-            # Block確認終了
-            before_block = block
-            batch_blocks.append(block)
-            if len(batch_blocks) >= batch_size:
-                user_account.new_batch_apply(batch_blocks)
-                batch_blocks.clear()
-                logging.debug("UserAccount batched at {} height.".format(block.height))
-        # load and rebuild memory section
-        self.root_block = before_block
-        memorized_blocks, self.best_block = self.load_memory_file(before_block)
-        # Memory化されたChainを直接復元
-        for block in memorized_blocks:
-            batch_blocks.append(block)
-            self.chain[block.hash] = block
-            for tx in block.txs:
-                if tx.hash not in tx_builder.chained_tx:
-                    tx_builder.chained_tx[tx.hash] = tx
-                if tx.hash in tx_builder.unconfirmed:
-                    del tx_builder.unconfirmed[tx.hash]
-        self.best_chain = list(reversed(memorized_blocks))
-        # UserAccount update
-        user_account.new_batch_apply(batch_blocks)
-        user_account.init()
+        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+            cur = db.cursor()
+            # 0HeightよりBlockを取得して確認
+            before_block = genesis_block
+            batch_blocks = list()
+            for height, blockhash in self.db.read_block_hash_iter(start_height=1):
+                block = self.db.read_block(blockhash)
+                if block.previous_hash != before_block.hash:
+                    raise BlockBuilderError("PreviousHash != BlockHash [{}!={}]"
+                                            .format(block, before_block))
+                elif block.height != height:
+                    raise BlockBuilderError("BlockHeight != DBHeight [{}!={}]"
+                                            .format(block.height, height))
+                elif height != before_block.height+1:
+                    raise BlockBuilderError("DBHeight != BeforeHeight+1 [{}!={}+1]"
+                                            .format(height, before_block.height))
+                for tx in block.txs:
+                    if tx.height != height:
+                        raise BlockBuilderError("TXHeight != BlockHeight [{}!{}]"
+                                                .format(tx.height, height))
+                    # inputs
+                    for txhash, txindex in tx.inputs:
+                        input_tx = self.db.read_tx(txhash)
+                        address, coin_id, amount = input_tx.outputs[txindex]
+                        _coin_id, _amount, f_used = self.db.read_address_idx(address, txhash, txindex)
+                        usedindex = self.db.read_usedindex(txhash)
+                        if coin_id != _coin_id or amount != _amount:
+                            raise BlockBuilderError("Inputs, coin_id != _coin_id or amount != _amount [{}!{}] [{}!={}]"
+                                                    .format(coin_id, _coin_id, amount, _amount))
+                        elif txindex not in usedindex:
+                            raise BlockBuilderError("Already used but unused. [{} not in {}]".format(txindex, usedindex))
+                        elif not f_used:
+                            raise BlockBuilderError("Already used but unused flag. [{}:{}]".format(input_tx, txindex))
+                    # outputs
+                    for index, (address, coin_id, amount) in enumerate(tx.outputs):
+                        _coin_id, _amount, f_used = self.db.read_address_idx(address, tx.hash, index)
+                        if coin_id != _coin_id or amount != _amount:
+                            raise BlockBuilderError("Outputs, coin_id != _coin_id or amount != _amount [{}!{}] [{}!={}]"
+                                                    .format(coin_id, _coin_id, amount, _amount))
+                # Block確認終了
+                before_block = block
+                batch_blocks.append(block)
+                if len(batch_blocks) >= batch_size:
+                    user_account.new_batch_apply(batched_blocks=batch_blocks, outer_cur=cur)
+                    batch_blocks.clear()
+                    logging.debug("UserAccount batched at {} height.".format(block.height))
+            # load and rebuild memory section
+            self.root_block = before_block
+            memorized_blocks, self.best_block = self.load_memory_file(before_block)
+            # Memory化されたChainを直接復元
+            for block in memorized_blocks:
+                batch_blocks.append(block)
+                self.chain[block.hash] = block
+                for tx in block.txs:
+                    if tx.hash not in tx_builder.chained_tx:
+                        tx_builder.chained_tx[tx.hash] = tx
+                    if tx.hash in tx_builder.unconfirmed:
+                        del tx_builder.unconfirmed[tx.hash]
+            self.best_chain = list(reversed(memorized_blocks))
+            # UserAccount update
+            user_account.new_batch_apply(batched_blocks=batch_blocks, outer_cur=cur)
+            user_account.init(outer_cur=cur)
+            db.commit()
         logging.info("Init finished, last block is {} {}Sec".format(before_block, round(time()-t, 3)))
 
     def save_memory_file(self):
@@ -662,7 +665,7 @@ class ChainBuilder:
         batch_count = self.batch_size
         batched_blocks = list()
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-            cur = db.cursor()  # DO NOT USE FOR WRITE!
+            cur = db.cursor()
             try:
                 block = None
                 while batch_count > 0 and len(best_chain) > 0:
@@ -733,7 +736,8 @@ class ChainBuilder:
                 logging.debug("Success batch {} blocks, root={}."
                               .format(len(batched_blocks), self.root_block))
                 # アカウントへ反映↓
-                user_account.new_batch_apply(batched_blocks)
+                user_account.new_batch_apply(batched_blocks=batched_blocks, outer_cur=cur)
+                db.commit()
                 return batched_blocks  # [<height=n>, <height=n+1>, .., <height=n+m>]
             except Exception as e:
                 self.db.batch_rollback()

@@ -12,10 +12,10 @@ from nem_ed25519.key import convert_address
 
 async def list_balance(request):
     confirm = int(request.query.get('confirm', 6))
-    users = user_account.get_balance(confirm)
     data = dict()
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         cur = db.cursor()
+        users = user_account.get_balance(confirm=confirm, outer_cur=cur)
         for user, balance in users.items():
             data[read_user2name(user, cur)] = dict(balance)
     return web_base.json_res(data)
