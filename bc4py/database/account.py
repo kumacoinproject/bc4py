@@ -235,6 +235,7 @@ class MoveLog:
 __all__ = [
     "read_txhash2log", "read_log_iter", "insert_log", "delete_log",
     "read_address2keypair", "read_address2user",
+    "insert_keypair_from_bip", "insert_keypair_from_outside", "get_keypair_last_index",
     "read_account_info", "read_pooled_address_iter", "read_address2account",
     "read_name2user", "read_user2name", "create_account", "create_new_user_keypair",
     "message2signature", "MoveLog"

@@ -59,7 +59,6 @@ class C:  # Constant
 
     # BIP32
     BIP44_COIN_TYPE = 0x800002aa
-    BIP44_GAP_LIMIT = 20
 
     # block params
     MATURE_HEIGHT = 20  # 採掘されたBlockのOutputsが成熟する期間
