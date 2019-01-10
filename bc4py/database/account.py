@@ -156,8 +156,8 @@ def create_account(name, cur, description="", _time=None, is_root=False):
         raise BlockChainError('prefix"@" is root user, is_root={} name={}'.format(is_root, name))
     _time = _time or int(time() - V.BLOCK_GENESIS_TIME)
     cur.execute("""
-        INSERT INTO `account` (`name`,`description`,`last_index`,`time`) VALUES (?,?,?,?)
-    """, (name, description, 0, _time))
+        INSERT INTO `account` (`name`,`description`,`time`) VALUES (?,?,?)
+    """, (name, description, _time))
     d = cur.execute("SELECT last_insert_rowid()").fetchone()
     return d[0]
 
