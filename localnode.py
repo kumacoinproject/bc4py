@@ -39,10 +39,10 @@ def copy_boot(port):
 def work(port, sub_dir):
     # BlockChain setup
     set_database_path(sub_dir=sub_dir)
-    import_keystone(passphrase='hello python')
     builder.set_database_path()
     copy_boot(port)
     make_account_db()
+    import_keystone(passphrase='hello python')
     genesis_block, network_ver, connections = load_boot_file()
     logging.info("Start p2p network-ver{} .".format(network_ver))
 

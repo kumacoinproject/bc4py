@@ -58,7 +58,7 @@ def make_account_db():
             CREATE TABLE IF NOT EXISTS `pool` (
             `id` INTEGER PRIMARY KEY,
             `sk` BINARY,
-            `ck` TEXT NOT NULL,
+            `ck` TEXT UNIQUE NOT NULL,
             `user` INTEGER NOT NULL,
             `is_inner` INTEGER,
             `index` INTEGER,

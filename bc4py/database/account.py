@@ -65,7 +65,7 @@ def read_address2keypair(address, cur):
         sk, pk, _ck = extract_keypair(user=user, is_inner=is_inner, index=index)
     else:
         sk = AESCipher.decrypt(key=V.BIP44_BRANCH_SEC_KEY.encode(), enc=sk)
-        pk = public_key(sk=sk)
+        pk = public_key(sk=sk,encode=bytes)
     return uuid, sk.hex(), pk.hex()
 
 
@@ -82,7 +82,7 @@ def insert_keypair_from_bip(ck, user, is_inner, index, cur):
     assert isinstance(ck, str) and isinstance(user, int)\
            and isinstance(is_inner, bool) and isinstance(index, int)
     cur.execute("""
-    INSERT INTO `pool` (`ck`,`user`,`is_inner`,`index`,`time`) VALUES (?,?,?,?,?)
+    INSERT OR IGNORE INTO `pool` (`ck`,`user`,`is_inner`,`index`,`time`) VALUES (?,?,?,?,?)
     """, (ck, user, int(is_inner), index, int(time())))
 
 
@@ -92,7 +92,7 @@ def insert_keypair_from_outside(sk, ck, user, cur):
         raise PermissionError('Cannot encrypt keypair!')
     sk = AESCipher.encrypt(key=V.BIP44_BRANCH_SEC_KEY.encode(), raw=sk)
     cur.execute("""
-    INSERT INTO `pool` (`sk`,`ck`,`user`,`time`) VALUES (?,?,?,?)
+    INSERT OR IGNORE INTO `pool` (`sk`,`ck`,`user`,`time`) VALUES (?,?,?,?)
     """, (sk, ck, user, int(time())))
 
 
