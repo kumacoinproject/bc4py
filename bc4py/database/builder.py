@@ -537,7 +537,7 @@ class ChainBuilder:
                 user_account.new_batch_apply(batch_blocks)
                 batch_blocks.clear()
                 logging.debug("UserAccount batched at {} height.".format(block.height))
-        # import from starter.dat
+        # load and rebuild memory section
         self.root_block = before_block
         memorized_blocks, self.best_block = self.load_memory_file(before_block)
         # Memory化されたChainを直接復元
@@ -651,13 +651,13 @@ class ChainBuilder:
         # best_chain = [<height=n>, <height=n-1>, ...]
         return best_block, best_chain
 
-    def batch_apply(self, force=False):
+    def batch_apply(self):
         # 無チェックで挿入するから要注意
-        if not force and self.cashe_limit > len(self.chain):
+        if self.cashe_limit > len(self.chain):
             return list()
         # cashe許容量を上回っているので記録
         self.db.batch_create()
-        logging.debug("Start batch apply. chain={} force={}".format(len(self.chain), force))
+        logging.debug("Start batch apply chain={}".format(len(self.chain)))
         best_chain = self.best_chain.copy()
         batch_count = self.batch_size
         batched_blocks = list()
@@ -684,14 +684,16 @@ class ChainBuilder:
                             self.db.write_usedindex(txhash, usedindex)  # UsedIndex update
                             input_tx = tx_builder.get_tx(txhash)
                             address, coin_id, amount = input_tx.outputs[txindex]
-                            if db_config['full_address_index'] or is_address(ck=address, prefix=V.BLOCK_CONTRACT_PREFIX)\
-                                    or read_address2user(address=address, cur=cur):
+                            if db_config['full_address_index'] or \
+                                    is_address(ck=address, prefix=V.BLOCK_CONTRACT_PREFIX) or \
+                                    read_address2user(address=address, cur=cur):
                                 # 必要なAddressのみ
                                 self.db.write_address_idx(address, txhash, txindex, coin_id, amount, True)
                         # outputs
                         for index, (address, coin_id, amount) in enumerate(tx.outputs):
-                            if db_config['full_address_index'] or is_address(ck=address, prefix=V.BLOCK_CONTRACT_PREFIX) \
-                                    or read_address2user(address=address, cur=cur):
+                            if db_config['full_address_index'] or \
+                                    is_address(ck=address, prefix=V.BLOCK_CONTRACT_PREFIX) or \
+                                    read_address2user(address=address, cur=cur):
                                 # 必要なAddressのみ
                                 self.db.write_address_idx(address, tx.hash, index, coin_id, amount, False)
                         # TXの種類による追加操作
