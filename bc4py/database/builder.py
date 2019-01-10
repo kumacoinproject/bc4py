@@ -949,10 +949,8 @@ class UserAccount:
         # {txhash: (_type, movement, _time),..}
         self.memory_movement = dict()
 
-    def init(self, f_delete=False):
-        assert f_delete is False, 'Unsafe function!'
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-            cur = db.cursor()
+    def init(self, f_delete=False, outer_cur=None):
+        def _wrapper(cur):
             memory_sum = Accounting()
             for move_log in read_log_iter(cur):
                 # logに記録されてもBlockに取り込まれていないならTXは存在せず
@@ -962,18 +960,21 @@ class UserAccount:
                     logging.debug("It's unknown log {}".format(move_log))
                     if f_delete:
                         delete_log(move_log.txhash, cur)
-            if f_delete:
-                logging.warning("Delete user's old unconfirmed tx.")
-                db.commit()
             self.db_balance += memory_sum
+        assert f_delete is False, 'Unsafe function!'
+        if outer_cur:
+            _wrapper(outer_cur)
+        else:
+            with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+                _wrapper(db.cursor())
+                if f_delete:
+                    logging.warning("Delete user's old unconfirmed tx.")
+                    db.commit()
 
-    def get_balance(self, confirm=6):
-        assert confirm < builder.cashe_limit - builder.batch_size, 'Too few cashe size.'
-        assert builder.best_block, 'Not DataBase init.'
-        # DataBase
-        account = self.db_balance.copy()
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-            cur = db.cursor()
+    def get_balance(self, confirm=6, outer_cur=None):
+        def _wrapper(cur):
+            # DataBase
+            account = self.db_balance.copy()
             # Memory
             limit_height = builder.best_block.height - confirm
             for block in builder.best_chain:
@@ -1002,30 +1003,36 @@ class UserAccount:
                         for coin_id, amount in coins:
                             if amount < 0:
                                 account[user][coin_id] += amount
-        return account
+            return account
+        assert confirm < builder.cashe_limit - builder.batch_size, 'Too few cashe size.'
+        assert builder.best_block, 'Not DataBase init.'
+        if outer_cur:
+            return _wrapper(outer_cur)
+        else:
+            with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+                return _wrapper(db.cursor())
 
     def move_balance(self, _from, _to, coins, outer_cur=None):
+        def _wrapper(cur):
+            # DataBaseに即書き込む(Memoryに入れない)
+            movements = Accounting()
+            movements[_from] -= coins
+            movements[_to] += coins
+            txhash = insert_log(movements, cur)
+            self.db_balance += movements
+            return txhash
         assert isinstance(coins, Balance), 'coins is Balance.'
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-            cur = outer_cur or db.cursor()
-            try:
-                # DataBaseに即書き込む(Memoryに入れない)
-                movements = Accounting()
-                movements[_from] -= coins
-                movements[_to] += coins
-                txhash = insert_log(movements, cur)
-                if outer_cur is None:
-                    db.commit()
-                self.db_balance += movements
-                return txhash
-            except Exception:
-                logging.error("Failed move_balance,", exc_info=True)
-                db.rollback()
+        if outer_cur:
+            return _wrapper(outer_cur)
+        else:
+            with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+                r = _wrapper(db.cursor())
+                db.commit()
+                return r
 
-    def get_movement_iter(self, start=0, f_dict=False):
-        count = 0
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-            cur = db.cursor()
+    def get_movement_iter(self, start=0, f_dict=False, outer_cur=None):
+        def _wrapper(cur):
+            count = 0
             # Unconfirmed
             for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time, reverse=True):
                 move_log = read_txhash2log(tx.hash, cur)
@@ -1068,10 +1075,14 @@ class UserAccount:
                     yield move_log.get_dict_data(cur)
                 else:
                     yield move_log.get_tuple_data()
+        if outer_cur:
+            yield from _wrapper(outer_cur)
+        else:
+            with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+                yield from _wrapper(db.cursor())
 
-    def new_batch_apply(self, batched_blocks):
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-            cur = db.cursor()
+    def new_batch_apply(self, batched_blocks, outer_cur=None):
+        def _wrapper(cur):
             for block in batched_blocks:
                 for tx in block.txs:
                     move_log = read_txhash2log(tx.hash, cur)
@@ -1089,11 +1100,15 @@ class UserAccount:
                         del self.memory_movement[tx.hash]
                         # insert_log
                         insert_log(movement, cur, _type, _time, tx.hash)
-            db.commit()
+        if outer_cur:
+            _wrapper(outer_cur)
+        else:
+            with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+                _wrapper(db.cursor())
+                db.commit()
 
     def affect_new_tx(self, tx, outer_cur=None):
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-            cur = outer_cur or db.cursor()
+        def _wrapper(cur):
             movement = Accounting()
             # send_from_applyで登録済み
             if tx.hash in self.memory_movement:
@@ -1120,6 +1135,11 @@ class UserAccount:
             move_log = MoveLog(tx.hash, tx.type, movement, tx.time, tx)
             self.memory_movement[tx.hash] = move_log
             logging.debug("Affect account new tx. {}".format(tx))
+        if outer_cur:
+            _wrapper(outer_cur)
+        else:
+            with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+                _wrapper(db.cursor())
 
 
 class BlockBuilderError(BaseException):
