@@ -5,6 +5,7 @@ from time import time
 from binascii import hexlify
 from bc4py.utils import AESCipher
 from nem_ed25519.key import public_key
+from nem_ed25519.signature import sign
 from weakref import ref
 import os
 
@@ -173,6 +174,14 @@ def create_new_user_keypair(name, cur, is_inner=False):
     return ck
 
 
+def message2signature(raw, address):
+    # sign by address
+    with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+        cur = db.cursor()
+        uuid, sk, pk = read_address2keypair(address, cur)
+    return pk, sign(msg=raw, sk=sk, pk=pk)
+
+
 class MoveLog:
     __slots__ = ("txhash", "type", "movement", "time", "tx_ref")
 
@@ -228,5 +237,5 @@ __all__ = [
     "read_address2keypair", "read_address2user",
     "read_account_info", "read_pooled_address_iter", "read_address2account",
     "read_name2user", "read_user2name", "create_account", "create_new_user_keypair",
-    "MoveLog"
+    "message2signature", "MoveLog"
 ]

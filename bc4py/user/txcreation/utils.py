@@ -1,7 +1,6 @@
-from bc4py.user.utils import message2signature
 from bc4py.config import C, BlockChainError
 from bc4py.database.builder import user_account
-from bc4py.database.account import create_new_user_keypair
+from bc4py.database.account import message2signature, create_new_user_keypair
 from bc4py.database.tools import get_unspents_iter, get_utxo_iter
 from bc4py.user import Balance
 import logging

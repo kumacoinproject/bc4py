@@ -6,9 +6,8 @@ from bc4py.chain.workhash import generate_many_hash
 from bc4py.chain.difficulty import get_bits_by_hash
 from bc4py.chain.utils import GompertzCurve
 from bc4py.database.create import create_db, closing
-from bc4py.database.account import create_new_user_keypair
+from bc4py.database.account import message2signature, create_new_user_keypair
 from bc4py.database.tools import get_unspents_iter
-from bc4py.user.utils import message2signature
 from threading import Thread, Event
 from time import time, sleep
 import logging
