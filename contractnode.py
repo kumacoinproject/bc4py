@@ -79,7 +79,7 @@ def work(port, sub_dir=None):
     logging.info("Finished all initialize.")
 
     try:
-        create_rest_server(f_local=True, port=port+1000, user='user', pwd='password')
+        create_rest_server(f_local=True, user='user', pwd='password', port=port+1000)
         P.F_STOP = True
         builder.close()
         pc.close()
