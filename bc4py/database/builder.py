@@ -104,7 +104,7 @@ class DataBase:
         #    for name in database_tuple:
         #        print(getattr(self, name).GetStats())
         #        getattr(self, name).__dell__()
-        logging.info("Close database connection.")
+        logging.info("close database connection.")
 
     def batch_create(self):
         assert self.batch is None, 'batch is already start.'
@@ -463,7 +463,7 @@ class ChainBuilder:
     def set_database_path(self, **kwargs):
         try:
             self.db = DataBase(f_dummy=False, **kwargs)
-            logging.info("Connect database.")
+            logging.info("connect database.")
         except leveldb.LevelDBError:
             logging.warning("Already connect database.")
         except Exception as e:
@@ -489,7 +489,7 @@ class ChainBuilder:
             self.chain[genesis_block.hash] = genesis_block
             self.best_chain = [genesis_block]
             self.best_block = genesis_block
-            logging.info("Set dummy block. GenesisBlock={}".format(genesis_block))
+            logging.info("Set dummy block, genesisBlock={}".format(genesis_block))
             user_account.init()
             return
 

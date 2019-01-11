@@ -27,7 +27,7 @@ async def unlock_wallet(request):
     async def timeout_now():
         await asyncio.sleep(timeout)
         V.BIP44_BRANCH_SEC_KEY = None
-        logging.info("Wallet secret kwy deleted now.")
+        logging.info("deleted wallet secret key now.")
 
     if V.BIP44_ENCRYPTED_MNEMONIC is None:
         return web_base.error_res(errors='Not found BIP32_ENCRYPTED_MNEMONIC.')

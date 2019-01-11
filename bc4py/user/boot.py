@@ -88,7 +88,7 @@ def load_bootstrap_file():
 def import_keystone(passphrase='', auto_create=True, language='english'):
     def timeout_now():
         V.BIP44_BRANCH_SEC_KEY = None
-        logging.info("Wallet secret kwy deleted now.")
+        logging.info("deleted wallet secret key now.")
     if V.BIP44_ENCRYPTED_MNEMONIC:
         raise Exception('Already imported, BIP32_ENCRYPTED_MNEMONIC.')
     if V.BIP44_ROOT_PUB_KEY:
