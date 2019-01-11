@@ -42,6 +42,7 @@ def work(port, sub_dir):
     builder.set_database_path()
     copy_boot(port)
     make_account_db()
+    import_keystone(passphrase='hello python')
     genesis_block, network_ver, connections = load_boot_file()
     logging.info("Start p2p network-ver{} .".format(network_ver))
 
@@ -102,7 +103,7 @@ def work(port, sub_dir):
 
     try:
         # start_stratum(f_blocking=False)
-        create_rest_server(f_local=True, port=port+1000, user='user', pwd='password')
+        create_rest_server(f_local=True, user='user', pwd='password', port=port+1000)
         P.F_STOP = True
         builder.close()
         # close_stratum()

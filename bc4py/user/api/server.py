@@ -28,6 +28,12 @@ base_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
 markdown_template = open(os.path.join(base_path, 'md_renderer.html'), mode='r', encoding='utf8').read()
 
 
+localhost_urls = {
+    "localhost",
+    "127.0.0.1",
+}
+
+
 def escape_cross_origin_block(app):
     cors = aiohttp_cors.setup(app, defaults={
         "*": aiohttp_cors.ResourceOptions(
@@ -42,22 +48,23 @@ def escape_cross_origin_block(app):
         cors.add(resource)
 
 
-class SkipOptionsStrategy(BaseStrategy):
+class PrivateAccessStrategy(BaseStrategy):
     # enable access from browser with OPTIONS method
     async def check(self):
         # access allow only local
-        # if self.request.remote != '127.0.0.1' or not self.request.remote.startswith('192.168.'):
-        #    raise web.HTTPForbidden()
+        proxy_host = self.request.headers.get('X-Forwarded-Host')
+        remote_host = self.request.remote
         if self.request.method == 'OPTIONS':
             return await self.handler(self.request)
+        if remote_host in localhost_urls:
+            if proxy_host is None:
+                return await super().check()
+            elif proxy_host in localhost_urls:
+                return await super().check()
+            else:
+                raise web.HTTPForbidden()
         else:
-            return await super().check()
-
-
-def setup_basic_auth(app, user, pwd):
-    app.middlewares.append(
-        basic_auth_middleware(('/private/',), {user: pwd}, SkipOptionsStrategy))
-    logging.info("Enabled basic auth.")
+            raise web.HTTPForbidden()
 
 
 def setup_ssl_context(cert, private, hostname=False):
@@ -67,7 +74,7 @@ def setup_ssl_context(cert, private, hostname=False):
     return ssl_context
 
 
-def create_rest_server(f_local, port=3000, user=None, pwd=None, f_blocking=True, ssl_context=None):
+def create_rest_server(f_local, user, pwd, port=3000, f_blocking=True, ssl_context=None):
     threading.current_thread().setName("REST")
     app = web.Application()
     V.API_OBJ = app
@@ -86,9 +93,10 @@ def create_rest_server(f_local, port=3000, user=None, pwd=None, f_blocking=True,
     app.router.add_get('/public/listunspents', list_unspents)
     app.router.add_get('/private/listunspents', list_private_unspents)
     app.router.add_get('/private/listaccountaddress', list_account_address)
-    # app.router.add_post('/private/lock', lock_database)  TODO: Work? Need?
-    # app.router.add_post('/private/unlock', unlock_database) TODO: Work? Need?
-    # app.router.add_post('/private/changepassword', change_password) TODO: Work? Need?
+    app.router.add_post('/private/lockwallet', lock_wallet)
+    app.router.add_post('/private/unlockwallet', unlock_wallet)
+    app.router.add_post('/private/createwallet', create_wallet)
+    app.router.add_post('/private/importprivatekey', import_private_key)
     app.router.add_post('/private/move', move_one)
     app.router.add_post('/private/movemany', move_many)
     app.router.add_get('/private/newaddress', new_address)
@@ -136,14 +144,10 @@ def create_rest_server(f_local, port=3000, user=None, pwd=None, f_blocking=True,
     escape_cross_origin_block(app)
 
     # setup basic auth
-    if user and pwd:
-        assert isinstance(user, str) and len(user) > 2
-        assert isinstance(pwd, str) and len(pwd) > 7
-        setup_basic_auth(app, user, pwd)
-    elif f_local:
-        logging.debug('non basic auth.')
-    else:
-        raise Exception('Accept 0.0.0.0 without basic auth!')
+    assert isinstance(user, str) and len(user) > 2
+    assert isinstance(pwd, str) and len(pwd) > 7
+    app.middlewares.append(
+        basic_auth_middleware(('/private/',), {user: pwd}, PrivateAccessStrategy))
 
     # Working
     host = '127.0.0.1' if f_local else '0.0.0.0'
@@ -161,27 +165,6 @@ def create_rest_server(f_local, port=3000, user=None, pwd=None, f_blocking=True,
         logging.info("REST Server closed now.")
     else:
         logging.info("Create REST Server.")
-
-
-def route2markdown(app):
-    row = [('URL', 'Method', 'Type', 'About')]
-    for r in app.router.routes():
-        if r.method not in ('GET', 'POST'):
-            continue
-        if not getattr(r.resource, '_path', False):
-            continue
-        if len(r.resource._path.split("/")) != 3:
-            continue
-        *dummy, type, url = r.resource._path.split("/")
-        row.append((url, r.method, type, r.handler.__doc__ or ""))
-    # print(row)
-    for url, method, type, about in row:
-        print("|{} |{} |{} |{} |".format(
-            "[/{}/{}](./{}/{})".format(type, url, type, url).ljust(60, " "),
-            method.ljust(6, " "),
-            type.ljust(6, " "),
-            about.ljust(60, " ")
-        ))
 
 
 async def non_blocking_start(runner, host, port, ssl_context):
@@ -236,9 +219,9 @@ async def close_server(request):
 
 
 __all__ = [
+    "localhost_urls",
     "escape_cross_origin_block",
-    "SkipOptionsStrategy",
-    "setup_basic_auth",
+    "PrivateAccessStrategy",
     "setup_ssl_context",
     "create_rest_server",
 ]

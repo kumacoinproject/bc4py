@@ -14,6 +14,9 @@ import bjson
 import psutil
 
 
+WALLET_VERSION = 0
+
+
 def set_database_path(sub_dir=None):
     V.SUB_DIR = sub_dir
     V.DB_HOME_DIR = os.path.join(os.path.expanduser("~"), 'blockchain-py')
@@ -23,7 +26,7 @@ def set_database_path(sub_dir=None):
         V.DB_HOME_DIR = os.path.join(V.DB_HOME_DIR, sub_dir)
         if not os.path.exists(V.DB_HOME_DIR):
             os.makedirs(V.DB_HOME_DIR)
-    V.DB_ACCOUNT_PATH = os.path.join(V.DB_HOME_DIR, 'account.dat')
+    V.DB_ACCOUNT_PATH = os.path.join(V.DB_HOME_DIR, 'wallet.ver{}.dat'.format(WALLET_VERSION))
 
 
 def set_blockchain_params(genesis_block):
@@ -68,24 +71,14 @@ def make_pid_file():
 
 class AESCipher:
     @staticmethod
-    def create_key(seed=None):
-        if seed is None:
-            return b64encode(os.urandom(AES.block_size)).decode()
-        else:
-            key = SHA256.new(seed.encode()).digest()[:AES.block_size]
-            return b64encode(key).decode()
-
-    @staticmethod
-    def is_aes_key(key):
-        try:
-            return len(b64decode(key.encode(), validate=True)) == AES.block_size
-        except:
-            return False
+    def create_key():
+        return os.urandom(AES.block_size)
 
     @staticmethod
     def encrypt(key, raw):
-        assert type(raw) == bytes, "input data is bytes"
-        key = b64decode(key.encode())
+        assert isinstance(key, bytes)
+        assert isinstance(raw, bytes), "input data is bytes"
+        key = SHA256.new(key).digest()[:AES.block_size]
         raw = AESCipher._pad(raw)
         iv = Random.new().read(AES.block_size)
         cipher = AES.new(key, AES.MODE_CBC, iv)
@@ -93,8 +86,9 @@ class AESCipher:
 
     @staticmethod
     def decrypt(key, enc):
-        assert type(enc) == bytes, 'Encrypt data is bytes'
-        key = b64decode(key.encode())
+        assert isinstance(key, bytes)
+        assert isinstance(enc, bytes), 'Encrypt data is bytes'
+        key = SHA256.new(key).digest()[:AES.block_size]
         iv = enc[:AES.block_size]
         cipher = AES.new(key, AES.MODE_CBC, iv)
         raw = AESCipher._unpad(cipher.decrypt(enc[AES.block_size:]))

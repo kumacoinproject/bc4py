@@ -43,7 +43,7 @@ def issue_mintcoin(name, unit, digit, amount, cur, description=None, image=None,
     # input_address.add(mint_address)
     fee_coins = Balance(coin_id=fee_coin_id, amount=tx.gas_price * tx.gas_amount)
     # check amount
-    check_enough_amount(sender=sender, send_coins=Balance(0, amount), fee_coins=fee_coins)
+    check_enough_amount(sender=sender, send_coins=Balance(0, amount), fee_coins=fee_coins, cur=cur)
     # replace dummy address
     replace_redeem_dummy_address(tx=tx, cur=cur)
     # replace dummy mint_id
@@ -106,7 +106,7 @@ def change_mintcoin(mint_id, cur, amount=None, description=None, image=None, set
     input_address.add(m_before.address)
     fee_coins = Balance(coin_id=fee_coin_id, amount=tx.gas_price * tx.gas_amount)
     # check amount
-    check_enough_amount(sender=sender, send_coins=send_coins, fee_coins=fee_coins)
+    check_enough_amount(sender=sender, send_coins=send_coins, fee_coins=fee_coins, cur=cur)
     # replace dummy address
     replace_redeem_dummy_address(tx=tx, cur=cur)
     # replace dummy mint_id

@@ -14,3 +14,5 @@ pooled_multiprocessing>=0.0.9
 expiringdict
 phe  # paillier
 rx  # ReactiveX
+bip32nem
+mnemonic

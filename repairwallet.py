@@ -4,19 +4,16 @@
 from bc4py import __version__, __chain_version__, __message__, __logo__
 from bc4py.config import C, V, P
 from bc4py.utils import set_database_path, set_blockchain_params
-from bc4py.user.generate import *
+from bc4py.user.tools import repair_wallet
 from bc4py.user.boot import *
 from bc4py.user.network import *
-from bc4py.user.api import create_rest_server
-from bc4py.contract.emulator.watching import start_contract_watch
 from bc4py.database.create import make_account_db
 from bc4py.database.builder import builder
-from bc4py.chain.workhash import start_work_hash, close_work_hash
 from pooled_multiprocessing import cpu_num, add_pool_process
 from p2p_python.utils import setup_p2p_params
 from p2p_python.client import PeerClient
 from bc4py.for_debug import set_logger
-from threading import Thread
+from time import sleep
 import logging
 
 
@@ -60,30 +57,19 @@ def work(port, sub_dir=None):
     builder.init(genesis_block, batch_size=500)
     builder.db.sync = False  # more fast but unstable
     sync_chain_loop()
-
-    # Mining/Staking setup
-    start_work_hash()
-    # Debug.F_CONSTANT_DIFF = True
-    # Debug.F_SHOW_DIFFICULTY = True
-    # Debug.F_STICKY_TX_REJECTION = False  # for debug
-    Generate(consensus=C.BLOCK_YES_POW, power_limit=0.05).start()
-    Generate(consensus=C.BLOCK_HMQ_POW, power_limit=0.05).start()
-    Generate(consensus=C.BLOCK_X11_POW, power_limit=0.05).start()
-    Generate(consensus=C.BLOCK_POS, power_limit=0.3).start()
-    # Contract watcher
-    start_contract_watch()
-    Thread(target=mined_newblock, name='GeneBlock', args=(output_que, pc)).start()
     logging.info("Finished all initialize.")
 
-    try:
-        create_rest_server(f_local=False, user='user', pwd='password', port=port+1000)
-        P.F_STOP = True
-        builder.close()
-        pc.close()
-        close_generate()
-        close_work_hash()
-    except KeyboardInterrupt:
-        logging.debug("KeyboardInterrupt.")
+    while P.F_NOW_BOOTING:
+        sleep(5)
+
+    # repair
+    repair_wallet()
+
+    # close
+    P.F_STOP = True
+    builder.close()
+    pc.close()
+    logging.info("Finish repair wallet.")
 
 
 if __name__ == '__main__':

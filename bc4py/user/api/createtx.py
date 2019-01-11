@@ -6,7 +6,6 @@ from bc4py.database.builder import tx_builder
 from bc4py.database.account import *
 from bc4py.database.create import closing, create_db
 from bc4py.user.network.sendnew import send_newtx
-from bc4py.user.utils import message2signature
 from bc4py.user.api import web_base
 from bc4py.chain.tx import TX
 from aiohttp import web

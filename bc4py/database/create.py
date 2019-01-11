@@ -57,10 +57,11 @@ def make_account_db():
         db.execute("""
             CREATE TABLE IF NOT EXISTS `pool` (
             `id` INTEGER PRIMARY KEY,
-            `sk` BINARY NOT NULL,
-            `pk` BINARY NOT NULL,
-            `ck` TEXT NOT NULL,
+            `sk` BINARY,
+            `ck` TEXT UNIQUE NOT NULL,
             `user` INTEGER NOT NULL,
+            `is_inner` INTEGER,
+            `index` INTEGER,
             `time` INTEGER NOT NULL
         )""")
         # index
@@ -79,3 +80,7 @@ def make_account_db():
             (C.ANT_CONTRACT, C.ANT_NAME_CONTRACT, "Contract bind address.", 0)]
         db.executemany("INSERT OR IGNORE INTO `account` VALUES (?,?,?,?)", accounts)
         db.commit()
+
+
+# add last_index to account
+# "ALTER TABLE `account` ADD COLUMN 'last_index' INTEGER NOT NULL AFTER `description`"

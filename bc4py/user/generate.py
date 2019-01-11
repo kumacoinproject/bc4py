@@ -6,9 +6,8 @@ from bc4py.chain.workhash import generate_many_hash
 from bc4py.chain.difficulty import get_bits_by_hash
 from bc4py.chain.utils import GompertzCurve
 from bc4py.database.create import create_db, closing
-from bc4py.database.account import create_new_user_keypair
+from bc4py.database.account import message2signature, create_new_user_keypair
 from bc4py.database.tools import get_unspents_iter
-from bc4py.user.utils import message2signature
 from threading import Thread, Event
 from time import time, sleep
 import logging
@@ -32,8 +31,7 @@ staking_limit = 500
 
 def new_key(user=C.ANT_NAME_UNKNOWN):
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-        cur = db.cursor()
-        ck = create_new_user_keypair(user, cur)
+        ck = create_new_user_keypair(user, db.cursor())
         db.commit()
     return ck
 
@@ -259,16 +257,21 @@ def update_unconfirmed_txs(new_unconfirmed_txs):
     unconfirmed_txs = new_unconfirmed_txs
 
 
-def update_unspents_txs():
+def update_unspents_txs(time_limit=0.2):
     global unspents_txs
-    c = 50
-    while previous_block is None and 0 < c:
-        sleep(0.2)
+    c = 100
+    while previous_block is None:
+        if c < 0:
+            raise Exception('Timeout on update unspents.')
+        sleep(0.1)
         c -= 1
+    s = time()
     previous_height = previous_block.height
     proof_txs = list()
     all_num = 0
     for address, height, txhash, txindex, coin_id, amount in get_unspents_iter():
+        if time() - s > time_limit:
+            break
         if height is None:
             continue
         if coin_id != 0:

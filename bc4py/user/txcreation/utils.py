@@ -1,7 +1,6 @@
-from bc4py.user.utils import message2signature
 from bc4py.config import C, BlockChainError
 from bc4py.database.builder import user_account
-from bc4py.database.account import create_new_user_keypair
+from bc4py.database.account import message2signature, create_new_user_keypair
 from bc4py.database.tools import get_unspents_iter, get_utxo_iter
 from bc4py.user import Balance
 import logging
@@ -154,7 +153,7 @@ def replace_redeem_dummy_address(tx, cur=None, replace_by=None):
         if address != DUMMY_REDEEM_ADDRESS:
             continue
         if replace_by is None:
-            new_address = create_new_user_keypair(C.ANT_NAME_UNKNOWN, cur)
+            new_address = create_new_user_keypair(C.ANT_NAME_UNKNOWN, cur, True)
         else:
             new_address = replace_by
         tx.outputs[index] = (new_address, coin_id, amount)
@@ -185,9 +184,9 @@ def setup_contract_signature(tx, validators):
     return count
 
 
-def check_enough_amount(sender, send_coins, fee_coins):
+def check_enough_amount(sender, send_coins, fee_coins, cur):
     assert isinstance(sender, int)
-    from_coins = user_account.get_balance()[sender]
+    from_coins = user_account.get_balance(outer_cur=cur)[sender]
     remain_coins = from_coins - send_coins - fee_coins
     if not remain_coins.is_all_plus_amount():
         raise BlockChainError('Not enough balance in id={} balance={} remains={}.'

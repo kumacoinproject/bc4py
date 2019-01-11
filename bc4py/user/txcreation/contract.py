@@ -17,7 +17,7 @@ def create_contract_init_tx(c_address, c_bin, cur, c_extra_imports=None, c_setti
         raise BlockChainError('Not allowed inner account.')
     c_method = contract.M_INIT
     c_args = (c_bin, c_extra_imports, c_settings)
-    redeem_address = create_new_user_keypair(read_user2name(sender, cur), cur)
+    redeem_address = create_new_user_keypair(read_user2name(sender, cur), cur, True)
     msg_body = bjson.dumps((c_address, c_method, redeem_address, c_args), compress=False)
     send_pairs = send_pairs_format_check(c_address=c_address, send_pairs=send_pairs)
     tx = send_many(sender=sender, send_pairs=send_pairs, cur=cur, fee_coin_id=0, gas_price=gas_price,
@@ -32,7 +32,7 @@ def create_contract_update_tx(c_address, cur, c_bin=None, c_extra_imports=None, 
         raise BlockChainError('Not allowed inner account.')
     c_method = contract.M_UPDATE
     c_args = (c_bin, c_extra_imports, c_settings)
-    redeem_address = create_new_user_keypair(read_user2name(sender, cur), cur)
+    redeem_address = create_new_user_keypair(read_user2name(sender, cur), cur, True)
     msg_body = bjson.dumps((c_address, c_method, redeem_address, c_args), compress=False)
     send_pairs = send_pairs_format_check(c_address=c_address, send_pairs=send_pairs)
     tx = send_many(sender=sender, send_pairs=send_pairs, cur=cur, fee_coin_id=0, gas_price=gas_price,
@@ -49,7 +49,7 @@ def create_contract_transfer_tx(c_address, cur, c_method, c_args=None,
         c_args = tuple()
     else:
         c_args = tuple(c_args)
-    redeem_address = create_new_user_keypair(read_user2name(sender, cur), cur)
+    redeem_address = create_new_user_keypair(read_user2name(sender, cur), cur, True)
     msg_body = bjson.dumps((c_address, c_method, redeem_address, c_args), compress=False)
     send_pairs = send_pairs_format_check(c_address=c_address, send_pairs=send_pairs)
     tx = send_many(sender=sender, send_pairs=send_pairs, cur=cur, fee_coin_id=0, gas_price=gas_price,
