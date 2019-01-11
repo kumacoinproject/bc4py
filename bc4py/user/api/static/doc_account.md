@@ -340,7 +340,8 @@ import private key
 {"status": true}
 ```
 * About
-    * It takes many time. Will be close after import automatically.
+    * It takes many time.
+    * You need repair wallet after to reflect transaction history.
 
 move account balance
 ----

@@ -83,10 +83,6 @@ async def create_wallet(request):
 
 
 async def import_private_key(request):
-    def auto_close():
-        V.PC_OBJ.close()
-        repair_wallet()
-        loop.call_soon_threadsafe(loop.stop)
     if V.BIP44_BRANCH_SEC_KEY is None:
         return web_base.error_res('wallet is locked!')
     try:
@@ -102,7 +98,6 @@ async def import_private_key(request):
             user = read_name2user(name=name, cur=cur)
             insert_keypair_from_outside(sk=sk, ck=ck, user=user, cur=cur)
             db.commit()
-        Thread(target=auto_close, name='Repair', daemon=True).start()
         return web_base.json_res({'status': True})
     except Exception:
         return web_base.error_res()
