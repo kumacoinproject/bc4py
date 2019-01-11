@@ -1,12 +1,12 @@
 from bc4py.config import C, V
 from bc4py.database.create import closing, create_db
-from bc4py.database.builder import builder, tx_builder, user_account
+from bc4py.database.builder import builder, tx_builder
 from bc4py.database.account import *
 from bc4py.user import *
 import logging
 
 
-class SearchAddress(dict):
+class Search(dict):
     def __init__(self, gap_user, gap_limit, cur):
         super().__init__()
         self.gap_user = gap_user
@@ -53,14 +53,23 @@ def repair_wallet(gap_user=10, gap_limit=20):
     logging.info("Wallet fix tool start now...")
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         cur = db.cursor()
-        search = SearchAddress(gap_user=gap_user, gap_limit=gap_limit, cur=cur)
+        search = Search(gap_user=gap_user, gap_limit=gap_limit, cur=cur)
         for height, blockhash in builder.db.read_block_hash_iter(start_height=0):
-            for block in builder.get_block(blockhash=blockhash):
-                for tx in block.txs:
-                    is_related = False
-                    for txhash, txindex in tx.inputs:
-                        input_tx = tx_builder.get_tx(txhash)
-                        address, coin_id, amount = input_tx.outputs[txindex]
+            block = builder.get_block(blockhash=blockhash)
+            for tx in block.txs:
+                is_related = False
+                for txhash, txindex in tx.inputs:
+                    input_tx = tx_builder.get_tx(txhash)
+                    address, coin_id, amount = input_tx.outputs[txindex]
+                    if address in search:
+                        search.recode(address)
+                        is_related = True
+                        break
+                    elif read_address2user(address=address, cur=cur):
+                        is_related = True
+                        break
+                if not is_related:
+                    for address, coin_id, amount in tx.outputs:
                         if address in search:
                             search.recode(address)
                             is_related = True
@@ -68,41 +77,32 @@ def repair_wallet(gap_user=10, gap_limit=20):
                         elif read_address2user(address=address, cur=cur):
                             is_related = True
                             break
-                    if not is_related:
-                        for address, coin_id, amount in tx.outputs:
-                            if address in search:
-                                search.recode(address)
-                                is_related = True
-                                break
-                            elif read_address2user(address=address, cur=cur):
-                                is_related = True
-                                break
-                    # recode or ignore
-                    if is_related:
-                        if read_txhash2log(txhash=tx.hash, cur=cur):
-                            continue
-                        movement = Accounting()
-                        for txhash, txindex in tx.inputs:
-                            input_tx = tx_builder.get_tx(txhash)
-                            address, coin_id, amount = input_tx.outputs[txindex]
-                            user = read_address2user(address=address, cur=cur)
-                            if user is not None:
-                                balance = Balance(coin_id, amount)
-                                movement[user] -= balance
-                                movement[C.ANT_OUTSIDE] += balance
-                        for address, coin_id, amount in tx.outputs:
-                            user = read_address2user(address, cur)
-                            if user is not None:
-                                balance = Balance(coin_id, amount)
-                                movement[user] += balance
-                                movement[C.ANT_OUTSIDE] -= balance
-                        # check
-                        movement.cleanup()
-                        if len(movement) == 0:
-                            continue
-                            # MoveLog(tx.hash, tx.type, movement, tx.time, tx)
-                        insert_log(movements=movement, cur=cur, _type=tx.type, _time=tx.time, txhash=tx.hash)
-                        logging.info("Find not recoded transaction {}".format(tx))
+                # recode or ignore
+                if is_related:
+                    if read_txhash2log(txhash=tx.hash, cur=cur):
+                        continue
+                    movement = Accounting()
+                    for txhash, txindex in tx.inputs:
+                        input_tx = tx_builder.get_tx(txhash)
+                        address, coin_id, amount = input_tx.outputs[txindex]
+                        user = read_address2user(address=address, cur=cur)
+                        if user is not None:
+                            balance = Balance(coin_id, amount)
+                            movement[user] -= balance
+                            movement[C.ANT_OUTSIDE] += balance
+                    for address, coin_id, amount in tx.outputs:
+                        user = read_address2user(address, cur)
+                        if user is not None:
+                            balance = Balance(coin_id, amount)
+                            movement[user] += balance
+                            movement[C.ANT_OUTSIDE] -= balance
+                    # check
+                    movement.cleanup()
+                    if len(movement) == 0:
+                        continue
+                        # MoveLog(tx.hash, tx.type, movement, tx.time, tx)
+                    insert_log(movements=movement, cur=cur, _type=tx.type, _time=tx.time, txhash=tx.hash)
+                    logging.info("Find not recoded transaction {}".format(tx))
             if height % 200 == 0:
                 logging.info("Now height {} ...".format(height))
         db.commit()
