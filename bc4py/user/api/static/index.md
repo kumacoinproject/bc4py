@@ -30,6 +30,7 @@ Index page
 |[/private/lockwallet](./private/lockwallet)                  |POST   |private  | delete private key from system        |
 |[/private/unlockwallet](./private/unlockwallet)              |POST   |private  | decrypt and recode private key to memory |
 |[/private/createwallet](./private/createwallet)              |POST   |private  | generate new wallet private/public pair |
+|[/private/importprivatekey](./private/importprivatekey)      |POST   |private  | import private key manually           |
 |[/private/move](./private/move)                               |POST   |private  | Move inner account balance.           |
 |[/private/movemany](./private/movemany)                       |POST   |private  | Move inner account balances.          |
 |[/private/newaddress](./private/newaddress)                   |GET    |private  | Get new incoming address by account.  |

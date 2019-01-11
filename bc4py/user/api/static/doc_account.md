@@ -327,6 +327,21 @@ create wallet
 }
 ```
 
+import private key
+----
+* Arguments
+    1. private_key      (hexstring, required)
+    2. address          (string, required)   Check with this compressedAddress
+    3. account          (string, optional, default="@Unknown")
+* Request example
+    * `curl --basic -u user:password -H "accept: application/json" -H "Content-Type: application/json" "127.0.0.1:3000/private/importprivatekey" -d "{\"private_key\": \"681e2c26d6b80eea4b8c68084549e869096ed3237b8d2aa7d687789142733156\", \"address\": \"NC6KDMR3PYPCZQPXGWGIQBLF7IBHET2Z5J7KCVSB\"}"`
+* Response
+```json
+{"status": true}
+```
+* About
+    * It takes many time. Will be close after import automatically.
+
 move account balance
 ----
 * Arguments

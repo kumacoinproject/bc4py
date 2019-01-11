@@ -1,7 +1,13 @@
 from bc4py.config import C, V
 from bc4py.user.api import web_base
+from bc4py.user.tools import repair_wallet
+from bc4py.database.create import closing, create_db
+from bc4py.database.account import insert_keypair_from_outside, read_name2user
 from mnemonic import Mnemonic
 from bip32nem import BIP32Key, BIP32_HARDEN
+from nem_ed25519 import public_key, get_address
+from threading import Thread
+from binascii import unhexlify
 import asyncio
 import logging
 
@@ -76,8 +82,35 @@ async def create_wallet(request):
         return web_base.error_res()
 
 
+async def import_private_key(request):
+    def auto_close():
+        V.PC_OBJ.close()
+        repair_wallet()
+        loop.call_soon_threadsafe(loop.stop)
+    if V.BIP44_BRANCH_SEC_KEY is None:
+        return web_base.error_res('wallet is locked!')
+    try:
+        post = await web_base.content_type_json_check(request)
+        sk = unhexlify(post['private_key'].encode())
+        ck = post['address']
+        name = post.get('account', C.ANT_NAME_UNKNOWN)
+        check_ck = get_address(pk=public_key(sk=sk), prefix=V.BLOCK_PREFIX)
+        if ck != check_ck:
+            return web_base.error_res('Don\'t match, {}!={}'.format(ck, check_ck))
+        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+            cur = db.cursor()
+            user = read_name2user(name=name, cur=cur)
+            insert_keypair_from_outside(sk=sk, ck=ck, user=user, cur=cur)
+            db.commit()
+        Thread(target=auto_close, name='Repair', daemon=True).start()
+        return web_base.json_res({'status': True})
+    except Exception:
+        return web_base.error_res()
+
+
 __all__ = [
     "lock_wallet",
     "unlock_wallet",
-    "create_wallet"
+    "create_wallet",
+    "import_private_key",
 ]

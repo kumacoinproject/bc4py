@@ -25,12 +25,12 @@ class Search(dict):
                 if last_index == 0:
                     gap_user -= 1
             user += 1
-        print(1, check)
+        logging.info("Finish check list {}".format(len(check)))
         for user, is_inner, last_index in check:
             for index in range(last_index, last_index + self.gap_limit):
                 sk, pk, ck = extract_keypair(user=user, is_inner=is_inner, index=index)
                 self[ck] = (user, is_inner, index)
-        print(2, self)
+            logging.info("Finish userID={} is_inner={} index={}".format(user, is_inner, index))
 
     def recode(self, ck):
         user, is_inner, index = self[ck]
@@ -38,6 +38,8 @@ class Search(dict):
         next_index = self.biggest_index(user=user, is_inner=is_inner) + 1
         sk, pk, ck = extract_keypair(user=user, is_inner=is_inner, index=next_index)
         self[ck] = (user, is_inner, next_index)
+        logging.info("Recode new userID={} is_inner={} index={} address={}"
+                     .format(user, is_inner, index, ck))
 
     def biggest_index(self, user, is_inner):
         index = 0
@@ -100,10 +102,11 @@ def repair_wallet(gap_user=10, gap_limit=20):
                     movement.cleanup()
                     if len(movement) == 0:
                         continue
-                        # MoveLog(tx.hash, tx.type, movement, tx.time, tx)
+                    if read_txhash2log(txhash=tx.hash, cur=cur):
+                        continue
                     insert_log(movements=movement, cur=cur, _type=tx.type, _time=tx.time, txhash=tx.hash)
                     logging.info("Find not recoded transaction {}".format(tx))
-            if height % 200 == 0:
+            if height % 5000 == 0:
                 logging.info("Now height {} ...".format(height))
         db.commit()
     logging.info("Finish wallet repair.")
