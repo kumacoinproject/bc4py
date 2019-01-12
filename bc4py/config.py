@@ -52,7 +52,9 @@ class C:  # Constant
     MSG_NONE = 0  # no message
     MSG_PLAIN = 1  # 明示的にunicode
     MSG_BYTE = 2  # 明示的にbinary
-    msg_type2name = {0: 'NONE', 1: 'PLAIN', 2: 'BYTE'}
+    MSG_JSON = 3  # json
+    MSG_HASHLOCK = 4  # hashed-lock
+    msg_type2name = {0: 'NONE', 1: 'PLAIN', 2: 'BYTE', 3: 'JSON', 4: 'HASHLOCK'}
 
     # difficulty
     DIFF_RETARGET = 20  # difficultyの計算Block数

@@ -6,6 +6,7 @@ from bc4py.chain.checking.utils import *
 from logging import getLogger
 from binascii import hexlify
 from time import time
+from Cryptodome.Hash import RIPEMD160, SHA256
 
 
 log = getLogger('bc4py')
@@ -87,6 +88,14 @@ def check_tx(tx, include_block):
     if f_signature_check:
         signature_check(tx=tx)
 
+    # hash-locked check
+    if tx.message_type == C.MSG_HASHLOCK:
+        check_hash_locked(tx=tx)
+
+    # message type check
+    if tx.message_type not in C.msg_type2name:
+        raise BlockChainError('Not found message type {}'.format(tx.message_type))
+
     # Feeチェック
     if f_minimum_fee_check:
         if tx.gas_amount < tx.size + C.SIGNATURE_GAS * len(tx.signature):
@@ -125,3 +134,17 @@ def check_tx_time(tx):
     if tx.deadline - tx.time > 43200:  # 12hours
         raise BlockChainError('TX acceptable spam is too long. {}-{}<{}'
                               .format(tx.deadline, tx.time, 10800))
+
+
+def check_hash_locked(tx):
+    if tx.R is None:
+        raise BlockChainError('R of Hash-locked is None type.')
+    size = len(tx.message)
+    if size == 20:
+        if RIPEMD160.new(tx.R).digest() != tx.message:
+            raise BlockChainError('Hash-locked check RIPEMD160 failed.')
+    elif size == 32:
+        if SHA256.new(tx.R).digest() != tx.message:
+            raise BlockChainError('Hash-locked check SHA256 failed.')
+    else:
+        raise BlockChainError('H of Hash-locked is not correct size {}'.format(size))

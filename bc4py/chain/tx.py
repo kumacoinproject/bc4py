@@ -5,7 +5,7 @@ from bc4py import __chain_version__
 from bc4py.config import C, V, BlockChainError
 from hashlib import sha256
 from binascii import hexlify
-from  time import time
+from time import time
 import struct
 from collections import OrderedDict
 
@@ -20,7 +20,7 @@ class TX:
         "b", "hash", "height", "pos_amount",
         "version", "type", "time", "deadline", "inputs", "outputs",
         "gas_price", "gas_amount", "message_type", "message",
-        "signature", "recode_flag", "create_time", "__weakref__")
+        "signature", "R", "recode_flag", "create_time", "__weakref__")
 
     def __eq__(self, other):
         return self.hash == other.hash
@@ -50,8 +50,6 @@ class TX:
         self.gas_amount = None  # fee
         self.message_type = None  # 2bytes int
         self.message = None  # 0~256**4 bytes bin
-        # proof
-        self.signature = None  # [(pubkey, signature),.. ]
         # 処理には使わないが有用なデータ
         self.recode_flag = None
         self.create_time = time()
@@ -71,7 +69,8 @@ class TX:
             self.message_type = tx.get('message_type', C.MSG_NONE)
             self.message = tx.get('message', b'')
             self.serialize()
-        self.signature = list()
+        self.signature = list()    # [(pubkey, signature),.. ]
+        self.R = None  # use for hash-locked
 
     def serialize(self):
         # 構造
@@ -132,6 +131,7 @@ class TX:
         r['message_type'] = C.msg_type2name.get(self.message_type) or self.message_type
         r['message'] = self.message.decode() if self.message_type == C.MSG_PLAIN else hexlify(self.message).decode()
         r['signature'] = [(pubkey, hexlify(signature).decode()) for pubkey, signature in self.signature]
+        r['hash_locked'] = self.R.hex() if self.R else None
         r['recode_flag'] = self.recode_flag
         r['create_time'] = self.create_time
         return r
@@ -162,16 +162,3 @@ class TX:
         self.time = now - V.BLOCK_GENESIS_TIME
         self.deadline = now - V.BLOCK_GENESIS_TIME + retention
         self.serialize()
-
-"""
-'version'
-'type'
-'time'
-'deadline'
-'inputs'
-'outputs'
-'gas_price'
-'gas_amount'
-'message_type'
-'message'
-"""
