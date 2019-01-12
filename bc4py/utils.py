@@ -6,7 +6,6 @@ from bc4py.chain.utils import GompertzCurve
 from Cryptodome.Cipher import AES
 from Cryptodome import Random
 from Cryptodome.Hash import SHA256
-from base64 import b64decode, b64encode
 import multiprocessing
 import os
 from time import time

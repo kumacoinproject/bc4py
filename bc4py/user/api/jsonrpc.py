@@ -12,9 +12,10 @@ from base64 import b64decode
 import json
 from time import time
 from expiringdict import ExpiringDict
-import logging
 import asyncio
+from logging import getLogger
 
+log = getLogger('bc4py')
 
 # about "coinbasetxn"
 # https://bitcoin.stackexchange.com/questions/13438/difference-between-coinbaseaux-flags-vs-coinbasetxn-data
@@ -37,21 +38,21 @@ async def json_rpc(request):
     # user_agent = request.headers['User-Agent']
     post = await web_base.content_type_json_check(request)
     try:
-        if F_HEAVY_DEBUG: logging.debug("PostRequest: {}".format(post))
+        if F_HEAVY_DEBUG: log.debug("PostRequest: {}".format(post))
         method, params = post['method'], post.get('params', list())
         if P.F_NOW_BOOTING:
             return res_failed("Busy status.", post.get('id'))
-        if F_HEAVY_DEBUG: logging.debug("RpcRequest: {}".format(params))
+        if F_HEAVY_DEBUG: log.debug("RpcRequest: {}".format(params))
         if not isinstance(params, list):
             return res_failed("Params is list. not {}".format(type(params)), post.get('id'))
         kwords = dict(user=user, password=password)
         result = await globals().get(method)(*params, **kwords)
-        if F_HEAVY_DEBUG: logging.debug("RpcResponse: {}".format(result))
+        if F_HEAVY_DEBUG: log.debug("RpcResponse: {}".format(result))
         return res_success(result, post.get('id'))
     except Exception as e:
         import traceback
         tb = traceback.format_exc()
-        logging.debug("JsonRpcError: {}".format(e))
+        log.debug("JsonRpcError: {}".format(e))
         return res_failed(str(tb), post.get('id'))
 
 
@@ -123,10 +124,10 @@ async def getwork(*args, **kwargs):
             elif extra_target and block.pow_check(extra_target=extra_target):
                 return True
             else:
-                logging.debug("GetWorkReject by \"{}\"".format(result))
+                log.debug("GetWorkReject by \"{}\"".format(result))
                 return result
         else:
-            logging.debug("GetWorkReject by \"Not found merkleroot.\"")
+            log.debug("GetWorkReject by \"Not found merkleroot.\"")
             return 'Not found merkleroot.'
 
 
@@ -190,7 +191,7 @@ async def submitblock(block_hex_or_obj, **kwargs):
         else:  # == 0xff
             tx_len = int.from_bytes(block_bin[81:89], 'little')
             pos = 89
-        if F_HEAVY_DEBUG: logging.debug("RpcSubmit block: pos={}, tx_len={}".format(pos, tx_len))
+        if F_HEAVY_DEBUG: log.debug("RpcSubmit block: pos={}, tx_len={}".format(pos, tx_len))
         # correct txs
         while len(block_bin) > pos:
             tx = TX()

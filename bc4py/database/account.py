@@ -66,7 +66,7 @@ def read_address2keypair(address, cur):
         sk, pk, _ck = extract_keypair(user=user, is_inner=is_inner, index=index)
     else:
         sk = AESCipher.decrypt(key=V.BIP44_BRANCH_SEC_KEY.encode(), enc=sk)
-        pk = public_key(sk=sk,encode=bytes)
+        pk = public_key(sk=sk, encode=bytes)
     return uuid, sk.hex(), pk.hex()
 
 

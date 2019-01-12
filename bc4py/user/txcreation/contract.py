@@ -8,7 +8,9 @@ from bc4py.user.txcreation.utils import *
 from bc4py.user.txcreation.transfer import send_many
 import bjson
 from copy import deepcopy
-import logging
+from logging import getLogger
+
+log = getLogger('bc4py')
 
 
 def create_contract_init_tx(c_address, c_bin, cur, c_extra_imports=None, c_settings=None,
@@ -100,7 +102,7 @@ def create_conclude_tx(c_address, start_tx, redeem_address, send_pairs=None, c_s
         if not (f_finish_add and f_finish_sub):
             raise BlockChainError('Cannot move conclude fee, add={} sub={}'
                                   .format(f_finish_add, f_finish_sub))
-        logging.debug("Move conclude fee {}:{}".format(fee_coin_id, conclude_fee))
+        log.debug("Move conclude fee {}:{}".format(fee_coin_id, conclude_fee))
     tx.serialize()
     if v.version == -1:
         raise BlockChainError('Not init validator address. {}'.format(c_address))

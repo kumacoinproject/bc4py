@@ -4,11 +4,13 @@ from bc4py.database.builder import builder, tx_builder
 from bc4py.database.validator import get_validator_object, validator_tx2index
 from bc4py.database.contract import get_contract_object, start_tx2index
 from bc4py.contract.emulator.watching import watching_tx
-import logging
 from binascii import hexlify, a2b_hex
 import bjson
 import pickle
 from base64 import b64encode
+from logging import getLogger
+
+log = getLogger('bc4py')
 
 
 async def contract_info(request):
@@ -22,7 +24,7 @@ async def contract_info(request):
         c = get_contract_object(c_address=c_address, best_block=best_block, stop_txhash=stop_hash)
         return web_base.json_res(c.info)
     except Exception as e:
-        logging.error(e)
+        log.error(e)
         return web_base.error_res()
 
 
@@ -37,7 +39,7 @@ async def validator_info(request):
         v = get_validator_object(c_address=c_address, best_block=best_block, stop_txhash=stop_hash)
         return web_base.json_res(v.info)
     except Exception as e:
-        logging.error(e)
+        log.error(e)
         return web_base.error_res()
 
 
@@ -101,7 +103,7 @@ async def get_contract_history(request):
             })
         return web_base.json_res(data)
     except Exception as e:
-        logging.error(e)
+        log.error(e)
         return web_base.error_res()
 
 
@@ -150,7 +152,7 @@ async def get_validator_history(request):
                 'sig_diff': sig_diff})
         return web_base.json_res(data)
     except Exception as e:
-        logging.error(e)
+        log.error(e)
         return web_base.error_res()
 
 
@@ -172,7 +174,7 @@ async def contract_storage(request):
             storage = {decode(k): decode(v) for k, v in c.storage.items()}
         return web_base.json_res(storage)
     except Exception as e:
-        logging.error(e)
+        log.error(e)
         return web_base.error_res()
 
 
@@ -191,7 +193,7 @@ async def watching_info(request):
              } for txhash, (time, tx, related_list, c_address, *args) in watching_tx.items()
         ])
     except Exception as e:
-        logging.error(e)
+        log.error(e)
         return web_base.error_res()
 
 

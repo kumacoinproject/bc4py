@@ -4,9 +4,10 @@ from bc4py.user.generate import confirmed_generating_block
 from binascii import hexlify, unhexlify
 from os import urandom
 from time import time
-import logging
+from logging import getLogger
 
 
+log = getLogger('bc4py')
 base_target = 0x00000000ffff0000000000000000000000000000000000000000000000000000
 
 
@@ -63,7 +64,7 @@ async def mining_submit(*args, **kwargs):
     int.from_bytes(mined_block.work_hash, 'little')
     if base_target // user['diff'] > int.from_bytes(mined_block.work_hash, 'little'):
         return 'not satisfied request work.'
-    logging.info("Accept work by \"{}\"".format(user['user']))
+    log.info("Accept work by \"{}\"".format(user['user']))
     user['deque'].append(time())  # accept!
     if mined_block.pow_check():
         confirmed_generating_block(mined_block)

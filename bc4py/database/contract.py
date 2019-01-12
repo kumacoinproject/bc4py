@@ -6,7 +6,9 @@ from threading import Lock
 from collections import OrderedDict
 from copy import deepcopy
 import bjson
-import logging
+from logging import getLogger
+
+log = getLogger('bc4py')
 
 
 M_INIT = 'init'
@@ -286,7 +288,7 @@ def update_contract_cashe():
                 c_contract.update(db_index=index, start_hash=start_hash, finish_hash=finish_hash,
                                   c_method=c_method, c_args=c_args, c_storage=c_storage)
                 count += 1
-    logging.debug("Contract cashe update {}tx".format(count))
+    log.debug("Contract cashe update {}tx".format(count))
 
 
 __all__ = [

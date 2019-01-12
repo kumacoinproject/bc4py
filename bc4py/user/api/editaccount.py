@@ -9,7 +9,9 @@ from nem_ed25519 import public_key, get_address
 from threading import Thread
 from binascii import unhexlify
 import asyncio
-import logging
+from logging import getLogger
+
+log = getLogger('bc4py')
 
 
 language = 'english'
@@ -25,7 +27,7 @@ async def lock_wallet(request):
     if V.BIP44_BRANCH_SEC_KEY is None:
         return web_base.error_res(errors='Already locked wallet.')
     V.BIP44_BRANCH_SEC_KEY = None
-    logging.info("Wallet secret kwy deleted manually.")
+    log.info("Wallet secret kwy deleted manually.")
     return web_base.json_res({'status': True})
 
 
@@ -33,7 +35,7 @@ async def unlock_wallet(request):
     async def timeout_now():
         await asyncio.sleep(timeout)
         V.BIP44_BRANCH_SEC_KEY = None
-        logging.info("deleted wallet secret key now.")
+        log.info("deleted wallet secret key now.")
 
     if V.BIP44_ENCRYPTED_MNEMONIC is None:
         return web_base.error_res(errors='Not found BIP32_ENCRYPTED_MNEMONIC.')
@@ -52,7 +54,7 @@ async def unlock_wallet(request):
         if timeout > 0:
             asyncio.run_coroutine_threadsafe(coro=timeout_now(), loop=loop)
         else:
-            logging.warning("Unlock wallet until system restart.")
+            log.warning("Unlock wallet until system restart.")
         # m/44' / coin_type' / account' / change / address_index
         V.BIP44_BRANCH_SEC_KEY = bip\
             .ChildKey(44 + BIP32_HARDEN)\

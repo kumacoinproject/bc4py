@@ -6,12 +6,13 @@ from bc4py.database.contract import *
 from bc4py.chain.checking.signature import get_signed_cks
 from bc4py.chain.checking.utils import sticky_failed_txhash
 from bc4py.user.generate import *
-import logging
 from collections import defaultdict
 from threading import Lock, Thread
 from time import time
 import bjson
+from logging import getLogger
 
+log = getLogger('bc4py')
 update_count = 0
 block_lock = Lock()
 unspent_lock = Lock()
@@ -29,7 +30,7 @@ def update_mining_staking_all_info(u_block=True, u_unspent=True, u_unconfirmed=T
         if u_unconfirmed and not unconfirmed_lock.locked():
             info += _update_unconfirmed_info()
         if info:
-            logging.debug("Update finish{}".format(info))
+            log.debug("Update finish{}".format(info))
     global update_count
     Thread(target=_updates, name='Update-{}'.format(update_count), daemon=True).start()
     update_count += 1
@@ -150,7 +151,7 @@ def _update_unconfirmed_info():
                     index_before = index
         if len(append_txs) > 0:
             unconfirmed_txs.extend(append_txs)
-            logging.debug("Append {} ConcludeTX/Validator TX".format(len(append_txs)))
+            log.debug("Append {} ConcludeTX/Validator TX".format(len(append_txs)))
 
         # limit per tx's in block
         if Debug.F_LIMIT_INCLUDE_TX_IN_BLOCK:
@@ -169,7 +170,7 @@ def check_upgradable_pre_unconfirmed():
         try:
             if tx.hash in tx_builder.unconfirmed:
                 del tx_builder.pre_unconfirmed[tx.hash]
-                logging.debug("Remove from pre-unconfirmed, already unconfirmed. {}".format(tx))
+                log.debug("Remove from pre-unconfirmed, already unconfirmed. {}".format(tx))
                 continue
             if tx.type == C.TX_CONCLUDE_CONTRACT:
                 c_address, start_hash, c_storage = bjson.loads(tx.message)
@@ -178,12 +179,12 @@ def check_upgradable_pre_unconfirmed():
                 if c.db_index and index < c.db_index:
                     # delete
                     del tx_builder.pre_unconfirmed[tx.hash]
-                    logging.debug("Delete old ConcludeTX {}".format(tx))
+                    log.debug("Delete old ConcludeTX {}".format(tx))
                     continue
             elif tx.type == C.TX_VALIDATOR_EDIT:
                 c_address, new_address, flag, sig_diff = bjson.loads(tx.message)
             else:
-                logging.error("Why include pre-unconfirmed? {}".format(tx))
+                log.error("Why include pre-unconfirmed? {}".format(tx))
                 continue
             # check upgradable
             v = get_validator_object(c_address=c_address)
@@ -191,14 +192,14 @@ def check_upgradable_pre_unconfirmed():
                 del tx_builder.pre_unconfirmed[tx.hash]
                 if tx.hash not in tx_builder.unconfirmed:
                     tx_builder.put_unconfirmed(tx=tx)
-                    logging.info("Upgrade pre-unconfirmed {}".format(tx))
+                    log.info("Upgrade pre-unconfirmed {}".format(tx))
                 else:
-                    logging.warning("Upgrade skip, already unconfirmed {}".format(tx))
+                    log.warning("Upgrade skip, already unconfirmed {}".format(tx))
             
         except BlockChainError as e:
-            logging.debug("Skip '{}'".format(e))
+            log.debug("Skip '{}'".format(e))
         except Exception:
-            logging.error("Skip error", exc_info=True)
+            log.error("Skip error", exc_info=True)
 
 
 def signature_acceptable(v: Validator, tx):
@@ -216,7 +217,7 @@ def pruning_over_size_unconfirmed(unconfirmed_txs: list):
         tx = unconfirmed_txs.pop()
         full_size -= tx.size + len(tx.signature) * 96
     if len(unconfirmed_txs) != original_num:
-        logging.debug("Purged unconfirmed txs {}/{}".format(len(unconfirmed_txs), original_num))
+        log.debug("Purged unconfirmed txs {}/{}".format(len(unconfirmed_txs), original_num))
 
 
 class DefaultValidator(dict):

@@ -8,7 +8,9 @@ from bc4py.database.contract import *
 from nem_ed25519.key import is_address
 from binascii import hexlify
 import bjson
-import logging
+from logging import getLogger
+
+log = getLogger('bc4py')
 
 
 def check_tx_contract_conclude(tx: TX, include_block: Block):
@@ -211,7 +213,7 @@ def contract_signature_check(extra_tx: TX, v: Validator, include_block: Block):
                 raise BlockChainError('No acceptable signature. signed={}'.format(signed_cks))
             if len(accept_cks) > v.require:
                 # accept signature more than required
-                logging.debug('Too many signatures, accept={} req={}'.format(accept_cks, v.require))
+                log.debug('Too many signatures, accept={} req={}'.format(accept_cks, v.require))
         else:
             # need to marge signature
             if original_tx.height is not None:
@@ -225,7 +227,7 @@ def contract_signature_check(extra_tx: TX, v: Validator, include_block: Block):
                                       .format(signed_cks, original_cks, set(v.validators)))
             if len(accept_new_cks) + len(original_cks) > v.require:
                 # accept signature more than required
-                logging.debug('Too many signatures, new={} original={} req={}'
+                log.debug('Too many signatures, new={} original={} req={}'
                               .format(accept_new_cks, original_cks, v.require))
 
 

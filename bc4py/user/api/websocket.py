@@ -4,11 +4,12 @@ from bc4py.chain.tx import TX
 from bc4py.contract.emulator.watching import *
 from aiohttp import web
 import asyncio
-import logging
 import json
 from binascii import hexlify
 from collections import OrderedDict
+from logging import getLogger
 
+log = getLogger('bc4py')
 number = 0
 clients = list()
 loop = asyncio.get_event_loop()
@@ -31,22 +32,22 @@ async def websocket_route(request):
     async for msg in client.ws:
         try:
             if msg.type == web.WSMsgType.TEXT:
-                logging.debug("Get text from {} data={}".format(client, msg.data))
+                log.debug("Get text from {} data={}".format(client, msg.data))
                 # send dummy response
                 data = {'connect': len(clients), 'is_public': client.is_public, 'echo': msg.data}
                 await client.send(get_send_format(cmd='debug', data=data))
             elif msg.type == web.WSMsgType.BINARY:
-                logging.debug("Get bin from {} data={}".format(client, msg.data))
+                log.debug("Get bin from {} data={}".format(client, msg.data))
             elif msg.type == web.WSMsgType.CLOSED:
-                logging.debug("Get close signal from {} data={}".format(client, msg.data))
+                log.debug("Get close signal from {} data={}".format(client, msg.data))
                 break
             elif msg.type == web.WSMsgType.ERROR:
-                logging.error("Get error from {} data={}".format(client, msg.data))
+                log.error("Get error from {} data={}".format(client, msg.data))
         except Exception as e:
             import traceback
             await client.send(raw_data=get_send_format(
                 cmd=CMD_ERROR, data=str(traceback.format_exc()), status=False))
-    logging.debug("close {}".format(client))
+    log.debug("close {}".format(client))
     await client.close()
     return client.ws
 
@@ -57,7 +58,7 @@ async def websocket_protocol_check(request, is_public):
     if not available:
         raise TypeError('Cannot prepare websocket.')
     await ws.prepare(request)
-    logging.debug("protocol upgrade to websocket. {}".format(request.remote))
+    log.debug("protocol upgrade to websocket. {}".format(request.remote))
     return WsConnection(ws=ws, request=request, is_public=is_public)
 
 
@@ -151,7 +152,7 @@ def new_info2json_data(cmd, data_list):
         send_data['time'] = _time
         send_data['tx'] = tx.getinfo()
     else:
-        logging.warning("Not found cmd {}".format(cmd))
+        log.warning("Not found cmd {}".format(cmd))
     return send_data
 
 

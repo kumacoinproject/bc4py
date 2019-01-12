@@ -6,8 +6,10 @@ from bc4py.database.builder import builder, tx_builder
 from bc4py.user.network.update import update_mining_staking_all_info
 from bc4py.user.network.directcmd import DirectCmd
 from bc4py.user.network.connection import ask_node
-import logging
 from binascii import hexlify
+from logging import getLogger
+
+log = getLogger('bc4py')
 
 
 class BroadcastCmd:
@@ -21,26 +23,26 @@ class BroadcastCmd:
             new_block = fill_newblock_info(data)
         except BlockChainError as e:
             warning = 'Do not accept block "{}"'.format(e)
-            logging.warning(warning)
+            log.warning(warning)
             return False
         except Exception:
             error = "error on accept new block"
-            logging.error(error, exc_info=True)
+            log.error(error, exc_info=True)
             return False
         try:
             if new_insert_block(new_block, time_check=True):
                 update_mining_staking_all_info()
-                logging.info("Accept new block {}".format(new_block))
+                log.info("Accept new block {}".format(new_block))
                 return True
             else:
                 return False
         except BlockChainError as e:
             error = 'Failed accept new block "{}"'.format(e)
-            logging.error(error, exc_info=True)
+            log.error(error, exc_info=True)
             return False
         except Exception:
             error = "error on accept new block"
-            logging.error(error, exc_info=True)
+            log.error(error, exc_info=True)
             return False
 
     @staticmethod
@@ -54,22 +56,22 @@ class BroadcastCmd:
                 tx_builder.marge_signature(tx=new_tx)
             else:
                 tx_builder.put_unconfirmed(tx=new_tx)
-            logging.info("Accept new tx {}".format(new_tx))
+            log.info("Accept new tx {}".format(new_tx))
             update_mining_staking_all_info(u_block=False, u_unspent=False, u_unconfirmed=True)
             return True
         except BlockChainError as e:
             error = 'Failed accept new tx "{}"'.format(e)
-            logging.error(error)
+            log.error(error)
             return False
         except Exception:
             error = "Failed accept new tx"
-            logging.error(error, exc_info=True)
+            log.error(error, exc_info=True)
             return False
 
 
 def fill_newblock_info(data):
     new_block = Block(binary=data['block'])
-    logging.debug("Fill newblock={}".format(hexlify(new_block.hash).decode()))
+    log.debug("Fill newblock={}".format(hexlify(new_block.hash).decode()))
     proof = TX(binary=data['proof'])
     new_block.txs.append(proof)
     new_block.flag = data['block_flag']
@@ -82,7 +84,7 @@ def fill_newblock_info(data):
         raise BlockChainError('Already inserted block {}'.format(my_block))
     before_block = builder.get_block(new_block.previous_hash)
     if before_block is None:
-        logging.debug("Cannot find beforeBlock {}, try to ask outside node."
+        log.debug("Cannot find beforeBlock {}, try to ask outside node."
                       .format(hexlify(new_block.previous_hash).decode()))
         # not found beforeBlock, need to check other node have the the block
         new_block.inner_score *= 0.70  # unknown previousBlock, score down
@@ -99,7 +101,7 @@ def fill_newblock_info(data):
         tx = tx_builder.get_tx(txhash)
         if tx is None:
             new_block.inner_score *= 0.75  # unknown tx, score down
-            logging.debug("Unknown tx, try to download.")
+            log.debug("Unknown tx, try to download.")
             r = ask_node(cmd=DirectCmd.TX_BY_HASH, data={'txhash': txhash}, f_continue_asking=True)
             if isinstance(r, str):
                 raise BlockChainError('Failed unknown tx download "{}"'.format(r))
@@ -107,7 +109,7 @@ def fill_newblock_info(data):
             tx.signature = r['sign']
             check_tx(tx, include_block=None)
             tx_builder.put_unconfirmed(tx)
-            logging.debug("Success unknown tx download {}".format(tx))
+            log.debug("Success unknown tx download {}".format(tx))
         tx.height = new_height
         new_block.txs.append(tx)
     return new_block
@@ -130,7 +132,7 @@ def broadcast_check(data):
         if BroadcastCmd.fail > 100:
             P.F_NOW_BOOTING = True
             BroadcastCmd.fail = 0
-            logging.warning("Set booting mode, too many fail on broadcast_check().")
+            log.warning("Set booting mode, too many fail on broadcast_check().")
     return result
 
 

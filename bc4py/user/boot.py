@@ -7,7 +7,6 @@ from bc4py.database.builder import builder, tx_builder
 from bc4py.chain.checking import new_insert_block
 import os
 import bjson
-import logging
 import pickle
 import random
 from base64 import b64decode, b64encode
@@ -16,6 +15,9 @@ from bip32nem import BIP32Key, BIP32_HARDEN
 from threading import Thread
 from time import sleep
 import json
+from logging import getLogger
+
+log = getLogger('bc4py')
 
 
 def create_boot_file(genesis_block, network_ver=None, connections=None):
@@ -32,7 +34,7 @@ def create_boot_file(genesis_block, network_ver=None, connections=None):
         while len(data) > 0:
             write, data = data[:60], data[60:]
             fp.write(write+b'\n')
-    logging.info("create new boot.dat!")
+    log.info("create new boot.dat!")
 
 
 def load_boot_file():
@@ -64,7 +66,7 @@ def create_bootstrap_file():
         for height, blockhash in builder.db.read_block_hash_iter(start_height=0):
             block = builder.db.read_block(blockhash)
             fp.write(b64encode(pickle.dumps(block))+b'\n')
-    logging.info("create new bootstrap.dat!")
+    log.info("create new bootstrap.dat!")
 
 
 def load_bootstrap_file():
@@ -83,7 +85,7 @@ def load_bootstrap_file():
                 tx.height = block.height
             new_insert_block(block=block, time_check=False)
             b_data = fp.readline()
-    logging.debug("load bootstrap.dat! last={}".format(block))
+    log.debug("load bootstrap.dat! last={}".format(block))
 
 
 def import_keystone(passphrase='', auto_create=True, language='english'):
@@ -92,7 +94,7 @@ def import_keystone(passphrase='', auto_create=True, language='english'):
             count -= 1
             sleep(1)
         V.BIP44_BRANCH_SEC_KEY = None
-        logging.info("deleted wallet secret key now.")
+        log.info("deleted wallet secret key now.")
     if V.BIP44_ENCRYPTED_MNEMONIC:
         raise Exception('Already imported, BIP32_ENCRYPTED_MNEMONIC.')
     if V.BIP44_ROOT_PUB_KEY:
@@ -128,7 +130,7 @@ def import_keystone(passphrase='', auto_create=True, language='english'):
             .ExtendedKey(private=True)
     if timeout > 0:
         Thread(target=timeout_now, args=(timeout,), name='timer{}Sec'.format(timeout)).start()
-    logging.info("import wallet, unlock={} timeout={}".format(bool(bip), timeout))
+    log.info("import wallet, unlock={} timeout={}".format(bool(bip), timeout))
 
 
 def swap_old_format(old_cur, new_cur, bip):

@@ -5,7 +5,9 @@ from collections import OrderedDict
 from threading import Lock
 from copy import deepcopy
 import bjson
-import logging
+from logging import getLogger
+
+log = getLogger('bc4py')
 
 F_ADD = 1
 F_REMOVE = -1
@@ -157,7 +159,7 @@ def update_validator_cashe():
                 c_validator.update(db_index=index, flag=flag,
                                    address=address, sig_diff=sig_diff, txhash=txhash)
                 count += 1
-    logging.debug("Validator cashe update {}tx".format(count))
+    log.debug("Validator cashe update {}tx".format(count))
 
 
 __all__ = [

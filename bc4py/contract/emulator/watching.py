@@ -6,10 +6,10 @@ from expiringdict import ExpiringDict
 from time import time
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
-import logging
-from threading import Thread
 import bjson
+from logging import getLogger
 
+log = getLogger('bc4py')
 
 watching_tx = ExpiringDict(max_len=100, max_age_seconds=10800)
 
@@ -23,7 +23,7 @@ C_FinishValidator = 'FinishValidator'
 
 def check_new_tx(tx: TX):
     if tx.height is not None:
-        logging.error('New tx, but is already confirmed, {}'.format(tx))
+        log.error('New tx, but is already confirmed, {}'.format(tx))
         return
     elif tx.message_type != C.MSG_BYTE:
         return
@@ -52,7 +52,7 @@ def check_new_tx(tx: TX):
 def check_new_block(block: Block):
     for tx in block.txs:
         if tx.height is None:
-            logging.error('New block\'s tx, but is unconfirmed, {}'.format(tx))
+            log.error('New block\'s tx, but is unconfirmed, {}'.format(tx))
             continue
         elif tx.message_type != C.MSG_BYTE:
             continue

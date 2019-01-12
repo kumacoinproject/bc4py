@@ -3,10 +3,12 @@ from bc4py.chain.checking.tx_reward import *
 from bc4py.chain.checking.tx_mintcoin import *
 from bc4py.chain.checking.tx_contract import *
 from bc4py.chain.checking.utils import *
-from bc4py.database.builder import tx_builder
-import logging
+from logging import getLogger
 from binascii import hexlify
 from time import time
+
+
+log = getLogger('bc4py')
 
 
 def check_tx(tx, include_block):
@@ -97,9 +99,9 @@ def check_tx(tx, include_block):
             raise BlockChainError('TX size is too large. [{}>{}]'.format(tx.size, C.SIZE_TX_LIMIT))
 
     if include_block:
-        logging.info("Checked tx {}".format(tx))
+        log.info("Checked tx {}".format(tx))
     else:
-        logging.debug("Check unconfirmed tx {}".format(hexlify(tx.hash).decode()))
+        log.debug("Check unconfirmed tx {}".format(hexlify(tx.hash).decode()))
 
 
 def check_tx_time(tx):

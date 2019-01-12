@@ -1,4 +1,4 @@
-from bc4py.config import C, V, Debug, BlockChainError
+from bc4py.config import C, V, Debug
 from bc4py.database.builder import builder
 from bc4py.chain.utils import bits2target, target2bits
 from binascii import hexlify

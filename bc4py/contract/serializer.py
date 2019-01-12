@@ -8,7 +8,9 @@ from dis import dis
 import pickle
 import builtins
 import os
-import logging
+from logging import getLogger
+
+log = getLogger('bc4py')
 
 
 # from A.B import C
@@ -51,7 +53,7 @@ def get_limited_globals(extra_imports=None):
     g = {name: getattr(basiclib, name) for name in basiclib.__all__}
     if extra_imports:
         for path, name in extra_imports:
-            logging.warning("Import an external library => 'from {} import {}'".format(path, name))
+            log.warning("Import an external library => 'from {} import {}'".format(path, name))
             if name == "*":
                 module = import_module(path)
                 for module_name in module.__all__:
@@ -220,7 +222,7 @@ def string2contract(string, global_dict, doc=''):
         # elif type(code) in class_const_types:
         #    f_dict[code.co_name] = code
         else:
-            logging.debug("Ignore code => {}".format(code))
+            log.debug("Ignore code => {}".format(code))
     return type(f_name, f_obj, f_dict)
 """
 
@@ -241,7 +243,7 @@ def path2contract(path):
         elif obj.__module__ != 'Contract':
             continue
         elif len(obj.__init__.__closure__) != 1:
-            logging.warning("Find class but don't hesitate ContractTemplate.")
+            log.warning("Find class but don't hesitate ContractTemplate.")
             continue
         else:
             return obj

@@ -10,15 +10,15 @@ from bc4py.database.account import message2signature, create_new_user_keypair
 from bc4py.database.tools import get_unspents_iter
 from threading import Thread, Event
 from time import time, sleep
-import logging
 import queue
 from binascii import hexlify
 from collections import deque
 from nem_ed25519.key import is_address
 import traceback
 from random import random
+from logging import getLogger
 
-
+log = getLogger('bc4py')
 generating_threads = list()
 output_que = queue.Queue()
 # mining share info
@@ -67,22 +67,22 @@ class Generate(Thread):
     def run(self):
         self.event_close.set()
         while self.event_close.is_set():
-            logging.info("Start {} generating!".format(C.consensus2name[self.consensus]))
+            log.info("Start {} generating!".format(C.consensus2name[self.consensus]))
             try:
                 if self.consensus == C.BLOCK_POS:
                     self.proof_of_stake()
                 else:
                     self.proof_of_work()
             except BlockChainError as e:
-                logging.warning(e)
+                log.warning(e)
             except AttributeError as e:
                 if 'previous_block.' in str(traceback.format_exc()):
-                    logging.debug("attribute error of previous_block, passed.")
+                    log.debug("attribute error of previous_block, passed.")
                 else:
-                    logging.error("Unknown error wait60s...", exc_info=True)
+                    log.error("Unknown error wait60s...", exc_info=True)
                     sleep(60)
             except Exception:
-                logging.error("GeneratingError wait60s...", exc_info=True)
+                log.error("GeneratingError wait60s...", exc_info=True)
                 sleep(60)
 
     def proof_of_work(self):
@@ -104,12 +104,12 @@ class Generate(Thread):
             spans_deque.append(new_span)
             # check block
             if previous_block is None or unconfirmed_txs is None:
-                logging.debug("Not confirmed new block by \"nothing params\"")
+                log.debug("Not confirmed new block by \"nothing params\"")
             elif previous_block.hash != mining_block.previous_hash:
-                logging.debug("Not confirmed new block by \"Don't match previous_hash\"")
+                log.debug("Not confirmed new block by \"Don't match previous_hash\"")
             elif not mining_block.pow_check():
                 if int(time()) % 90 == 0:
-                    logging.debug("Not confirmed new block by \"proof of work unsatisfied\"")
+                    log.debug("Not confirmed new block by \"proof of work unsatisfied\"")
             else:
                 # Mined yay!!!
                 confirmed_generating_block(mining_block)
@@ -121,12 +121,12 @@ class Generate(Thread):
                 bias = min(2.0, max(0.5, bias))
                 how_many = max(100, int(how_many * bias))
                 if int(time()) % 90 == 0:
-                    logging.info("Mining... Next target how_many is {} {}"
+                    log.info("Mining... Next target how_many is {} {}"
                                  .format(how_many, "Up" if bias > 1 else "Down"))
             except ZeroDivisionError:
                 pass
             sleep(sleep_span+random()-0.5)
-        logging.info("Close signal")
+        log.info("Close signal")
 
     def proof_of_stake(self):
         global staking_limit
@@ -138,7 +138,7 @@ class Generate(Thread):
                 sleep(0.1)
                 continue
             if len(unspents_txs) == 0:
-                logging.info("No unspents for staking, wait 180s..")
+                log.info("No unspents for staking, wait 180s..")
                 sleep(180)
                 continue
             start = time()
@@ -165,11 +165,11 @@ class Generate(Thread):
                 calculate_nam += 1
                 # next check block
                 if previous_block is None or unconfirmed_txs is None or unspents_txs is None:
-                    logging.debug("Reset by \"nothing params found\"")
+                    log.debug("Reset by \"nothing params found\"")
                     sleep(1)
                     break
                 elif previous_block.hash != staking_block.previous_hash:
-                    logging.debug("Reset by \"Don't match previous_hash\"")
+                    log.debug("Reset by \"Don't match previous_hash\"")
                     sleep(1)
                     break
                 elif not proof_tx.pos_check(
@@ -196,10 +196,10 @@ class Generate(Thread):
                 limit_deque.append(int(max_limit * self.power_limit))
                 staking_limit = sum(limit_deque) // len(limit_deque)
                 if int(time()) % 90 == 0:
-                    logging.info("Staking... margin={}% limit={}".format(round(remain*100, 1), staking_limit))
+                    log.info("Staking... margin={}% limit={}".format(round(remain*100, 1), staking_limit))
                 self.hashrate = (calculate_nam, time())
                 sleep(max(0.0, remain+random()-0.5))
-        logging.info("Close signal")
+        log.info("Close signal")
 
 
 def create_mining_block(consensus):
@@ -238,7 +238,7 @@ def create_mining_block(consensus):
 
 
 def confirmed_generating_block(new_block):
-    logging.info("Generate block yey!! {}".format(new_block))
+    log.info("Generate block yey!! {}".format(new_block))
     global mining_address, previous_block, unconfirmed_txs, unspents_txs
     mining_address = None
     previous_block = None
@@ -283,7 +283,7 @@ def update_unspents_txs(time_limit=0.2):
         if amount < 100000000:
             continue
         if staking_limit < all_num:
-            logging.debug("Unspents limit reached, skip by {} limits.".format(staking_limit))
+            log.debug("Unspents limit reached, skip by {} limits.".format(staking_limit))
             break
         all_num += 1
         proof_tx = TX(tx={

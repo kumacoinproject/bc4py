@@ -11,12 +11,12 @@ from bc4py.user.network.directcmd import DirectCmd
 from bc4py.user.network.connection import *
 from bc4py.user.exit import system_exit
 from pooled_multiprocessing import mp_map_async, Waiter
-import logging
 from time import time, sleep
 from threading import Thread, Lock
 from binascii import hexlify
+from logging import getLogger
 
-
+log = getLogger('bc4py')
 f_changed_status = False
 block_stack = dict()
 backend_processing_lock = Lock()
@@ -31,13 +31,13 @@ def _generate_workhash(height, block_flag, block_b, **kwargs):
 
 def _callback_workhash(data_list):
     if isinstance(data_list[0], str):
-        logging.error("error on callback_workhash(), {}".format(data_list[0]))
+        log.error("error on callback_workhash(), {}".format(data_list[0]))
         return
     block_stack_copy = block_stack.copy()
     for height, workhash in data_list:
         if height in block_stack_copy:
             block_stack_copy[height].work_hash = workhash
-    logging.debug("callback_workhash() workhash={}".format(len(data_list)))
+    log.debug("callback_workhash() workhash={}".format(len(data_list)))
 
 
 def batch_workhash(blocks):
@@ -48,7 +48,7 @@ def batch_workhash(blocks):
             data_list.append((block.height, block.flag, block.b))
     if len(data_list) > 0:
         waiter, result = mp_map_async(_generate_workhash, data_list, callback=_callback_workhash)
-        logging.debug("Success batch workhash {} by {}Sec".format(len(data_list), round(time()-s, 3)))
+        log.debug("Success batch workhash {} by {}Sec".format(len(data_list), round(time()-s, 3)))
         return waiter
     else:
         waiter = Waiter(0)
@@ -89,14 +89,14 @@ def fill_block_stack(before_waiter):
     if len(block_stack) == 0:
         return None
     height = max(block_stack) + 1
-    logging.debug("Stack blocks on back form {}".format(height))
+    log.debug("Stack blocks on back form {}".format(height))
     r = ask_node(cmd=DirectCmd.BIG_BLOCKS, data={'height': height}, f_continue_asking=True)
     if isinstance(r, str):
-        logging.debug("NewBLockGetError:{}".format(r))
+        log.debug("NewBLockGetError:{}".format(r))
     elif isinstance(r, list):
         return put_to_block_stack(r, before_waiter)
     else:
-        logging.debug("Not correct format BIG_BLOCKS.")
+        log.debug("Not correct format BIG_BLOCKS.")
     return None
 
 
@@ -106,7 +106,7 @@ def background_process():
     sleep_count = 200
     while not P.F_STOP:
         if sleep_count < 0:
-            logging.info("Close background_sync_chain() by timeout.")
+            log.info("Close background_sync_chain() by timeout.")
             return
         if len(block_stack) == 0:
             sleep(0.05)
@@ -119,7 +119,7 @@ def background_process():
             with backend_processing_lock:
                 waiter = fill_block_stack(waiter)
             if waiter is None:
-                logging.info("Close background_sync_chain() by finish.")
+                log.info("Close background_sync_chain() by finish.")
                 return
 
 
@@ -133,7 +133,7 @@ def fast_sync_chain():
         sleep(1)
         count += 1
         if count % 30 == 0:
-            logging.warning("Waiting for back_thread closed... {}Sec".format(count))
+            log.warning("Waiting for back_thread closed... {}Sec".format(count))
     back_thread = Thread(target=background_process, name='BackSync', daemon=True)
     back_thread.start()
     start = time()
@@ -142,7 +142,7 @@ def fast_sync_chain():
     failed_num = 0
     before_block = builder.best_block
     index_height = before_block.height + 1
-    logging.debug("Start fast sync by {}".format(before_block))
+    log.debug("Start fast sync by {}".format(before_block))
     while failed_num < 5:
         if index_height in block_stack:
             new_block = block_stack[index_height]
@@ -153,10 +153,10 @@ def fast_sync_chain():
             continue
         else:
             with backend_processing_lock:
-                logging.debug("Stack blocks on front form {}".format(index_height))
+                log.debug("Stack blocks on front form {}".format(index_height))
                 r = ask_node(cmd=DirectCmd.BIG_BLOCKS, data={'height': index_height})
                 if isinstance(r, str):
-                    logging.debug("NewBLockGetError:{}".format(r))
+                    log.debug("NewBLockGetError:{}".format(r))
                     before_block = builder.get_block(before_block.previous_hash)
                     index_height = before_block.height + 1
                     failed_num += 1
@@ -172,7 +172,7 @@ def fast_sync_chain():
                         continue
                 else:
                     failed_num += 1
-                    logging.debug("Not correct format BIG_BLOCKS.")
+                    log.debug("Not correct format BIG_BLOCKS.")
                     continue
         # Base check
         base_check_failed_msg = None
@@ -190,7 +190,7 @@ def fast_sync_chain():
             next_index_block = index_height - 1
             editable_height = builder.root_block.height + 1
             if next_index_block <= editable_height:
-                logging.error("Try to rollback to editable height {}".format(editable_height))
+                log.error("Try to rollback to editable height {}".format(editable_height))
                 f_changed_status = False
                 return False
             elif next_index_block not in block_stack:
@@ -205,7 +205,7 @@ def fast_sync_chain():
                 # back 1 height
                 before_block = builder.get_block(before_block.previous_hash)
                 index_height = before_block.height + 1
-            logging.debug(base_check_failed_msg)
+            log.debug(base_check_failed_msg)
             continue
         # TX check
         if len(new_block.txs) > 1:
@@ -234,9 +234,9 @@ def fast_sync_chain():
         index_height = before_block.height + 1
         # ロギング
         if index_height % 100 == 0:
-            logging.debug("Update block {} now...".format(index_height + 1))
+            log.debug("Update block {} now...".format(index_height + 1))
     # Unconfirmed txを取得
-    logging.info("Finish get block, next get unconfirmed.")
+    log.info("Finish get block, next get unconfirmed.")
     unconfirmed_txhash_set = set()
     for data in ask_all_nodes(cmd=DirectCmd.UNCONFIRMED_TX):
         unconfirmed_txhash_set.update(data['txs'])
@@ -250,25 +250,25 @@ def fast_sync_chain():
             tx.signature = r['sign']
             unconfirmed_txs.append(tx)
         except BlockChainError as e:
-            logging.debug("1: Failed get unconfirmed {} '{}'".format(hexlify(txhash).decode(), e))
+            log.debug("1: Failed get unconfirmed {} '{}'".format(hexlify(txhash).decode(), e))
     for tx in sorted(unconfirmed_txs, key=lambda x: x.time):
         try:
             check_tx_time(tx)
             check_tx(tx, include_block=None)
             tx_builder.put_unconfirmed(tx)
         except BlockChainError as e:
-            logging.debug("2: Failed get unconfirmed '{}'".format(e))
+            log.debug("2: Failed get unconfirmed '{}'".format(e))
     # 最終判断
     reset_good_node()
     set_good_node()
     my_best_height = builder.best_block.height
     best_height_on_network, best_hash_on_network = get_best_conn_info()
     if best_height_on_network <= my_best_height:
-        logging.info("Finish update chain data by network. {}Sec [best={}, now={}]"
+        log.info("Finish update chain data by network. {}Sec [best={}, now={}]"
                      .format(round(time()-start, 1), best_height_on_network, my_best_height))
         return True
     else:
-        logging.debug("Continue update chain, best={}, now={}".format(best_height_on_network, my_best_height))
+        log.debug("Continue update chain, best={}, now={}".format(best_height_on_network, my_best_height))
         return False
 
 
@@ -281,20 +281,20 @@ def sync_chain_loop():
             try:
                 if P.F_NOW_BOOTING:
                     if fast_sync_chain():
-                        logging.warning("Reset booting mode.")
+                        log.warning("Reset booting mode.")
                         P.F_NOW_BOOTING = False
                         if builder.best_block:
                             update_mining_staking_all_info()
                         failed = 0
                     elif failed < 0:
                         exit_msg = 'Failed sync.'
-                        logging.critical(exit_msg)
+                        log.critical(exit_msg)
                         system_exit()
                         # out of loop
-                        logging.debug("Close sync loop.")
+                        log.debug("Close sync loop.")
                         return
                     elif f_changed_status is False:
-                        logging.warning("Resync mode failed, retry={}".format(failed))
+                        log.warning("Resync mode failed, retry={}".format(failed))
                         failed -= 1
                     elif f_changed_status is True:
                         f_changed_status = False
@@ -302,13 +302,13 @@ def sync_chain_loop():
                 sleep(5)
             except BlockChainError as e:
                 reset_good_node()
-                logging.warning('Update chain failed "{}"'.format(e))
+                log.warning('Update chain failed "{}"'.format(e))
                 sleep(5)
             except Exception as e:
                 reset_good_node()
-                logging.error('Update chain failed "{}"'.format(e), exc_info=True)
+                log.error('Update chain failed "{}"'.format(e), exc_info=True)
                 sleep(5)
 
-    logging.info("Start sync now {} connections.".format(len(V.PC_OBJ.p2p.user)))
+    log.info("Start sync now {} connections.".format(len(V.PC_OBJ.p2p.user)))
     Thread(target=loop, name='Sync').start()
 

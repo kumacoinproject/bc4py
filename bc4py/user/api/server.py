@@ -17,15 +17,16 @@ from .jsonrpc import json_rpc
 from bc4py.config import V
 from bc4py.user.api import web_base
 import threading
-import logging
 import os
 import asyncio
 from ssl import SSLContext, PROTOCOL_SSLv23
+from logging import getLogger, INFO
 
-
+log = getLogger('bc4py')
 loop = asyncio.get_event_loop()
 base_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
 markdown_template = open(os.path.join(base_path, 'md_renderer.html'), mode='r', encoding='utf8').read()
+getLogger('aiohttp_basicauth_middleware').setLevel(INFO)
 
 
 localhost_urls = {
@@ -154,7 +155,7 @@ def create_rest_server(f_local, user, pwd, port=3000, f_blocking=True, ssl_conte
     # web.run_app(app=app, host=host, port=port)
     runner = web.AppRunner(app)
     loop.run_until_complete(non_blocking_start(runner, host, port, ssl_context))
-    logging.info("REST work on port={} mode={}.".format(port, 'Local' if f_local else 'Global'))
+    log.info("REST work on port={} mode={}.".format(port, 'Local' if f_local else 'Global'))
 
     if f_blocking:
         try:
@@ -162,9 +163,9 @@ def create_rest_server(f_local, user, pwd, port=3000, f_blocking=True, ssl_conte
         except KeyboardInterrupt:
             pass
         loop.close()
-        logging.info("REST Server closed now.")
+        log.info("REST Server closed now.")
     else:
-        logging.info("Create REST Server.")
+        log.info("Create REST Server.")
 
 
 async def non_blocking_start(runner, host, port, ssl_context):
@@ -197,13 +198,13 @@ async def web_page(request):
                 body=open(os.path.join(abs_path, 'index.html'), mode='rb').read(),
                 headers=web_base.CONTENT_TYPE_HTML)
     except Exception as e:
-        logging.error(e, exc_info=True)
+        log.error(e, exc_info=True)
         return web.Response(text="Error: {}".format(page_path), status=400)
 
 
 async def resync(request):
     from bc4py.config import P
-    logging.warning("222 Set booting mode.")
+    log.warning("222 Set booting mode.")
     P.F_NOW_BOOTING = True
     return web.Response(text='Resync')
 
@@ -212,7 +213,7 @@ async def close_server(request):
     def close():
         loop.call_soon_threadsafe(loop.stop)
 
-    logging.info("Closing server...")
+    log.info("Closing server...")
     import threading
     threading.Timer(interval=5.0, function=close).start()
     return web.Response(text='Close after 5 seconds.')

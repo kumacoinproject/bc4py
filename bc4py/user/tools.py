@@ -3,7 +3,9 @@ from bc4py.database.create import closing, create_db
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.account import *
 from bc4py.user import *
-import logging
+from logging import getLogger
+
+log = getLogger('bc4py')
 
 
 class Search(dict):
@@ -25,12 +27,12 @@ class Search(dict):
                 if last_index == 0:
                     gap_user -= 1
             user += 1
-        logging.info("Finish check list {}".format(len(check)))
+        log.info("Finish check list {}".format(len(check)))
         for user, is_inner, last_index in check:
             for index in range(last_index, last_index + self.gap_limit):
                 sk, pk, ck = extract_keypair(user=user, is_inner=is_inner, index=index)
                 self[ck] = (user, is_inner, index)
-            logging.info("Finish userID={} is_inner={} index={}".format(user, is_inner, index))
+            log.info("Finish userID={} is_inner={} index={}".format(user, is_inner, index))
 
     def recode(self, ck):
         user, is_inner, index = self[ck]
@@ -38,7 +40,7 @@ class Search(dict):
         next_index = self.biggest_index(user=user, is_inner=is_inner) + 1
         sk, pk, ck = extract_keypair(user=user, is_inner=is_inner, index=next_index)
         self[ck] = (user, is_inner, next_index)
-        logging.info("Recode new userID={} is_inner={} index={} address={}"
+        log.info("Recode new userID={} is_inner={} index={} address={}"
                      .format(user, is_inner, index, ck))
 
     def biggest_index(self, user, is_inner):
@@ -52,7 +54,7 @@ class Search(dict):
 def repair_wallet(gap_user=10, gap_limit=20):
     if V.BIP44_BRANCH_SEC_KEY is None:
         raise PermissionError('You need unlock wallet')
-    logging.info("Wallet fix tool start now...")
+    log.info("Wallet fix tool start now...")
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         cur = db.cursor()
         search = Search(gap_user=gap_user, gap_limit=gap_limit, cur=cur)
@@ -105,11 +107,11 @@ def repair_wallet(gap_user=10, gap_limit=20):
                     if read_txhash2log(txhash=tx.hash, cur=cur):
                         continue
                     insert_log(movements=movement, cur=cur, _type=tx.type, _time=tx.time, txhash=tx.hash)
-                    logging.info("Find not recoded transaction {}".format(tx))
+                    log.info("Find not recoded transaction {}".format(tx))
             if height % 5000 == 0:
-                logging.info("Now height {} ...".format(height))
+                log.info("Now height {} ...".format(height))
         db.commit()
-    logging.info("Finish wallet repair.")
+    log.info("Finish wallet repair.")
 
 
 __all__ = [

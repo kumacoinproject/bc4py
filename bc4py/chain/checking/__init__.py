@@ -5,11 +5,12 @@ from bc4py.chain.checking.signature import batch_sign_cashe, delete_signed_cashe
 from bc4py.database.builder import builder, user_account
 import threading
 from time import time
-import logging
+from logging import getLogger
 from collections import deque
 
 global_lock = threading.Lock()
 failed_deque = deque([], maxlen=10)
+log = getLogger('bc4py')
 
 
 def new_insert_block(block, time_check=False):
@@ -37,20 +38,20 @@ def new_insert_block(block, time_check=False):
                 delete_txhash_set.update({tx.hash for tx in del_block.txs})
             delete_signed_cashe(delete_txhash_set)
             stream.on_next(block)
-            logging.info("check success {}Sec {}.".format(round(time()-t, 3), block))
+            log.info("check success {}Sec {}.".format(round(time()-t, 3), block))
             return True
         except BlockChainError as e:
-            logging.warning("Reject new block by \"{}\"".format(e))
-            logging.debug("Reject block => {}".format(block.getinfo()))
+            log.warning("Reject new block by \"{}\"".format(e))
+            log.debug("Reject block => {}".format(block.getinfo()))
             delay = time() - builder.best_block.time - V.BLOCK_GENESIS_TIME
             if delay > 10800:  # 3hours
-                logging.warning("{}Min before block inserted, too old on DB!".format(delay//60))
-                logging.warning("58 Set booting mode.")
+                log.warning("{}Min before block inserted, too old on DB!".format(delay//60))
+                log.warning("58 Set booting mode.")
                 P.F_NOW_BOOTING = True
             return False
         except Exception as e:
             message = "New insert block error, \"{}\"".format(e)
-            logging.warning(message, exc_info=True)
+            log.warning(message, exc_info=True)
             return False
 
 
