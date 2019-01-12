@@ -13,7 +13,8 @@ import random
 from base64 import b64decode, b64encode
 from mnemonic import Mnemonic
 from bip32nem import BIP32Key, BIP32_HARDEN
-from threading import Timer
+from threading import Thread
+from time import sleep
 import json
 
 
@@ -86,7 +87,10 @@ def load_bootstrap_file():
 
 
 def import_keystone(passphrase='', auto_create=True, language='english'):
-    def timeout_now():
+    def timeout_now(count):
+        while count > 0:
+            count -= 1
+            sleep(1)
         V.BIP44_BRANCH_SEC_KEY = None
         logging.info("deleted wallet secret key now.")
     if V.BIP44_ENCRYPTED_MNEMONIC:
@@ -123,7 +127,7 @@ def import_keystone(passphrase='', auto_create=True, language='english'):
             .ChildKey(C.BIP44_COIN_TYPE) \
             .ExtendedKey(private=True)
     if timeout > 0:
-        Timer(timeout, function=timeout_now).start()
+        Thread(target=timeout_now, args=(timeout,), name='timer{}Sec'.format(timeout)).start()
     logging.info("import wallet, unlock={} timeout={}".format(bool(bip), timeout))
 
 
