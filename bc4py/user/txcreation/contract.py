@@ -151,7 +151,6 @@ def create_validator_edit_tx(c_address, new_address=None,
 
 def create_signed_tx_as_validator(tx: TX):
     assert tx.type in (C.TX_VALIDATOR_EDIT, C.TX_CONCLUDE_CONTRACT)
-    assert tx.hash in tx_builder.unconfirmed
     copied_tx = deepcopy(tx)
     # sign as another validator
     c_address, *dummy = bjson.loads(copied_tx.message)
