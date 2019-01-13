@@ -8,7 +8,6 @@ from Cryptodome import Random
 from Cryptodome.Hash import SHA256
 import multiprocessing
 import os
-from time import time
 import bjson
 import psutil
 
@@ -105,30 +104,3 @@ class AESCipher:
     @staticmethod
     def _unpad(s):
         return s[:-ord(s[len(s) - 1:])]
-
-
-class TimeWatch:
-    def __init__(self, limit=0.1):
-        self.data = [time()]
-        self.calculate = None
-        self.limit = limit
-
-    def watch(self):
-        self.data.append(time())
-
-    def calc(self):
-        # もし遅い操作があるならTrueを返す
-        self.calculate = list()
-        for i in range(len(self.data) - 1):
-            self.calculate.append(round(self.data[i + 1] - self.data[i], 3))
-        try:
-            return max(self.calculate) > self.limit
-        except ValueError:
-            return False
-
-    def show(self):
-        def to_print(data):
-            return str(data) + 'Sec'
-        if self.calculate is None:
-            self.calc()
-        return ', '.join(map(to_print, self.calculate))
