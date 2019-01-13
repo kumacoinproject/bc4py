@@ -51,7 +51,7 @@ class TX:
         self.message = None  # 0~256**4 bytes bin
         # for validation
         self.signature = list()    # [(pubkey, signature),.. ]
-        self.R = None  # use for hash-locked
+        self.R = b''  # use for hash-locked
         # don't use for process
         self.recode_flag = None
         self.create_time = time()
@@ -141,7 +141,7 @@ class TX:
         r['message_type'] = C.msg_type2name.get(self.message_type) or self.message_type
         r['message'] = self.message.decode() if self.message_type == C.MSG_PLAIN else self.message.hex()
         r['signature'] = [(pubkey, signature.hex()) for pubkey, signature in self.signature]
-        r['hash_locked'] = self.R.hex() if self.R else None
+        r['hash_locked'] = self.R.hex()
         r['recode_flag'] = self.recode_flag
         r['create_time'] = self.create_time
         return r

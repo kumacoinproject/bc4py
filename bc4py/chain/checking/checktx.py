@@ -136,7 +136,7 @@ def check_tx_time(tx):
 
 
 def check_hash_locked(tx):
-    if tx.R is None:
+    if len(tx.R) == 0:
         raise BlockChainError('R of Hash-locked is None type.')
     size = len(tx.message)
     if size == 20:
