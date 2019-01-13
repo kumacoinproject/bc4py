@@ -196,7 +196,7 @@ Validators are required to create conclude tx.
             "signature": [
                 ["d7b8d6460502b198f9e7bf4354236f3e7662a3bdf1ee67621c4b559325a6fa6b", "2c0c768648d610d0fa9f33b844f0c71d74ba26bba35c076cff64595aeb6e1c11fe92bfa6ce94def26d513bfcda2b5f0a9566c725e8a1649bfa4f1b42c670f60c"]
             ],
-            "recode_flag": "memory",
+            "recode_flag": "memory"
         },
         "related": [
             ["contract", "NA3OYCDZK5LXYGV63QYMO2KYMQNVOHUEQHC3NBLP"]

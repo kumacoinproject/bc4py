@@ -5,7 +5,6 @@ from bc4py.chain.difficulty import get_bits_by_hash, get_bias_by_hash
 from bc4py.database.builder import builder, tx_builder
 from bc4py.user.api import web_base
 from bc4py.user.generate import generating_threads
-from binascii import hexlify
 from time import time
 import p2p_python
 
@@ -22,7 +21,7 @@ async def chain_info(request):
         best_height = builder.best_block.height
         best_block = builder.best_block
         old_block_height = builder.best_chain[0].height - 1
-        old_block_hash = hexlify(builder.get_block_hash(old_block_height)).decode()
+        old_block_hash = builder.get_block_hash(old_block_height).hex()
         data = {'best': best_block.getinfo()}
         difficulty = dict()
         for consensus, ratio in V.BLOCK_CONSENSUSES.items():
@@ -73,8 +72,8 @@ async def system_info(request):
         'chain_ver': __chain_version__,
         'booting': P.F_NOW_BOOTING,
         'connections': len(V.PC_OBJ.p2p.user),
-        'unconfirmed': [hexlify(txhash).decode() for txhash in tx_builder.unconfirmed.keys()],
-        'pre_unconfirmed': [hexlify(txhash).decode() for txhash in tx_builder.pre_unconfirmed.keys()],
+        'unconfirmed': [txhash.hex() for txhash in tx_builder.unconfirmed.keys()],
+        'pre_unconfirmed': [txhash.hex() for txhash in tx_builder.pre_unconfirmed.keys()],
         'access_time': int(time()),
         'start_time': start_time}
     return web_base.json_res(data)
@@ -89,7 +88,7 @@ async def system_private_info(request):
             'message': __message__,
             'booting': P.F_NOW_BOOTING,
             'connections': len(V.PC_OBJ.p2p.user),
-            'unconfirmed': [hexlify(txhash).decode() for txhash in tx_builder.unconfirmed.keys()],
+            'unconfirmed': [txhash.hex() for txhash in tx_builder.unconfirmed.keys()],
             'directory': V.DB_HOME_DIR,
             'generate': {
                 'address': V.MINING_ADDRESS,

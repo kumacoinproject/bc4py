@@ -6,7 +6,7 @@ from bc4py.user.generate import create_mining_block, confirmed_generating_block
 from bc4py.chain.difficulty import MAX_TARGET
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
-from binascii import hexlify, unhexlify
+from binascii import a2b_hex
 from aiohttp import web
 from base64 import b64decode
 import json
@@ -95,21 +95,21 @@ async def getwork(*args, **kwargs):
             mining_block.bits2target()
         # Pre-processed SHA-2 input chunks
         data = mining_block.b  # 80 bytes
-        data += unhexlify(b'800000000000000000000000000000000000000000000000'
-                          b'000000000000000000000000000000000000000000000280')  # 48+80=128bytes
+        data += a2b_hex('800000000000000000000000000000000000000000000000'
+                        '000000000000000000000000000000000000000000000280')  # 48+80=128bytes
         new_data = b''
         for i in range(0, 128, 4):
             new_data += data[i:i+4][::-1]
         if extra_target:
             return {
-                "data": hexlify(new_data).decode(),
-                "target": hexlify(extra_target.to_bytes(32, 'big')).decode()}
+                "data": new_data.hex(),
+                "target": extra_target.to_bytes(32, 'big').hex()}
         else:
             return {
-                "data": hexlify(new_data).decode(),
-                "target": hexlify(mining_block.target_hash).decode()}
+                "data": new_data.hex(),
+                "target": mining_block.target_hash.hex()}
     else:
-        data = unhexlify(args[0].encode())
+        data = a2b_hex(args[0])
         new_data = b''
         for i in range(0, 128, 4):
             new_data += data[i:i+4][::-1]
@@ -140,7 +140,7 @@ async def getblocktemplate(*args, **kwargs):
         "previousblockhash": bin2hex(mining_block.previous_hash),
         "coinbasetxn": {
             # sgminer say, FAILED to decipher work from 127.0.0.1
-            "data": hexlify(mining_block.txs[0].b).decode()
+            "data": mining_block.txs[0].b.hex()
         },  # 採掘報酬TX
         "target": bin2hex(mining_block.target_hash),
         "mutable": [
@@ -152,13 +152,13 @@ async def getblocktemplate(*args, **kwargs):
         "sigoplimit": 20000,
         "sizelimit": C.SIZE_BLOCK_LIMIT,
         "curtime": mining_block.time,  # block time
-        "bits": hexlify(mining_block.bits.to_bytes(4, 'big')).decode(),
+        "bits": mining_block.bits.to_bytes(4, 'big').hex(),
         "height": mining_block.height
     }
     transactions = list()
     for tx in mining_block.txs[1:]:
         transactions.append({
-            "data": hexlify(tx.b).decode(),
+            "data": tx.b.hex(),
             "hash": bin2hex(tx.hash),
             "depends": list(),
             "fee": 0,
@@ -169,7 +169,7 @@ async def getblocktemplate(*args, **kwargs):
 
 async def submitblock(block_hex_or_obj, **kwargs):
     if isinstance(block_hex_or_obj, str):
-        block_bin = unhexlify(block_hex_or_obj.encode())
+        block_bin = a2b_hex(block_hex_or_obj)
         # Block
         mined_block = Block(binary=block_bin[:80])
         if mined_block.previous_hash != builder.best_block.hash:
@@ -226,4 +226,4 @@ async def getmininginfo(*args, **kwargs):
 
 
 def bin2hex(b):
-    return hexlify(b[::-1]).decode()
+    return b[::-1].hex()

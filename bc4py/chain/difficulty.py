@@ -1,7 +1,6 @@
 from bc4py.config import C, V, Debug
 from bc4py.database.builder import builder
 from bc4py.chain.utils import bits2target, target2bits
-from binascii import hexlify
 from functools import lru_cache
 
 # https://github.com/zawy12/difficulty-algorithms/issues/3
@@ -99,7 +98,7 @@ def get_bits_by_hash(previous_hash, consensus):
     # convert new target to bits
     new_bits = target2bits(new_target)
     if Debug.F_SHOW_DIFFICULTY:
-        print("ratio", C.consensus2name[consensus], new_bits, hexlify(previous_hash).decode())
+        print("ratio", C.consensus2name[consensus], new_bits, previous_hash.hex())
     return new_bits, new_target
 
 
@@ -129,5 +128,5 @@ def get_bias_by_hash(previous_hash, consensus):
 
     bias = base_difficulty_sum / sum(target_diffs)
     if Debug.F_SHOW_DIFFICULTY:
-        print("bias", bias, hexlify(previous_hash).decode())
+        print("bias", bias, previous_hash.hex())
     return bias

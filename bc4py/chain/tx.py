@@ -4,7 +4,6 @@
 from bc4py import __chain_version__
 from bc4py.config import C, V, BlockChainError
 from hashlib import sha256
-from binascii import hexlify
 from time import time
 import struct
 from collections import OrderedDict
@@ -30,7 +29,7 @@ class TX:
 
     def __repr__(self):
         return "<TX {} {} {}>".format(
-            self.height, C.txtype2name.get(self.type, None), hexlify(self.hash).decode())
+            self.height, C.txtype2name.get(self.type, None), self.hash.hex())
 
     def __init__(self, binary=None, tx=None):
         self.b = None
@@ -117,20 +116,20 @@ class TX:
 
     def getinfo(self):
         r = OrderedDict()
-        r['hash'] = hexlify(self.hash).decode()
+        r['hash'] = self.hash.hex()
         r['pos_amount'] = self.pos_amount
         r['height'] = self.height
         r['version'] = self.version
         r['type'] = C.txtype2name.get(self.type, None)
         r['time'] = self.time + V.BLOCK_GENESIS_TIME
         r['deadline'] = self.deadline + V.BLOCK_GENESIS_TIME
-        r['inputs'] = [(hexlify(txhash).decode(), txindex) for txhash, txindex in self.inputs]
+        r['inputs'] = [(txhash.hex(), txindex) for txhash, txindex in self.inputs]
         r['outputs'] = self.outputs
         r['gas_price'] = self.gas_price
         r['gas_amount'] = self.gas_amount
         r['message_type'] = C.msg_type2name.get(self.message_type) or self.message_type
-        r['message'] = self.message.decode() if self.message_type == C.MSG_PLAIN else hexlify(self.message).decode()
-        r['signature'] = [(pubkey, hexlify(signature).decode()) for pubkey, signature in self.signature]
+        r['message'] = self.message.decode() if self.message_type == C.MSG_PLAIN else self.message.hex()
+        r['signature'] = [(pubkey, signature.hex()) for pubkey, signature in self.signature]
         r['hash_locked'] = self.R.hex() if self.R else None
         r['recode_flag'] = self.recode_flag
         r['create_time'] = self.create_time

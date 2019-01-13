@@ -10,7 +10,7 @@ import weakref
 import os
 import threading
 import bjson
-from binascii import hexlify, unhexlify
+from binascii import a2b_hex
 from time import time
 import pickle
 from nem_ed25519.key import is_address
@@ -480,10 +480,10 @@ class ChainBuilder:
         try:
             if genesis_block.hash != self.db.read_block_hash(0):
                 raise BlockBuilderError("Don't match genesis hash [{}!={}]".format(
-                    hexlify(genesis_block.hash).decode(), hexlify(self.db.read_block_hash(0).decode())))
+                    genesis_block.hash.hex(), self.db.read_block_hash(0).hex()))
             elif genesis_block != self.db.read_block(genesis_block.hash):
                 raise BlockBuilderError("Don't match genesis binary [{}!={}]".format(
-                    hexlify(genesis_block.b).decode(), hexlify(self.db.read_block(genesis_block.hash).b).decode()))
+                    genesis_block.b.hex(), self.db.read_block(genesis_block.hash).b.hex()))
         except Exception:
             # GenesisBlockしか無いのでDummyBlockを入れる処理
             self.root_block = Block()
@@ -621,7 +621,7 @@ class ChainBuilder:
             while self.root_block.hash != previous_hash:
                 if previous_hash not in self.chain:
                     raise BlockBuilderError('Cannot find previousHash, may not main-chain. {}'
-                                            .format(hexlify(previous_hash).decode()))
+                                            .format(previous_hash.hex()))
                 block = self.chain[previous_hash]
                 previous_hash = block.previous_hash
                 best_chain.append(block)
@@ -684,7 +684,7 @@ class ChainBuilder:
                             usedindex = self.db.read_usedindex(txhash)
                             if txindex in usedindex:
                                 raise BlockBuilderError('Already used index? {}:{}'
-                                                        .format(hexlify(txhash).decode(), txindex))
+                                                        .format(txhash.hex(), txindex))
                             usedindex.add(txindex)
                             self.db.write_usedindex(txhash, usedindex)  # UsedIndex update
                             input_tx = tx_builder.get_tx(txhash)

@@ -1,7 +1,6 @@
 from bc4py.config import C, BlockChainError
 from bc4py.database.builder import builder, tx_builder
 from expiringdict import ExpiringDict
-from binascii import hexlify
 import bjson
 
 
@@ -42,7 +41,7 @@ class MintCoin:
             "digit": self.digit,
             "description": self.description,
             "image": self.image,
-            "txhash": hexlify(self.txhash).decode(),
+            "txhash": self.txhash.hex(),
             "address": self.address,
             "setting": self.setting}
 

@@ -6,7 +6,6 @@ from bc4py.database.create import closing, create_db
 from bc4py.database.account import *
 from bc4py.database.tools import get_utxo_iter, get_unspents_iter
 from aiohttp import web
-from binascii import hexlify
 from nem_ed25519.key import convert_address
 
 
@@ -61,7 +60,7 @@ async def list_unspents(request):
                 'address': address,
                 'height': height,
                 'confirmed': None if height is None else best_height - height,
-                'txhash': hexlify(txhash).decode(),
+                'txhash': txhash.hex(),
                 'txindex': txindex,
                 'coin_id': coin_id,
                 'amount': amount})
@@ -78,7 +77,7 @@ async def list_private_unspents(request):
             'address': address,
             'height': height,
             'confirmed': None if height is None else best_height - height,
-            'txhash': hexlify(txhash).decode(),
+            'txhash': txhash.hex(),
             'txindex': txindex,
             'coin_id': coin_id,
             'amount': amount})
@@ -116,7 +115,7 @@ async def move_one(request):
             txhash = user_account.move_balance(_from, _to, coins, cur)
             db.commit()
         return web_base.json_res({
-            'txhash': hexlify(txhash).decode(),
+            'txhash': txhash.hex(),
             'from_id': _from, 'to_id': _to})
     except Exception as e:
         return web.Response(text=str(e), status=400)
@@ -137,7 +136,7 @@ async def move_many(request):
             txhash = user_account.move_balance(_from, _to, coins, cur)
             db.commit()
         return web_base.json_res({
-            'txhash': hexlify(txhash).decode(),
+            'txhash': txhash.hex(),
             'from_id': _from, 'to_id': _to})
     except Exception as e:
         return web.Response(text=str(e), status=400)

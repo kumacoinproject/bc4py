@@ -1,7 +1,6 @@
 from bc4py.config import C, BlockChainError
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.validator import get_validator_object
-from binascii import hexlify
 from threading import Lock
 from collections import OrderedDict
 from copy import deepcopy
@@ -109,12 +108,12 @@ class Contract:
         d['c_address'] = self.c_address
         d['db_index'] = self.db_index
         d['version'] = self.version
-        d['binary'] = hexlify(self.binary).decode()
+        d['binary'] = self.binary.hex()
         d['extra_imports'] = self.extra_imports
         d['storage_key'] = len(self.storage)
         d['settings'] = self.settings
-        d['start_hash'] = hexlify(self.start_hash).decode()
-        d['finish_hash'] = hexlify(self.finish_hash).decode()
+        d['start_hash'] = self.start_hash.hex()
+        d['finish_hash'] = self.finish_hash.hex()
         return d
 
     def update(self, db_index, start_hash, finish_hash, c_method, c_args, c_storage):

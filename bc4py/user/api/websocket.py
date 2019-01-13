@@ -5,7 +5,6 @@ from bc4py.contract.emulator.watching import *
 from aiohttp import web
 import asyncio
 import json
-from binascii import hexlify
 from collections import OrderedDict
 from logging import getLogger
 
@@ -120,16 +119,16 @@ def new_info2json_data(cmd, data_list):
     if cmd == C_Conclude:
         _time, tx, related_list, c_address, start_hash, c_storage = data_list
         send_data['c_address'] = c_address
-        send_data['hash'] = hexlify(tx.hash).decode()
+        send_data['hash'] = tx.hash.hex()
         send_data['time'] = _time
         send_data['tx'] = tx.getinfo()
         send_data['related'] = related_list
-        send_data['start_hash'] = hexlify(start_hash).decode()
+        send_data['start_hash'] = start_hash.hex()
         send_data['c_storage'] = decode(c_storage)
     elif cmd == C_Validator:
         _time, tx, related_list, c_address, new_address, flag, sig_diff = data_list
         send_data['c_address'] = c_address
-        send_data['hash'] = hexlify(tx.hash).decode()
+        send_data['hash'] = tx.hash.hex()
         send_data['time'] = _time
         send_data['tx'] = tx.getinfo()
         send_data['related'] = related_list
@@ -139,7 +138,7 @@ def new_info2json_data(cmd, data_list):
     elif cmd == C_RequestConclude:
         _time, tx, related_list, c_address, c_method, redeem_address, c_args = data_list
         send_data['c_address'] = c_address
-        send_data['hash'] = hexlify(tx.hash).decode()
+        send_data['hash'] = tx.hash.hex()
         send_data['time'] = _time
         send_data['tx'] = tx.getinfo()
         send_data['related'] = related_list
@@ -148,7 +147,7 @@ def new_info2json_data(cmd, data_list):
         send_data['c_args'] = decode(c_args)
     elif cmd == C_FinishConclude or cmd == C_FinishValidator:
         _time, tx = data_list
-        send_data['hash'] = hexlify(tx.hash).decode()
+        send_data['hash'] = tx.hash.hex()
         send_data['time'] = _time
         send_data['tx'] = tx.getinfo()
     else:
@@ -159,7 +158,7 @@ def new_info2json_data(cmd, data_list):
 def decode(b):
     # decode Python obj to dump json data
     if isinstance(b, bytes) or isinstance(b, bytearray):
-        return hexlify(b).decode()
+        return b.hex()
     elif isinstance(b, set) or isinstance(b, list) or isinstance(b, tuple):
         return tuple(decode(data) for data in b)
     elif isinstance(b, dict):

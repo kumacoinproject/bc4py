@@ -6,7 +6,6 @@ from bc4py.database.builder import builder, tx_builder
 from bc4py.user.network.update import update_mining_staking_all_info
 from bc4py.user.network.directcmd import DirectCmd
 from bc4py.user.network.connection import ask_node
-from binascii import hexlify
 from logging import getLogger
 
 log = getLogger('bc4py')
@@ -71,7 +70,7 @@ class BroadcastCmd:
 
 def fill_newblock_info(data):
     new_block = Block(binary=data['block'])
-    log.debug("Fill newblock={}".format(hexlify(new_block.hash).decode()))
+    log.debug("Fill newblock={}".format(new_block.hash.hex()))
     proof = TX(binary=data['proof'])
     new_block.txs.append(proof)
     new_block.flag = data['block_flag']
@@ -85,7 +84,7 @@ def fill_newblock_info(data):
     before_block = builder.get_block(new_block.previous_hash)
     if before_block is None:
         log.debug("Cannot find beforeBlock {}, try to ask outside node."
-                      .format(hexlify(new_block.previous_hash).decode()))
+                      .format(new_block.previous_hash.hex()))
         # not found beforeBlock, need to check other node have the the block
         new_block.inner_score *= 0.70  # unknown previousBlock, score down
         before_block = make_block_by_node(blockhash=new_block.previous_hash)
@@ -140,12 +139,12 @@ def make_block_by_node(blockhash):
     """ create Block by outside node """
     r = ask_node(cmd=DirectCmd.BLOCK_BY_HASH, data={'blockhash': blockhash})
     if isinstance(r, str):
-        raise BlockChainError('make_block_by_node() failed, by "{}"'.format(hexlify(blockhash).decode(), r))
+        raise BlockChainError('make_block_by_node() failed, by "{}"'.format(blockhash.hex(), r))
     block = Block(binary=r['block'])
     block.flag = r['flag']
     before_block = builder.get_block(blockhash=block.previous_hash)
     if before_block is None:
-        raise BlockChainError('Not found BeforeBeforeBlock {}'.format(hexlify(block.previous_hash).decode()))
+        raise BlockChainError('Not found BeforeBeforeBlock {}'.format(block.previous_hash.hex()))
     block.height = before_block.height + 1
     for tx in r['txs']:
         _tx = TX(binary=tx['tx'])

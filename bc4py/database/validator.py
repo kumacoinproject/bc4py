@@ -1,6 +1,5 @@
 from bc4py.config import C, BlockChainError
 from bc4py.database.builder import builder, tx_builder
-from binascii import hexlify
 from collections import OrderedDict
 from threading import Lock
 from copy import deepcopy
@@ -62,7 +61,7 @@ class Validator:
         d['db_index'] = self.db_index
         d['index'] = self.version
         d['c_address'] = self.c_address
-        d['txhash'] = hexlify(self.txhash).decode()
+        d['txhash'] = self.txhash.hex()
         d['validators'] = self.validators
         d['require'] = self.require
         return d
@@ -126,7 +125,7 @@ def get_validator_object(c_address, best_block=None, best_chain=None, stop_txhas
         if txhash == select_hash:
             return v  # caution: select_hash works only on memory/unconfirmed!
     if select_hash:
-        raise BlockChainError('Failed get Validator by select_hash {}'.format(hexlify(select_hash)))
+        raise BlockChainError('Failed get Validator by select_hash {}'.format(select_hash.hex()))
     # elif stop_txhash:
     #    raise BlockChainError('Failed get Validator by stop_txhash {}'.format(hexlify(stop_txhash)))
     else:

@@ -6,7 +6,6 @@ from bc4py.user import Balance, Accounting
 from bc4py.user.txcreation.utils import *
 import random
 import bjson
-from binascii import hexlify
 
 
 MINTCOIN_DUMMY_ADDRESS = '_____MINTCOIN_____DUMMY_____ADDRESS_____'

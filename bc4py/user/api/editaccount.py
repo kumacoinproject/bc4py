@@ -7,7 +7,7 @@ from mnemonic import Mnemonic
 from bip32nem import BIP32Key, BIP32_HARDEN
 from nem_ed25519 import public_key, get_address
 from threading import Thread
-from binascii import unhexlify
+from binascii import a2b_hex
 import asyncio
 from logging import getLogger
 
@@ -89,7 +89,7 @@ async def import_private_key(request):
         return web_base.error_res('wallet is locked!')
     try:
         post = await web_base.content_type_json_check(request)
-        sk = unhexlify(post['private_key'].encode())
+        sk = a2b_hex(post['private_key'])
         ck = post['address']
         name = post.get('account', C.ANT_NAME_UNKNOWN)
         check_ck = get_address(pk=public_key(sk=sk), prefix=V.BLOCK_PREFIX)

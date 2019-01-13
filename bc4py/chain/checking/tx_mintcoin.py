@@ -3,7 +3,6 @@ from bc4py.chain.checking.signature import *
 from bc4py.database.mintcoin import *
 from bc4py.database.builder import tx_builder
 from bc4py.user import Balance
-from binascii import hexlify
 import bjson
 
 
@@ -72,7 +71,7 @@ def input_output_digest(tx):
     for txhash, txindex in tx.inputs:
         input_tx = tx_builder.get_tx(txhash=txhash)
         if input_tx is None:
-            raise BlockChainError('input tx is None. {}:{}'.format(hexlify(txhash).decode(), txindex))
+            raise BlockChainError('input tx is None. {}:{}'.format(txhash.hex(), txindex))
         address, coin_id, amount = input_tx.outputs[txindex]
         require_cks.add(address)
         coins[coin_id] += amount

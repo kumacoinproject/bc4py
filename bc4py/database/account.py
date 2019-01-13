@@ -2,7 +2,6 @@ from bc4py.config import C, V, BlockChainError
 from bc4py.user import Accounting, extract_keypair
 from bc4py.database.create import closing, create_db
 from time import time
-from binascii import hexlify
 from bc4py.utils import AESCipher
 from nem_ed25519.key import public_key
 from nem_ed25519.signature import sign
@@ -193,7 +192,7 @@ class MoveLog:
         self.tx_ref = ref(tx) if tx else None
 
     def __repr__(self):
-        return "<MoveLog {} {}>".format(C.txtype2name.get(self.type, None), hexlify(self.txhash).decode())
+        return "<MoveLog {} {}>".format(C.txtype2name.get(self.type, None), self.txhash.hex())
 
     def __hash__(self):
         return hash(self.txhash)
@@ -203,7 +202,7 @@ class MoveLog:
             cur = outer_cur or db.cursor()
             movement = {read_user2name(user, cur): dict(balance) for user, balance in self.movement.items()}
         return {
-            'txhash': hexlify(self.txhash).decode(),
+            'txhash': self.txhash.hex(),
             'height':  self.height,
             'recode_flag': self.recode_flag,
             'type': C.txtype2name.get(self.type, None),

@@ -4,7 +4,6 @@ from bc4py.chain.checking.tx_mintcoin import *
 from bc4py.chain.checking.tx_contract import *
 from bc4py.chain.checking.utils import *
 from logging import getLogger
-from binascii import hexlify
 from time import time
 from Cryptodome.Hash import RIPEMD160, SHA256
 
@@ -110,7 +109,7 @@ def check_tx(tx, include_block):
     if include_block:
         log.info("Checked tx {}".format(tx))
     else:
-        log.debug("Check unconfirmed tx {}".format(hexlify(tx.hash).decode()))
+        log.debug("Check unconfirmed tx {}".format(tx.hash.hex()))
 
 
 def check_tx_time(tx):

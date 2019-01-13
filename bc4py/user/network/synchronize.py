@@ -13,7 +13,6 @@ from bc4py.user.exit import system_exit
 from pooled_multiprocessing import mp_map_async, Waiter
 from time import time, sleep
 from threading import Thread, Lock
-from binascii import hexlify
 from logging import getLogger
 
 log = getLogger('bc4py')
@@ -250,7 +249,7 @@ def fast_sync_chain():
             tx.signature = r['sign']
             unconfirmed_txs.append(tx)
         except BlockChainError as e:
-            log.debug("1: Failed get unconfirmed {} '{}'".format(hexlify(txhash).decode(), e))
+            log.debug("1: Failed get unconfirmed {} '{}'".format(txhash.hex(), e))
     for tx in sorted(unconfirmed_txs, key=lambda x: x.time):
         try:
             check_tx_time(tx)

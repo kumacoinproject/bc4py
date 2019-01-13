@@ -11,7 +11,6 @@ from bc4py.database.tools import get_unspents_iter
 from threading import Thread, Event
 from time import time, sleep
 import queue
-from binascii import hexlify
 from collections import deque
 from nem_ed25519.key import is_address
 import traceback

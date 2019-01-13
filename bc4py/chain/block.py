@@ -5,7 +5,6 @@ from bc4py.config import C, V
 from bc4py.chain.utils import MAX_256_INT, bits2target
 from bc4py.chain.workhash import update_work_hash
 from hashlib import sha256
-from binascii import hexlify
 import struct
 from time import time
 from collections import OrderedDict
@@ -31,7 +30,7 @@ class Block:
     def __repr__(self):
         return "<{} {} {} {} {} score={} txs={}>".format(
             'DeleteBlock' if self.delete_time else 'Block', self.height, C.consensus2name[self.flag],
-            "ORPHAN" if self.f_orphan else "", hexlify(self.hash).decode(), round(self.score, 4), len(self.txs))
+            "ORPHAN" if self.f_orphan else "", self.hash.hex(), round(self.score, 4), len(self.txs))
 
     def __init__(self, binary=None, block=None):
         self.b = None
@@ -94,18 +93,18 @@ class Block:
 
     def getinfo(self):
         r = OrderedDict()
-        r['hash'] = hexlify(self.hash).decode() if self.hash else None
+        r['hash'] = self.hash.hex() if self.hash else None
         try:
             if self.work_hash is None:
                 update_work_hash(self)
-            r['work_hash'] = hexlify(self.work_hash).decode()
+            r['work_hash'] = self.work_hash.hex()
         except Exception as e:
             import traceback
             traceback.print_exc()
             print(e)
             r['work_hash'] = None
-        r['previous_hash'] = hexlify(self.previous_hash).decode() if self.previous_hash else None
-        r['next_hash'] = hexlify(self.next_hash).decode() if self.next_hash else None
+        r['previous_hash'] = self.previous_hash.hex() if self.previous_hash else None
+        r['next_hash'] = self.next_hash.hex() if self.next_hash else None
         r['f_orphan'] = self.f_orphan
         r['recode_flag'] = self.recode_flag
         r['height'] = self.height
@@ -113,12 +112,12 @@ class Block:
         r['fixed_difficulty'] = round(self.difficulty / self.bias, 8)
         r['score'] = round(self.score, 8)
         r['flag'] = C.consensus2name[self.flag]
-        r['merkleroot'] = hexlify(self.merkleroot).decode() if self.merkleroot else None
+        r['merkleroot'] = self.merkleroot.hex() if self.merkleroot else None
         r['time'] = V.BLOCK_GENESIS_TIME + self.time
         r['bits'] = self.bits
         r['bias'] = round(self.bias, 8)
-        r['nonce'] = hexlify(self.nonce).decode() if self.nonce else None
-        r['txs'] = [hexlify(tx.hash).decode() for tx in self.txs]
+        r['nonce'] = self.nonce.hex() if self.nonce else None
+        r['txs'] = [tx.hash.hex() for tx in self.txs]
         r['create_time'] = self.create_time
         return r
 

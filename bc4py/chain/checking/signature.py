@@ -1,7 +1,6 @@
 from bc4py.config import V
 from nem_ed25519.key import get_address
 from nem_ed25519.signature import verify
-from binascii import hexlify, unhexlify
 from threading import Lock
 from time import time, sleep
 from pooled_multiprocessing import mp_map_async
@@ -22,7 +21,7 @@ def _verify(pubkey, signature, txhash, tx_b, prefix):
         address = get_address(pk=pubkey, prefix=prefix)
         return pubkey, signature, txhash, address
     except ValueError:
-        error = "Failed verify tx {}".format(hexlify(txhash).decode())
+        error = "Failed verify tx {}".format(txhash.hex())
         log.debug(error)
     except Exception as e:
         error = 'Signature verification error. "{}"'.format(e)

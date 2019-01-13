@@ -6,7 +6,6 @@ from bc4py.database.builder import tx_builder
 from bc4py.database.validator import *
 from bc4py.database.contract import *
 from nem_ed25519.key import is_address
-from binascii import hexlify
 import bjson
 from logging import getLogger
 
@@ -37,7 +36,7 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
     finish_hash = get_conclude_hash_from_start(
         c_address=c_address, start_hash=start_hash, best_block=include_block)
     if finish_hash and finish_hash != tx.hash:
-        raise BlockChainError('Already start_hash used. {}'.format(hexlify(finish_hash).decode()))
+        raise BlockChainError('Already start_hash used. {}'.format(finish_hash.hex()))
     # inputs address check
     for txhash, txindex in tx.inputs:
         input_tx = tx_builder.get_tx(txhash)
@@ -53,7 +52,7 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
     # check start tx
     start_tx = tx_builder.get_tx(txhash=start_hash)
     if start_tx is None:
-        raise BlockChainError('Not found start tx. {}'.format(hexlify(start_hash).decode()))
+        raise BlockChainError('Not found start tx. {}'.format(start_hash.hex()))
     if start_tx.height is None:
         raise BlockChainError('Start tx is unconfirmed. {}'.format(start_tx))
     if start_tx.type != C.TX_TRANSFER:

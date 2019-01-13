@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from bc4py.config import V, BlockChainError
-from binascii import hexlify, unhexlify
+from binascii import a2b_hex
 import math
 
 MAX_256_INT = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
@@ -45,12 +45,12 @@ def bin2signature(b):
     # pk:32, sign:64
     r = list()
     for i in range(len(b) // 96):
-        r.append((hexlify(b[i*96:i*96+32]).decode(), b[i*96+32:i*96+96]))
+        r.append((b[i*96:i*96+32].hex(), b[i*96+32:i*96+96]))
     return r
 
 
 def signature2bin(s):
-    return b''.join([unhexlify(pk.encode())+sign for pk, sign in s])
+    return b''.join([a2b_hex(pk)+sign for pk, sign in s])
 
 
 def bits2target(bits):
