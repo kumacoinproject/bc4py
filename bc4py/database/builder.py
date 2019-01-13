@@ -162,7 +162,7 @@ class DataBase:
         height, _time, work, b_block, flag, tx_len = struct_block.unpack_from(b)
         idx = struct_block.size
         assert len(b) == idx+tx_len, 'Not correct size. [{}={}]'.format(len(b), idx+tx_len)
-        block = Block(binary=b_block)
+        block = Block.from_binary(binary=b_block)
         block.height = height
         block.work_hash = work
         block.flag = flag
@@ -218,7 +218,7 @@ class DataBase:
         b_sign = b[16+bin_len:16+bin_len+sign_len]
         assert len(b) == 16+bin_len+sign_len, 'Wrong len [{}={}]'\
             .format(len(b), 16+bin_len+sign_len)
-        tx = TX(binary=b_tx)
+        tx = TX.from_binary(binary=b_tx)
         tx.height = height
         tx.signature = bin2signature(b_sign)
         return tx

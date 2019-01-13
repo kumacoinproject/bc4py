@@ -24,7 +24,7 @@ def issue_mintcoin(name, unit, digit, amount, cur, description=None, image=None,
     if isinstance(result, str):
         raise BlockChainError('check_mintcoin_new_format(): {}'.format(result))
     msg_body = bjson.dumps((mint_id, params, setting), compress=False)
-    tx = TX(tx={
+    tx = TX.from_dict(tx={
         'type': C.TX_MINT_COIN,
         'inputs': list(),
         'outputs': [(MINTCOIN_DUMMY_ADDRESS, 0, amount)],
@@ -82,7 +82,7 @@ def change_mintcoin(mint_id, cur, amount=None, description=None, image=None, set
     if isinstance(result, str):
         raise BlockChainError('check_mintcoin_new_format(): {}'.format(result))
     msg_body = bjson.dumps((mint_id, params, setting), compress=False)
-    tx = TX(tx={
+    tx = TX.from_dict(tx={
         'type': C.TX_MINT_COIN,
         'gas_price': gas_price or V.COIN_MINIMUM_PRICE,
         'gas_amount': 1,

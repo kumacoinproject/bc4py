@@ -113,7 +113,7 @@ async def getwork(*args, **kwargs):
         new_data = b''
         for i in range(0, 128, 4):
             new_data += data[i:i+4][::-1]
-        block = Block(binary=new_data[:80])
+        block = Block.from_binary(binary=new_data[:80])
         if block.previous_hash != builder.best_block.hash:
             return 'PreviousHash don\'t match.'
         if block.merkleroot in getwork_cashe:
@@ -171,7 +171,7 @@ async def submitblock(block_hex_or_obj, **kwargs):
     if isinstance(block_hex_or_obj, str):
         block_bin = a2b_hex(block_hex_or_obj)
         # Block
-        mined_block = Block(binary=block_bin[:80])
+        mined_block = Block.from_binary(binary=block_bin[:80])
         if mined_block.previous_hash != builder.best_block.hash:
             return 'PreviousHash don\'t match.'
         previous_block = builder.get_block(mined_block.previous_hash)

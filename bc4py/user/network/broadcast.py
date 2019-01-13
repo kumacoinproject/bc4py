@@ -47,7 +47,7 @@ class BroadcastCmd:
     @staticmethod
     def new_tx(data):
         try:
-            new_tx = TX(binary=data['tx'])
+            new_tx = TX.from_binary(binary=data['tx'])
             new_tx.signature = data['sign']
             check_tx_time(new_tx)
             check_tx(tx=new_tx, include_block=None)
@@ -69,9 +69,9 @@ class BroadcastCmd:
 
 
 def fill_newblock_info(data):
-    new_block = Block(binary=data['block'])
+    new_block = Block.from_binary(binary=data['block'])
     log.debug("Fill newblock={}".format(new_block.hash.hex()))
-    proof = TX(binary=data['proof'])
+    proof = TX.from_binary(binary=data['proof'])
     new_block.txs.append(proof)
     new_block.flag = data['block_flag']
     proof.signature = data['sign']
@@ -104,7 +104,7 @@ def fill_newblock_info(data):
             r = ask_node(cmd=DirectCmd.TX_BY_HASH, data={'txhash': txhash}, f_continue_asking=True)
             if isinstance(r, str):
                 raise BlockChainError('Failed unknown tx download "{}"'.format(r))
-            tx = TX(binary=r['tx'])
+            tx = TX.from_binary(binary=r['tx'])
             tx.signature = r['sign']
             check_tx(tx, include_block=None)
             tx_builder.put_unconfirmed(tx)
@@ -140,14 +140,14 @@ def make_block_by_node(blockhash):
     r = ask_node(cmd=DirectCmd.BLOCK_BY_HASH, data={'blockhash': blockhash})
     if isinstance(r, str):
         raise BlockChainError('make_block_by_node() failed, by "{}"'.format(blockhash.hex(), r))
-    block = Block(binary=r['block'])
+    block = Block.from_binary(binary=r['block'])
     block.flag = r['flag']
     before_block = builder.get_block(blockhash=block.previous_hash)
     if before_block is None:
         raise BlockChainError('Not found BeforeBeforeBlock {}'.format(block.previous_hash.hex()))
     block.height = before_block.height + 1
     for tx in r['txs']:
-        _tx = TX(binary=tx['tx'])
+        _tx = TX.from_binary(binary=tx['tx'])
         _tx.height = block.height
         _tx.signature = tx['sign']
         block.txs.append(_tx)

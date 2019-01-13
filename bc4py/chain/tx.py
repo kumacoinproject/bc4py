@@ -31,7 +31,7 @@ class TX:
         return "<TX {} {} {}>".format(
             self.height, C.txtype2name.get(self.type, None), self.hash.hex())
 
-    def __init__(self, binary=None, tx=None):
+    def __init__(self):
         self.b = None
         # tx id
         self.hash = None
@@ -49,27 +49,38 @@ class TX:
         self.gas_amount = None  # fee
         self.message_type = None  # 2bytes int
         self.message = None  # 0~256**4 bytes bin
-        # 処理には使わないが有用なデータ
+        # for validation
+        self.signature = list()    # [(pubkey, signature),.. ]
+        self.R = None  # use for hash-locked
+        # don't use for process
         self.recode_flag = None
         self.create_time = time()
 
-        if binary:
-            self.b = binary
-            self.deserialize()
-        elif tx:
-            self.version = tx.get('version', __chain_version__)
-            self.type = tx['type']
-            self.time = tx.get('time', 0)
-            self.deadline = tx.get('deadline', 0)
-            self.inputs = tx.get('inputs', list())
-            self.outputs = tx.get('outputs', list())
-            self.gas_price = tx.get('gas_price', V.COIN_MINIMUM_PRICE)
-            self.gas_amount = tx['gas_amount']
-            self.message_type = tx.get('message_type', C.MSG_NONE)
-            self.message = tx.get('message', b'')
-            self.serialize()
-        self.signature = list()    # [(pubkey, signature),.. ]
-        self.R = None  # use for hash-locked
+    @classmethod
+    def from_binary(cls, binary):
+        self = cls()
+        self.b = binary
+        self.deserialize()
+        return self
+
+    @classmethod
+    def from_dict(cls, tx):
+        self = cls()
+        self.version = tx.get('version', __chain_version__)
+        self.type = tx['type']
+        self.time = tx.get('time', 0)
+        self.deadline = tx.get('deadline', 0)
+        self.inputs = tx.get('inputs', list())
+        self.outputs = tx.get('outputs', list())
+        self.gas_price = tx.get('gas_price', V.COIN_MINIMUM_PRICE)
+        self.gas_amount = tx['gas_amount']
+        self.message_type = tx.get('message_type', C.MSG_NONE)
+        self.message = tx.get('message', b'')
+        self.serialize()
+        # extension
+        self.signature = tx.get('signature', self.signature)
+        self.R = tx.get('R', self.R)
+        return self
 
     def serialize(self):
         # 構造

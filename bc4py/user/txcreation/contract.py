@@ -67,7 +67,7 @@ def create_conclude_tx(c_address, start_tx, redeem_address, send_pairs=None, c_s
     message = bjson.dumps((c_address, start_tx.hash, c_storage), compress=False)
     v = get_validator_object(c_address=c_address)
     send_pairs = send_pairs or list()
-    tx = TX(tx={
+    tx = TX.from_dict(tx={
         'type': C.TX_CONCLUDE_CONTRACT,
         'time': start_tx.time,
         'deadline': start_tx.deadline,
@@ -132,7 +132,7 @@ def create_validator_edit_tx(c_address, new_address=None,
             raise BlockChainError('ReqError, 0 < {} <= {}'.format(next_require, next_validator_num))
     # tx create
     message = bjson.dumps((c_address, new_address, flag, sig_diff), compress=False)
-    tx = TX(tx={
+    tx = TX.from_dict(tx={
         'type': C.TX_VALIDATOR_EDIT,
         'gas_price': gas_price or V.COIN_MINIMUM_PRICE,
         'gas_amount': 0,

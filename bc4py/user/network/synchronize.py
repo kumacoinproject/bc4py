@@ -60,11 +60,11 @@ def put_to_block_stack(r, before_waiter):
     block_tmp = dict()
     batch_txs = list()
     for block_b, block_height, block_flag, txs in r:
-        block = Block(binary=block_b)
+        block = Block.from_binary(binary=block_b)
         block.height = block_height
         block.flag = block_flag
         for tx_b, tx_signature in txs:
-            tx = TX(binary=tx_b)
+            tx = TX.from_binary(binary=tx_b)
             tx.height = None
             tx.signature = tx_signature
             tx_from_database = tx_builder.get_tx(txhash=tx.hash)
@@ -245,7 +245,7 @@ def fast_sync_chain():
             continue
         try:
             r = ask_node(cmd=DirectCmd.TX_BY_HASH, data={'txhash': txhash}, f_continue_asking=True)
-            tx = TX(binary=r['tx'])
+            tx = TX.from_binary(binary=r['tx'])
             tx.signature = r['sign']
             unconfirmed_txs.append(tx)
         except BlockChainError as e:

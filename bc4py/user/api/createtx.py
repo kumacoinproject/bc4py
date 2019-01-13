@@ -41,7 +41,7 @@ async def create_raw_tx(request):
             input_tx = tx_builder.get_tx(txhash)
             address, coin_id, amount = input_tx.outputs[txindex]
             input_address.add(address)
-        tx = TX(tx={
+        tx = TX.from_dict(tx={
             'version': post.get('version', __chain_version__),
             'type': post.get('type', C.TX_TRANSFER),
             'time': publish_time,
@@ -71,7 +71,7 @@ async def sign_raw_tx(request):
             pk = public_key(sk=sk)
             ck = get_address(pk=pk, prefix=V.BLOCK_PREFIX)
             other_pairs[ck] = (pk, sign(msg=binary, sk=sk, pk=pk))
-        tx = TX(binary=binary)
+        tx = TX.from_binary(binary=binary)
         for txhash, txindex in tx.inputs:
             input_tx = tx_builder.get_tx(txhash)
             address, coin_id, amount = input_tx.outputs[txindex]
@@ -95,7 +95,7 @@ async def broadcast_tx(request):
     post = await web_base.content_type_json_check(request)
     try:
         binary = a2b_hex(post['hex'])
-        new_tx = TX(binary=binary)
+        new_tx = TX.from_binary(binary=binary)
         new_tx.signature = [(pk, a2b_hex(_sign)) for pk, _sign in post['signature']]
         if not send_newtx(new_tx=new_tx):
             raise BlockChainError('Failed to send new tx.')

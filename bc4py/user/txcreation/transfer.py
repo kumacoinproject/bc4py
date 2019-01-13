@@ -25,7 +25,7 @@ def send_many(sender, send_pairs, cur, fee_coin_id=0, gas_price=None,
     movements[C.ANT_OUTSIDE] += coins
     # tx
     now = int(time() - V.BLOCK_GENESIS_TIME)
-    tx = TX(tx={
+    tx = TX.from_dict(tx={
         'version': __chain_version__,
         'type': C.TX_TRANSFER,
         'time': now,

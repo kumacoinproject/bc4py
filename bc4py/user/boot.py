@@ -48,11 +48,11 @@ def load_boot_file():
             data = bjson.loads(b64decode(fp.read().replace(b'\n', b'').replace(b'\r', b'')))
     else:
         raise FileNotFoundError('Cannot find boot.dat "{}" or "{}" ?'.format(normal_path, extra_path))
-    genesis_block = Block(binary=data['block'])
+    genesis_block = Block.from_binary(binary=data['block'])
     genesis_block.flag = C.BLOCK_GENESIS
     genesis_block.height = 0
     for b_tx in data['txs']:
-        tx = TX(binary=b_tx)
+        tx = TX.from_binary(binary=b_tx)
         tx.height = 0
         genesis_block.txs.append(tx)
     connections = data.get('connections', list())

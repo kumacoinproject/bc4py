@@ -145,7 +145,7 @@ class Generate(Thread):
             bits, target = get_bits_by_hash(
                 previous_hash=previous_block.hash, consensus=C.BLOCK_POS)
             reward = GompertzCurve.calc_block_reward(previous_block.height + 1)
-            staking_block = Block(block={
+            staking_block = Block.from_dict(block={
                 'merkleroot': b'\xff' * 32,
                 'time': 0,
                 'previous_hash': previous_block.hash,
@@ -207,7 +207,7 @@ def create_mining_block(consensus):
     mining_address = mining_address or V.MINING_ADDRESS or new_key()
     reward = GompertzCurve.calc_block_reward(previous_block.height + 1)
     fees = sum(tx.gas_amount * tx.gas_price for tx in unconfirmed_txs)
-    proof_tx = TX(tx={
+    proof_tx = TX.from_dict(tx={
         'type': C.TX_POW_REWARD,
         'inputs': list(),
         'outputs': [(mining_address, 0, reward + fees)],
@@ -219,7 +219,7 @@ def create_mining_block(consensus):
     # create mining block
     bits, target = get_bits_by_hash(
         previous_hash=previous_block.hash, consensus=consensus)
-    mining_block = Block(block={
+    mining_block = Block.from_dict(block={
         'merkleroot': b'\xff' * 32,
         'time': 0,
         'previous_hash': previous_block.hash,
@@ -285,7 +285,7 @@ def update_unspents_txs(time_limit=0.2):
             log.debug("Unspents limit reached, skip by {} limits.".format(staking_limit))
             break
         all_num += 1
-        proof_tx = TX(tx={
+        proof_tx = TX.from_dict(tx={
             'type': C.TX_POS_REWARD,
             'inputs': [(txhash, txindex)],
             'outputs': [(address, 0, 0)],
