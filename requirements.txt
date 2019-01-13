@@ -16,3 +16,4 @@ phe  # paillier
 rx  # ReactiveX
 bip32nem
 mnemonic
+msgpack>=0.5.6

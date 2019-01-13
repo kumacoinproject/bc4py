@@ -2,6 +2,7 @@ from bc4py.config import C, V, P, stream
 from bc4py.chain.utils import signature2bin, bin2signature
 from bc4py.chain.tx import TX
 from bc4py.chain.block import Block
+import bc4py.chain.msgpack as bc4py_msgpack
 from bc4py.user import Balance, Accounting
 from bc4py.database.account import *
 from bc4py.database.create import closing, create_db
@@ -10,9 +11,7 @@ import weakref
 import os
 import threading
 import bjson
-from binascii import a2b_hex
 from time import time
-import pickle
 from nem_ed25519.key import is_address
 from logging import getLogger, INFO
 
@@ -47,7 +46,7 @@ struct_validator_value = struct.Struct('>40sb32sb')
 
 # constant
 ITER_ORDER = 'big'
-DB_VERSION = 2  # increase if you change database structure
+DB_VERSION = 3  # increase if you change database structure
 ZERO_FILLED_HASH = b'\x00' * 32
 DUMMY_VALIDATOR_ADDRESS = b'\x00' * 40
 database_tuple = ("_block", "_tx", "_used_index", "_block_index",
@@ -56,18 +55,6 @@ database_tuple = ("_block", "_tx", "_used_index", "_block_index",
 db_config = {
     'full_address_index': True,  # all address index?
 }
-
-
-class RestrictedUnpickler(pickle.Unpickler):
-    def find_class(self, module, name):
-        # Only allow safe classes from builtins.
-        if module == "bc4py.chain.block" and name == "Block":
-            return Block
-        elif module == "bc4py.chain.tx" and name == "TX":
-            return TX
-        else:
-            # Forbid everything else.
-            raise pickle.UnpicklingError("global '{}'.'{}' is forbidden".format(module, name))
 
 
 class DataBase:
@@ -574,7 +561,7 @@ class ChainBuilder:
         for path in priority_tuple:
             try:
                 with open(path, mode='bw') as fp:
-                    pickle.dump(self.best_chain, fp)
+                    bc4py_msgpack.dump(self.best_chain, fp)
                 return
             except Exception as e:
                 log.warning("Failed recode by '{}'".format(e))
@@ -601,12 +588,12 @@ class ChainBuilder:
         for path in check_order:
             try:
                 with open(path, mode='br') as fp:
-                    for block in reversed(RestrictedUnpickler(fp).load()):
+                    for block in reversed(bc4py_msgpack.load(fp)):
                         if root_block.hash == block.previous_hash:
                             memorized_blocks.append(block)
                             root_block = block
             except Exception as e:
-                log.error("Failed load, \"{}\"".format(e))
+                log.error("Failed load, \"{}\"".format(e), exc_info=True)
         if len(memorized_blocks) > 0:
             log.debug("Load {} blocks, best={}".format(len(memorized_blocks), root_block))
             return memorized_blocks, root_block
