@@ -88,7 +88,7 @@ def check_tx(tx, include_block):
         signature_check(tx=tx)
 
     # hash-locked check
-    if tx.message_type == C.MSG_HASHLOCK:
+    if tx.message_type == C.MSG_HASHLOCKED:
         check_hash_locked(tx=tx)
 
     # message type check
