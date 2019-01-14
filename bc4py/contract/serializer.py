@@ -196,37 +196,6 @@ def binary2contract(b, extra_imports, args):
     return pre2contract(*pre, global_dict, *args)
 
 
-""" note: will delete
-def string2contract(string, global_dict, doc=''):
-    def create_cell(contents):
-        return (lambda y: contents).__closure__[0]
-    code_obj = compile(string, "Contract", 'exec')
-    for const in reversed(code_obj.co_consts):
-        if const and isinstance(const, CodeType):
-            code_obj = const
-            break
-    else:
-        raise Exception('Not found contract code object.')
-    f_name = code_obj.co_name
-    f_obj = (object,)
-    f_dict = {'__module__': '__main__', '__doc__': doc}
-    defaults = None
-    for code in code_obj.co_consts:
-        if isinstance(code, CodeType):
-            # ExampleContractTemplate.__init__.__closure__[0].cell_contents is ExampleContractTemplate
-            for name in dir(code):
-                print(name, getattr(code, name))
-            closure = tuple(create_cell(getattr(code_obj, name)) for name in code.co_freevars)
-            f_dict[code.co_name] = FunctionType(
-                code, global_dict, name=code.co_name, argdefs=defaults, closure=closure)
-        # elif type(code) in class_const_types:
-        #    f_dict[code.co_name] = code
-        else:
-            log.debug("Ignore code => {}".format(code))
-    return type(f_name, f_obj, f_dict)
-"""
-
-
 def path2contract(path):
     # https://stackoverflow.com/questions/67631/how-to-import-a-module-given-the-full-path
     if not os.path.exists(path):

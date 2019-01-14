@@ -53,8 +53,11 @@ class C:  # Constant
     MSG_PLAIN = 1  # 明示的にunicode
     MSG_BYTE = 2  # 明示的にbinary
     MSG_JSON = 3  # json
-    MSG_HASHLOCK = 4  # hashed-lock
-    msg_type2name = {0: 'NONE', 1: 'PLAIN', 2: 'BYTE', 3: 'JSON', 4: 'HASHLOCK'}
+    MSG_MSGPACK = 4  # msgpack protocol
+    MSG_HASHLOCKED = 5  # hash-locked transaction
+    msg_type2name = {
+        MSG_NONE: 'NONE', MSG_PLAIN: 'PLAIN', MSG_BYTE: 'BYTE',
+        MSG_JSON: 'JSON', MSG_MSGPACK: 'MSGPACK', MSG_HASHLOCKED: 'HASHLOCKED'}
 
     # difficulty
     DIFF_RETARGET = 20  # difficultyの計算Block数

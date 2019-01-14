@@ -42,8 +42,7 @@ def set_blockchain_params(genesis_block):
     V.COIN_DIGIT = params.get('digit_number')
     V.COIN_MINIMUM_PRICE = params.get('minimum_price')
     V.CONTRACT_MINIMUM_AMOUNT = params.get('contract_minimum_amount')
-    consensus = params.get('consensus')
-    V.BLOCK_CONSENSUSES = consensus
+    V.BLOCK_CONSENSUSES = params.get('consensus')
     GompertzCurve.k = V.BLOCK_ALL_SUPPLY
 
 
@@ -104,3 +103,12 @@ class AESCipher:
     @staticmethod
     def _unpad(s):
         return s[:-ord(s[len(s) - 1:])]
+
+
+__all__ = [
+    "set_database_path",
+    "set_blockchain_params",
+    "delete_pid_file",
+    "make_pid_file",
+    "AESCipher",
+]
