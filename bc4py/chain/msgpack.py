@@ -63,9 +63,14 @@ def loads(b):
     # return json.loads(s, object_hook=object_hook)
 
 
+def stream_unpacker(fp):
+    return msgpack.Unpacker(fp, object_hook=object_hook, encoding='utf8')
+
+
 __all__ = [
     "dump",
     "dumps",
     "load",
-    "loads"
+    "loads",
+    "stream_unpacker",
 ]
