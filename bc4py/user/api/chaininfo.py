@@ -9,7 +9,10 @@ from base64 import b64encode
 
 async def get_block_by_height(request):
     f_pickled = request.query.get('pickle', False)
-    height = int(request.query['height'])
+    try:
+        height = int(request.query['height'])
+    except Exception as e:
+        return web.Response(text="Height is not specified.", status=400)
     blockhash = builder.get_block_hash(height)
     if blockhash is None:
         return web.Response(text="Not found height.", status=400)
