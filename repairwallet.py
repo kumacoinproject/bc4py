@@ -55,7 +55,7 @@ def work(port, sub_dir=None):
 
     # Update to newest blockchain
     builder.init(genesis_block, batch_size=500)
-    builder.db.sync = False  # more fast but unstable
+    builder.db.sync = False
     sync_chain_loop()
     logging.info("Finished all initialize.")
 

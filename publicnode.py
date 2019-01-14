@@ -57,8 +57,14 @@ def work(port, sub_dir=None):
     pc.broadcast_check = broadcast_check
 
     # Update to newest blockchain
-    builder.init(genesis_block, batch_size=500)
-    builder.db.sync = False  # more fast but unstable
+    builder.db.sync = False
+    if builder.init(genesis_block, batch_size=500):
+        # only genesisBlock yoy have, try to import bootstrap.dat
+        log = logging.getLogger('bc4py')
+        old_level = log.level
+        log.setLevel(logging.WARNING)
+        load_bootstrap_file()
+        log.setLevel(old_level)
     sync_chain_loop()
 
     # Mining/Staking setup
@@ -77,6 +83,8 @@ def work(port, sub_dir=None):
 
     try:
         create_rest_server(f_local=False, user='user', pwd='password', port=port+1000)
+        if P.F_NOW_BOOTING is False:
+            create_bootstrap_file()
         P.F_STOP = True
         builder.close()
         pc.close()

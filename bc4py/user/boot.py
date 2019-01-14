@@ -13,7 +13,7 @@ from base64 import b64decode, b64encode
 from mnemonic import Mnemonic
 from bip32nem import BIP32Key, BIP32_HARDEN
 from threading import Thread
-from time import sleep
+from time import time, sleep
 import json
 from logging import getLogger
 
@@ -62,20 +62,29 @@ def load_boot_file():
 
 def create_bootstrap_file():
     boot_path = os.path.join(V.DB_HOME_DIR, 'bootstrap.dat')
-    block = None
+    if os.path.exists(boot_path):
+        log.warning("old file exists, skip create bootstrap.dat.")
+        return
+    s = time()
     with open(boot_path, mode='ba') as fp:
+        block = None
         fp.seek(0)
         fp.truncate(0)
         for height, blockhash in builder.db.read_block_hash_iter(start_height=1):
             block = builder.get_block(blockhash=blockhash)
             msgpack.dump(block, fp)
             if block.height % 5000 == 0:
-                log.info("Recode block height {}".format(block.height))
-    log.info("create new bootstrap.dat finished, last={}".format(block))
+                print("Recode block height {} {}Sec".format(block.height, round(time()-s)))
+    log.info("create new bootstrap.dat finished, last={} {}Minutes".format(block, (time()-s)//60))
 
 
-def load_bootstrap_file():
-    boot_path = os.path.join(V.DB_HOME_DIR, 'bootstrap.dat')
+def load_bootstrap_file(boot_path=None):
+    boot_path = boot_path or os.path.join(V.DB_HOME_DIR, 'bootstrap.dat')
+    if not os.path.exists(boot_path):
+        log.warning("Not found, skip import bootstrap.dat.")
+        return
+    log.info("Start to load blocks from bootstrap.dat.")
+    s = time()
     with open(boot_path, mode='br') as fp:
         block = None
         for block in msgpack.stream_unpacker(fp):
@@ -87,9 +96,9 @@ def load_bootstrap_file():
             for tx in block.txs:
                 tx.height = block.height
             new_insert_block(block=block, time_check=False)
-            if block.height % 500 == 0:
-                log.info("Load block now {} height".format(block.height))
-    log.info("load bootstrap.dat finished, last={}".format(block))
+            if block.height % 1000 == 0:
+                print("Load block now {} height {}Sec".format(block.height, round(time()-s)))
+    log.info("load bootstrap.dat finished, last={} {}Minutes".format(block, (time()-s)//60))
 
 
 def import_keystone(passphrase='', auto_create=True, language='english'):

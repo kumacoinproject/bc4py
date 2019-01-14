@@ -460,6 +460,9 @@ class ChainBuilder:
 
     def init(self, genesis_block: Block, batch_size=None):
         assert self.db, 'Why database connection failed?'
+        # return status
+        # True  = Only genesisBlock, recommend to import bootstrap.dat first
+        # False = Many blocks in LevelDB, sync by network
         if batch_size is None:
             batch_size = self.cashe_limit
         # GenesisBlockか確認
@@ -480,7 +483,7 @@ class ChainBuilder:
             self.best_block = genesis_block
             log.info("Set dummy block, genesisBlock={}".format(genesis_block))
             user_account.init()
-            return
+            return True
 
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
@@ -546,6 +549,7 @@ class ChainBuilder:
             user_account.init(outer_cur=cur)
             db.commit()
         log.info("Init finished, last block is {} {}Sec".format(before_block, round(time()-t, 3)))
+        return False
 
     def save_memory_file(self):
         odd_path = os.path.join(self.db.dirs, 'memory.odd.dat')
