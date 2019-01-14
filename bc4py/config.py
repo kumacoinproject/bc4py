@@ -3,8 +3,13 @@
 
 
 import configparser
-from queue import Queue, Full, Empty
-from threading import Lock
+from rx.subjects import Subject
+import atexit
+
+# internal stream by ReactiveX
+# doc: https://github.com/ReactiveX/RxPY/blob/develop/notebooks/Getting%20Started.ipynb
+stream = Subject()
+atexit.register(stream.dispose)
 
 
 class C:  # Constant
@@ -47,10 +52,18 @@ class C:  # Constant
     MSG_NONE = 0  # no message
     MSG_PLAIN = 1  # 明示的にunicode
     MSG_BYTE = 2  # 明示的にbinary
-    msg_type2name = {0: 'NONE', 1: 'PLAIN', 2: 'BYTE'}
+    MSG_JSON = 3  # json
+    MSG_MSGPACK = 4  # msgpack protocol
+    MSG_HASHLOCKED = 5  # hash-locked transaction
+    msg_type2name = {
+        MSG_NONE: 'NONE', MSG_PLAIN: 'PLAIN', MSG_BYTE: 'BYTE',
+        MSG_JSON: 'JSON', MSG_MSGPACK: 'MSGPACK', MSG_HASHLOCKED: 'HASHLOCKED'}
 
     # difficulty
     DIFF_RETARGET = 20  # difficultyの計算Block数
+
+    # BIP32
+    BIP44_COIN_TYPE = 0x800002aa
 
     # block params
     MATURE_HEIGHT = 20  # 採掘されたBlockのOutputsが成熟する期間
@@ -103,8 +116,11 @@ class V:  # 起動時に設定される変数
     DB_HOME_DIR = None
     DB_ACCOUNT_PATH = None
 
-    # encryption key
-    ENCRYPT_KEY = None
+    # Wallet
+    # mnemonic =(decrypt)=> seed ==> 44' => coinType' => secret key
+    BIP44_ENCRYPTED_MNEMONIC = None
+    BIP44_ROOT_PUB_KEY = None  # path: m
+    BIP44_BRANCH_SEC_KEY = None  # path: m/44'/coin_type'
 
     # mining
     MINING_ADDRESS = None
@@ -124,45 +140,6 @@ class Debug:
     F_SHOW_DIFFICULTY = False
     F_CONSTANT_DIFF = False
     F_STICKY_TX_REJECTION = True
-
-
-class NewInfo:
-    ques = list()  # [(que, name), ..]
-    empty = Empty
-    lock = Lock()
-
-    def __init__(self):
-        raise Exception('Not init the class!')
-
-    @staticmethod
-    def put(obj):
-        for q, name in NewInfo.ques.copy():
-            try:
-                q.put_nowait(obj)
-            except Full:
-                with NewInfo.lock:
-                    NewInfo.ques.remove((q, name))
-
-    @staticmethod
-    def get(channel, timeout=None):
-        # caution: Don't forget remove! memory leak risk.
-        while True:
-            for q, ch in NewInfo.ques.copy():
-                if channel == ch:
-                    return q.get(timeout=timeout)
-            else:
-                que = Queue(maxsize=3000)
-                with NewInfo.lock:
-                    NewInfo.ques.append((que, channel))
-
-    @staticmethod
-    def remove(channel):
-        for q, ch in NewInfo.ques.copy():
-            if ch == channel:
-                with NewInfo.lock:
-                    NewInfo.ques.remove((q, ch))
-                return True
-        return False
 
 
 class MyConfigParser(configparser.ConfigParser):
@@ -221,3 +198,11 @@ class MyConfigParser(configparser.ConfigParser):
 
 class BlockChainError(Exception):
     pass
+
+
+__all__ = [
+    'stream',
+    'C', 'V', 'P',
+    'Debug', 'MyConfigParser',
+    'BlockChainError'
+]

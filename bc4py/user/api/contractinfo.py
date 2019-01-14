@@ -4,11 +4,13 @@ from bc4py.database.builder import builder, tx_builder
 from bc4py.database.validator import get_validator_object, validator_tx2index
 from bc4py.database.contract import get_contract_object, start_tx2index
 from bc4py.contract.emulator.watching import watching_tx
-import logging
-from binascii import hexlify, a2b_hex
+from binascii import a2b_hex
 import bjson
 import pickle
 from base64 import b64encode
+from logging import getLogger
+
+log = getLogger('bc4py')
 
 
 async def contract_info(request):
@@ -22,7 +24,7 @@ async def contract_info(request):
         c = get_contract_object(c_address=c_address, best_block=best_block, stop_txhash=stop_hash)
         return web_base.json_res(c.info)
     except Exception as e:
-        logging.error(e)
+        log.error(e)
         return web_base.error_res()
 
 
@@ -37,7 +39,7 @@ async def validator_info(request):
         v = get_validator_object(c_address=c_address, best_block=best_block, stop_txhash=stop_hash)
         return web_base.json_res(v.info)
     except Exception as e:
-        logging.error(e)
+        log.error(e)
         return web_base.error_res()
 
 
@@ -52,8 +54,8 @@ async def get_contract_history(request):
                 'index': index,
                 'height': index // 0xffffffff,
                 'status': 'database',
-                'start_hash': hexlify(start_hash).decode(),
-                'finish_hash': hexlify(finish_hash).decode(),
+                'start_hash': start_hash.hex(),
+                'finish_hash': finish_hash.hex(),
                 'c_method': c_method,
                 'c_args': [decode(a) for a in c_args],
                 'c_storage': {decode(k): decode(v) for k, v in c_storage.items()} if c_storage else None
@@ -73,8 +75,8 @@ async def get_contract_history(request):
                     'index': index,
                     'height': tx.height,
                     'status': 'memory',
-                    'start_hash': hexlify(start_hash).decode(),
-                    'finish_hash': hexlify(tx.hash).decode(),
+                    'start_hash': start_hash.hex(),
+                    'finish_hash': tx.hash.hex(),
                     'c_method': c_method,
                     'c_args': [decode(a) for a in c_args],
                     'c_storage': {decode(k): decode(v) for k, v in c_storage.items()} if c_storage else None,
@@ -93,15 +95,15 @@ async def get_contract_history(request):
                 'index': index,
                 'height': tx.height,
                 'status': 'unconfirmed',
-                'start_hash': hexlify(start_hash).decode(),
-                'finish_hash': hexlify(tx.hash).decode(),
+                'start_hash': start_hash.hex(),
+                'finish_hash': tx.hash.hex(),
                 'c_method': c_method,
                 'c_args': [decode(a) for a in c_args],
                 'c_storage': {decode(k): decode(v) for k, v in c_storage.items()} if c_storage else None,
             })
         return web_base.json_res(data)
     except Exception as e:
-        logging.error(e)
+        log.error(e)
         return web_base.error_res()
 
 
@@ -116,7 +118,7 @@ async def get_validator_history(request):
                 'height': index // 0xffffffff,
                 'new_address': new_address,
                 'flag': flag,
-                'txhash': hexlify(txhash).decode(),
+                'txhash': txhash.hex(),
                 'sig_diff': sig_diff})
         # memory
         for block in reversed(builder.best_chain):
@@ -132,7 +134,7 @@ async def get_validator_history(request):
                     'height': tx.height,
                     'new_address': new_address,
                     'flag': flag,
-                    'txhash': hexlify(tx.hash).decode(),
+                    'txhash': tx.hash.hex(),
                     'sig_diff': sig_diff})
         # unconfirmed
         for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time):
@@ -146,11 +148,11 @@ async def get_validator_history(request):
                 'height': None,
                 'new_address': new_address,
                 'flag': flag,
-                'txhash': hexlify(tx.hash).decode(),
+                'txhash': tx.hash.hex(),
                 'sig_diff': sig_diff})
         return web_base.json_res(data)
     except Exception as e:
-        logging.error(e)
+        log.error(e)
         return web_base.error_res()
 
 
@@ -172,7 +174,7 @@ async def contract_storage(request):
             storage = {decode(k): decode(v) for k, v in c.storage.items()}
         return web_base.json_res(storage)
     except Exception as e:
-        logging.error(e)
+        log.error(e)
         return web_base.error_res()
 
 
@@ -181,7 +183,7 @@ async def watching_info(request):
         f_pickle = bool(request.query.get('pickle', False))
         # You need to enable watching option!
         return web_base.json_res([{
-            'hash': hexlify(txhash).decode(),
+            'hash': txhash.hex(),
             'type': tx.type,
             'tx': b64encode(pickle.dumps(tx)).decode() if f_pickle else str(tx),
             'time': time,
@@ -191,13 +193,13 @@ async def watching_info(request):
              } for txhash, (time, tx, related_list, c_address, *args) in watching_tx.items()
         ])
     except Exception as e:
-        logging.error(e)
+        log.error(e)
         return web_base.error_res()
 
 
 def decode(b):
     if isinstance(b, bytes) or isinstance(b, bytearray):
-        return hexlify(b).decode()
+        return b.hex()
     elif isinstance(b, set) or isinstance(b, list) or isinstance(b, tuple):
         return tuple(decode(data) for data in b)
     elif isinstance(b, dict):

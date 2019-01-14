@@ -1,7 +1,6 @@
 from bc4py.config import C, BlockChainError
 from multiprocessing import get_context, current_process
 import threading
-import logging
 from os import urandom
 from time import time, sleep
 from yespower import hash as yespower_hash  # for CPU
@@ -10,7 +9,9 @@ from hmq_hash import getPoWHash as hmq_hash  # for GPU
 from litecoin_scrypt import getPoWHash as ltc_hash  # for ASIC
 from shield_x16s_hash import getPoWHash as x16s_hash  # for GPU
 from pooled_multiprocessing import cpu_num
+from logging import getLogger
 
+log = getLogger('bc4py')
 
 mp_generator = list()
 mp_lock = threading.Lock()
@@ -88,7 +89,7 @@ def generate_many_hash(block, how_many):
                 f_wait = True
                 sleep(0.05)
         if f_wait:
-            logging.debug("Wait for free_process for mining... {}mSec"
+            log.debug("Wait for free_process for mining... {}mSec"
                           .format(int((time()-start)*1000)))
         request_num = how_many // len(free_process)
         # throw task
@@ -128,7 +129,7 @@ def close_work_hash():
     for hash_generator in mp_generator:
         hash_generator.close()
     mp_generator.clear()
-    logging.debug("Close hashing process.")
+    log.debug("Close hashing process.")
 
 
 def _pow_generator(pipe):
@@ -154,7 +155,7 @@ def _pow_generator(pipe):
             try:
                 pipe.send(msg)
             except Exception as e:
-                logging.info("Close by pipe error, {}".format(e))
+                log.info("Close by pipe error, {}".format(e))
                 return
 
 
@@ -171,7 +172,7 @@ class HashGenerator:
 
     def start(self):
         self.process.start()
-        logging.info("Start work hash gene {}".format(self.index))
+        log.info("Start work hash gene {}".format(self.index))
 
     def close(self):
         if self.process.is_alive():

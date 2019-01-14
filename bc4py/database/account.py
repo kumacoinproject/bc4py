@@ -1,14 +1,12 @@
 from bc4py.config import C, V, BlockChainError
-from bc4py.user import Accounting
-from bc4py.utils import AESCipher
+from bc4py.user import Accounting, extract_keypair
 from bc4py.database.create import closing, create_db
 from time import time
-import os
-from binascii import hexlify, unhexlify
-from pooled_multiprocessing import mp_map_async
-from nem_ed25519.key import secret_key, public_key, get_address
+from bc4py.utils import AESCipher
+from nem_ed25519.key import public_key
+from nem_ed25519.signature import sign
 from weakref import ref
-import logging
+import os
 
 
 def read_txhash2log(txhash, cur):
@@ -20,8 +18,8 @@ def read_txhash2log(txhash, cur):
     movement = Accounting()
     _type = _time = None
     for _type, user, coin_id, amount, _time in d:
-        movement.add_coins(user, coin_id, amount)
-    return MoveLog(txhash, _type, movement, _time, False)
+        movement[user][coin_id] += amount
+    return MoveLog(txhash, _type, movement, _time)
 
 
 def read_log_iter(cur, start=0):
@@ -56,22 +54,19 @@ def delete_log(txhash, cur):
 
 def read_address2keypair(address, cur):
     d = cur.execute("""
-        SELECT `id`,`sk`,`pk` FROM `pool` WHERE `ck`=?
+        SELECT `id`,`sk`,`user`,`is_inner`,`index` FROM `pool` WHERE `ck`=?
     """, (address,)).fetchone()
     if d is None:
         raise BlockChainError('Not found address {}'.format(address))
-    uuid, sk, pk = d
-    if len(sk) == 32:
-        pass
-    elif V.ENCRYPT_KEY:
-        sk = AESCipher.decrypt(V.ENCRYPT_KEY, sk)
-        if len(sk) != 32:
-            raise BlockChainError('Failed decrypt SecretKey. {}'.format(address))
+    uuid, sk, user, is_inner, index = d
+    if V.BIP44_BRANCH_SEC_KEY is None:
+        raise PermissionError('Cannot extract keypair!')
+    if sk is None:
+        sk, pk, _ck = extract_keypair(user=user, is_inner=is_inner, index=index)
     else:
-        raise BlockChainError('Encrypted account.dat but no EncryptKey.')
-    sk = hexlify(sk).decode()
-    pk = hexlify(pk).decode()
-    return uuid, sk, pk
+        sk = AESCipher.decrypt(key=V.BIP44_BRANCH_SEC_KEY.encode(), enc=sk)
+        pk = public_key(sk=sk, encode=bytes)
+    return uuid, sk.hex(), pk.hex()
 
 
 def read_address2user(address, cur):
@@ -83,16 +78,34 @@ def read_address2user(address, cur):
     return user[0]
 
 
-def update_keypair_user(uuid, user, cur):
-    cur.execute("UPDATE `pool` SET `user`=? WHERE `id`=?", (user, uuid))
+def insert_keypair_from_bip(ck, user, is_inner, index, cur):
+    assert isinstance(ck, str) and isinstance(user, int)\
+           and isinstance(is_inner, bool) and isinstance(index, int)
+    cur.execute("""
+    INSERT OR IGNORE INTO `pool` (`ck`,`user`,`is_inner`,`index`,`time`) VALUES (?,?,?,?,?)
+    """, (ck, user, int(is_inner), index, int(time())))
 
 
-def insert_keypairs(pairs, cur):
-    sk, pk, ck, user, _time = pairs[0]
-    assert isinstance(sk, bytes) and isinstance(pk, bytes) and isinstance(ck, str) and isinstance(user, int)
-    cur.executemany("""
-    INSERT INTO `pool` (`sk`,`pk`,`ck`,`user`,`time`) VALUES (?,?,?,?,?)
-    """, pairs)
+def insert_keypair_from_outside(sk, ck, user, cur):
+    assert isinstance(sk, bytes) and isinstance(ck, str) and isinstance(user, int)
+    if V.BIP44_BRANCH_SEC_KEY is None:
+        raise PermissionError('Cannot encrypt keypair!')
+    sk = AESCipher.encrypt(key=V.BIP44_BRANCH_SEC_KEY.encode(), raw=sk)
+    cur.execute("""
+    INSERT OR IGNORE INTO `pool` (`sk`,`ck`,`user`,`time`) VALUES (?,?,?,?)
+    """, (sk, ck, user, int(time())))
+
+
+def get_keypair_last_index(user, is_inner, cur):
+    assert isinstance(user, int) and isinstance(is_inner, bool)
+    cur.execute("""
+    SELECT `index` FROM `pool` WHERE `user`=? AND `is_inner`=?
+    """, (user, int(is_inner)))
+    index = -1
+    for (index,) in cur:
+        pass
+    index += 1
+    return index
 
 
 def read_account_info(user, cur):
@@ -149,75 +162,37 @@ def create_account(name, cur, description="", _time=None, is_root=False):
     return d[0]
 
 
-def _single_generate(index, **kwargs):
-    sk_hex = secret_key()
-    sk = unhexlify(sk_hex.encode())
-    if kwargs['encrypt_key']:
-        sk = AESCipher.encrypt(key=kwargs['encrypt_key'], raw=sk)
-    pk_hex = public_key(sk_hex)
-    pk = unhexlify(pk_hex.encode())
-    ck = get_address(pk=pk_hex, prefix=kwargs['prefix'])
-    t = int(time() - kwargs['genesis_time'])
-    return sk, pk, ck, C.ANT_RESERVED, t
-
-
-def _callback(data_list):
-    if isinstance(data_list[0], str):
-        logging.error("Callback error, {}".format(data_list[0]))
-        return
-    with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-        insert_keypairs(data_list, db.cursor())
-        db.commit()
-    logging.debug("Generate {} keypairs.".format(len(data_list)))
-
-
-def auto_insert_keypairs(num):
-    kwards = {
-        'encrypt_key': V.ENCRYPT_KEY,
-        'prefix': V.BLOCK_PREFIX,
-        'genesis_time': V.BLOCK_GENESIS_TIME}
-    mp_map_async(_single_generate, range(num), callback=_callback, **kwards)
-
-
-def create_new_user_keypair(name, cur):
-    def get_all_keys():
-        return cur.execute("""
-            SELECT `id`,`sk`,`pk`,`ck` FROM `pool` WHERE `user`=?
-        """, (C.ANT_RESERVED,)).fetchall()
+def create_new_user_keypair(name, cur, is_inner=False):
     assert isinstance(name, str)
-    # ReservedKeypairを１つ取得
-    all_reserved_keys = get_all_keys()
-    if len(all_reserved_keys) == 0:
-        pairs = list()
-        for i in range(5):
-            pairs.append(_single_generate(i, encrypt_key=V.ENCRYPT_KEY,
-                                          prefix=V.BLOCK_PREFIX, genesis_time=V.BLOCK_GENESIS_TIME))
-        insert_keypairs(pairs, cur)
-        all_reserved_keys = get_all_keys()
-    elif len(all_reserved_keys) < 200:
-        auto_insert_keypairs(250-len(all_reserved_keys))
-    uuid, sk, pk, ck = all_reserved_keys[0]
+    assert isinstance(is_inner, bool)
+    # get last_index
     user = read_name2user(name, cur)
-    if user is None:
-        # 新規にユーザー作成
-        user = create_account(name, cur)
-    update_keypair_user(uuid, user, cur)
+    last_index = get_keypair_last_index(user=user, is_inner=is_inner, cur=cur)
+    sk, pk, ck = extract_keypair(user=user, is_inner=is_inner, index=last_index)
+    insert_keypair_from_bip(ck=ck, user=user, is_inner=is_inner, index=last_index, cur=cur)
     return ck
 
 
-class MoveLog:
-    __slots__ = ("txhash", "type", "movement", "time", "on_memory", "pointer")
+def message2signature(raw, address):
+    # sign by address
+    with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+        cur = db.cursor()
+        uuid, sk, pk = read_address2keypair(address, cur)
+    return pk, sign(msg=raw, sk=sk, pk=pk)
 
-    def __init__(self, txhash, _type, movement, _time, on_memory, tx=None):
+
+class MoveLog:
+    __slots__ = ("txhash", "type", "movement", "time", "tx_ref")
+
+    def __init__(self, txhash, _type, movement, _time, tx=None):
         self.txhash = txhash
         self.type = _type
         self.movement = movement
         self.time = _time
-        self.on_memory = on_memory
-        self.pointer = ref(tx) if tx else object()
+        self.tx_ref = ref(tx) if tx else None
 
     def __repr__(self):
-        return "<MoveLog {} {}>".format(C.txtype2name.get(self.type, None), hexlify(self.txhash).decode())
+        return "<MoveLog {} {}>".format(C.txtype2name.get(self.type, None), self.txhash.hex())
 
     def __hash__(self):
         return hash(self.txhash)
@@ -227,9 +202,9 @@ class MoveLog:
             cur = outer_cur or db.cursor()
             movement = {read_user2name(user, cur): dict(balance) for user, balance in self.movement.items()}
         return {
-            'txhash': hexlify(self.txhash).decode(),
+            'txhash': self.txhash.hex(),
             'height':  self.height,
-            'on_memory': self.on_memory,
+            'recode_flag': self.recode_flag,
             'type': C.txtype2name.get(self.type, None),
             'movement': movement,
             'time': self.time + V.BLOCK_GENESIS_TIME}
@@ -239,16 +214,28 @@ class MoveLog:
 
     @property
     def height(self):
+        if not self.tx_ref:
+            return None
         try:
-            return self.pointer().height
+            return self.tx_ref().height
+        except Exception:
+            return None
+
+    @property
+    def recode_flag(self):
+        if not self.tx_ref:
+            return None
+        try:
+            return self.tx_ref().recode_flag
         except Exception:
             return None
 
 
 __all__ = [
     "read_txhash2log", "read_log_iter", "insert_log", "delete_log",
-    "read_address2keypair", "read_address2user", "update_keypair_user", "insert_keypairs",
+    "read_address2keypair", "read_address2user",
+    "insert_keypair_from_bip", "insert_keypair_from_outside", "get_keypair_last_index",
     "read_account_info", "read_pooled_address_iter", "read_address2account",
     "read_name2user", "read_user2name", "create_account", "create_new_user_keypair",
-    "MoveLog"
+    "message2signature", "MoveLog"
 ]

@@ -1,6 +1,6 @@
 from bc4py.contract.params import *
 from bc4py.contract import basiclib
-from types import FunctionType, CodeType, MethodType
+from types import FunctionType, CodeType, MethodType, ModuleType
 from io import BytesIO, StringIO
 from importlib import import_module
 import importlib.util
@@ -8,7 +8,9 @@ from dis import dis
 import pickle
 import builtins
 import os
-import logging
+from logging import getLogger
+
+log = getLogger('bc4py')
 
 
 # from A.B import C
@@ -51,7 +53,7 @@ def get_limited_globals(extra_imports=None):
     g = {name: getattr(basiclib, name) for name in basiclib.__all__}
     if extra_imports:
         for path, name in extra_imports:
-            logging.warning("Import an external library => 'from {} import {}'".format(path, name))
+            log.warning("Import an external library => 'from {} import {}'".format(path, name))
             if name == "*":
                 module = import_module(path)
                 for module_name in module.__all__:
@@ -65,6 +67,8 @@ def get_limited_globals(extra_imports=None):
         if deny in g:
             del g[deny]
     __builtins__ = globals()['__builtins__']
+    if isinstance(__builtins__, ModuleType):
+        __builtins__ = {name: getattr(__builtins__, name) for name in dir(__builtins__)}
     builtin_dict = dict()
     for allow in allow_builtins:
         if allow in __builtins__:
@@ -192,37 +196,6 @@ def binary2contract(b, extra_imports, args):
     return pre2contract(*pre, global_dict, *args)
 
 
-""" note: will delete
-def string2contract(string, global_dict, doc=''):
-    def create_cell(contents):
-        return (lambda y: contents).__closure__[0]
-    code_obj = compile(string, "Contract", 'exec')
-    for const in reversed(code_obj.co_consts):
-        if const and isinstance(const, CodeType):
-            code_obj = const
-            break
-    else:
-        raise Exception('Not found contract code object.')
-    f_name = code_obj.co_name
-    f_obj = (object,)
-    f_dict = {'__module__': '__main__', '__doc__': doc}
-    defaults = None
-    for code in code_obj.co_consts:
-        if isinstance(code, CodeType):
-            # ExampleContractTemplate.__init__.__closure__[0].cell_contents is ExampleContractTemplate
-            for name in dir(code):
-                print(name, getattr(code, name))
-            closure = tuple(create_cell(getattr(code_obj, name)) for name in code.co_freevars)
-            f_dict[code.co_name] = FunctionType(
-                code, global_dict, name=code.co_name, argdefs=defaults, closure=closure)
-        # elif type(code) in class_const_types:
-        #    f_dict[code.co_name] = code
-        else:
-            logging.debug("Ignore code => {}".format(code))
-    return type(f_name, f_obj, f_dict)
-"""
-
-
 def path2contract(path):
     # https://stackoverflow.com/questions/67631/how-to-import-a-module-given-the-full-path
     if not os.path.exists(path):
@@ -239,7 +212,7 @@ def path2contract(path):
         elif obj.__module__ != 'Contract':
             continue
         elif len(obj.__init__.__closure__) != 1:
-            logging.warning("Find class but don't hesitate ContractTemplate.")
+            log.warning("Find class but don't hesitate ContractTemplate.")
             continue
         else:
             return obj

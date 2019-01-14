@@ -16,7 +16,7 @@ get block by height
     "previous_hash": "539b2ef5debdfb6b09a84717d7f69a9d52c247ab624250e01c7ebad82a4b1878",
     "next_hash": null,
     "f_orphan": false,
-    "f_on_memory": false,
+    "recode_flag": "database",
     "height": 10,
     "difficulty": 0.004096,
     "fixed_difficulty": 0.004096,
@@ -80,7 +80,7 @@ get tx by hash
     "message_type": "NONE",
     "message": "",
     "signature": [],
-    "f_on_memory": false,
+    "recode_flag": "database",
     "size": 91,
     "hex": "0200000001000000d20800000233000000000000000000000000000000000000000001000000004e4334594e575151473349464e4a495848464f36364255364b47553545484c524f4b364d5051495900000000a6b758dd0c000000"
 }

@@ -1,15 +1,14 @@
-from bc4py.config import P, NewInfo
+from bc4py.config import P, stream
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.contract.emulator.watching import *
 from aiohttp import web
-from threading import Thread
 import asyncio
-import logging
 import json
-from binascii import hexlify
 from collections import OrderedDict
+from logging import getLogger
 
+log = getLogger('bc4py')
 number = 0
 clients = list()
 loop = asyncio.get_event_loop()
@@ -32,22 +31,22 @@ async def websocket_route(request):
     async for msg in client.ws:
         try:
             if msg.type == web.WSMsgType.TEXT:
-                logging.debug("Get text from {} data={}".format(client, msg.data))
+                log.debug("Get text from {} data={}".format(client, msg.data))
                 # send dummy response
                 data = {'connect': len(clients), 'is_public': client.is_public, 'echo': msg.data}
                 await client.send(get_send_format(cmd='debug', data=data))
             elif msg.type == web.WSMsgType.BINARY:
-                logging.debug("Get bin from {} data={}".format(client, msg.data))
+                log.debug("Get bin from {} data={}".format(client, msg.data))
             elif msg.type == web.WSMsgType.CLOSED:
-                logging.debug("Get close signal from {} data={}".format(client, msg.data))
+                log.debug("Get close signal from {} data={}".format(client, msg.data))
                 break
             elif msg.type == web.WSMsgType.ERROR:
-                logging.error("Get error from {} data={}".format(client, msg.data))
+                log.error("Get error from {} data={}".format(client, msg.data))
         except Exception as e:
             import traceback
             await client.send(raw_data=get_send_format(
                 cmd=CMD_ERROR, data=str(traceback.format_exc()), status=False))
-    logging.debug("close {}".format(client))
+    log.debug("close {}".format(client))
     await client.close()
     return client.ws
 
@@ -58,7 +57,7 @@ async def websocket_protocol_check(request, is_public):
     if not available:
         raise TypeError('Cannot prepare websocket.')
     await ws.prepare(request)
-    logging.debug("protocol upgrade to websocket. {}".format(request.remote))
+    log.debug("protocol upgrade to websocket. {}".format(request.remote))
     return WsConnection(ws=ws, request=request, is_public=is_public)
 
 
@@ -96,33 +95,6 @@ class WsConnection:
             await self.ws.send_bytes(b)
 
 
-def start_ws_listen_loop():
-    def _loop():
-        logging.info("start websocket loop.")
-        channel = 'websocket'
-        while not P.F_STOP:
-            try:
-                data = NewInfo.get(channel=channel, timeout=1)
-                if isinstance(data, Block):
-                    send_websocket_data(cmd=CMD_NEW_BLOCK, data=data.getinfo(), is_public_data=True)
-                elif isinstance(data, TX):
-                    send_websocket_data(cmd=CMD_NEW_TX, data=data.getinfo(), is_public_data=True)
-                elif isinstance(data, tuple):
-                    cmd, is_public, data_list = data
-                    send_data = new_info2json_data(cmd=cmd, data_list=data_list)
-                    if send_data:
-                        send_websocket_data(cmd=cmd, data=send_data, is_public_data=is_public)
-                else:
-                    pass
-            except NewInfo.empty:
-                pass
-            except Exception:
-                logging.error("websocket loop error", exc_info=True)
-        NewInfo.remove(channel)
-        logging.info("close websocket loop.")
-    Thread(target=_loop, name='WS', daemon=True).start()
-
-
 def get_send_format(cmd, data, status=True):
     send_data = OrderedDict()
     send_data['cmd'] = cmd
@@ -147,16 +119,16 @@ def new_info2json_data(cmd, data_list):
     if cmd == C_Conclude:
         _time, tx, related_list, c_address, start_hash, c_storage = data_list
         send_data['c_address'] = c_address
-        send_data['hash'] = hexlify(tx.hash).decode()
+        send_data['hash'] = tx.hash.hex()
         send_data['time'] = _time
         send_data['tx'] = tx.getinfo()
         send_data['related'] = related_list
-        send_data['start_hash'] = hexlify(start_hash).decode()
+        send_data['start_hash'] = start_hash.hex()
         send_data['c_storage'] = decode(c_storage)
     elif cmd == C_Validator:
         _time, tx, related_list, c_address, new_address, flag, sig_diff = data_list
         send_data['c_address'] = c_address
-        send_data['hash'] = hexlify(tx.hash).decode()
+        send_data['hash'] = tx.hash.hex()
         send_data['time'] = _time
         send_data['tx'] = tx.getinfo()
         send_data['related'] = related_list
@@ -166,7 +138,7 @@ def new_info2json_data(cmd, data_list):
     elif cmd == C_RequestConclude:
         _time, tx, related_list, c_address, c_method, redeem_address, c_args = data_list
         send_data['c_address'] = c_address
-        send_data['hash'] = hexlify(tx.hash).decode()
+        send_data['hash'] = tx.hash.hex()
         send_data['time'] = _time
         send_data['tx'] = tx.getinfo()
         send_data['related'] = related_list
@@ -175,18 +147,18 @@ def new_info2json_data(cmd, data_list):
         send_data['c_args'] = decode(c_args)
     elif cmd == C_FinishConclude or cmd == C_FinishValidator:
         _time, tx = data_list
-        send_data['hash'] = hexlify(tx.hash).decode()
+        send_data['hash'] = tx.hash.hex()
         send_data['time'] = _time
         send_data['tx'] = tx.getinfo()
     else:
-        logging.warning("Not found cmd {}".format(cmd))
+        log.warning("Not found cmd {}".format(cmd))
     return send_data
 
 
 def decode(b):
     # decode Python obj to dump json data
     if isinstance(b, bytes) or isinstance(b, bytearray):
-        return hexlify(b).decode()
+        return b.hex()
     elif isinstance(b, set) or isinstance(b, list) or isinstance(b, tuple):
         return tuple(decode(data) for data in b)
     elif isinstance(b, dict):
@@ -194,6 +166,27 @@ def decode(b):
     else:
         return b
         # return 'Cannot decode type {}'.format(type(b))
+
+
+def on_next(data):
+    if isinstance(data, Block):
+        send_websocket_data(cmd=CMD_NEW_BLOCK, data=data.getinfo(), is_public_data=True)
+    elif isinstance(data, TX):
+        send_websocket_data(cmd=CMD_NEW_TX, data=data.getinfo(), is_public_data=True)
+    elif isinstance(data, tuple):
+        cmd, is_public, data_list = data
+        send_data = new_info2json_data(cmd=cmd, data_list=data_list)
+        if send_data:
+            send_websocket_data(cmd=cmd, data=send_data, is_public_data=is_public)
+    else:
+        pass
+
+
+def start_ws_listen_loop():
+    print("do nothing start_ws_listen_loop()")
+
+
+stream.subscribe(on_next=on_next)
 
 
 __all__ = [

@@ -1,20 +1,21 @@
-from bc4py.config import C, V, P, NewInfo
+from bc4py.config import C, V, P, stream
 from bc4py.chain.utils import signature2bin, bin2signature
 from bc4py.chain.tx import TX
 from bc4py.chain.block import Block
+import bc4py.chain.msgpack as bc4py_msgpack
 from bc4py.user import Balance, Accounting
 from bc4py.database.account import *
 from bc4py.database.create import closing, create_db
 import struct
 import weakref
 import os
-import logging
 import threading
 import bjson
-from binascii import hexlify, unhexlify
 from time import time
-import pickle
 from nem_ed25519.key import is_address
+from logging import getLogger, INFO
+
+log = getLogger('bc4py')
 
 # http://blog.livedoor.jp/wolf200x/archives/53052954.html
 # https://github.com/happynear/py-leveldb-windows
@@ -25,10 +26,12 @@ try:
     import plyvel
     is_plyvel = True
     create_level_db = plyvel.DB
+    getLogger('plyvel').setLevel(INFO)
 except ImportError:
     import leveldb
     is_plyvel = False
     create_level_db = leveldb.LevelDB
+    getLogger('leveldb').setLevel(INFO)
 
 
 struct_block = struct.Struct('>II32s80sBI')
@@ -43,27 +46,15 @@ struct_validator_value = struct.Struct('>40sb32sb')
 
 # constant
 ITER_ORDER = 'big'
-DB_VERSION = 1  # increase if you change database structure
+DB_VERSION = 3  # increase if you change database structure
 ZERO_FILLED_HASH = b'\x00' * 32
 DUMMY_VALIDATOR_ADDRESS = b'\x00' * 40
 database_tuple = ("_block", "_tx", "_used_index", "_block_index",
                   "_address_index", "_coins", "_contract", "_validator")
 # basic config
-config = {
+db_config = {
     'full_address_index': True,  # all address index?
 }
-
-
-class RestrictedUnpickler(pickle.Unpickler):
-    def find_class(self, module, name):
-        # Only allow safe classes from builtins.
-        if module == "bc4py.chain.block" and name == "Block":
-            return Block
-        elif module == "bc4py.chain.tx" and name == "TX":
-            return TX
-        else:
-            # Forbid everything else.
-            raise pickle.UnpicklingError("global '{}'.'{}' is forbidden".format(module, name))
 
 
 class DataBase:
@@ -74,14 +65,14 @@ class DataBase:
         self.dirs = dirs
         self.sync = True
         self.timeout = None
-        config.update(kwargs)  # extra settings
+        db_config.update(kwargs)  # extra settings
         self.event = threading.Event()
         self.event.set()
         # already used => LevelDBError
         if os.path.exists(dirs):
             f_create = False
         else:
-            logging.debug('No db dir, create database first.')
+            log.debug('No db dir, create database first.')
             os.mkdir(dirs)
             f_create = True
         self._block = create_level_db(os.path.join(dirs, 'block'), create_if_missing=f_create)
@@ -94,7 +85,7 @@ class DataBase:
         self._validator = create_level_db(os.path.join(dirs, 'validator'), create_if_missing=f_create)
         self.batch = None
         self.batch_thread = None
-        logging.debug(':create database connect, plyvel={} path={}'.format(is_plyvel, dirs.replace("\\", "/")))
+        log.debug(':create database connect, plyvel={} path={}'.format(is_plyvel, dirs.replace("\\", "/")))
 
     def close(self):
         if is_plyvel:
@@ -104,7 +95,7 @@ class DataBase:
         #    for name in database_tuple:
         #        print(getattr(self, name).GetStats())
         #        getattr(self, name).__dell__()
-        logging.info("Close database connection.")
+        log.info("close database connection.")
 
     def batch_create(self):
         assert self.batch is None, 'batch is already start.'
@@ -115,7 +106,7 @@ class DataBase:
         for name in database_tuple:
             self.batch[name] = dict()
         self.batch_thread = threading.current_thread()
-        logging.debug(":Create database batch.")
+        log.debug(":Create database batch.")
 
     def batch_commit(self):
         assert self.batch, 'Not created batch.'
@@ -134,13 +125,13 @@ class DataBase:
         self.batch = None
         self.batch_thread = None
         self.event.set()
-        logging.debug("Commit database.")
+        log.debug("Commit database.")
 
     def batch_rollback(self):
         self.batch = None
         self.batch_thread = None
         self.event.set()
-        logging.debug("Rollback database.")
+        log.debug("Rollback database.")
 
     def is_batch_thread(self):
         return self.batch and self.batch_thread is threading.current_thread()
@@ -158,7 +149,7 @@ class DataBase:
         height, _time, work, b_block, flag, tx_len = struct_block.unpack_from(b)
         idx = struct_block.size
         assert len(b) == idx+tx_len, 'Not correct size. [{}={}]'.format(len(b), idx+tx_len)
-        block = Block(binary=b_block)
+        block = Block.from_binary(binary=b_block)
         block.height = height
         block.work_hash = work
         block.flag = flag
@@ -214,7 +205,7 @@ class DataBase:
         b_sign = b[16+bin_len:16+bin_len+sign_len]
         assert len(b) == 16+bin_len+sign_len, 'Wrong len [{}={}]'\
             .format(len(b), 16+bin_len+sign_len)
-        tx = TX(binary=b_tx)
+        tx = TX.from_binary(binary=b_tx)
         tx.height = height
         tx.signature = bin2signature(b_sign)
         return tx
@@ -371,7 +362,7 @@ class DataBase:
         self.batch['_block'][block.hash] = b
         b_height = block.height.to_bytes(4, ITER_ORDER)
         self.batch['_block_index'][b_height] = block.hash
-        logging.debug("Insert new block {}".format(block))
+        log.debug("Insert new block {}".format(block))
 
     def write_tx(self, tx):
         assert self.is_batch_thread(), 'Not created batch.'
@@ -381,7 +372,7 @@ class DataBase:
         b = struct_tx.pack(tx.height, tx.time, bin_len, sign_len)
         b += tx.b + b_sign
         self.batch['_tx'][tx.hash] = b
-        logging.debug("Insert new tx {}".format(tx))
+        log.debug("Insert new tx {}".format(tx))
 
     def write_usedindex(self, txhash, usedindex):
         assert self.is_batch_thread(), 'Not created batch.'
@@ -393,7 +384,7 @@ class DataBase:
         k = address.encode() + txhash + index.to_bytes(1, ITER_ORDER)
         v = struct_address_idx.pack(coin_id, amount, f_used)
         self.batch['_address_index'][k] = v
-        logging.debug("Insert new address idx {}".format(address))
+        log.debug("Insert new address idx {}".format(address))
 
     def write_coins(self, coin_id, txhash, params, setting):
         assert self.is_batch_thread(), 'Not created batch.'
@@ -403,7 +394,7 @@ class DataBase:
         k = coin_id.to_bytes(4, ITER_ORDER) + index.to_bytes(4, ITER_ORDER)
         v = txhash + bjson.dumps((params, setting), compress=False)
         self.batch['_coins'][k] = v
-        logging.debug("Insert new coins id={}".format(coin_id))
+        log.debug("Insert new coins id={}".format(coin_id))
 
     def write_contract(self, c_address, start_tx, finish_hash, message):
         assert self.is_batch_thread(), 'Not created batch.'
@@ -418,7 +409,7 @@ class DataBase:
         k = c_address.encode() + index.to_bytes(8, ITER_ORDER)
         v = start_tx.hash + finish_hash + bjson.dumps(message, compress=False)
         self.batch['_contract'][k] = v
-        logging.debug("Insert new contract {} {}".format(c_address, index))
+        log.debug("Insert new contract {} {}".format(c_address, index))
 
     def write_validator(self, c_address, new_address, flag, tx, sign_diff):
         assert self.is_batch_thread(), 'Not created batch.'
@@ -436,7 +427,7 @@ class DataBase:
         k = c_address.encode() + index.to_bytes(8, ITER_ORDER)
         v = struct_validator_value.pack(new_address, flag, tx.hash, sign_diff)
         self.batch['_validator'][k] = v
-        logging.debug("Insert new validator {} {}".format(c_address, index))
+        log.debug("Insert new validator {} {}".format(c_address, index))
 
 
 class ChainBuilder:
@@ -452,8 +443,6 @@ class ChainBuilder:
         self.root_block = None
         self.best_block = None
         self.db = DataBase(f_dummy=True)
-        # levelDBのStreamHandlerを削除
-        logging.getLogger().handlers.clear()
 
     def close(self):
         self.db.batch_create()
@@ -463,14 +452,17 @@ class ChainBuilder:
     def set_database_path(self, **kwargs):
         try:
             self.db = DataBase(f_dummy=False, **kwargs)
-            logging.info("Connect database.")
+            log.info("connect database.")
         except leveldb.LevelDBError:
-            logging.warning("Already connect database.")
+            log.warning("Already connect database.")
         except Exception as e:
-            logging.debug("Failed connect database, {}.".format(e))
+            log.debug("Failed connect database, {}.".format(e))
 
     def init(self, genesis_block: Block, batch_size=None):
         assert self.db, 'Why database connection failed?'
+        # return status
+        # True  = Only genesisBlock, recommend to import bootstrap.dat first
+        # False = Many blocks in LevelDB, sync by network
         if batch_size is None:
             batch_size = self.cashe_limit
         # GenesisBlockか確認
@@ -478,10 +470,10 @@ class ChainBuilder:
         try:
             if genesis_block.hash != self.db.read_block_hash(0):
                 raise BlockBuilderError("Don't match genesis hash [{}!={}]".format(
-                    hexlify(genesis_block.hash).decode(), hexlify(self.db.read_block_hash(0).decode())))
+                    genesis_block.hash.hex(), self.db.read_block_hash(0).hex()))
             elif genesis_block != self.db.read_block(genesis_block.hash):
                 raise BlockBuilderError("Don't match genesis binary [{}!={}]".format(
-                    hexlify(genesis_block.b).decode(), hexlify(self.db.read_block(genesis_block.hash).b).decode()))
+                    genesis_block.b.hex(), self.db.read_block(genesis_block.hash).b.hex()))
         except Exception:
             # GenesisBlockしか無いのでDummyBlockを入れる処理
             self.root_block = Block()
@@ -489,85 +481,95 @@ class ChainBuilder:
             self.chain[genesis_block.hash] = genesis_block
             self.best_chain = [genesis_block]
             self.best_block = genesis_block
-            logging.info("Set dummy block. GenesisBlock={}".format(genesis_block))
+            log.info("Set dummy block, genesisBlock={}".format(genesis_block))
             user_account.init()
-            return
+            return True
 
-        # 0HeightよりBlockを取得して確認
-        before_block = genesis_block
-        batch_blocks = list()
-        for height, blockhash in self.db.read_block_hash_iter(start_height=1):
-            block = self.db.read_block(blockhash)
-            if block.previous_hash != before_block.hash:
-                raise BlockBuilderError("PreviousHash != BlockHash [{}!={}]"
-                                        .format(block, before_block))
-            elif block.height != height:
-                raise BlockBuilderError("BlockHeight != DBHeight [{}!={}]"
-                                        .format(block.height, height))
-            elif height != before_block.height+1:
-                raise BlockBuilderError("DBHeight != BeforeHeight+1 [{}!={}+1]"
-                                        .format(height, before_block.height))
-            for tx in block.txs:
-                if tx.height != height:
-                    raise BlockBuilderError("TXHeight != BlockHeight [{}!{}]"
-                                            .format(tx.height, height))
-                # inputs
-                for txhash, txindex in tx.inputs:
-                    input_tx = self.db.read_tx(txhash)
-                    address, coin_id, amount = input_tx.outputs[txindex]
-                    _coin_id, _amount, f_used = self.db.read_address_idx(address, txhash, txindex)
-                    usedindex = self.db.read_usedindex(txhash)
-                    if coin_id != _coin_id or amount != _amount:
-                        raise BlockBuilderError("Inputs, coin_id != _coin_id or amount != _amount [{}!{}] [{}!={}]"
-                                                .format(coin_id, _coin_id, amount, _amount))
-                    elif txindex not in usedindex:
-                        raise BlockBuilderError("Already used but unused. [{} not in {}]".format(txindex, usedindex))
-                    elif not f_used:
-                        raise BlockBuilderError("Already used but unused flag. [{}:{}]".format(input_tx, txindex))
-                # outputs
-                for index, (address, coin_id, amount) in enumerate(tx.outputs):
-                    _coin_id, _amount, f_used = self.db.read_address_idx(address, tx.hash, index)
-                    if coin_id != _coin_id or amount != _amount:
-                        raise BlockBuilderError("Outputs, coin_id != _coin_id or amount != _amount [{}!{}] [{}!={}]"
-                                                .format(coin_id, _coin_id, amount, _amount))
-            # Block確認終了
-            before_block = block
-            batch_blocks.append(block)
-            if len(batch_blocks) >= batch_size:
-                user_account.new_batch_apply(batch_blocks)
-                batch_blocks.clear()
-                logging.debug("UserAccount batched at {} height.".format(block.height))
-        # import from starter.dat
-        self.root_block = before_block
-        memorized_blocks, self.best_block = self.load_memory_file(before_block)
-        # Memory化されたChainを直接復元
-        for block in memorized_blocks:
-            batch_blocks.append(block)
-            self.chain[block.hash] = block
-            for tx in block.txs:
-                if tx.hash not in tx_builder.chained_tx:
-                    tx_builder.chained_tx[tx.hash] = tx
-                if tx.hash in tx_builder.unconfirmed:
-                    del tx_builder.unconfirmed[tx.hash]
-        self.best_chain = list(reversed(memorized_blocks))
-        # UserAccount update
-        user_account.new_batch_apply(batch_blocks)
-        user_account.init()
-        logging.info("Init finished, last block is {} {}Sec".format(before_block, round(time()-t, 3)))
+        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+            cur = db.cursor()
+            # 0HeightよりBlockを取得して確認
+            before_block = genesis_block
+            batch_blocks = list()
+            for height, blockhash in self.db.read_block_hash_iter(start_height=1):
+                block = self.db.read_block(blockhash)
+                if block.previous_hash != before_block.hash:
+                    raise BlockBuilderError("PreviousHash != BlockHash [{}!={}]"
+                                            .format(block, before_block))
+                elif block.height != height:
+                    raise BlockBuilderError("BlockHeight != DBHeight [{}!={}]"
+                                            .format(block.height, height))
+                elif height != before_block.height+1:
+                    raise BlockBuilderError("DBHeight != BeforeHeight+1 [{}!={}+1]"
+                                            .format(height, before_block.height))
+                for tx in block.txs:
+                    if tx.height != height:
+                        raise BlockBuilderError("TXHeight != BlockHeight [{}!{}]"
+                                                .format(tx.height, height))
+                    # inputs
+                    for txhash, txindex in tx.inputs:
+                        input_tx = self.db.read_tx(txhash)
+                        address, coin_id, amount = input_tx.outputs[txindex]
+                        _coin_id, _amount, f_used = self.db.read_address_idx(address, txhash, txindex)
+                        usedindex = self.db.read_usedindex(txhash)
+                        if coin_id != _coin_id or amount != _amount:
+                            raise BlockBuilderError("Inputs, coin_id != _coin_id or amount != _amount [{}!{}] [{}!={}]"
+                                                    .format(coin_id, _coin_id, amount, _amount))
+                        elif txindex not in usedindex:
+                            raise BlockBuilderError("Already used but unused. [{} not in {}]".format(txindex, usedindex))
+                        elif not f_used:
+                            raise BlockBuilderError("Already used but unused flag. [{}:{}]".format(input_tx, txindex))
+                    # outputs
+                    for index, (address, coin_id, amount) in enumerate(tx.outputs):
+                        _coin_id, _amount, f_used = self.db.read_address_idx(address, tx.hash, index)
+                        if coin_id != _coin_id or amount != _amount:
+                            raise BlockBuilderError("Outputs, coin_id != _coin_id or amount != _amount [{}!{}] [{}!={}]"
+                                                    .format(coin_id, _coin_id, amount, _amount))
+                # Block確認終了
+                before_block = block
+                batch_blocks.append(block)
+                if len(batch_blocks) >= batch_size:
+                    user_account.new_batch_apply(batched_blocks=batch_blocks, outer_cur=cur)
+                    batch_blocks.clear()
+                    log.debug("UserAccount batched at {} height.".format(block.height))
+            # load and rebuild memory section
+            self.root_block = before_block
+            memorized_blocks, self.best_block = self.load_memory_file(before_block)
+            # Memory化されたChainを直接復元
+            for block in memorized_blocks:
+                batch_blocks.append(block)
+                self.chain[block.hash] = block
+                for tx in block.txs:
+                    if tx.hash not in tx_builder.chained_tx:
+                        tx_builder.chained_tx[tx.hash] = tx
+                    if tx.hash in tx_builder.unconfirmed:
+                        del tx_builder.unconfirmed[tx.hash]
+            self.best_chain = list(reversed(memorized_blocks))
+            # UserAccount update
+            user_account.new_batch_apply(batched_blocks=batch_blocks, outer_cur=cur)
+            user_account.init(outer_cur=cur)
+            db.commit()
+        log.info("Init finished, last block is {} {}Sec".format(before_block, round(time()-t, 3)))
+        return False
 
     def save_memory_file(self):
         odd_path = os.path.join(self.db.dirs, 'memory.odd.dat')
         even_path = os.path.join(self.db.dirs, 'memory.even.dat')
         if not os.path.exists(odd_path):
-            recode_path = odd_path
+            priority_tuple = odd_path, even_path
         elif not os.path.exists(even_path):
-            recode_path = even_path
+            priority_tuple = even_path, odd_path
         elif os.stat(odd_path).st_mtime > os.stat(even_path).st_mtime:
-            recode_path = even_path
+            priority_tuple = even_path, odd_path
         else:
-            recode_path = odd_path
-        with open(recode_path, mode='bw') as fp:
-            pickle.dump(self.best_chain, fp)
+            priority_tuple = odd_path, even_path
+        for path in priority_tuple:
+            try:
+                with open(path, mode='bw') as fp:
+                    bc4py_msgpack.dump(self.best_chain, fp)
+                return
+            except Exception as e:
+                log.warning("Failed recode by '{}'".format(e))
+        raise Exception("Cannot recode two memory files?")
 
     def load_memory_file(self, root_block):
         memorized_blocks = list()
@@ -590,14 +592,14 @@ class ChainBuilder:
         for path in check_order:
             try:
                 with open(path, mode='br') as fp:
-                    for block in reversed(RestrictedUnpickler(fp).load()):
+                    for block in reversed(bc4py_msgpack.load(fp)):
                         if root_block.hash == block.previous_hash:
                             memorized_blocks.append(block)
                             root_block = block
             except Exception as e:
-                logging.error("Failed load, \"{}\"".format(e))
+                log.error("Failed load, \"{}\"".format(e), exc_info=True)
         if len(memorized_blocks) > 0:
-            logging.debug("Load {} blocks, best={}".format(len(memorized_blocks), root_block))
+            log.debug("Load {} blocks, best={}".format(len(memorized_blocks), root_block))
             return memorized_blocks, root_block
         else:
             raise BlockBuilderError("Failed load memory files.")
@@ -610,7 +612,7 @@ class ChainBuilder:
             while self.root_block.hash != previous_hash:
                 if previous_hash not in self.chain:
                     raise BlockBuilderError('Cannot find previousHash, may not main-chain. {}'
-                                            .format(hexlify(previous_hash).decode()))
+                                            .format(previous_hash.hex()))
                 block = self.chain[previous_hash]
                 previous_hash = block.previous_hash
                 best_chain.append(block)
@@ -645,18 +647,18 @@ class ChainBuilder:
         # best_chain = [<height=n>, <height=n-1>, ...]
         return best_block, best_chain
 
-    def batch_apply(self, force=False):
+    def batch_apply(self):
         # 無チェックで挿入するから要注意
-        if not force and self.cashe_limit > len(self.chain):
+        if self.cashe_limit > len(self.chain):
             return list()
         # cashe許容量を上回っているので記録
         self.db.batch_create()
-        logging.debug("Start batch apply. chain={} force={}".format(len(self.chain), force))
+        log.debug("Start batch apply chain={}".format(len(self.chain)))
         best_chain = self.best_chain.copy()
         batch_count = self.batch_size
         batched_blocks = list()
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-            cur = db.cursor()  # DO NOT USE FOR WRITE!
+            cur = db.cursor()
             try:
                 block = None
                 while batch_count > 0 and len(best_chain) > 0:
@@ -673,19 +675,21 @@ class ChainBuilder:
                             usedindex = self.db.read_usedindex(txhash)
                             if txindex in usedindex:
                                 raise BlockBuilderError('Already used index? {}:{}'
-                                                        .format(hexlify(txhash).decode(), txindex))
+                                                        .format(txhash.hex(), txindex))
                             usedindex.add(txindex)
                             self.db.write_usedindex(txhash, usedindex)  # UsedIndex update
                             input_tx = tx_builder.get_tx(txhash)
                             address, coin_id, amount = input_tx.outputs[txindex]
-                            if config['full_address_index'] or is_address(ck=address, prefix=V.BLOCK_CONTRACT_PREFIX)\
-                                    or read_address2user(address=address, cur=cur):
+                            if db_config['full_address_index'] or \
+                                    is_address(ck=address, prefix=V.BLOCK_CONTRACT_PREFIX) or \
+                                    read_address2user(address=address, cur=cur):
                                 # 必要なAddressのみ
                                 self.db.write_address_idx(address, txhash, txindex, coin_id, amount, True)
                         # outputs
                         for index, (address, coin_id, amount) in enumerate(tx.outputs):
-                            if config['full_address_index'] or is_address(ck=address, prefix=V.BLOCK_CONTRACT_PREFIX) \
-                                    or read_address2user(address=address, cur=cur):
+                            if db_config['full_address_index'] or \
+                                    is_address(ck=address, prefix=V.BLOCK_CONTRACT_PREFIX) or \
+                                    read_address2user(address=address, cur=cur):
                                 # 必要なAddressのみ
                                 self.db.write_address_idx(address, tx.hash, index, coin_id, amount, False)
                         # TXの種類による追加操作
@@ -722,14 +726,15 @@ class ChainBuilder:
                 for blockhash, block in self.chain.copy().items():
                     if self.root_block.height >= block.height:
                         del self.chain[blockhash]
-                logging.debug("Success batch {} blocks, root={}."
+                log.debug("Success batch {} blocks, root={}."
                               .format(len(batched_blocks), self.root_block))
                 # アカウントへ反映↓
-                user_account.new_batch_apply(batched_blocks)
+                user_account.new_batch_apply(batched_blocks=batched_blocks, outer_cur=cur)
+                db.commit()
                 return batched_blocks  # [<height=n>, <height=n+1>, .., <height=n+m>]
             except Exception as e:
                 self.db.batch_rollback()
-                logging.warning("Failed batch block builder. '{}'".format(e), exc_info=True)
+                log.warning("Failed batch block builder. '{}'".format(e), exc_info=True)
                 return list()
 
     def new_block(self, block):
@@ -762,17 +767,22 @@ class ChainBuilder:
             new_best_chain=set(new_best_chain) - commons,
             old_best_chain=set(old_best_chain) - commons)
 
-    def get_block(self, blockhash):
+    def get_block(self, blockhash=None, height=None):
+        if height is not None:
+            blockhash = self.get_block_hash(height=height)
+            if blockhash is None:
+                return None
+        # Get by blockhash
         if blockhash in self.chain:
-            # Memoryより
+            # Memory
             block = self.chain[blockhash]
-            block.f_on_memory = True
+            block.recode_flag = 'memory'
             block.f_orphan = bool(block not in self.best_chain)
         else:
-            # DataBaseより
+            # DataBase
             block = self.db.read_block(blockhash)
             if block:
-                block.f_on_memory = False
+                block.recode_flag = 'database'
                 block.f_orphan = False
             else:
                 return None
@@ -809,15 +819,16 @@ class TransactionBuilder:
         if tx.type in (C.TX_POW_REWARD, C.TX_POS_REWARD):
             return  # It is Reword tx
         elif tx.hash in self.unconfirmed:
-            logging.debug('Already unconfirmed tx. {}'.format(tx))
+            log.debug('Already unconfirmed tx. {}'.format(tx))
             return
         tx.create_time = time()
+        tx.recode_flag = 'unconfirmed'
         self.unconfirmed[tx.hash] = tx
         if tx.hash in self.chained_tx:
-            logging.debug('Already chained tx. {}'.format(tx))
+            log.debug('Already chained tx. {}'.format(tx))
             return
         user_account.affect_new_tx(tx, outer_cur)
-        NewInfo.put(obj=tx)
+        stream.on_next(tx)
 
     def marge_signature(self, tx):
         # try to marge signature
@@ -825,46 +836,55 @@ class TransactionBuilder:
         if tx.hash in self.unconfirmed:
             original_tx = self.unconfirmed[tx.hash]
             new_signature = list(set(tx.signature) | set(original_tx.signature))
-            logging.info("Marge unconfirmed TX's signature sign={}>{}"
+            log.info("Marge unconfirmed TX's signature sign={}>{}"
                          .format(len(original_tx.signature), len(new_signature)))
             original_tx.signature = new_signature
         elif tx.hash in self.pre_unconfirmed:
             original_tx = self.pre_unconfirmed[tx.hash]
             new_signature = list(set(tx.signature) | set(original_tx.signature))
-            logging.info("Marge pre-unconfirmed TX's signature sign={}>{}"
+            log.info("Marge pre-unconfirmed TX's signature sign={}>{}"
                          .format(len(original_tx.signature), len(new_signature)))
             original_tx.signature = new_signature
         elif tx.hash in self.chained_tx:
-            logging.error("Try to marge already confirmed TX's signature {}".format(tx))
+            log.error("Try to marge already confirmed TX's signature {}".format(tx))
         else:
             # new pre-unconfirmed tx
+            tx.recode_flag = 'pre-unconfirmed'
             self.pre_unconfirmed[tx.hash] = tx
-            NewInfo.put(obj=tx)
-            logging.info("Insert pre-unconfirmed TX")
+            stream.on_next(tx)
+            log.info("Insert pre-unconfirmed TX")
 
     def get_tx(self, txhash, default=None):
         if txhash in self.cashe:
-            return self.cashe[txhash]
+            try:
+                return self.cashe[txhash]
+            except KeyError:
+                # flashed WeakValueDictionary, need to retry
+                return self.get_tx(txhash=txhash, default=default)
         elif txhash in self.pre_unconfirmed:
             # pre-unconfirmedより
             tx = self.pre_unconfirmed[txhash]
-            tx.f_on_memory = True
-            if tx.height is not None: logging.warning("Not unconfirmed. {}".format(tx))
+            tx.recode_flag = 'pre-unconfirmed'
+            if tx.height is not None: log.warning("Not unconfirmed. {}".format(tx))
         elif txhash in self.unconfirmed:
             # unconfirmedより
             tx = self.unconfirmed[txhash]
-            tx.f_on_memory = True
-            if tx.height is not None: logging.warning("Not unconfirmed. {}".format(tx))
+            tx.recode_flag = 'unconfirmed'
+            if tx.height is not None: log.warning("Not unconfirmed. {}".format(tx))
         elif txhash in self.chained_tx:
             # Memoryより
-            tx = self.chained_tx[txhash]
-            tx.f_on_memory = True
-            if tx.height is None: logging.warning("Is unconfirmed. {}".format(tx))
+            try:
+                tx = self.chained_tx[txhash]
+            except KeyError:
+                # flashed WeakValueDictionary, need to retry
+                return self.get_tx(txhash=txhash, default=default)
+            tx.recode_flag = 'memory'
+            if tx.height is None: log.warning("Is unconfirmed. {}".format(tx))
         else:
             # Databaseより
             tx = builder.db.read_tx(txhash)
             if tx:
-                tx.f_on_memory = False
+                tx.recode_flag = 'database'
                 self.cashe[txhash] = tx
             else:
                 return default
@@ -903,21 +923,21 @@ class TransactionBuilder:
                 break  # not delete on booting..
             # Remove expired unconfirmed tx
             if limit > tx.deadline:
-                logging.debug("Remove unconfirmed 'expired' {}".format(tx))
+                log.debug("Remove unconfirmed 'expired' {}".format(tx))
                 del self.unconfirmed[txhash]
                 continue
             # Remove tx include by both best_chain & unconfirmed
             if txhash in self.chained_tx:
-                logging.debug("Remove unconfirmed 'include on chain' {}".format(tx))
+                log.debug("Remove unconfirmed 'include on chain' {}".format(tx))
                 del self.unconfirmed[txhash]
                 continue
             # check inputs usedindex on database (not memory, not unconfirmed)
             if input_check(tx):
-                logging.debug("Remove unconfirmed 'use used inputs' {}".format(tx))
+                log.debug("Remove unconfirmed 'use used inputs' {}".format(tx))
                 del self.unconfirmed[txhash]
                 continue
         if before_num != len(self.unconfirmed):
-            logging.warning("Removed {} unconfirmed txs".format(len(self.unconfirmed)-before_num))
+            log.warning("Removed {} unconfirmed txs".format(len(self.unconfirmed)-before_num))
 
 
 class UserAccount:
@@ -926,31 +946,32 @@ class UserAccount:
         # {txhash: (_type, movement, _time),..}
         self.memory_movement = dict()
 
-    def init(self, f_delete=False):
-        assert f_delete is False, 'Unsafe function!'
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-            cur = db.cursor()
+    def init(self, f_delete=False, outer_cur=None):
+        def _wrapper(cur):
             memory_sum = Accounting()
             for move_log in read_log_iter(cur):
                 # logに記録されてもBlockに取り込まれていないならTXは存在せず
                 if builder.db.read_tx(move_log.txhash):
                     memory_sum += move_log.movement
                 else:
-                    logging.debug("It's unknown log {}".format(move_log))
+                    log.debug("It's unknown log {}".format(move_log))
                     if f_delete:
                         delete_log(move_log.txhash, cur)
-            if f_delete:
-                logging.warning("Delete user's old unconfirmed tx.")
-                db.commit()
             self.db_balance += memory_sum
+        assert f_delete is False, 'Unsafe function!'
+        if outer_cur:
+            _wrapper(outer_cur)
+        else:
+            with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+                _wrapper(db.cursor())
+                if f_delete:
+                    log.warning("Delete user's old unconfirmed tx.")
+                    db.commit()
 
-    def get_balance(self, confirm=6):
-        assert confirm < builder.cashe_limit - builder.batch_size, 'Too few cashe size.'
-        assert builder.best_block, 'Not DataBase init.'
-        # DataBase
-        balance = self.db_balance.copy()
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-            cur = db.cursor()
+    def get_balance(self, confirm=6, outer_cur=None):
+        def _wrapper(cur):
+            # DataBase
+            account = self.db_balance.copy()
             # Memory
             limit_height = builder.best_block.height - confirm
             for block in builder.best_chain:
@@ -964,9 +985,10 @@ class UserAccount:
                             for coin_id, amount in coins:
                                 if limit_height < block.height:
                                     if amount < 0:
-                                        balance.add_coins(user, coin_id, amount)
+                                        account[user][coin_id] += amount
                                 else:
-                                    balance.add_coins(user, coin_id, amount)
+                                    # allow incoming balance
+                                    account[user][coin_id] += amount
             # Unconfirmed
             for tx in list(tx_builder.unconfirmed.values()):
                 move_log = read_txhash2log(tx.hash, cur)
@@ -977,31 +999,37 @@ class UserAccount:
                     for user, coins in move_log.movement.items():
                         for coin_id, amount in coins:
                             if amount < 0:
-                                balance.add_coins(user, coin_id, amount)
-        return balance
+                                account[user][coin_id] += amount
+            return account
+        assert confirm < builder.cashe_limit - builder.batch_size, 'Too few cashe size.'
+        assert builder.best_block, 'Not DataBase init.'
+        if outer_cur:
+            return _wrapper(outer_cur)
+        else:
+            with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+                return _wrapper(db.cursor())
 
     def move_balance(self, _from, _to, coins, outer_cur=None):
+        def _wrapper(cur):
+            # DataBaseに即書き込む(Memoryに入れない)
+            movements = Accounting()
+            movements[_from] -= coins
+            movements[_to] += coins
+            txhash = insert_log(movements, cur)
+            self.db_balance += movements
+            return txhash
         assert isinstance(coins, Balance), 'coins is Balance.'
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-            cur = outer_cur or db.cursor()
-            try:
-                # DataBaseに即書き込む(Memoryに入れない)
-                movements = Accounting()
-                movements[_from] -= coins
-                movements[_to] += coins
-                txhash = insert_log(movements, cur)
-                if outer_cur is None:
-                    db.commit()
-                self.db_balance += movements
-                return txhash
-            except Exception:
-                logging.error("Failed move_balance,", exc_info=True)
-                db.rollback()
+        if outer_cur:
+            return _wrapper(outer_cur)
+        else:
+            with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+                r = _wrapper(db.cursor())
+                db.commit()
+                return r
 
-    def get_movement_iter(self, start=0, f_dict=False):
-        count = 0
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-            cur = db.cursor()
+    def get_movement_iter(self, start=0, f_dict=False, outer_cur=None):
+        def _wrapper(cur):
+            count = 0
             # Unconfirmed
             for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time, reverse=True):
                 move_log = read_txhash2log(tx.hash, cur)
@@ -1010,7 +1038,7 @@ class UserAccount:
                         move_log = self.memory_movement[tx.hash]
                 else:
                     if tx.hash in self.memory_movement:
-                        move_log.pointer = self.memory_movement[tx.hash].pointer
+                        move_log.tx_ref = self.memory_movement[tx.hash].tx_ref
                 if move_log:
                     if count >= start:
                         if f_dict:
@@ -1027,7 +1055,7 @@ class UserAccount:
                             move_log = self.memory_movement[tx.hash]
                     else:
                         if tx.hash in self.memory_movement:
-                            move_log.pointer = self.memory_movement[tx.hash].pointer
+                            move_log.tx_ref = self.memory_movement[tx.hash].tx_ref
                     if move_log:
                         if count >= start:
                             if f_dict:
@@ -1044,10 +1072,14 @@ class UserAccount:
                     yield move_log.get_dict_data(cur)
                 else:
                     yield move_log.get_tuple_data()
+        if outer_cur:
+            yield from _wrapper(outer_cur)
+        else:
+            with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+                yield from _wrapper(db.cursor())
 
-    def new_batch_apply(self, batched_blocks):
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-            cur = db.cursor()
+    def new_batch_apply(self, batched_blocks, outer_cur=None):
+        def _wrapper(cur):
             for block in batched_blocks:
                 for tx in block.txs:
                     move_log = read_txhash2log(tx.hash, cur)
@@ -1056,7 +1088,7 @@ class UserAccount:
                         self.db_balance += move_log.movement
                         if tx.hash in self.memory_movement:
                             del self.memory_movement[tx.hash]
-                        # logging.debug("Already recoded log {}".format(tx))
+                        # log.debug("Already recoded log {}".format(tx))
                     elif tx.hash in self.memory_movement:
                         # db_balanceに追加
                         _type, movement, _time = self.memory_movement[tx.hash].get_tuple_data()
@@ -1065,11 +1097,15 @@ class UserAccount:
                         del self.memory_movement[tx.hash]
                         # insert_log
                         insert_log(movement, cur, _type, _time, tx.hash)
-            db.commit()
+        if outer_cur:
+            _wrapper(outer_cur)
+        else:
+            with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+                _wrapper(db.cursor())
+                db.commit()
 
     def affect_new_tx(self, tx, outer_cur=None):
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-            cur = outer_cur or db.cursor()
+        def _wrapper(cur):
             movement = Accounting()
             # send_from_applyで登録済み
             if tx.hash in self.memory_movement:
@@ -1080,17 +1116,27 @@ class UserAccount:
                 address, coin_id, amount = input_tx.outputs[txindex]
                 user = read_address2user(address, cur)
                 if user is not None:
-                    movement.add_coins(user, coin_id, -1 * amount)
+                    balance = Balance(coin_id, amount)
+                    movement[user] -= balance
+                    movement[C.ANT_OUTSIDE] += balance
             for address, coin_id, amount in tx.outputs:
                 user = read_address2user(address, cur)
                 if user is not None:
-                    movement.add_coins(user, coin_id, amount)
+                    balance = Balance(coin_id, amount)
+                    movement[user] += balance
+                    movement[C.ANT_OUTSIDE] -= balance
             # check
+            movement.cleanup()
             if len(movement) == 0:
                 return  # 無関係である
-            move_log = MoveLog(tx.hash, tx.type, movement, tx.time, True, tx)
+            move_log = MoveLog(tx.hash, tx.type, movement, tx.time, tx)
             self.memory_movement[tx.hash] = move_log
-            logging.debug("Affect account new tx. {}".format(tx))
+            log.debug("Affect account new tx. {}".format(tx))
+        if outer_cur:
+            _wrapper(outer_cur)
+        else:
+            with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+                _wrapper(db.cursor())
 
 
 class BlockBuilderError(BaseException):
@@ -1106,5 +1152,8 @@ user_account = UserAccount()
 
 
 __all__ = [
-    "builder", "tx_builder", "user_account"
+    "db_config",
+    "builder",
+    "tx_builder",
+    "user_account"
 ]

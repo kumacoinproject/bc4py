@@ -1,8 +1,11 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.chain.difficulty import get_bits_by_hash
-import logging
+from logging import getLogger
 from time import time
+
+
+log = getLogger('bc4py')
 
 
 def check_block(block: Block):
@@ -14,7 +17,7 @@ def check_block(block: Block):
     bits = get_bits_by_hash(previous_hash=block.previous_hash, consensus=block.flag)[0]
     if block.bits != bits:
         raise BlockChainError('Block bits differ from calc. [{}!={}]'.format(block.bits, bits))
-    logging.debug("Checked block {}.".format(block))
+    log.debug("Checked block {}.".format(block))
 
 
 def check_block_time(block: Block, fix_delay):
@@ -25,5 +28,5 @@ def check_block_time(block: Block, fix_delay):
         raise BlockChainError('Block time is out of range [{}<{}-{}={},{}]'
                               .format(C.ACCEPT_MARGIN_TIME, block.time, create_time, block.time - create_time, delay))
     if C.ACCEPT_MARGIN_TIME < delay:
-        logging.warning("Long delay, for check new block. [{}<{}]"
+        log.warning("Long delay, for check new block. [{}<{}]"
                         .format(C.ACCEPT_MARGIN_TIME, delay))

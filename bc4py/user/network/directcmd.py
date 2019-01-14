@@ -1,6 +1,5 @@
 from bc4py.config import V, P, BlockChainError
 from bc4py.database.builder import builder, tx_builder
-from binascii import hexlify
 
 
 def _best_info():
@@ -36,7 +35,7 @@ def _block_by_height(height):
 def _block_by_hash(blockhash):
     block = builder.get_block(blockhash)
     if block is None:
-        return 'Not found blockhash {}.'.format(hexlify(blockhash).decode())
+        return 'Not found blockhash {}.'.format(blockhash.hex())
     txs = [{
         'tx': tx.b,
         'sign': tx.signature}
@@ -55,7 +54,7 @@ def _block_by_hash(blockhash):
 def _tx_by_hash(txhash):
     tx = tx_builder.get_tx(txhash)
     if tx is None:
-        return 'Not found tx {}.'.format(hexlify(txhash).decode())
+        return 'Not found tx {}.'.format(txhash.hex())
     send_data = {
         'tx': tx.b,
         'height': tx.height,

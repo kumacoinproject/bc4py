@@ -12,6 +12,7 @@ from bc4py.contract.emulator.watching import start_contract_watch
 from bc4py.database.create import make_account_db
 from bc4py.database.builder import builder
 from bc4py.chain.workhash import start_work_hash, close_work_hash
+from pooled_multiprocessing import cpu_num, add_pool_process
 from p2p_python.utils import setup_p2p_params
 from p2p_python.client import PeerClient
 from bc4py.for_debug import set_logger
@@ -24,6 +25,7 @@ def work(port, sub_dir=None):
     set_database_path(sub_dir=sub_dir)
     builder.set_database_path()
     make_account_db()
+    import_keystone(passphrase='hello python')
     genesis_block, network_ver, connections = load_boot_file()
     logging.info("Start p2p network-ver{} .".format(network_ver))
 
@@ -44,6 +46,9 @@ def work(port, sub_dir=None):
     elif pc.p2p.create_connection('nekopeg.tk', 2000):
         logging.info("2Connect!")
 
+    # add pooled process
+    add_pool_process(cpu_num)
+
     for host, port in connections:
         pc.p2p.create_connection(host, port)
     set_blockchain_params(genesis_block)
@@ -52,8 +57,14 @@ def work(port, sub_dir=None):
     pc.broadcast_check = broadcast_check
 
     # Update to newest blockchain
-    builder.init(genesis_block, batch_size=500)
-    builder.db.sync = False  # more fast but unstable
+    builder.db.sync = False
+    if builder.init(genesis_block, batch_size=500):
+        # only genesisBlock yoy have, try to import bootstrap.dat
+        log = logging.getLogger('bc4py')
+        old_level = log.level
+        log.setLevel(logging.WARNING)
+        load_bootstrap_file()
+        log.setLevel(old_level)
     sync_chain_loop()
 
     # Mining/Staking setup
@@ -71,7 +82,9 @@ def work(port, sub_dir=None):
     logging.info("Finished all initialize.")
 
     try:
-        create_rest_server(f_local=False, port=port + 1000, user='user', pwd='password')
+        create_rest_server(f_local=False, user='user', pwd='password', port=port+1000)
+        if P.F_NOW_BOOTING is False:
+            create_bootstrap_file()
         P.F_STOP = True
         builder.close()
         pc.close()

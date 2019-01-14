@@ -3,10 +3,12 @@ from bc4py.chain.checking.tx_reward import *
 from bc4py.chain.checking.tx_mintcoin import *
 from bc4py.chain.checking.tx_contract import *
 from bc4py.chain.checking.utils import *
-from bc4py.database.builder import tx_builder
-import logging
-from binascii import hexlify
+from logging import getLogger
 from time import time
+from Cryptodome.Hash import RIPEMD160, SHA256
+
+
+log = getLogger('bc4py')
 
 
 def check_tx(tx, include_block):
@@ -85,6 +87,14 @@ def check_tx(tx, include_block):
     if f_signature_check:
         signature_check(tx=tx)
 
+    # hash-locked check
+    if tx.message_type == C.MSG_HASHLOCKED:
+        check_hash_locked(tx=tx)
+
+    # message type check
+    if tx.message_type not in C.msg_type2name:
+        raise BlockChainError('Not found message type {}'.format(tx.message_type))
+
     # Feeチェック
     if f_minimum_fee_check:
         if tx.gas_amount < tx.size + C.SIGNATURE_GAS * len(tx.signature):
@@ -97,9 +107,9 @@ def check_tx(tx, include_block):
             raise BlockChainError('TX size is too large. [{}>{}]'.format(tx.size, C.SIZE_TX_LIMIT))
 
     if include_block:
-        logging.info("Checked tx {}".format(tx))
+        log.info("Checked tx {}".format(tx))
     else:
-        logging.debug("Check unconfirmed tx {}".format(hexlify(tx.hash).decode()))
+        log.debug("Check unconfirmed tx {}".format(tx.hash.hex()))
 
 
 def check_tx_time(tx):
@@ -123,3 +133,17 @@ def check_tx_time(tx):
     if tx.deadline - tx.time > 43200:  # 12hours
         raise BlockChainError('TX acceptable spam is too long. {}-{}<{}'
                               .format(tx.deadline, tx.time, 10800))
+
+
+def check_hash_locked(tx):
+    if len(tx.R) == 0:
+        raise BlockChainError('R of Hash-locked is None type.')
+    size = len(tx.message)
+    if size == 20:
+        if RIPEMD160.new(tx.R).digest() != tx.message:
+            raise BlockChainError('Hash-locked check RIPEMD160 failed.')
+    elif size == 32:
+        if SHA256.new(tx.R).digest() != tx.message:
+            raise BlockChainError('Hash-locked check SHA256 failed.')
+    else:
+        raise BlockChainError('H of Hash-locked is not correct size {}'.format(size))

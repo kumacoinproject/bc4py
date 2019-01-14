@@ -6,9 +6,11 @@ from expiringdict import ExpiringDict
 from collections import deque
 import asyncio
 import json
-import logging
 from time import time
 import warnings
+from logging import getLogger
+
+log = getLogger('bc4py')
 
 # https://asyncio.readthedocs.io/en/latest/tcp_echo.html
 # https://en.bitcoin.it/wiki/Stratum_mining_protocol
@@ -39,7 +41,7 @@ class Stratum:
         host = '127.0.0.1' if f_local else '0.0.0.0'
         coro = asyncio.start_server(self._handle, host, port)
         self.server = loop.run_until_complete(coro)
-        logging.info("Stratum work on {}".format(self.server.sockets[0].getsockname()))
+        log.info("Stratum work on {}".format(self.server.sockets[0].getsockname()))
         self.users = dict()
         stratum.append(self)
 
@@ -57,7 +59,7 @@ class Stratum:
                 writer.write(json.dumps({'id': None, 'method': method, 'params': params}).encode() + b'\n')
                 await writer.drain()
             except Exception as e:
-                logging.error(e)
+                log.error(e)
 
     async def _handle(self, reader, writer):
         recv_msg = b''
@@ -82,15 +84,15 @@ class Stratum:
                     "id": data.get('id'), "result": None, "error": ERROR_CODES[0]}
                 ).encode() + b'\n')
                 await writer.drain()
-                logging.debug("StratumError: {}".format(e))
+                log.debug("StratumError: {}".format(e))
             except Exception:
-                logging.error("Stratum", exc_info=True)
-        logging.info("ConnectionClosed.")
+                log.error("Stratum", exc_info=True)
+        log.info("ConnectionClosed.")
         del self.users[(reader, writer)]
         writer.close()
 
     async def _process(self, writer, data, user):
-        if F_DEEP_DEBUG: logging.debug("Input: {}".format(data))
+        if F_DEEP_DEBUG: log.debug("Input: {}".format(data))
         args = data['params']
         method_name = '_'.join(data['method'].split('.'))
         async_method = globals().get(method_name, None)
@@ -102,7 +104,7 @@ class Stratum:
         result = await async_method(*args, **kwords)
         writer.write(json.dumps({'id': data['id'], 'result': result, 'error': None}).encode() + b'\n')
         await writer.drain()
-        if F_DEEP_DEBUG: logging.debug("Output: {}".format(result))
+        if F_DEEP_DEBUG: log.debug("Output: {}".format(result))
 
 
 async def reset_difficulty():
@@ -121,7 +123,7 @@ async def reset_difficulty():
             ).encode() + b'\n')
             await writer.drain()
             count += 1
-    logging.debug("Update diff {} users.".format(count))
+    log.debug("Update diff {} users.".format(count))
 
 
 async def backend_process():
@@ -149,12 +151,12 @@ async def backend_process():
                 job_queue[job_id] = mining_block
                 params = await mining_notify(job_id, clean_jobs, mining_block)
                 await s.broadcast('mining.notify', params)
-                if F_DEEP_DEBUG: logging.debug("Notify {}".format(params))
+                if F_DEEP_DEBUG: log.debug("Notify {}".format(params))
         except Exception as e:
             import traceback
             traceback.print_exc()
-            logging.error(e)
-        logging.debug("Update new job {} height={}".format(job_id, builder.best_block.height))
+            log.error(e)
+        log.debug("Update new job {} height={}".format(job_id, builder.best_block.height))
         # notify new diff if new job
         if clean_jobs:
             await reset_difficulty()
@@ -169,9 +171,9 @@ def start_stratum(f_blocking=True):
         except KeyboardInterrupt:
             pass
         loop.close()
-        logging.info("Stratum server closed now.")
+        log.info("Stratum server closed now.")
     else:
-        logging.info("Create Stratum server.")
+        log.info("Create Stratum server.")
 
 
 def close_stratum():

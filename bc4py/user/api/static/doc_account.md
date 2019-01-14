@@ -41,7 +41,7 @@ list transactions
         {
             "txhash": "00000000000000000000000000000000000000000000000045ec03009dd522a7",
             "height": null,
-            "on_memory": false,
+            "recode_flag": "memory",
             "type": "TX_INNER",
             "movement": {
                 "@Unknown": {
@@ -56,7 +56,7 @@ list transactions
         {
             "txhash": "1f1d271207b51bb7cd5eb6a08fdf0310249b07ef20c3ef9c33875d3a7310132f",
             "height": 5227,
-            "on_memory": true,
+            "recode_flag": "memory",
             "type": "POW_REWARD",
             "movement": {
                 "@Unknown": {
@@ -68,7 +68,7 @@ list transactions
         {
             "txhash": "bb6fc3e23ee2cc6b816d5667f9074ab6115d68564b8491310743e06c77bdb122",
             "height": 5228,
-            "on_memory": true,
+            "recode_flag": "memory",
             "type": "POW_REWARD",
             "movement": {
                 "@Unknown": {
@@ -80,7 +80,7 @@ list transactions
         {
             "txhash": "e25a964be8ae41bfaec5ee3e1348e4520997a04de1891bec86a4dd1a89311857",
             "height": 5229,
-            "on_memory": true,
+            "recode_flag": "memory",
             "type": "POW_REWARD",
             "movement": {
                 "@Unknown": {
@@ -92,7 +92,7 @@ list transactions
         {
             "txhash": "04a8752e11a0d250f9ae6d1de48cf361d522fc91d64941223ac8573741cbdab1",
             "height": 5233,
-            "on_memory": true,
+            "recode_flag": "memory",
             "type": "POS_REWARD",
             "movement": {
                 "@Unknown": {
@@ -104,7 +104,7 @@ list transactions
         {
             "txhash": "61718d7a48b047380bdd15fb5714cb87143624b7e631a436c221710d015127a3",
             "height": 5236,
-            "on_memory": true,
+            "recode_flag": "memory",
             "type": "POW_REWARD",
             "movement": {
                 "@Unknown": {
@@ -116,7 +116,7 @@ list transactions
         {
             "txhash": "54bcdd3e5b3888126d0065de0b3e6db286a9c8a5f1f86c6ec2bbb21a605668d8",
             "height": 5244,
-            "on_memory": true,
+            "recode_flag": "memory",
             "type": "POW_REWARD",
             "movement": {
                 "@Unknown": {
@@ -128,7 +128,7 @@ list transactions
         {
             "txhash": "997d37dc67ed505f3dec52dc11577fd905705771991e08d5c3a2d868e0ac4433",
             "height": 5247,
-            "on_memory": true,
+            "recode_flag": "memory",
             "type": "POW_REWARD",
             "movement": {
                 "@Unknown": {
@@ -140,7 +140,7 @@ list transactions
         {
             "txhash": "a365d5129cfda174aeee086377b2c913c67944b2793bea5edd36a7dec329ab92",
             "height": 5249,
-            "on_memory": true,
+            "recode_flag": "memory",
             "type": "POW_REWARD",
             "movement": {
                 "@Unknown": {
@@ -152,7 +152,7 @@ list transactions
         {
             "txhash": "b0a284411a30db18f71960782a0ebf94512745948cbd4c6093bf6c13f103be2d",
             "height": 5264,
-            "on_memory": true,
+            "recode_flag": "memory",
             "type": "POW_REWARD",
             "movement": {
                 "@Unknown": {
@@ -171,7 +171,53 @@ list transactions
     * If `height` is null, TX is on memory.
     * null height TX is older than recode limit or unconfirmed.
 
-list unspents
+list unspents (public)
+----
+* Arguments
+    1. address   (string , required) request more than one by comma.
+    2. page      (numeric, optional, default=0)
+    3. limit     (numeric, optional, default=25) page size, maxlimit 100
+* Request example
+    * `curl -H "accept: application/json" "127.0.0.1:3000/public/listunspents?address=NCSL6UQ4PU7PDWIHCTKGNA5WYO542T2H66DEHTRI,NA3UBTHRXMW7ZSZL2UA5V2TQC2UJLYGEVXVWZVQJ"`
+* Response
+```json
+{
+    "data": [
+        {
+            "address": "NCSL6UQ4PU7PDWIHCTKGNA5WYO542T2H66DEHTRI",
+            "height": 2482,
+            "confirmed": 2842,
+            "txhash": "562b9f023ba2389b97ae76c9f2aed45bae474e67dc3c9f7e2af2f855e805e6d9",
+            "txindex": 0,
+            "coin_id": 0,
+            "amount": 55359352906
+        },
+        {
+            "address": "NA3UBTHRXMW7ZSZL2UA5V2TQC2UJLYGEVXVWZVQJ",
+            "height": 5268,
+            "confirmed": 56,
+            "txhash": "274cf71bef7b499e10d3c77d5d7ee8d49a9472e7ef0d825ddaf1d76e0968fa6f",
+            "txindex": 0,
+            "coin_id": 0,
+            "amount": 608524360733
+        },
+        {
+            "address": "NCSL6UQ4PU7PDWIHCTKGNA5WYO542T2H66DEHTRI",
+            "height": null,
+            "confirmed": null,
+            "txhash": "bae474e67dc3c9f7e2af2f855e805e6d9562b9f023ba2389b97ae76c9f2aed45",
+            "txindex": 0,
+            "coin_id": 0,
+            "amount": 1000000000
+        }
+    ],
+    "next": false
+}
+```
+* About
+    * extract data from Database->Memory->Unconfirmed
+
+list unspents (private)
 ----
 * Request example
     * `curl --basic -u user:password -H "accept: application/json" "127.0.0.1:3000/private/listunspents"`
@@ -242,6 +288,60 @@ list account address
     ]
 }
 ```
+
+lock wallet
+----
+* Request example
+    * `curl --basic -u user:password -H "accept: application/json" "127.0.0.1:3000/private/lockwallet"`
+* Response
+```json
+{"status":  true}
+```
+
+unlock wallet
+----
+* Arguments
+    1. passphrase      (string, optional, default="")  Encrypt root private key.
+    2. timeout         (numeric, optional, default=60) Auto delete inner private key, disabled by -1.
+* Request example
+    * `curl --basic -u user:password -H "accept: application/json" "127.0.0.1:3000/private/unlockwallet"`
+* Response
+```json
+{"status": true, "timeout": 60}
+```
+
+create wallet
+----
+* Arguments
+    1. passphrase      (string, optional, default="")  Encrypted by the passphrase
+    2. strength        (numeric, optional, default=12) mnemonic words number [12, 15, 18, 21, 24]
+* Request example
+    * `curl --basic -u user:password -H "accept: application/json" "127.0.0.1:3000/private/createwallet"`
+* Response
+```json
+{
+    "mnemonic": "blossom whisper daughter together gospel lava pledge pretty post valley erode ritual",
+    "encrypted": false,
+    "private_key": "xprv9s21ZrQH143K3K72TX1eLipb8bUHMC2V88QniZfWmakDtA8B4PBFNQwSEWHtLj56wczor9iwvYbXY6vGemtyjaweiv5vrcTSAX2TqGnGnAv",
+    "public_key": "xpub661MyMwAqRbcFoBVZYYehrmKgdJmkekLVMLPWx58KvHCkxTKbvVVvDFv5o8GoNsXUGcq7qcwYcs56oTPvWFtCSPfpGHYLVVCEGgLqV1D2tL"
+}
+```
+
+import private key
+----
+* Arguments
+    1. private_key      (hexstring, required)
+    2. address          (string, required)   Check with this compressedAddress
+    3. account          (string, optional, default="@Unknown")
+* Request example
+    * `curl --basic -u user:password -H "accept: application/json" -H "Content-Type: application/json" "127.0.0.1:3000/private/importprivatekey" -d "{\"private_key\": \"681e2c26d6b80eea4b8c68084549e869096ed3237b8d2aa7d687789142733156\", \"address\": \"NC6KDMR3PYPCZQPXGWGIQBLF7IBHET2Z5J7KCVSB\"}"`
+* Response
+```json
+{"status": true}
+```
+* About
+    * It takes many time.
+    * You need repair wallet after to reflect transaction history.
 
 move account balance
 ----

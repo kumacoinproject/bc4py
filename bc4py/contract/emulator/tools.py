@@ -4,9 +4,11 @@ from bc4py.database.contract import *
 from bc4py.user import Accounting
 from bc4py.user.network.sendnew import *
 from bc4py.user.txcreation.contract import create_conclude_tx, create_signed_tx_as_validator
-import logging
 from io import StringIO
 import bjson
+from logging import getLogger
+
+log = getLogger('bc4py')
 
 
 def execute(c_address, genesis_block, start_tx, c_method, redeem_address, c_args, gas_limit, f_show_log=False):
@@ -16,17 +18,17 @@ def execute(c_address, genesis_block, start_tx, c_method, redeem_address, c_args
         genesis_block=genesis_block, start_tx=start_tx, c_address=c_address,
         c_method=c_method, redeem_address=redeem_address, c_args=c_args, gas_limit=gas_limit, file=file)
     if is_success:
-        logging.info('Success gas={} line={} result={}'.format(emulate_gas, work_line, result))
+        log.info('Success gas={} line={} result={}'.format(emulate_gas, work_line, result))
         if f_show_log:
-            logging.debug("#### Start log ####")
+            log.debug("#### Start log ####")
             for data in file.getvalue().split("\n"):
-                logging.debug(data)
-            logging.debug("#### Finish log ####")
+                log.debug(data)
+            log.debug("#### Finish log ####")
     else:
-        logging.error('Failed gas={} line={} result=\n{}\nlog=\n{}'.format(
+        log.error('Failed gas={} line={} result=\n{}\nlog=\n{}'.format(
             emulate_gas, work_line, result, file.getvalue()))
     file.close()
-    logging.debug("Close file obj {}.".format(id(file)))
+    log.debug("Close file obj {}.".format(id(file)))
     return result, emulate_gas
 
 
@@ -53,19 +55,19 @@ def broadcast(c_address, start_tx, redeem_address, emulate_gas, result, f_not_se
     another_conclude_hash = get_conclude_hash_from_start(c_address=c_address, start_hash=start_tx.hash)
     if another_conclude_hash is not None:
         if another_conclude_hash == conclude_tx.hash:
-            logging.debug("Already confirmed same concludeTX.")
+            log.debug("Already confirmed same concludeTX.")
         else:
-            logging.warning("Already confirmed different concludeTX.")
+            log.warning("Already confirmed different concludeTX.")
         return None  # Already put confirmed or unconfirmed, don't need wait
     elif f_not_send:
-        logging.debug("Not broadcast, send_pairs={} c_storage={} tx={}"
+        log.debug("Not broadcast, send_pairs={} c_storage={} tx={}"
                       .format(send_pairs, c_storage, conclude_tx.getinfo()))
         return None
     elif send_newtx(new_tx=conclude_tx, exc_info=False):
-        logging.info("Broadcast success {}".format(conclude_tx))
+        log.info("Broadcast success {}".format(conclude_tx))
         return conclude_tx.hash
     else:
-        logging.error("Failed broadcast, send_pairs={} c_storage={} tx={}"
+        log.error("Failed broadcast, send_pairs={} c_storage={} tx={}"
                       .format(send_pairs, c_storage, conclude_tx.getinfo()))
         # Check already confirmed another conclude tx
         a_conclude = calc_tx_movement(
@@ -74,14 +76,14 @@ def broadcast(c_address, start_tx, redeem_address, emulate_gas, result, f_not_se
         # get another ConcludeTX again
         another_hash_again = get_conclude_hash_from_start(c_address=c_address, start_hash=start_tx.hash)
         if another_hash_again is None:
-            logging.warning("Maybe Contract execution expired.")
+            log.warning("Maybe Contract execution expired.")
             return None
         another_tx = tx_builder.get_tx(txhash=another_hash_again)
         a_another = calc_tx_movement(tx=another_tx, c_address=c_address,
                                      redeem_address=redeem_address, emulate_gas=emulate_gas)
         a_another.cleanup()
         _c_address, _start_hash, another_storage = bjson.loads(another_tx.message)
-        logging.error("Failed confirm ConcludeTX, please check params\n"
+        log.error("Failed confirm ConcludeTX, please check params\n"
                       "   AnoAccount=>{}\n   MyAccount =>{}\n"
                       "   AnoStorage=>{}\n   MyStorage =>{}\n"
                       "   AnoTX=>{}\n   MyTX =>{}\n"

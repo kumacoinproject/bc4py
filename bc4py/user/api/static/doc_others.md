@@ -30,7 +30,7 @@ Block data (public)
         "previous_hash": "30506abc7d9c702694838ee81f6727a84fcc7b05ba495a4e260e3afb072aa494",
         "next_hash": null,
         "f_orphan": null,
-        "f_on_memory": null,
+        "recode_flag": "memory",
         "height": 13257,
         "difficulty": 0.478193,
         "fixed_difficulty": 0.00304371,
@@ -75,7 +75,7 @@ Transaction data (public)
         "signature": [
             ["8a5d5754ebec76ec0cd53df3e4282f53eef71e510594bcdcb9be791b715f656d", "42a4954e205359296ae673761094e2ee88f259292b3f1ac9edfa4561dba77117a8f95edc1ca8b1dce665582e83d0853268327273289f2d4e288885263a94a20c"]
         ],
-        "f_on_memory": null
+        "recode_flag": "memory"
     },
     "status": true
 }
@@ -113,7 +113,7 @@ Validator users are required to sign **at own risk**.
             "signature": [
                 ["c24b03f8de8614da079f6005bfb23943971635794ac051a448885943de513bd8", "0cb8e616a07c5a50dec2deb65052fc05c069898d62785a55e747c177498b7cc8403b919b935a751adca40c95457a3a7a994a0cd5ffa6c47a8ed63fdf26e9b300"]
             ],
-            "f_on_memory": null
+            "recode_flag": "memory"
         },
         "related": [
             ["contract", "NA3OYCDZK5LXYGV63QYMO2KYMQNVOHUEQHC3NBLP"]
@@ -156,7 +156,7 @@ Notice validator edit tx is include to Block.
             "signature": [
                 ["c24b03f8de8614da079f6005bfb23943971635794ac051a448885943de513bd8", "0cb8e616a07c5a50dec2deb65052fc05c069898d62785a55e747c177498b7cc8403b919b935a751adca40c95457a3a7a994a0cd5ffa6c47a8ed63fdf26e9b300"]
             ],
-            "f_on_memory": true
+            "recode_flag": "memory"
         }
     },
     "status": true
@@ -196,7 +196,7 @@ Validators are required to create conclude tx.
             "signature": [
                 ["d7b8d6460502b198f9e7bf4354236f3e7662a3bdf1ee67621c4b559325a6fa6b", "2c0c768648d610d0fa9f33b844f0c71d74ba26bba35c076cff64595aeb6e1c11fe92bfa6ce94def26d513bfcda2b5f0a9566c725e8a1649bfa4f1b42c670f60c"]
             ],
-            "f_on_memory": true
+            "recode_flag": "memory"
         },
         "related": [
             ["contract", "NA3OYCDZK5LXYGV63QYMO2KYMQNVOHUEQHC3NBLP"]
@@ -244,7 +244,7 @@ Validators are required to sign **at own risk**.
             "signature": [
                 ["c24b03f8de8614da079f6005bfb23943971635794ac051a448885943de513bd8", "afc936c6d176930a9867bdef01141df321845cbf64784304959923d487d72304f64f88e6807065aef79e9fc8ed5fd52eb24fd310ee44641636b83556d965ed0f"]
             ],
-            "f_on_memory": null
+            "recode_flag": "memory"
         },
         "related": [
             ["contract", "NA3OYCDZK5LXYGV63QYMO2KYMQNVOHUEQHC3NBLP"]
@@ -289,7 +289,7 @@ Notice conclude tx is include to Block.
                 ["8b29d3fff03cd8d2e6738def5f690747f9b15f77d7ba933a02a9b13b0904e98d", "55468fa7dc108ce829e59d1d0e01c4d198cf420e3a379dd90d151aeda891fa1d595e29b119b8b2f3e01de3924047f3ce9b738b3b1b9d01552c9d1bf890ff4d05"],
                 ["c24b03f8de8614da079f6005bfb23943971635794ac051a448885943de513bd8", "afc936c6d176930a9867bdef01141df321845cbf64784304959923d487d72304f64f88e6807065aef79e9fc8ed5fd52eb24fd310ee44641636b83556d965ed0f"]
             ],
-            "f_on_memory": true
+            "recode_flag": "memory"
         }
     },
     "status": true

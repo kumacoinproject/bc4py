@@ -6,12 +6,13 @@ from bc4py.chain.utils import GompertzCurve
 from Cryptodome.Cipher import AES
 from Cryptodome import Random
 from Cryptodome.Hash import SHA256
-from base64 import b64decode, b64encode
 import multiprocessing
 import os
-from time import time
 import bjson
 import psutil
+
+
+WALLET_VERSION = 0
 
 
 def set_database_path(sub_dir=None):
@@ -23,7 +24,7 @@ def set_database_path(sub_dir=None):
         V.DB_HOME_DIR = os.path.join(V.DB_HOME_DIR, sub_dir)
         if not os.path.exists(V.DB_HOME_DIR):
             os.makedirs(V.DB_HOME_DIR)
-    V.DB_ACCOUNT_PATH = os.path.join(V.DB_HOME_DIR, 'account.dat')
+    V.DB_ACCOUNT_PATH = os.path.join(V.DB_HOME_DIR, 'wallet.ver{}.dat'.format(WALLET_VERSION))
 
 
 def set_blockchain_params(genesis_block):
@@ -41,10 +42,8 @@ def set_blockchain_params(genesis_block):
     V.COIN_DIGIT = params.get('digit_number')
     V.COIN_MINIMUM_PRICE = params.get('minimum_price')
     V.CONTRACT_MINIMUM_AMOUNT = params.get('contract_minimum_amount')
-    consensus = params.get('consensus')
-    V.BLOCK_CONSENSUSES = consensus
-    V.BLOCK_BASE_CONSENSUS = min(consensus.keys())
-    GompertzCurve.setup_params()
+    V.BLOCK_CONSENSUSES = params.get('consensus')
+    GompertzCurve.k = V.BLOCK_ALL_SUPPLY
 
 
 def delete_pid_file():
@@ -69,24 +68,14 @@ def make_pid_file():
 
 class AESCipher:
     @staticmethod
-    def create_key(seed=None):
-        if seed is None:
-            return b64encode(os.urandom(AES.block_size)).decode()
-        else:
-            key = SHA256.new(seed.encode()).digest()[:AES.block_size]
-            return b64encode(key).decode()
-
-    @staticmethod
-    def is_aes_key(key):
-        try:
-            return len(b64decode(key.encode(), validate=True)) == AES.block_size
-        except:
-            return False
+    def create_key():
+        return os.urandom(AES.block_size)
 
     @staticmethod
     def encrypt(key, raw):
-        assert type(raw) == bytes, "input data is bytes"
-        key = b64decode(key.encode())
+        assert isinstance(key, bytes)
+        assert isinstance(raw, bytes), "input data is bytes"
+        key = SHA256.new(key).digest()[:AES.block_size]
         raw = AESCipher._pad(raw)
         iv = Random.new().read(AES.block_size)
         cipher = AES.new(key, AES.MODE_CBC, iv)
@@ -94,8 +83,9 @@ class AESCipher:
 
     @staticmethod
     def decrypt(key, enc):
-        assert type(enc) == bytes, 'Encrypt data is bytes'
-        key = b64decode(key.encode())
+        assert isinstance(key, bytes)
+        assert isinstance(enc, bytes), 'Encrypt data is bytes'
+        key = SHA256.new(key).digest()[:AES.block_size]
         iv = enc[:AES.block_size]
         cipher = AES.new(key, AES.MODE_CBC, iv)
         raw = AESCipher._unpad(cipher.decrypt(enc[AES.block_size:]))
@@ -115,28 +105,10 @@ class AESCipher:
         return s[:-ord(s[len(s) - 1:])]
 
 
-class TimeWatch:
-    def __init__(self, limit=0.1):
-        self.data = [time()]
-        self.calculate = None
-        self.limit = limit
-
-    def watch(self):
-        self.data.append(time())
-
-    def calc(self):
-        # もし遅い操作があるならTrueを返す
-        self.calculate = list()
-        for i in range(len(self.data) - 1):
-            self.calculate.append(round(self.data[i + 1] - self.data[i], 3))
-        try:
-            return max(self.calculate) > self.limit
-        except ValueError:
-            return False
-
-    def show(self):
-        def to_print(data):
-            return str(data) + 'Sec'
-        if self.calculate is None:
-            self.calc()
-        return ', '.join(map(to_print, self.calculate))
+__all__ = [
+    "set_database_path",
+    "set_blockchain_params",
+    "delete_pid_file",
+    "make_pid_file",
+    "AESCipher",
+]

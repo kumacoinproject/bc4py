@@ -1,11 +1,12 @@
 from bc4py.config import V
 from nem_ed25519.key import get_address
 from nem_ed25519.signature import verify
-from binascii import hexlify, unhexlify
 from threading import Lock
 from time import time, sleep
 from pooled_multiprocessing import mp_map_async
-import logging
+from logging import getLogger
+
+log = getLogger('bc4py')
 
 
 verify_cashe = dict()  # {(pubkey, signature, txhash): address, ...}
@@ -20,11 +21,11 @@ def _verify(pubkey, signature, txhash, tx_b, prefix):
         address = get_address(pk=pubkey, prefix=prefix)
         return pubkey, signature, txhash, address
     except ValueError:
-        error = "Failed verify tx {}".format(hexlify(txhash).decode())
-        logging.debug(error)
+        error = "Failed verify tx {}".format(txhash.hex())
+        log.debug(error)
     except Exception as e:
         error = 'Signature verification error. "{}"'.format(e)
-        logging.error(error)
+        log.error(error)
     return pubkey, signature, txhash, error
 
 
@@ -34,8 +35,8 @@ def _callback(signed_list):
             for pubkey, signature, txhash, address in signed_list:
                 verify_cashe[(pubkey, signature, txhash)] = address
     except Exception as e:
-        logging.error("{}: {}".format(e, signed_list))
-    logging.debug("Callback finish {}sign".format(len(signed_list)))
+        log.error("{}: {}".format(e, signed_list))
+    log.debug("Callback finish {}sign".format(len(signed_list)))
 
 
 def _delete_cashe():
@@ -46,14 +47,14 @@ def _delete_cashe():
             if item in verify_cashe:
                 del verify_cashe[item]
                 del_num += 1
-        logging.debug("VerifyCash fleshed [{}/{}]".format(del_num, len(limit_delete_set)))
+        log.debug("VerifyCash fleshed [{}/{}]".format(del_num, len(limit_delete_set)))
         limit_delete_set.clear()
         limit_delete_set.update(verify_cashe.keys())
         limit_time = time()
 
 
 def batch_sign_cashe(txs):
-    logging.debug("Verify signature {}tx".format(len(txs)))
+    log.debug("Verify signature {}tx".format(len(txs)))
     generate_list = list()
     # list need to verify
     with lock:
@@ -71,7 +72,7 @@ def batch_sign_cashe(txs):
             verify_cashe[(pubkey, signature, txhash)] = address
         else:
             mp_map_async(_verify, generate_list, callback=_callback, prefix=V.BLOCK_PREFIX)
-            logging.debug("Put task {}sign to pool.".format(len(generate_list)))
+            log.debug("Put task {}sign to pool.".format(len(generate_list)))
 
 
 def get_signed_cks(tx):
@@ -98,7 +99,7 @@ def get_signed_cks(tx):
                     failed -= 1
                     continue
                 elif len(signed_cks) < len(tx.signature):
-                    logging.debug('Cannot get all signature, throw task. signed={}, include={}'
+                    log.debug('Cannot get all signature, throw task. signed={}, include={}'
                                     .format(signed_cks, len(tx.signature)))
                     batch_sign_cashe([tx])
                     failed -= 1
@@ -123,7 +124,7 @@ def delete_signed_cashe(txhash_set):
                 del verify_cashe[pair]
                 want_delete_num += 1
     if want_delete_num > 0:
-        logging.debug("VerifyCash delete [{}/{}]".format(want_delete_num, len(verify_cashe)))
+        log.debug("VerifyCash delete [{}/{}]".format(want_delete_num, len(verify_cashe)))
     if limit_time < time() - 10800:
         _delete_cashe()
 

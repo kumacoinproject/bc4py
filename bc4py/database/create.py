@@ -5,8 +5,10 @@ from bc4py.config import C, V
 import sqlite3
 from contextlib import closing
 import re
-import logging
 from time import time
+from logging import getLogger
+
+log = getLogger('bc4py')
 
 
 def create_db(path, f_debug=False, f_on_memory=False, f_wal_mode=False):
@@ -31,7 +33,7 @@ def create_db(path, f_debug=False, f_on_memory=False, f_wal_mode=False):
 
 def sql_info(data):
     # db.set_trace_callback()に最適
-    logging.debug("SQL: {} {}".format(round(time()-V.BLOCK_GENESIS_TIME, 4), re.sub(r"\s+", " ", data)))
+    log.debug("SQL: {} {}".format(round(time()-V.BLOCK_GENESIS_TIME, 4), re.sub(r"\s+", " ", data)))
 
 
 def make_account_db():
@@ -57,10 +59,11 @@ def make_account_db():
         db.execute("""
             CREATE TABLE IF NOT EXISTS `pool` (
             `id` INTEGER PRIMARY KEY,
-            `sk` BINARY NOT NULL,
-            `pk` BINARY NOT NULL,
-            `ck` TEXT NOT NULL,
+            `sk` BINARY,
+            `ck` TEXT UNIQUE NOT NULL,
             `user` INTEGER NOT NULL,
+            `is_inner` INTEGER,
+            `index` INTEGER,
             `time` INTEGER NOT NULL
         )""")
         # index
@@ -79,3 +82,7 @@ def make_account_db():
             (C.ANT_CONTRACT, C.ANT_NAME_CONTRACT, "Contract bind address.", 0)]
         db.executemany("INSERT OR IGNORE INTO `account` VALUES (?,?,?,?)", accounts)
         db.commit()
+
+
+# add last_index to account
+# "ALTER TABLE `account` ADD COLUMN 'last_index' INTEGER NOT NULL AFTER `description`"

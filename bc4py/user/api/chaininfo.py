@@ -2,7 +2,7 @@ from bc4py.user.api import web_base
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.mintcoin import get_mintcoin_object
 from aiohttp import web
-from binascii import hexlify, unhexlify
+from binascii import a2b_hex
 import pickle
 from base64 import b64encode
 
@@ -22,7 +22,7 @@ async def get_block_by_height(request):
         return web_base.json_res(b64encode(block).decode())
     data = block.getinfo()
     data['size'] = block.getsize()
-    data['hex'] = hexlify(block.b).decode()
+    data['hex'] = block.b.hex()
     return web_base.json_res(data)
 
 
@@ -32,7 +32,7 @@ async def get_block_by_hash(request):
         blockhash = request.query.get('hash')
         if blockhash is None:
             return web.Response(text="Not found height.", status=400)
-        blockhash = unhexlify(blockhash.encode())
+        blockhash = a2b_hex(blockhash)
         block = builder.get_block(blockhash)
         if block is None:
             return web.Response(text="Not found block.", status=400)
@@ -41,7 +41,7 @@ async def get_block_by_hash(request):
             return web_base.json_res(b64encode(block).decode())
         data = block.getinfo()
         data['size'] = block.getsize()
-        data['hex'] = hexlify(block.b).decode()
+        data['hex'] = block.b.hex()
         return web_base.json_res(data)
     except Exception as e:
         return web_base.error_res()
@@ -51,7 +51,7 @@ async def get_tx_by_hash(request):
     try:
         f_pickled = request.query.get('pickle', False)
         txhash = request.query.get('hash')
-        txhash = unhexlify(txhash.encode())
+        txhash = a2b_hex(txhash)
         tx = tx_builder.get_tx(txhash)
         if tx is None:
             return web.Response(text="Not found tx.", status=400)
@@ -61,8 +61,8 @@ async def get_tx_by_hash(request):
         data = tx.getinfo()
         data['size'] = tx.size
         data['total_size'] = tx.size + len(tx.signature) * 96
-        data['hex'] = hexlify(tx.b).decode()
-        data['signature'] = [(pubkey, hexlify(sign).decode()) for pubkey, sign in tx.signature]
+        data['hex'] = tx.b.hex()
+        data['signature'] = [(pubkey, sign.hex()) for pubkey, sign in tx.signature]
         return web_base.json_res(data)
     except Exception as e:
         return web_base.error_res()
@@ -84,7 +84,7 @@ async def get_mintcoin_history(request):
         for index, txhash, params, setting in builder.db.read_coins_iter(coin_id=mint_id):
             data.append({
                 'index': index,
-                'txhash': hexlify(txhash).decode(),
+                'txhash': txhash.hex(),
                 'params': params,
                 'setting': setting})
         return web_base.json_res(data)

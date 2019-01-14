@@ -5,12 +5,14 @@ from bc4py.contract.serializer import *
 from bc4py.contract.basiclib import __price__, config
 from bc4py.contract import rpdb
 from multiprocessing import get_context
-import logging
 import socket
 import traceback
 from time import time
 import os
 import bdb
+from logging import getLogger
+
+log = getLogger('bc4py')
 
 # inner commands
 CMD_ERROR = 'CMD_ERROR'
@@ -84,15 +86,15 @@ def emulate(genesis_block, start_tx, c_address, c_method,
                   c_address=c_address, c_method=c_method, redeem_address=redeem_address, c_args=c_args)
     p = cxt.Process(target=_vm, kwargs=kwargs)
     p.start()
-    logging.debug('wait for notify of listen port.')
+    log.debug('wait for notify of listen port.')
     cmd, port = que.get(timeout=10)
     if cmd != CMD_PORT:
         raise Exception('Not correct command="{}" data="{}"'.format(cmd, port))
-    logging.debug("Communication port={}.".format(port))
+    log.debug("Communication port={}.".format(port))
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect(("127.0.0.1", port))
     sock.settimeout(10)
-    logging.debug('Start emulation of {}'.format(start_tx))
+    log.debug('Start emulation of {}'.format(start_tx))
     work_line = total_gas = code_depth = 0
     cmd, error = EMU_STEP, None
     data = b''
@@ -177,7 +179,7 @@ def emulate(genesis_block, start_tx, c_address, c_method,
     sock.send((EMU_QUIT + "\n").encode())
     sock.close()
     # Close emulation
-    logging.debug("Finish {}Sec error:\"{}\"".format(round(time()-start, 3), error))
+    log.debug("Finish {}Sec error:\"{}\"".format(round(time()-start, 3), error))
     try:
         cmd, result = que.get(timeout=10)
         # close connect

@@ -10,6 +10,10 @@ pysha3
 xmltodict
 requests
 more_itertools
-pooled_multiprocessing>=0.0.7
+pooled_multiprocessing>=0.0.9
 expiringdict
-phe
+phe  # paillier
+rx  # ReactiveX
+bip32nem
+mnemonic
+msgpack>=0.5.6
