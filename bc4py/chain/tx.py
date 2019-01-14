@@ -4,9 +4,11 @@
 from bc4py import __chain_version__
 from bc4py.config import C, V, BlockChainError
 from hashlib import sha256
+from collections import OrderedDict
 from time import time
 import struct
-from collections import OrderedDict
+import msgpack
+import json
 
 
 struct_tx_header = struct.Struct('<IIIIQqBBBI')
@@ -145,6 +147,22 @@ class TX:
         r['recode_flag'] = self.recode_flag
         r['create_time'] = self.create_time
         return r
+
+    def encoded_message(self):
+        if self.message_type == C.MSG_NONE:
+            return None
+        elif self.message_type == C.MSG_PLAIN:
+            return self.message.decode()
+        elif self.message_type == C.MSG_BYTE:
+            return self.message.hex()
+        elif self.message_type == C.MSG_JSON:
+            return json.loads(self.message)
+        elif self.message_type == C.MSG_MSGPACK:
+            return msgpack.unpackb(self.message, encoding='utf8')
+        elif self.message_type == C.MSG_HASHLOCKED:
+            return self.message.hex()
+        else:
+            raise BlockChainError('Unknown message type {}'.format(self.message_type))
 
     @property
     def size(self):
