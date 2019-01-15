@@ -35,7 +35,8 @@ def check_new_tx(tx: TX):
         if related_list:
             data = (time(), tx, related_list, c_address, start_hash, c_storage)
             watching_tx[tx.hash] = data
-            stream.on_next((C_Conclude, False, data))
+            if not stream.is_disposed:
+                stream.on_next((C_Conclude, False, data))
     elif tx.type == C.TX_VALIDATOR_EDIT:
         # 十分な署名が集まったら消す
         c_address, new_address, flag, sig_diff = bjson.loads(tx.message)
@@ -44,7 +45,8 @@ def check_new_tx(tx: TX):
         if related_list:
             data = (time(), tx, related_list, c_address, new_address, flag, sig_diff)
             watching_tx[tx.hash] = data
-            stream.on_next((C_Validator, False, data))
+            if not stream.is_disposed:
+                stream.on_next((C_Validator, False, data))
     else:
         pass
 
@@ -64,7 +66,8 @@ def check_new_block(block: Block):
             if related_list:
                 data = (time(), tx, related_list, c_address, c_method, redeem_address, c_args)
                 watching_tx[tx.hash] = data
-                stream.on_next((C_RequestConclude, False, data))
+                if not stream.is_disposed:
+                    stream.on_next((C_RequestConclude, False, data))
         elif tx.type == C.TX_CONCLUDE_CONTRACT:
             if tx.hash in watching_tx:
                 # try to delete c_transfer_tx and conclude_tx
@@ -73,12 +76,14 @@ def check_new_block(block: Block):
                     del watching_tx[start_hash]
                 del watching_tx[tx.hash]
             data = (time(), tx)
-            stream.on_next((C_FinishConclude, False, data))
+            if not stream.is_disposed:
+                stream.on_next((C_FinishConclude, False, data))
         elif tx.type == C.TX_VALIDATOR_EDIT:
             if tx.hash in watching_tx:
                 del watching_tx[tx.hash]
             data = (time(), tx)
-            stream.on_next((C_FinishValidator, False, data))
+            if not stream.is_disposed:
+                stream.on_next((C_FinishValidator, False, data))
         else:
             pass
 

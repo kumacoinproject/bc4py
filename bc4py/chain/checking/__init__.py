@@ -37,7 +37,8 @@ def new_insert_block(block, time_check=False):
             for del_block in batched_blocks:
                 delete_txhash_set.update({tx.hash for tx in del_block.txs})
             delete_signed_cashe(delete_txhash_set)
-            stream.on_next(block)
+            if not stream.is_disposed:
+                stream.on_next(block)
             log.info("check success {}Sec {}.".format(round(time()-t, 3), block))
             return True
         except BlockChainError as e:

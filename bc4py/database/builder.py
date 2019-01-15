@@ -828,7 +828,8 @@ class TransactionBuilder:
             log.debug('Already chained tx. {}'.format(tx))
             return
         user_account.affect_new_tx(tx, outer_cur)
-        stream.on_next(tx)
+        if not stream.is_disposed:
+            stream.on_next(tx)
 
     def marge_signature(self, tx):
         # try to marge signature
@@ -851,7 +852,8 @@ class TransactionBuilder:
             # new pre-unconfirmed tx
             tx.recode_flag = 'pre-unconfirmed'
             self.pre_unconfirmed[tx.hash] = tx
-            stream.on_next(tx)
+            if not stream.is_disposed:
+                stream.on_next(tx)
             log.info("Insert pre-unconfirmed TX")
 
     def get_tx(self, txhash, default=None):
