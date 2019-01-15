@@ -72,7 +72,7 @@ def create_bootstrap_file():
         fp.truncate(0)
         for height, blockhash in builder.db.read_block_hash_iter(start_height=1):
             block = builder.get_block(blockhash=blockhash)
-            msgpack.dump(block, fp)
+            msgpack.dump((block, block.work_hash, block.bias), fp)
             if block.height % 5000 == 0:
                 print("Recode block height {} {}Sec".format(block.height, round(time()-s)))
     log.info("create new bootstrap.dat finished, last={} {}Minutes".format(block, (time()-s)//60))
@@ -87,7 +87,9 @@ def load_bootstrap_file(boot_path=None):
     s = time()
     with open(boot_path, mode='br') as fp:
         block = None
-        for block in msgpack.stream_unpacker(fp):
+        for block, work_hash, _bias in msgpack.stream_unpacker(fp):
+            block.work_hash = work_hash
+            block._bias = _bias
             for tx in block.txs:
                 tx.height = None
                 if tx.type in (C.TX_POW_REWARD, C.TX_POS_REWARD):
