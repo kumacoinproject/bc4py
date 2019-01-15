@@ -10,6 +10,7 @@ from bc4py.user.api import create_rest_server
 from bc4py.contract.emulator.watching import start_contract_watch
 from bc4py.database.create import make_account_db
 from bc4py.database.builder import builder
+from bc4py.chain.msgpack import default_hook, object_hook
 from pooled_multiprocessing import cpu_num, add_pool_process
 from p2p_python.utils import setup_p2p_params
 from p2p_python.client import PeerClient
@@ -28,7 +29,7 @@ def work(port, sub_dir=None):
 
     # P2P network setup
     setup_p2p_params(network_ver=network_ver, p2p_port=port, sub_dir=sub_dir)
-    pc = PeerClient()
+    pc = PeerClient(default_hook=default_hook, object_hook=object_hook)
     pc.event.addevent(cmd=DirectCmd.BEST_INFO, f=DirectCmd.best_info)
     pc.event.addevent(cmd=DirectCmd.BLOCK_BY_HEIGHT, f=DirectCmd.block_by_height)
     pc.event.addevent(cmd=DirectCmd.BLOCK_BY_HASH, f=DirectCmd.block_by_hash)

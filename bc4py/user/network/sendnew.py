@@ -28,16 +28,16 @@ def mined_newblock(que, pc):
             else:
                 update_mining_staking_all_info()
                 continue
-            proof = new_block.txs[0]
-            others = [tx.hash for tx in new_block.txs]
+            proof_tx = new_block.txs[0]
+            txs_hash_list = [tx.hash for tx in new_block.txs]
             data = {
                 'cmd': BroadcastCmd.NEW_BLOCK,
                 'data': {
-                    'block': new_block.b,
-                    'txs': others,
-                    'proof': proof.b,
+                    'binary': new_block.b,
+                    'txs': txs_hash_list,
+                    'proof': proof_tx,
                     'block_flag': new_block.flag,
-                    'sign': proof.signature}
+                }
             }
             try:
                 pc.send_command(cmd=ClientCmd.BROADCAST, data=data)
@@ -65,9 +65,7 @@ def send_newtx(new_tx, outer_cur=None, exc_info=True):
         check_tx(new_tx, include_block=None)
         data = {
             'cmd': BroadcastCmd.NEW_TX,
-            'data': {
-                'tx': new_tx.b,
-                'sign': new_tx.signature}}
+            'data': {'tx': new_tx}}
         V.PC_OBJ.send_command(cmd=ClientCmd.BROADCAST, data=data)
         if new_tx.type in (C.TX_VALIDATOR_EDIT, C.TX_CONCLUDE_CONTRACT):
             tx_builder.marge_signature(tx=new_tx)

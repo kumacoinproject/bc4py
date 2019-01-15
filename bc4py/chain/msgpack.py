@@ -3,14 +3,14 @@ from bc4py.chain.tx import TX
 import msgpack
 
 
-def default(obj):
+def default_hook(obj):
     if isinstance(obj, Block):
         return {
             '_bc4py_class_': 'Block',
             'binary': obj.b,
             'height': obj.height,
             'flag': obj.flag,
-            'txs': [default(tx) for tx in obj.txs]}
+            'txs': [default_hook(tx) for tx in obj.txs]}
     if isinstance(obj, TX):
         return {
             '_bc4py_class_': 'TX',
@@ -34,7 +34,7 @@ def object_hook(dct):
         elif dct['_bc4py_class_'] == 'TX':
             tx = TX.from_binary(binary=dct['binary'])
             tx.height = dct['height']
-            tx.signature.extend((pubkey, signature) for pubkey, signature in dct['signature'])
+            tx.signature.extend(tuple(signature) for signature in dct['signature'])
             tx.R = dct['R']
             return tx
         else:
@@ -44,23 +44,19 @@ def object_hook(dct):
 
 
 def dump(obj, fp, **kwargs):
-    msgpack.pack(obj, fp, use_bin_type=True, default=default, **kwargs)
-    # json.dump(obj, fp, default=default, **kwargs)
+    msgpack.pack(obj, fp, use_bin_type=True, default=default_hook, **kwargs)
 
 
 def dumps(obj, **kwargs):
-    return msgpack.packb(obj, use_bin_type=True, default=default, **kwargs)
-    # return json.dumps(obj, default=default, **kwargs)
+    return msgpack.packb(obj, use_bin_type=True, default=default_hook, **kwargs)
 
 
 def load(fp):
     return msgpack.unpack(fp, object_hook=object_hook, encoding='utf8')
-    # return json.load(fp, object_hook=object_hook)
 
 
 def loads(b):
     return msgpack.unpackb(b, object_hook=object_hook, encoding='utf8')
-    # return json.loads(s, object_hook=object_hook)
 
 
 def stream_unpacker(fp):
@@ -68,6 +64,8 @@ def stream_unpacker(fp):
 
 
 __all__ = [
+    "default_hook",
+    "object_hook",
     "dump",
     "dumps",
     "load",

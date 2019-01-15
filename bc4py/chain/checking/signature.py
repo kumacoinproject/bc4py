@@ -55,6 +55,9 @@ def _delete_cashe():
 
 def batch_sign_cashe(txs):
     log.debug("Verify signature {}tx".format(len(txs)))
+    for tx in txs:
+        for sign in tx.signature:
+            assert isinstance(sign, tuple), tx.getinfo()
     generate_list = list()
     # list need to verify
     with lock:

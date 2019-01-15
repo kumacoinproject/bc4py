@@ -13,6 +13,7 @@ from bc4py.contract.emulator import start_emulators, Emulate
 from bc4py.contract.emulator.watching import start_contract_watch
 from bc4py.database.create import make_account_db
 from bc4py.database.builder import builder
+from bc4py.chain.msgpack import default_hook, object_hook
 from bc4py.chain.workhash import start_work_hash, close_work_hash
 from pooled_multiprocessing import cpu_num, add_pool_process
 from p2p_python.utils import setup_p2p_params
@@ -48,7 +49,7 @@ def work(port, sub_dir):
 
     # P2P network setup
     setup_p2p_params(network_ver=network_ver, p2p_port=port, sub_dir=sub_dir)
-    pc = PeerClient(f_local=True)
+    pc = PeerClient(f_local=True, default_hook=default_hook, object_hook=object_hook)
     pc.event.addevent(cmd=DirectCmd.BEST_INFO, f=DirectCmd.best_info)
     pc.event.addevent(cmd=DirectCmd.BLOCK_BY_HEIGHT, f=DirectCmd.block_by_height)
     pc.event.addevent(cmd=DirectCmd.BLOCK_BY_HASH, f=DirectCmd.block_by_hash)
@@ -91,16 +92,16 @@ def work(port, sub_dir):
     # Debug.F_SHOW_DIFFICULTY = True
     # Debug.F_STICKY_TX_REJECTION = False  # for debug
     if port % 3 == 0:
-        Generate(consensus=C.BLOCK_YES_POW, power_limit=0.01).start()
+        Generate(consensus=C.BLOCK_YES_POW, power_limit=0.03).start()
     if port % 3 == 1:
-        Generate(consensus=C.BLOCK_HMQ_POW, power_limit=0.01).start()
+        Generate(consensus=C.BLOCK_HMQ_POW, power_limit=0.03).start()
     if port % 3 == 2:
-        Generate(consensus=C.BLOCK_X11_POW, power_limit=0.01).start()
+        Generate(consensus=C.BLOCK_X11_POW, power_limit=0.03).start()
     Generate(consensus=C.BLOCK_POS, power_limit=0.3).start()
     # Contract watcher
     start_contract_watch()
     # Emulate(c_address='CJ4QZ7FDEH5J7B2O3OLPASBHAFEDP6I7UKI2YMKF')
-    Emulate(c_address='CLBKXHOTXTLK3FENVTCH6YPM5MFZS4BNAXFYNWBD')
+    # Emulate(c_address='CLBKXHOTXTLK3FENVTCH6YPM5MFZS4BNAXFYNWBD')
     start_emulators(genesis_block)
     # Stratum
     # Stratum(port=port+2000, consensus=C.BLOCK_HMQ_POW, first_difficulty=4)

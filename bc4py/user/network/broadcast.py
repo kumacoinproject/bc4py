@@ -47,8 +47,7 @@ class BroadcastCmd:
     @staticmethod
     def new_tx(data):
         try:
-            new_tx = TX.from_binary(binary=data['tx'])
-            new_tx.signature = data['sign']
+            new_tx: TX = data['tx']
             check_tx_time(new_tx)
             check_tx(tx=new_tx, include_block=None)
             if new_tx.type in (C.TX_VALIDATOR_EDIT, C.TX_CONCLUDE_CONTRACT):
@@ -69,12 +68,11 @@ class BroadcastCmd:
 
 
 def fill_newblock_info(data):
-    new_block = Block.from_binary(binary=data['block'])
+    new_block = Block.from_binary(binary=data['binary'])
     log.debug("Fill newblock={}".format(new_block.hash.hex()))
-    proof = TX.from_binary(binary=data['proof'])
+    proof: TX = data['proof']
     new_block.txs.append(proof)
     new_block.flag = data['block_flag']
-    proof.signature = data['sign']
     # Check the block is correct info
     if not new_block.pow_check():
         raise BlockChainError('Proof of work is not satisfied.')
@@ -104,8 +102,8 @@ def fill_newblock_info(data):
             r = ask_node(cmd=DirectCmd.TX_BY_HASH, data={'txhash': txhash}, f_continue_asking=True)
             if isinstance(r, str):
                 raise BlockChainError('Failed unknown tx download "{}"'.format(r))
-            tx = TX.from_binary(binary=r['tx'])
-            tx.signature = r['sign']
+            tx: TX = r
+            tx.height = None
             check_tx(tx, include_block=None)
             tx_builder.put_unconfirmed(tx)
             log.debug("Success unknown tx download {}".format(tx))
@@ -140,15 +138,12 @@ def make_block_by_node(blockhash):
     r = ask_node(cmd=DirectCmd.BLOCK_BY_HASH, data={'blockhash': blockhash})
     if isinstance(r, str):
         raise BlockChainError('make_block_by_node() failed, by "{}"'.format(blockhash.hex(), r))
-    block = Block.from_binary(binary=r['block'])
-    block.flag = r['flag']
+    block: Block = r
     before_block = builder.get_block(blockhash=block.previous_hash)
     if before_block is None:
         raise BlockChainError('Not found BeforeBeforeBlock {}'.format(block.previous_hash.hex()))
-    block.height = before_block.height + 1
-    for tx in r['txs']:
-        _tx = TX.from_binary(binary=tx['tx'])
-        _tx.height = block.height
-        _tx.signature = tx['sign']
-        block.txs.append(_tx)
+    height = before_block.height + 1
+    block.height = height
+    for tx in block.txs:
+        tx.height = height
     return block

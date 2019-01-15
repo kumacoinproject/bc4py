@@ -59,20 +59,12 @@ def put_to_block_stack(r, before_waiter):
     """ Get next blocks """
     block_tmp = dict()
     batch_txs = list()
-    for block_b, block_height, block_flag, txs in r:
-        block = Block.from_binary(binary=block_b)
-        block.height = block_height
-        block.flag = block_flag
-        for tx_b, tx_signature in txs:
-            tx = TX.from_binary(binary=tx_b)
-            tx.height = None
-            tx.signature = tx_signature
+    for block in r:
+        for index, tx in enumerate(block.txs):
             tx_from_database = tx_builder.get_tx(txhash=tx.hash)
             if tx_from_database:
-                block.txs.append(tx_from_database)
-            else:
-                block.txs.append(tx)
-        block_tmp[block_height] = block
+                block.txs[index] = tx_from_database
+        block_tmp[block.height] = block
         batch_txs.extend(block.txs)
     # check
     if len(block_tmp) == 0:
@@ -92,11 +84,8 @@ def fill_block_stack(before_waiter):
     r = ask_node(cmd=DirectCmd.BIG_BLOCKS, data={'height': height}, f_continue_asking=True)
     if isinstance(r, str):
         log.debug("NewBLockGetError:{}".format(r))
-    elif isinstance(r, list):
-        return put_to_block_stack(r, before_waiter)
     else:
-        log.debug("Not correct format BIG_BLOCKS.")
-    return None
+        return put_to_block_stack(r, before_waiter)
 
 
 def background_process():
@@ -160,7 +149,7 @@ def fast_sync_chain():
                     index_height = before_block.height + 1
                     failed_num += 1
                     continue
-                elif isinstance(r, list):
+                else:
                     waiter = Waiter(0)
                     waiter.set()
                     waiter = put_to_block_stack(r, waiter)
@@ -169,10 +158,6 @@ def fast_sync_chain():
                     else:
                         waiter.wait()
                         continue
-                else:
-                    failed_num += 1
-                    log.debug("Not correct format BIG_BLOCKS.")
-                    continue
         # Base check
         base_check_failed_msg = None
         if before_block.hash != new_block.previous_hash:
@@ -213,6 +198,7 @@ def fast_sync_chain():
                 for tx in new_block.txs:
                     if tx.type in (C.TX_POS_REWARD, C.TX_POW_REWARD):
                         continue
+                    tx.height = None
                     check_tx(tx=tx, include_block=None)
                     tx_builder.put_unconfirmed(tx=tx, outer_cur=cur)
                 db.commit()
@@ -245,8 +231,11 @@ def fast_sync_chain():
             continue
         try:
             r = ask_node(cmd=DirectCmd.TX_BY_HASH, data={'txhash': txhash}, f_continue_asking=True)
-            tx = TX.from_binary(binary=r['tx'])
-            tx.signature = r['sign']
+            if isinstance(r, str):
+                log.warning('Cannot load unconfirmed tx by "{}"'.format(e))
+                continue
+            tx: TX = r
+            tx.height = None
             unconfirmed_txs.append(tx)
         except BlockChainError as e:
             log.debug("1: Failed get unconfirmed {} '{}'".format(txhash.hex(), e))
