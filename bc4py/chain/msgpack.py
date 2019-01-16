@@ -52,15 +52,15 @@ def dumps(obj, **kwargs):
 
 
 def load(fp):
-    return msgpack.unpack(fp, object_hook=object_hook, encoding='utf8')
+    return msgpack.unpack(fp, object_hook=object_hook, raw=True, encoding='utf8')
 
 
 def loads(b):
-    return msgpack.unpackb(b, object_hook=object_hook, encoding='utf8')
+    return msgpack.unpackb(b, object_hook=object_hook, raw=True, encoding='utf8')
 
 
 def stream_unpacker(fp):
-    return msgpack.Unpacker(fp, object_hook=object_hook, encoding='utf8')
+    return msgpack.Unpacker(fp, object_hook=object_hook, raw=True, encoding='utf8')
 
 
 __all__ = [
