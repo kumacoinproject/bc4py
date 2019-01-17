@@ -28,8 +28,8 @@ def copy_boot(port):
     if port == 2000:
         return
     else:
-        original = os.path.join(os.path.split(V.DB_HOME_DIR)[0], '2000', 'boot.dat')
-    destination = os.path.join(V.DB_HOME_DIR, 'boot.dat')
+        original = os.path.join(os.path.split(V.DB_HOME_DIR)[0], '2000', 'boot.json')
+    destination = os.path.join(V.DB_HOME_DIR, 'boot.json')
     if original == destination:
         return
     with open(original, mode='br') as ifp:

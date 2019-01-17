@@ -10,7 +10,7 @@ from bc4py.database.create import closing, create_db
 from bc4py.database.account import create_new_user_keypair
 from nem_ed25519.key import convert_address
 from time import time
-import bjson
+import msgpack
 from more_itertools import chunked
 
 
@@ -90,8 +90,8 @@ def create_genesis_block(all_supply, block_span, prefix=b'\x98', contract_prefix
         'outputs': list(),
         'gas_price': 0,
         'gas_amount': 0,
-        'message_type': C.MSG_BYTE,
-        'message': bjson.dumps(params, compress=False)})
+        'message_type': C.MSG_MSGPACK,
+        'message': msgpack.packb(params, use_bin_type=True)})
     setting_tx.height = 0
     # height0のBlock生成
     genesis_block = Block.from_dict(block={

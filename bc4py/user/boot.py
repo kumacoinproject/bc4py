@@ -6,56 +6,61 @@ from bc4py.utils import AESCipher
 from bc4py.database.create import closing, create_db
 from bc4py.database.builder import builder, tx_builder
 from bc4py.chain.checking import new_insert_block
-import os
-import bjson
-import random
-from base64 import b64decode, b64encode
+from random import randint
+from binascii import a2b_hex
 from mnemonic import Mnemonic
 from bip32nem import BIP32Key, BIP32_HARDEN
 from threading import Thread
 from time import time, sleep
-import json
 from logging import getLogger
+import json
+import os
+
 
 log = getLogger('bc4py')
 
 
-def create_boot_file(genesis_block, network_ver=None, connections=None):
-    network_ver = network_ver or random.randint(1000000, 0xffffffff)
-    assert isinstance(network_ver, int) and abs(network_ver) <= 0xffffffff, 'network_ver is int <=0xffffffff.'
+def create_boot_file(genesis_block, network_ver=None, connections=()):
+    network_ver = network_ver or randint(0x0, 0xffffffff)
+    assert isinstance(network_ver, int) and 0x0 <= network_ver <= 0xffffffff
     data = {
-        'block': genesis_block.b,
-        'txs': [tx.b for tx in genesis_block.txs],
-        'connections': connections or list(),
-        'network_ver': network_ver}
-    boot_path = os.path.join(V.DB_HOME_DIR, 'boot.dat')
-    data = b64encode(bjson.dumps(data))
-    with open(boot_path, mode='bw') as fp:
-        while len(data) > 0:
-            write, data = data[:60], data[60:]
-            fp.write(write+b'\n')
-    log.info("create new boot.dat!")
+        'genesis_hash': genesis_block.hash.hex(),
+        'genesis_binary': genesis_block.b.hex(),
+        'txs': [{
+            'hash': tx.hash.hex(),
+            'binary': tx.b.hex()
+        } for tx in genesis_block.txs],
+        'connections': connections,
+        'network_ver': network_ver
+    }
+    boot_path = os.path.join(V.DB_HOME_DIR, 'boot.json')
+    with open(boot_path, mode='w') as fp:
+        json.dump(data, fp, indent=4)
+    log.info("create new boot.json!")
 
 
 def load_boot_file():
-    normal_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'boot.dat')
-    extra_path = os.path.join(V.DB_HOME_DIR, 'boot.dat')
+    normal_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'boot.json')
+    extra_path = os.path.join(V.DB_HOME_DIR, 'boot.json')
     if os.path.exists(normal_path):
-        with open(normal_path, mode='br') as fp:
-            data = bjson.loads(b64decode(fp.read().replace(b'\n', b'').replace(b'\r', b'')))
+        with open(normal_path, mode='r') as fp:
+            data = json.load(fp)
     elif os.path.exists(extra_path):
-        with open(extra_path, mode='br') as fp:
-            data = bjson.loads(b64decode(fp.read().replace(b'\n', b'').replace(b'\r', b'')))
+        with open(extra_path, mode='r') as fp:
+            data = json.load(fp)
     else:
-        raise FileNotFoundError('Cannot find boot.dat "{}" or "{}" ?'.format(normal_path, extra_path))
-    genesis_block = Block.from_binary(binary=data['block'])
+        raise FileNotFoundError('Cannot find boot.json "{}" or "{}" ?'.format(normal_path, extra_path))
+    # load from exist boot.json
+    genesis_block = Block.from_binary(binary=a2b_hex(data['genesis_binary']))
+    assert genesis_block.hash == a2b_hex(data['genesis_hash'])
     genesis_block.flag = C.BLOCK_GENESIS
     genesis_block.height = 0
-    for b_tx in data['txs']:
-        tx = TX.from_binary(binary=b_tx)
+    for tx_dct in data['txs']:
+        tx = TX.from_binary(binary=a2b_hex(tx_dct['binary']))
+        assert tx.hash == a2b_hex(tx_dct['hash'])
         tx.height = 0
         genesis_block.txs.append(tx)
-    connections = data.get('connections', list())
+    connections = data['connections']
     network_ver = data['network_ver']
     return genesis_block, network_ver, connections
 

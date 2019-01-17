@@ -8,7 +8,6 @@ from Cryptodome import Random
 from Cryptodome.Hash import SHA256
 import multiprocessing
 import os
-import bjson
 import psutil
 
 
@@ -30,7 +29,8 @@ def set_database_path(sub_dir=None):
 def set_blockchain_params(genesis_block):
     assert 'spawn' in multiprocessing.get_all_start_methods(), 'Not found spawn method.'
     setting_tx = genesis_block.txs[0]
-    params = bjson.loads(setting_tx.message)
+    assert setting_tx.message_type == C.MSG_MSGPACK
+    params = setting_tx.encoded_message()
     V.BLOCK_GENESIS_HASH = genesis_block.hash
     V.BLOCK_PREFIX = params.get('prefix')
     V.BLOCK_CONTRACT_PREFIX = params.get('contract_prefix')

@@ -158,7 +158,7 @@ class TX:
         elif self.message_type == C.MSG_JSON:
             return json.loads(self.message)
         elif self.message_type == C.MSG_MSGPACK:
-            return msgpack.unpackb(self.message, encoding='utf8')
+            return msgpack.unpackb(self.message, raw=True, encoding='utf8')
         elif self.message_type == C.MSG_HASHLOCKED:
             return self.message.hex()
         else:

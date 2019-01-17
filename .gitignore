@@ -1,6 +1,6 @@
 __pycache__/
 *.log
-bc4py/user/boot.dat
+bc4py/user/boot.json
 
 ### Vim ###
 # Swap
