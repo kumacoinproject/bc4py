@@ -3,8 +3,8 @@ from bc4py.database.builder import builder, tx_builder
 from collections import OrderedDict
 from threading import Lock
 from copy import deepcopy
-import bjson
 from logging import getLogger
+import msgpack
 
 log = getLogger('bc4py')
 
@@ -67,14 +67,14 @@ class Validator:
         return d
 
 
-def decode(msg):
+def decode(b):
     # [c_address]-[new_address]-[flag]-[sig_diff]
-    return bjson.loads(msg)
+    return msgpack.unpackb(b, raw=True, encoding='utf8')
 
 
 def encode(*args):
     assert len(args) == 4
-    return bjson.dumps(args, compress=False)
+    return msgpack.packb(args, use_bin_type=True)
 
 
 def validator_fill_iter(v: Validator, best_block=None, best_chain=None):

@@ -5,7 +5,6 @@ from bc4py.database.validator import get_validator_object, validator_tx2index
 from bc4py.database.contract import get_contract_object, start_tx2index
 from bc4py.contract.emulator.watching import watching_tx
 from binascii import a2b_hex
-import bjson
 import pickle
 from base64 import b64encode
 from logging import getLogger
@@ -65,11 +64,11 @@ async def get_contract_history(request):
             for tx in block.txs:
                 if tx.type != C.TX_CONCLUDE_CONTRACT:
                     continue
-                _c_address, start_hash, c_storage = bjson.loads(tx.message)
+                _c_address, start_hash, c_storage = tx.encoded_message()
                 if _c_address != c_address:
                     continue
                 start_tx = tx_builder.get_tx(txhash=start_hash)
-                dummy, c_method, redeem_address, c_args = bjson.loads(start_tx.message)
+                dummy, c_method, redeem_address, c_args = start_tx.encoded_message()
                 index = start_tx2index(start_tx=start_tx)
                 data.append({
                     'index': index,
@@ -85,11 +84,11 @@ async def get_contract_history(request):
         for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x:x.create_time):
             if tx.type != C.TX_CONCLUDE_CONTRACT:
                 continue
-            _c_address, start_hash, c_storage = bjson.loads(tx.message)
+            _c_address, start_hash, c_storage = tx.encoded_message()
             if _c_address != c_address:
                 continue
             start_tx = tx_builder.get_tx(txhash=start_hash)
-            dummy, c_method, redeem_address, c_args = bjson.loads(start_tx.message)
+            dummy, c_method, redeem_address, c_args = start_tx.encoded_message()
             index = start_tx2index(start_tx=start_tx)
             data.append({
                 'index': index,
@@ -125,7 +124,7 @@ async def get_validator_history(request):
             for tx in block.txs:
                 if tx.type != C.TX_VALIDATOR_EDIT:
                     continue
-                _c_address, new_address, flag, sig_diff = bjson.loads(tx.message)
+                _c_address, new_address, flag, sig_diff = tx.encoded_message()
                 if _c_address != c_address:
                     continue
                 index = validator_tx2index(tx=tx)
@@ -140,7 +139,7 @@ async def get_validator_history(request):
         for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time):
             if tx.type != C.TX_VALIDATOR_EDIT:
                 continue
-            _c_address, new_address, flag, sig_diff = bjson.loads(tx.message)
+            _c_address, new_address, flag, sig_diff = tx.encoded_message()
             if _c_address != c_address:
                 continue
             data.append({

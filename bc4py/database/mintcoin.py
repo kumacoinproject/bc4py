@@ -1,7 +1,7 @@
 from bc4py.config import C, BlockChainError
 from bc4py.database.builder import builder, tx_builder
 from expiringdict import ExpiringDict
-import bjson
+import msgpack
 
 
 setting_template = {
@@ -82,14 +82,14 @@ class MintCoin:
 
 def encode(*args):
     assert len(args) == 3
-    return bjson.dumps(args, compress=False)
+    return msgpack.packb(args, use_bin_type=True)
 
 
 def decode(b):
     # [coin_id]-[params]-[setting]
     # params => dict: [name]-[unit]-[digit]-[address]-[description]-[image]
     # setting => dict:
-    return bjson.loads(b)
+    return msgpack.unpackb(b, raw=True, encoding='utf8')
 
 
 def fill_mintcoin_status(m, best_block=None, best_chain=None, stop_txhash=None):

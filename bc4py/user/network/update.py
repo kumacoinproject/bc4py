@@ -9,7 +9,6 @@ from bc4py.user.generate import *
 from collections import defaultdict
 from threading import Lock, Thread
 from time import time
-import bjson
 from logging import getLogger
 
 log = getLogger('bc4py')
@@ -105,7 +104,7 @@ def _update_unconfirmed_info():
         default_validator = DefaultValidator(best_block=best_block, best_chain=best_chain)
         for tx in unconfirmed_txs.copy():
             if tx.type == C.TX_VALIDATOR_EDIT:
-                c_address, address, flag, sig_diff = bjson.loads(tx.message)
+                c_address, address, flag, sig_diff = tx.encoded_message()
                 v_before = default_validator[c_address]
                 if not signature_acceptable(v=v_before, tx=tx):
                     unconfirmed_txs.remove(tx)
@@ -117,7 +116,7 @@ def _update_unconfirmed_info():
         sort_contract_txs = defaultdict(list)
         for tx in unconfirmed_txs.copy():
             if tx.type == C.TX_CONCLUDE_CONTRACT:
-                c_address, start_hash, c_storage = bjson.loads(tx.message)
+                c_address, start_hash, c_storage = tx.encoded_message()
                 start_tx = tx_builder.get_tx(txhash=start_hash)
                 if start_tx is None or start_tx.height is None:
                     unconfirmed_txs.remove(tx)  # start tx is unconfirmed
@@ -173,7 +172,7 @@ def check_upgradable_pre_unconfirmed():
                 log.debug("Remove from pre-unconfirmed, already unconfirmed. {}".format(tx))
                 continue
             if tx.type == C.TX_CONCLUDE_CONTRACT:
-                c_address, start_hash, c_storage = bjson.loads(tx.message)
+                c_address, start_hash, c_storage = tx.encoded_message()
                 c = get_contract_object(c_address=c_address)
                 index = start_tx2index(start_hash=start_hash)
                 if c.db_index and index < c.db_index:
@@ -182,7 +181,7 @@ def check_upgradable_pre_unconfirmed():
                     log.debug("Delete old ConcludeTX {}".format(tx))
                     continue
             elif tx.type == C.TX_VALIDATOR_EDIT:
-                c_address, new_address, flag, sig_diff = bjson.loads(tx.message)
+                c_address, new_address, flag, sig_diff = tx.encoded_message()
             else:
                 log.error("Why include pre-unconfirmed? {}".format(tx))
                 continue

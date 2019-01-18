@@ -5,7 +5,6 @@ from bc4py.user import Accounting
 from bc4py.user.network.sendnew import *
 from bc4py.user.txcreation.contract import create_conclude_tx, create_signed_tx_as_validator
 from io import StringIO
-import bjson
 from logging import getLogger
 
 log = getLogger('bc4py')
@@ -82,7 +81,7 @@ def broadcast(c_address, start_tx, redeem_address, emulate_gas, result, f_not_se
         a_another = calc_tx_movement(tx=another_tx, c_address=c_address,
                                      redeem_address=redeem_address, emulate_gas=emulate_gas)
         a_another.cleanup()
-        _c_address, _start_hash, another_storage = bjson.loads(another_tx.message)
+        _c_address, _start_hash, another_storage = another_tx.encoded_message()
         log.error("Failed confirm ConcludeTX, please check params\n"
                       "   AnoAccount=>{}\n   MyAccount =>{}\n"
                       "   AnoStorage=>{}\n   MyStorage =>{}\n"

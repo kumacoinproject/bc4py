@@ -2,7 +2,6 @@ aiohttp>=3.0.0b0 # ver3 required
 aiohttp_cors
 aiohttp-basicauth-middleware==1.1.0
 pycryptodomex
-bjson>=0.2.9
 nem-ed25519
 p2p_python>=2.0.0
 psutil

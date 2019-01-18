@@ -3,13 +3,12 @@ from bc4py.chain.checking.signature import *
 from bc4py.database.mintcoin import *
 from bc4py.database.builder import tx_builder
 from bc4py.user import Balance
-import bjson
 
 
 def check_tx_mint_coin(tx, include_block):
     if not (0 < len(tx.inputs) and 0 < len(tx.outputs)):
         raise BlockChainError('Input and output is more than 1.')
-    elif tx.message_type != C.MSG_BYTE:
+    elif tx.message_type != C.MSG_MSGPACK:
         raise BlockChainError('TX_MINT_COIN message is bytes.')
     elif include_block and 0 == include_block.txs.index(tx):
         raise BlockChainError('tx index is not proof tx.')
@@ -18,7 +17,7 @@ def check_tx_mint_coin(tx, include_block):
                               .format(tx.gas_amount, tx.size, len(tx.signature)*C.SIGNATURE_GAS, C.MINTCOIN_GAS))
     # check new mintcoin format
     try:
-        mint_id, params, setting = bjson.loads(tx.message)
+        mint_id, params, setting = tx.encoded_message()
     except Exception as e:
         raise BlockChainError('BjsonDecodeError: {}'.format(e))
     m_before = get_mintcoin_object(coin_id=mint_id, best_block=include_block, stop_txhash=tx.hash)

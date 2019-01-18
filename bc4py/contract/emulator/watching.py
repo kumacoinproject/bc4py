@@ -6,7 +6,6 @@ from expiringdict import ExpiringDict
 from time import time
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
-import bjson
 from logging import getLogger
 
 log = getLogger('bc4py')
@@ -25,11 +24,11 @@ def check_new_tx(tx: TX):
     if tx.height is not None:
         log.error('New tx, but is already confirmed, {}'.format(tx))
         return
-    elif tx.message_type != C.MSG_BYTE:
+    elif tx.message_type != C.MSG_MSGPACK:
         return
     elif tx.type == C.TX_CONCLUDE_CONTRACT:
         # 十分な署名が集まったら消す
-        c_address, start_hash, c_storage = bjson.loads(tx.message)
+        c_address, start_hash, c_storage = tx.encoded_message()
         v = get_validator_object(c_address=c_address, stop_txhash=tx.hash)
         related_list = check_related_address(v.validators)
         if related_list:
@@ -39,7 +38,7 @@ def check_new_tx(tx: TX):
                 stream.on_next((C_Conclude, False, data))
     elif tx.type == C.TX_VALIDATOR_EDIT:
         # 十分な署名が集まったら消す
-        c_address, new_address, flag, sig_diff = bjson.loads(tx.message)
+        c_address, new_address, flag, sig_diff = tx.encoded_message()
         v = get_validator_object(c_address=c_address, stop_txhash=tx.hash)
         related_list = check_related_address(v.validators)
         if related_list:
@@ -56,11 +55,11 @@ def check_new_block(block: Block):
         if tx.height is None:
             log.error('New block\'s tx, but is unconfirmed, {}'.format(tx))
             continue
-        elif tx.message_type != C.MSG_BYTE:
+        elif tx.message_type != C.MSG_MSGPACK:
             continue
         elif tx.type == C.TX_TRANSFER:
             # ConcludeTXを作成するべきフォーマットのTXを見つける
-            c_address, c_method, redeem_address, c_args = bjson.loads(tx.message)
+            c_address, c_method, redeem_address, c_args = tx.encoded_message()
             v = get_validator_object(c_address=c_address)
             related_list = check_related_address(v.validators)
             if related_list:

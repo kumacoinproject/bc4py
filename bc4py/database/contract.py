@@ -4,8 +4,8 @@ from bc4py.database.validator import get_validator_object
 from threading import Lock
 from collections import OrderedDict
 from copy import deepcopy
-import bjson
 from logging import getLogger
+import msgpack
 
 log = getLogger('bc4py')
 
@@ -149,15 +149,15 @@ class Contract:
         self.finish_hash = finish_hash
 
 
+def encode(*args):
+    assert len(args) == 3
+    return msgpack.packb(args, use_bin_type=True)
+
+
 def decode(b):
     # transfer: [c_address]-[c_method]-[redeem_address]-[c_args]
     # conclude: [c_address]-[start_hash]-[c_storage]
-    return bjson.loads(b)
-
-
-def encode(*args):
-    assert len(args) == 3
-    return bjson.dumps(args, compress=False)
+    return msgpack.unpackb(b, raw=True, encoding='utf8')
 
 
 def contract_fill(c: Contract, best_block=None, best_chain=None, stop_txhash=None):

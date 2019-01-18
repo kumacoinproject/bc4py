@@ -6,11 +6,11 @@ import bc4py.chain.msgpack as bc4py_msgpack
 from bc4py.user import Balance, Accounting
 from bc4py.database.account import *
 from bc4py.database.create import closing, create_db
+from msgpack import unpackb, packb
 import struct
 import weakref
 import os
 import threading
-import bjson
 from time import time
 from nem_ed25519.key import is_address
 from logging import getLogger, INFO
@@ -275,13 +275,13 @@ class DataBase:
                 v = batch_copy[k]
                 del batch_copy[k]
             dummy, index = struct_coins.unpack(k)
-            txhash, (params, setting) = v[:32], bjson.loads(v[32:])
+            txhash, (params, setting) = v[:32], unpackb(v[32:], raw=True, use_list=False, encoding='utf8')
             yield index, txhash, params, setting
         if f_batch:
             for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
                 if k.startswith(b_coin_id) and start <= k <= stop:
                     dummy, index = struct_coins.unpack(k)
-                    txhash, (params, setting) = v[:32], bjson.loads(v[32:])
+                    txhash, (params, setting) = v[:32], unpackb(v[32:], raw=True, use_list=False, encoding='utf8')
                     yield index, txhash, params, setting
 
     def read_contract_iter(self, c_address, start_idx=None):
@@ -298,21 +298,21 @@ class DataBase:
         for k, v in contract_iter:
             k, v = bytes(k), bytes(v)
             # KEY: [c_address 40s]-[index uint8]
-            # VALUE: [start_hash 32s]-[finish_hash 32s]-[bjson(c_method, c_args, c_storage)]
+            # VALUE: [start_hash 32s]-[finish_hash 32s]-[msgpack(c_method, c_args, c_storage)]
             # c_address, index, start_hash, finish_hash, message
             if f_batch and k in batch_copy and start <= k <= stop:
                 v = batch_copy[k]
                 del batch_copy[k]
             dummy, index = struct_construct_key.unpack(k)
             start_hash, finish_hash, raw_message = v[0:32], v[32:64], v[64:]
-            message = bjson.loads(raw_message)
+            message = unpackb(raw_message, raw=True, use_list=False, encoding='utf8')
             yield index, start_hash, finish_hash, message
         if f_batch:
             for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
                 if k.startswith(b_c_address) and start <= k <= stop:
                     dummy, index = struct_construct_key.unpack(k)
                     start_hash, finish_hash, raw_message = v[0:32], v[32:64], v[64:]
-                    message = bjson.loads(raw_message)
+                    message = unpackb(raw_message, raw=True, use_list=False, encoding='utf8')
                     yield index, start_hash, finish_hash, message
 
     def read_validator_iter(self, c_address, start_idx=None):
@@ -392,7 +392,7 @@ class DataBase:
         for index, *dummy in self.read_coins_iter(coin_id=coin_id): pass
         index += 1
         k = coin_id.to_bytes(4, ITER_ORDER) + index.to_bytes(4, ITER_ORDER)
-        v = txhash + bjson.dumps((params, setting), compress=False)
+        v = txhash + packb((params, setting), use_bin_type=True)
         self.batch['_coins'][k] = v
         log.debug("Insert new coins id={}".format(coin_id))
 
@@ -407,7 +407,7 @@ class DataBase:
             pass
         assert last_index is None, 'Not allow older ConcludeTX insert. my={} last={}'.format(index, last_index)
         k = c_address.encode() + index.to_bytes(8, ITER_ORDER)
-        v = start_tx.hash + finish_hash + bjson.dumps(message, compress=False)
+        v = start_tx.hash + finish_hash + packb(message, use_bin_type=True)
         self.batch['_contract'][k] = v
         log.debug("Insert new contract {} {}".format(c_address, index))
 
@@ -702,18 +702,18 @@ class ChainBuilder:
                         elif tx.type == C.TX_POS_REWARD:
                             pass
                         elif tx.type == C.TX_MINT_COIN:
-                            mint_id, params, setting = bjson.loads(tx.message)
+                            mint_id, params, setting = tx.encoded_message()
                             self.db.write_coins(coin_id=mint_id, txhash=tx.hash, params=params, setting=setting)
 
                         elif tx.type == C.TX_VALIDATOR_EDIT:
-                            c_address, new_address, flag, sig_diff = bjson.loads(tx.message)
+                            c_address, new_address, flag, sig_diff = tx.encoded_message()
                             self.db.write_validator(c_address=c_address, new_address=new_address,
                                                     flag=flag, tx=tx, sign_diff=sig_diff)
 
                         elif tx.type == C.TX_CONCLUDE_CONTRACT:
-                            c_address, start_hash, c_storage = bjson.loads(tx.message)
+                            c_address, start_hash, c_storage = tx.encoded_message()
                             start_tx = tx_builder.get_tx(txhash=start_hash)
-                            dummy, c_method, redeem_address, c_args = bjson.loads(start_tx.message)
+                            dummy, c_method, redeem_address, c_args = start_tx.encoded_message()
                             self.db.write_contract(c_address=c_address, start_tx=start_tx,
                                                    finish_hash=tx.hash, message=(c_method, c_args, c_storage))
 

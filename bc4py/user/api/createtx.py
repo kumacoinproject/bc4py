@@ -12,6 +12,25 @@ from aiohttp import web
 from binascii import a2b_hex
 from nem_ed25519 import public_key, get_address, sign
 from time import time
+import msgpack
+import json
+
+
+def type2message(message_type, message):
+    if message_type == C.MSG_NONE:
+        return b''
+    elif message_type == C.MSG_PLAIN:
+        return message.encode()
+    elif message_type == C.MSG_BYTE:
+        return a2b_hex(message)
+    elif message_type == C.MSG_MSGPACK:
+        return msgpack.packb(message, use_bin_type=True)
+    elif message_type == C.MSG_JSON:
+        return json.dumps(message).encode()
+    elif message_type == C.MSG_HASHLOCKED:
+        return a2b_hex(message)
+    else:
+        raise Exception('Not found message type {}'.format(message_type))
 
 
 async def create_raw_tx(request):
@@ -24,15 +43,7 @@ async def create_raw_tx(request):
         publish_time = post.get('time', int(time() - V.BLOCK_GENESIS_TIME))
         deadline_time = post.get('deadline', publish_time + 10800)
         message_type = post.get('message_type', C.MSG_NONE)
-        if message_type == C.MSG_NONE:
-            message = b''
-        elif message_type == C.MSG_BYTE:
-            message = a2b_hex(post['message'])
-        elif message_type == C.MSG_PLAIN:
-            message = post['message'].encode()
-        else:
-            message_type = C.MSG_NONE
-            message = b''
+        message = type2message(message_type, post.get('message'))
         inputs = list()
         input_address = set()
         for txhash, txindex in post.get('inputs', list()):
@@ -123,14 +134,12 @@ async def send_from_user(request):
             coin_id = int(post.get('coin_id', 0))
             amount = int(post['amount'])
             coins = Balance(coin_id, amount)
-            message = post.get('message', None)
-            message_hex = post.get('hex', None)
-            if message:
-                msg_type = C.MSG_PLAIN
-                msg_body = message.encode()
-            elif message_hex:
+            if 'hex' in post:
                 msg_type = C.MSG_BYTE
-                msg_body = a2b_hex(message_hex)
+                msg_body = a2b_hex(post['hex'])
+            elif 'message' in post:
+                msg_type = post.get('message_type', C.MSG_PLAIN)
+                msg_body = type2message(msg_type, post['message'])
             else:
                 msg_type = C.MSG_NONE
                 msg_body = b''
@@ -162,14 +171,12 @@ async def send_many_user(request):
             send_pairs = list()
             for address, coin_id, amount in post['pairs']:
                 send_pairs.append((address, int(coin_id), int(amount)))
-            message = post.get('message', None)
-            message_hex = post.get('hex', None)
-            if message:
-                msg_type = C.MSG_PLAIN
-                msg_body = message.encode()
-            elif message_hex:
+            if 'hex' in post:
                 msg_type = C.MSG_BYTE
-                msg_body = a2b_hex(message_hex)
+                msg_body = a2b_hex(post['hex'])
+            elif 'message' in post:
+                msg_type = post.get('message_type', C.MSG_PLAIN)
+                msg_body = type2message(msg_type, post['message'])
             else:
                 msg_type = C.MSG_NONE
                 msg_body = b''
