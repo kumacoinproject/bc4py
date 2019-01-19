@@ -104,16 +104,20 @@ async def system_private_info(request):
 
 async def network_info(request):
     try:
+        networks = list()
         data = {
             'p2p_ver': p2p_python.__version__,
             'status': V.PC_OBJ.p2p.get_server_header(),
-            'networks': list()}
+            'networks': networks}
         for user in V.PC_OBJ.p2p.user:
-            info = user.getinfo()
-            del info['aeskey'], info['sock']
-            info['neers'] = ["{}:{}".format(*conn) for conn in info['neers']]
-            info['host_port'] = "{}:{}".format(*info['host_port'])
-            data['networks'].append(info)
+            info = {
+                'number': user.number,
+                'neers': ["{}:{}".format(*conn) for conn in user.neers],
+                'sock_type': user.sock_type,
+                'score': user.score,
+                'warn': user.warn}
+            info.update(user.serialize())
+            networks.append(info)
         return web_base.json_res(data)
     except Exception:
         return web_base.error_res()

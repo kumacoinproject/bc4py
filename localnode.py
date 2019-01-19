@@ -100,7 +100,7 @@ def work(port, sub_dir):
     Generate(consensus=C.BLOCK_POS, power_limit=0.3).start()
     # Contract watcher
     start_contract_watch()
-    # Emulate(c_address='CJ4QZ7FDEH5J7B2O3OLPASBHAFEDP6I7UKI2YMKF')
+    Emulate(c_address='CJ4QZ7FDEH5J7B2O3OLPASBHAFEDP6I7UKI2YMKF')
     # Emulate(c_address='CLBKXHOTXTLK3FENVTCH6YPM5MFZS4BNAXFYNWBD')
     start_emulators(genesis_block)
     # Stratum
