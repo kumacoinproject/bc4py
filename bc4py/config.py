@@ -196,7 +196,7 @@ class MyConfigParser(configparser.ConfigParser):
         return data
 
 
-class BlockChainError(Exception):
+class BlockChainError(BaseException):
     pass
 
 

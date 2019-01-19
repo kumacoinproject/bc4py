@@ -54,6 +54,8 @@ database_tuple = ("_block", "_tx", "_used_index", "_block_index",
 # basic config
 db_config = {
     'full_address_index': True,  # all address index?
+    'timeout': None,
+    'sync': False
 }
 
 
@@ -63,16 +65,16 @@ class DataBase:
             return
         dirs = os.path.join(V.DB_HOME_DIR, 'db-ver{}'.format(DB_VERSION))
         self.dirs = dirs
-        self.sync = True
-        self.timeout = None
         db_config.update(kwargs)  # extra settings
+        self.sync = db_config['sync']
+        self.timeout = db_config['timeout']
         self.event = threading.Event()
         self.event.set()
         # already used => LevelDBError
         if os.path.exists(dirs):
             f_create = False
         else:
-            log.debug('No db dir, create database first.')
+            log.debug('No database directory found.')
             os.mkdir(dirs)
             f_create = True
         self._block = create_level_db(os.path.join(dirs, 'block'), create_if_missing=f_create)

@@ -182,7 +182,7 @@ async def send_many_user(request):
                 msg_body = b''
             new_tx = send_many(user_id, send_pairs, cur, msg_type=msg_type, msg_body=msg_body)
             if not send_newtx(new_tx=new_tx, outer_cur=cur):
-                raise BaseException('Failed to send new tx.')
+                raise BlockChainError('Failed to send new tx.')
             db.commit()
             return web_base.json_res({
                 'hash': new_tx.hash.hex(),
@@ -218,7 +218,7 @@ async def issue_mint_tx(request):
                 'fee': tx.gas_amount * tx.gas_price,
                 'time': round(time() - start, 3),
                 'mint_id': mint_id})
-        except BaseException:
+        except Exception:
             return web_base.error_res()
 
 
@@ -243,7 +243,7 @@ async def change_mint_tx(request):
                 'gas_price': tx.gas_price,
                 'fee': tx.gas_amount * tx.gas_price,
                 'time': round(time() - start, 3)})
-        except BaseException:
+        except Exception:
             return web_base.error_res()
 
 
