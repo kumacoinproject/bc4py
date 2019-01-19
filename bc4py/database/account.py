@@ -197,14 +197,14 @@ class MoveLog:
     def __hash__(self):
         return hash(self.txhash)
 
-    def get_dict_data(self, outer_cur=None):
+    def get_dict_data(self, recode_flag, outer_cur=None):
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = outer_cur or db.cursor()
             movement = {read_user2name(user, cur): dict(balance) for user, balance in self.movement.items()}
         return {
             'txhash': self.txhash.hex(),
             'height':  self.height,
-            'recode_flag': self.recode_flag,
+            'recode_flag': recode_flag,
             'type': C.txtype2name.get(self.type, None),
             'movement': movement,
             'time': self.time + V.BLOCK_GENESIS_TIME}
@@ -218,15 +218,6 @@ class MoveLog:
             return None
         try:
             return self.tx_ref().height
-        except Exception:
-            return None
-
-    @property
-    def recode_flag(self):
-        if not self.tx_ref:
-            return None
-        try:
-            return self.tx_ref().recode_flag
         except Exception:
             return None
 
