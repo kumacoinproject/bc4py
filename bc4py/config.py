@@ -24,15 +24,17 @@ class C:  # Constant
 
     # consensus
     BLOCK_GENESIS = 0
-    BLOCK_YES_POW = 1
-    BLOCK_POS = 2
-    # HYBRID = 3
-    BLOCK_X11_POW = 4
-    BLOCK_HMQ_POW = 5
-    BLOCK_LTC_POW = 6
-    BLOCK_X16R_POW = 7
-    consensus2name = {0: 'GENESIS', 1: 'POW_YES', 2: 'POS', 4: 'POW_X11', 5: 'POW_HMQ',
-                      6: 'POW_LTC', 7: 'POW_X16R'}
+    BLOCK_POS = 1
+
+    BLOCK_YES_POW = 5
+    BLOCK_X11_POW = 6
+    BLOCK_HMQ_POW = 7
+    BLOCK_LTC_POW = 8
+    BLOCK_X16R_POW = 9
+    consensus2name = {
+        BLOCK_GENESIS: 'GENESIS', BLOCK_POS: 'POS',
+        BLOCK_YES_POW: 'POW_YES', BLOCK_X11_POW: 'POW_X11', BLOCK_HMQ_POW: 'POW_HMQ',
+        BLOCK_LTC_POW: 'POW_LTC', BLOCK_X16R_POW: 'POW_X16R'}
 
     # tx type
     TX_GENESIS = 0  # Height0の初期設定TX
@@ -196,7 +198,7 @@ class MyConfigParser(configparser.ConfigParser):
         return data
 
 
-class BlockChainError(BaseException):
+class BlockChainError(Exception):
     pass
 
 
