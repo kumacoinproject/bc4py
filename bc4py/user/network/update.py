@@ -110,7 +110,8 @@ def _update_unconfirmed_info():
                     unconfirmed_txs.remove(tx)
                     continue
                 sort_validator_txs[c_address].append(tx)
-                v_before.update(db_index=None, flag=flag, address=address, sig_diff=sig_diff)
+                v_before.update(
+                    db_index=None, flag=flag, address=address, sig_diff=sig_diff, txhash=tx.hash)
                 unconfirmed_txs.remove(tx)
         # check contract tx
         sort_contract_txs = defaultdict(list)

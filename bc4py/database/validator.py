@@ -96,7 +96,7 @@ def validator_fill_iter(v: Validator, best_block=None, best_chain=None):
             c_address, address, flag, sig_diff = decode(tx.message)
             if c_address != v.c_address:
                 continue
-            index = tx.height * 0xffffffff + block.txs.index(tx)
+            index = block.height * 0xffffffff + block.txs.index(tx)
             yield index, flag, address, sig_diff, tx.hash
     # unconfirmed
     if best_block is None:
