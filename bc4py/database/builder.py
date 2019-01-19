@@ -1147,7 +1147,7 @@ class UserAccount:
                 _wrapper(db.cursor())
 
 
-class BlockBuilderError(BaseException):
+class BlockBuilderError(Exception):
     pass
 
 

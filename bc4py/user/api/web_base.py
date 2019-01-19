@@ -33,5 +33,9 @@ def error_res(errors=None):
     if errors is None:
         import traceback
         errors = str(traceback.format_exc())
-    log.debug("API error:\n{}".format(errors))
-    return web.Response(text=errors, status=400)
+    log.info("API error:\n{}".format(errors))
+    s = errors.split("\n")
+    simple_msg = None
+    while not simple_msg:
+        simple_msg = s.pop(-1)
+    return web.Response(text=simple_msg+'\n', status=400)

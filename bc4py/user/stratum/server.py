@@ -181,7 +181,7 @@ def close_stratum():
         s.close()
 
 
-class StratumError(BaseException):
+class StratumError(Exception):
     pass
 
 
