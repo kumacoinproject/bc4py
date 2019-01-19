@@ -35,7 +35,7 @@ except ImportError:
 
 
 struct_block = struct.Struct('>II32s80sBI')
-struct_tx = struct.Struct('>4I')
+struct_tx = struct.Struct('>4IB')
 struct_address = struct.Struct('>40s32sB')
 struct_address_idx = struct.Struct('>IQ?')
 struct_coins = struct.Struct('>II')
@@ -202,14 +202,17 @@ class DataBase:
         if b is None:
             return None
         b = bytes(b)
-        height, _time, bin_len, sign_len = struct_tx.unpack_from(b)
-        b_tx = b[16:16+bin_len]
-        b_sign = b[16+bin_len:16+bin_len+sign_len]
-        assert len(b) == 16+bin_len+sign_len, 'Wrong len [{}={}]'\
-            .format(len(b), 16+bin_len+sign_len)
+        height, _time, bin_len, sign_len, r_len = struct_tx.unpack_from(b)
+        assert struct_tx.size == 17
+        b_tx = b[17:17+bin_len]
+        b_sign = b[17+bin_len:17+bin_len+sign_len]
+        R = b[17+bin_len+sign_len:17+bin_len+sign_len+r_len]
+        assert len(b) == 17+bin_len+sign_len, 'Wrong len [{}={}]'\
+            .format(len(b), 17+bin_len+sign_len)
         tx = TX.from_binary(binary=b_tx)
         tx.height = height
         tx.signature = bin2signature(b_sign)
+        tx.R = R
         return tx
 
     def read_usedindex(self, txhash):
@@ -371,8 +374,9 @@ class DataBase:
         bin_len = len(tx.b)
         b_sign = signature2bin(tx.signature)
         sign_len = len(b_sign)
-        b = struct_tx.pack(tx.height, tx.time, bin_len, sign_len)
-        b += tx.b + b_sign
+        r_len = len(tx.R)
+        b = struct_tx.pack(tx.height, tx.time, bin_len, sign_len, r_len)
+        b += tx.b + b_sign + tx.R
         self.batch['_tx'][tx.hash] = b
         log.debug("Insert new tx {}".format(tx))
 

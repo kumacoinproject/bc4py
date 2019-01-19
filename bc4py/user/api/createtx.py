@@ -79,7 +79,7 @@ async def sign_raw_tx(request):
         binary = a2b_hex(post['hex'])
         other_pairs = dict()
         for sk in post.get('pairs', list()):
-            pk = public_key(sk=sk)
+            pk = public_key(sk=sk, encode=str)
             ck = get_address(pk=pk, prefix=V.BLOCK_PREFIX)
             other_pairs[ck] = (pk, sign(msg=binary, sk=sk, pk=pk))
         tx = TX.from_binary(binary=binary)
@@ -108,6 +108,8 @@ async def broadcast_tx(request):
         binary = a2b_hex(post['hex'])
         new_tx = TX.from_binary(binary=binary)
         new_tx.signature = [(pk, a2b_hex(_sign)) for pk, _sign in post['signature']]
+        if 'R' in post:
+            new_tx.R = a2b_hex(post['R'])
         if not send_newtx(new_tx=new_tx):
             raise BlockChainError('Failed to send new tx.')
         return web_base.json_res({
@@ -144,6 +146,8 @@ async def send_from_user(request):
                 msg_type = C.MSG_NONE
                 msg_body = b''
             new_tx = send_from(from_id, to_address, coins, cur, msg_type=msg_type, msg_body=msg_body)
+            if 'R' in post:
+                new_tx.R = a2b_hex(post['R'])
             if not send_newtx(new_tx=new_tx, outer_cur=cur):
                 raise BlockChainError('Failed to send new tx.')
             db.commit()

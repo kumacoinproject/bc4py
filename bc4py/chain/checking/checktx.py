@@ -90,6 +90,9 @@ def check_tx(tx, include_block):
     # hash-locked check
     if tx.message_type == C.MSG_HASHLOCKED:
         check_hash_locked(tx=tx)
+    else:
+        if tx.R != b'':
+            raise BlockChainError('Not hash-locked tx R={}'.format(tx.R))
 
     # message type check
     if tx.message_type not in C.msg_type2name:
@@ -138,6 +141,8 @@ def check_tx_time(tx):
 def check_hash_locked(tx):
     if len(tx.R) == 0:
         raise BlockChainError('R of Hash-locked is None type.')
+    if len(tx.R) > 32:
+        raise BlockChainError('R is too large {}bytes'.format(len(tx.R)))
     size = len(tx.message)
     if size == 20:
         if RIPEMD160.new(tx.R).digest() != tx.message:
