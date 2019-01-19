@@ -179,12 +179,11 @@ async def contract_storage(request):
 
 async def watching_info(request):
     try:
-        f_pickle = bool(request.query.get('pickle', False))
         # You need to enable watching option!
         return web_base.json_res([{
             'hash': txhash.hex(),
             'type': tx.type,
-            'tx': b64encode(pickle.dumps(tx)).decode() if f_pickle else str(tx),
+            'tx': str(tx),
             'time': time,
             'c_address': c_address,
             'related': related_list,
