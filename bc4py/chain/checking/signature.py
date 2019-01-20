@@ -1,10 +1,10 @@
-from bc4py.config import V
+from bc4py.config import max_workers, executor, V
 from nem_ed25519.key import get_address
 from nem_ed25519.signature import verify
 from threading import Lock
 from time import time, sleep
-from pooled_multiprocessing import mp_map_async
 from logging import getLogger
+from more_itertools import chunked
 
 log = getLogger('bc4py')
 
@@ -15,21 +15,24 @@ limit_delete_set = set()
 lock = Lock()
 
 
-def _verify(pubkey, signature, txhash, tx_b, prefix):
-    try:
-        verify(msg=tx_b, sign=signature, pk=pubkey)
-        address = get_address(pk=pubkey, prefix=prefix)
-        return pubkey, signature, txhash, address
-    except ValueError:
-        error = "Failed verify tx {}".format(txhash.hex())
-        log.debug(error)
-    except Exception as e:
-        error = 'Signature verification error. "{}"'.format(e)
-        log.error(error)
-    return pubkey, signature, txhash, error
+def _verify(task_list, prefix):
+    signed_list = list()
+    for pubkey, signature, txhash, tx_b in task_list:
+        try:
+            verify(msg=tx_b, sign=signature, pk=pubkey)
+            address = get_address(pk=pubkey, prefix=prefix)
+            signed_list.append((pubkey, signature, txhash, address))
+        except ValueError:
+            error = "Failed verify tx {}".format(txhash.hex())
+            log.debug(error)
+        except Exception as e:
+            error = 'Signature verification error. "{}"'.format(e)
+            log.error(error)
+    return signed_list
 
 
-def _callback(signed_list):
+def _callback(future):
+    signed_list = future.result()
     try:
         with lock:
             for pubkey, signature, txhash, address in signed_list:
@@ -58,24 +61,21 @@ def batch_sign_cashe(txs):
     for tx in txs:
         for sign in tx.signature:
             assert isinstance(sign, tuple), tx.getinfo()
-    generate_list = list()
+    task_list = list()
     # list need to verify
     with lock:
         for tx in txs:
             for pubkey, signature in tx.signature:
                 if (pubkey, signature, tx.hash) not in verify_cashe:
-                    generate_list.append((pubkey, signature, tx.hash, tx.b))
+                    task_list.append((pubkey, signature, tx.hash, tx.b))
                     verify_cashe[(pubkey, signature, tx.hash)] = None
         # throw verify
-        if len(generate_list) == 0:
+        if len(task_list) == 0:
             return
-        elif len(generate_list) == 1:
-            pubkey, signature, txhash, tx_b = generate_list[0]
-            pubkey, signature, txhash, address = _verify(pubkey, signature, txhash, tx_b, V.BLOCK_PREFIX)
-            verify_cashe[(pubkey, signature, txhash)] = address
         else:
-            mp_map_async(_verify, generate_list, callback=_callback, prefix=V.BLOCK_PREFIX)
-            log.debug("Put task {}sign to pool.".format(len(generate_list)))
+            for task in chunked(task_list, 25):
+                executor.submit(_verify, task, prefix=V.BLOCK_PREFIX).add_done_callback(_callback)
+            log.debug("Put task {}sign to pool.".format(len(task_list)))
 
 
 def get_signed_cks(tx):

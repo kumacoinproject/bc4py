@@ -11,8 +11,6 @@ from bc4py.user.api import create_rest_server
 from bc4py.database.create import make_account_db
 from bc4py.database.builder import builder
 from bc4py.chain.msgpack import default_hook, object_hook
-from bc4py.chain.workhash import start_work_hash, close_work_hash
-from pooled_multiprocessing import cpu_num, add_pool_process
 from p2p_python.utils import setup_p2p_params
 from p2p_python.client import PeerClient
 from bc4py.for_debug import set_logger
@@ -46,9 +44,6 @@ def work(port, sub_dir=None):
     elif pc.p2p.create_connection('nekopeg.tk', 2000):
         logging.info("2Connect!")
 
-    # add pooled process
-    add_pool_process(cpu_num)
-
     for host, port in connections:
         pc.p2p.create_connection(host, port)
     set_blockchain_params(genesis_block)
@@ -68,13 +63,12 @@ def work(port, sub_dir=None):
     sync_chain_loop()
 
     # Mining/Staking setup
-    start_work_hash()
     # Debug.F_CONSTANT_DIFF = True
     # Debug.F_SHOW_DIFFICULTY = True
     # Debug.F_STICKY_TX_REJECTION = False  # for debug
-    Generate(consensus=C.BLOCK_YES_POW, power_limit=0.05).start()
-    Generate(consensus=C.BLOCK_HMQ_POW, power_limit=0.05).start()
-    Generate(consensus=C.BLOCK_X11_POW, power_limit=0.05).start()
+    Generate(consensus=C.BLOCK_YES_POW, power_limit=0.1).start()
+    Generate(consensus=C.BLOCK_HMQ_POW, power_limit=0.1).start()
+    Generate(consensus=C.BLOCK_X11_POW, power_limit=0.1).start()
     Generate(consensus=C.BLOCK_POS, power_limit=0.3).start()
     Thread(target=mined_newblock, name='GeneBlock', args=(output_que, pc)).start()
     logging.info("Finished all initialize.")
@@ -87,7 +81,6 @@ def work(port, sub_dir=None):
         builder.close()
         pc.close()
         close_generate()
-        close_work_hash()
     except KeyboardInterrupt:
         logging.debug("KeyboardInterrupt.")
 

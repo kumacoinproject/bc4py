@@ -13,8 +13,6 @@ from bc4py.contract.emulator import start_emulators, Emulate
 from bc4py.database.create import make_account_db
 from bc4py.database.builder import builder
 from bc4py.chain.msgpack import default_hook, object_hook
-from bc4py.chain.workhash import start_work_hash, close_work_hash
-from pooled_multiprocessing import cpu_num, add_pool_process
 from p2p_python.utils import setup_p2p_params
 from p2p_python.client import PeerClient
 from bc4py.for_debug import set_logger, f_already_bind
@@ -64,9 +62,6 @@ def work(port, sub_dir):
     else:
         pc.p2p.create_connection('127.0.0.1', 2001)
 
-    # add pooled process
-    add_pool_process(cpu_num)
-
     for host, port in connections:
         pc.p2p.create_connection(host, port)
     set_blockchain_params(genesis_block)
@@ -86,7 +81,6 @@ def work(port, sub_dir):
     sync_chain_loop()
 
     # Mining/Staking setup
-    start_work_hash()
     # Debug.F_CONSTANT_DIFF = True
     # Debug.F_SHOW_DIFFICULTY = True
     # Debug.F_STICKY_TX_REJECTION = False  # for debug
@@ -116,7 +110,6 @@ def work(port, sub_dir):
         # close_stratum()
         pc.close()
         close_generate()
-        close_work_hash()
     except KeyboardInterrupt:
         logging.debug("KeyboardInterrupt.")
 

@@ -10,7 +10,6 @@ from bc4py.user.network import *
 from bc4py.database.create import make_account_db
 from bc4py.database.builder import builder
 from bc4py.chain.msgpack import default_hook, object_hook
-from pooled_multiprocessing import cpu_num, add_pool_process
 from p2p_python.utils import setup_p2p_params
 from p2p_python.client import PeerClient
 from bc4py.for_debug import set_logger
@@ -43,9 +42,6 @@ def work(port, sub_dir=None):
         logging.info("1Connect!")
     elif pc.p2p.create_connection('nekopeg.tk', 2000):
         logging.info("2Connect!")
-
-    # add pooled process
-    add_pool_process(cpu_num)
 
     for host, port in connections:
         pc.p2p.create_connection(host, port)
