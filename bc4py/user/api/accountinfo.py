@@ -117,8 +117,8 @@ async def move_one(request):
         return web_base.json_res({
             'txhash': txhash.hex(),
             'from_id': _from, 'to_id': _to})
-    except Exception as e:
-        return web.Response(text=str(e), status=400)
+    except Exception:
+        return web_base.error_res()
 
 
 async def move_many(request):
@@ -165,8 +165,6 @@ async def get_keypair(request):
                 'address': address,
                 'private_key': sk,
                 'public_key': pk})
-    except BlockChainError as e:
-        return web.Response(text=str(e), status=400)
     except Exception:
         return web_base.error_res()
 

@@ -196,9 +196,8 @@ async def web_page(request):
             return web.Response(
                 body=open(os.path.join(abs_path, 'index.html'), mode='rb').read(),
                 headers=web_base.CONTENT_TYPE_HTML)
-    except Exception as e:
-        log.error(e, exc_info=True)
-        return web.Response(text="Error: {}".format(page_path), status=400)
+    except Exception:
+        return web_base.error_res()
 
 
 async def resync(request):
