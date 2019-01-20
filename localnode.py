@@ -10,7 +10,6 @@ from bc4py.user.boot import *
 from bc4py.user.network import *
 from bc4py.user.api import create_rest_server
 from bc4py.contract.emulator import start_emulators, Emulate
-from bc4py.contract.emulator.watching import start_contract_watch
 from bc4py.database.create import make_account_db
 from bc4py.database.builder import builder
 from bc4py.chain.msgpack import default_hook, object_hook
@@ -98,8 +97,7 @@ def work(port, sub_dir):
     if port % 3 == 2:
         Generate(consensus=C.BLOCK_X11_POW, power_limit=0.03).start()
     Generate(consensus=C.BLOCK_POS, power_limit=0.3).start()
-    # Contract watcher
-    start_contract_watch()
+    # contract emulator
     Emulate(c_address='CJ4QZ7FDEH5J7B2O3OLPASBHAFEDP6I7UKI2YMKF')
     # Emulate(c_address='CLBKXHOTXTLK3FENVTCH6YPM5MFZS4BNAXFYNWBD')
     start_emulators(genesis_block)

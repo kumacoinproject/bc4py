@@ -7,7 +7,6 @@ from bc4py.utils import set_database_path, set_blockchain_params
 from bc4py.user.boot import *
 from bc4py.user.network import *
 from bc4py.user.api import create_rest_server
-from bc4py.contract.emulator.watching import start_contract_watch
 from bc4py.database.create import make_account_db
 from bc4py.database.builder import builder
 from bc4py.chain.msgpack import default_hook, object_hook
@@ -67,8 +66,6 @@ def work(port, sub_dir=None):
 
     # Mining/Staking setup (nothing)
 
-    # Contract watcher
-    start_contract_watch()
     # Debug.F_STICKY_TX_REJECTION = False  # for debug
     logging.info("Finished all initialize. (no mining and staking)")
 

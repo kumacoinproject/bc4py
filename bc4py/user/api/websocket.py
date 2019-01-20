@@ -182,10 +182,6 @@ def on_next(data):
         pass
 
 
-def start_ws_listen_loop():
-    print("do nothing start_ws_listen_loop()")
-
-
 stream.subscribe(on_next=on_next)
 
 
@@ -193,7 +189,6 @@ __all__ = [
     "CMD_ERROR",
     "CMD_NEW_BLOCK",
     "CMD_NEW_TX",
-    "start_ws_listen_loop",
     "websocket_route",
     "send_websocket_data",
 ]

@@ -98,10 +98,6 @@ def check_related_address(address_list):
     return r
 
 
-def start_contract_watch():
-    print("no work!")
-
-
 def on_next(obj):
     if isinstance(obj, TX):
         check_new_tx(tx=obj)
@@ -123,5 +119,4 @@ __all__ = [
     "watching_tx",
     "check_new_tx",
     "check_new_block",
-    "start_contract_watch",
 ]
