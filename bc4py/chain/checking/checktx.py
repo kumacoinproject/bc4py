@@ -42,6 +42,7 @@ def check_tx(tx, include_block):
     elif tx.type == C.TX_POS_REWARD:
         f_amount_check = False
         f_minimum_fee_check = False
+        # TODO: POS tx need Multisig? f_signature_check
         check_tx_pos_reward(tx=tx, include_block=include_block)
 
     elif tx.type == C.TX_POW_REWARD:
@@ -51,10 +52,10 @@ def check_tx(tx, include_block):
         check_tx_pow_reward(tx=tx, include_block=include_block)
 
     elif tx.type == C.TX_TRANSFER:
-        # feeに使用するCoinIDは0とは限らない
-        payfee_coin_id = tx.outputs[0][1]
         if not (0 < len(tx.inputs) < 256 and 0 < len(tx.outputs) < 256):
             raise BlockChainError('Input and output is 1～256.')
+        # payCoinFeeID is default 0, not only 0
+        _address, payfee_coin_id, _amount = tx.outputs[0]
 
     elif tx.type == C.TX_MINT_COIN:
         f_amount_check = False
@@ -85,7 +86,7 @@ def check_tx(tx, include_block):
 
     # 署名チェック
     if f_signature_check:
-        signature_check(tx=tx)
+        signature_check(tx=tx, include_block=include_block)
 
     # hash-locked check
     if tx.message_type == C.MSG_HASHLOCKED:
@@ -141,7 +142,7 @@ def check_tx_time(tx):
 def check_hash_locked(tx):
     if len(tx.R) == 0:
         raise BlockChainError('R of Hash-locked is None type.')
-    if len(tx.R) > 32:
+    if len(tx.R) > 64:
         raise BlockChainError('R is too large {}bytes'.format(len(tx.R)))
     size = len(tx.message)
     if size == 20:

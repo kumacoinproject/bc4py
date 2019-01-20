@@ -1,6 +1,7 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.tools import get_usedindex
+from bc4py.database.validator import get_validator_object
 from bc4py.chain.checking.signature import get_signed_cks
 from bc4py.user import Balance
 from nem_ed25519.key import is_address
@@ -77,21 +78,33 @@ def amount_check(tx, payfee_coin_id):
                               .format(remain_amount, input_coins, output_coins, fee_coins))
 
 
-def signature_check(tx):
-    need_cks = set()
+def signature_check(tx, include_block):
+    require_cks = set()
+    checked_cks = set()
     for txhash, txindex in tx.inputs:
         input_tx = tx_builder.get_tx(txhash)
         if input_tx is None:
             raise BlockChainError('Not found input tx {}'.format(txhash.hex()))
+        if len(input_tx.outputs) <= txindex:
+            raise BlockChainError('txindex is over range {}<={}'.format(len(input_tx.outputs), txindex))
         address, coin_id, amount = input_tx.outputs[txindex]
-        if is_address(address, V.BLOCK_PREFIX):
-            need_cks.add(address)  # 通常のアドレスのみ
+        if address in checked_cks:
+            continue
+        elif is_address(address, V.BLOCK_PREFIX):
+            require_cks.add(address)
+        elif is_address(address, V.BLOCK_CONTRACT_PREFIX):
+            v_before = get_validator_object(c_address=address, best_block=include_block, stop_txhash=tx.hash)
+            require_cks.update(v_before.validators)
         else:
             raise BlockChainError('Not common address {} {}.'.format(address, tx))
+        # success check
+        checked_cks.add(address)
 
+    if not (0 < len(require_cks) < 256):
+        raise BlockChainError('require signature is over range num={}'.format(len(require_cks)))
     signed_cks = get_signed_cks(tx)
-    if need_cks != signed_cks:
-        raise BlockChainError('Signature verification failed. [{}={}]'.format(need_cks, signed_cks))
+    if require_cks != signed_cks:
+        raise BlockChainError('Signature verification failed. [{}={}]'.format(require_cks, signed_cks))
 
 
 __all__ = [
