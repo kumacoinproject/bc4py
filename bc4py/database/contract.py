@@ -2,7 +2,6 @@ from bc4py.config import C, BlockChainError
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.validator import get_validator_object
 from threading import Lock
-from collections import OrderedDict
 from copy import deepcopy
 from logging import getLogger
 import msgpack
@@ -104,17 +103,17 @@ class Contract:
     def info(self):
         if self.version == -1:
             return None
-        d = OrderedDict()
-        d['c_address'] = self.c_address
-        d['db_index'] = self.db_index
-        d['version'] = self.version
-        d['binary'] = self.binary.hex()
-        d['extra_imports'] = self.extra_imports
-        d['storage_key'] = len(self.storage)
-        d['settings'] = self.settings
-        d['start_hash'] = self.start_hash.hex()
-        d['finish_hash'] = self.finish_hash.hex()
-        return d
+        return {
+            'c_address': self.c_address,
+            'db_index': self.db_index,
+            'version': self.version,
+            'binary': self.binary.hex(),
+            'extra_imports': self.extra_imports,
+            'storage_key': len(self.storage),
+            'settings': self.settings,
+            'start_hash': self.start_hash.hex(),
+            'finish_hash': self.finish_hash.hex(),
+        }
 
     def update(self, db_index, start_hash, finish_hash, c_method, c_args, c_storage):
         # DO NOT RAISE ERROR

@@ -5,7 +5,6 @@ from bc4py.contract.emulator.watching import *
 from aiohttp import web
 import asyncio
 import json
-from collections import OrderedDict
 from logging import getLogger
 
 log = getLogger('bc4py')
@@ -96,10 +95,11 @@ class WsConnection:
 
 
 def get_send_format(cmd, data, status=True):
-    send_data = OrderedDict()
-    send_data['cmd'] = cmd
-    send_data['data'] = data
-    send_data['status'] = status
+    send_data = {
+        'cmd': cmd,
+        'data': data,
+        'status': status
+    }
     return json.dumps(send_data)
 
 
@@ -115,7 +115,7 @@ def send_websocket_data(cmd, data, status=True, is_public_data=False):
 
 
 def new_info2json_data(cmd, data_list):
-    send_data = OrderedDict()
+    send_data = dict()
     if cmd == C_Conclude:
         _time, tx, related_list, c_address, start_hash, c_storage = data_list
         send_data['c_address'] = c_address

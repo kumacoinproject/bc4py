@@ -1,6 +1,5 @@
 from bc4py.config import C, BlockChainError
 from bc4py.database.builder import builder, tx_builder
-from collections import OrderedDict
 from threading import Lock
 from copy import deepcopy
 from logging import getLogger
@@ -57,14 +56,15 @@ class Validator:
     def info(self):
         if self.version == -1:
             return None
-        d = OrderedDict()
-        d['db_index'] = self.db_index
-        d['index'] = self.version
-        d['c_address'] = self.c_address
-        d['txhash'] = self.txhash.hex()
-        d['validators'] = self.validators
-        d['require'] = self.require
-        return d
+        else:
+            return {
+                'db_index': self.db_index,
+                'index': self.version,
+                'c_address': self.c_address,
+                'txhash': self.txhash.hex(),
+                'validators': self.validators,
+                'require': self.require,
+            }
 
 
 def decode(b):

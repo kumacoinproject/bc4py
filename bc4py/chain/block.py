@@ -7,7 +7,6 @@ from bc4py.chain.workhash import update_work_hash
 from hashlib import sha256
 import struct
 from time import time
-from collections import OrderedDict
 from math import log
 
 struct_block = struct.Struct('<I32s32sII4s')
@@ -100,7 +99,7 @@ class Block:
         self.hash = sha256(sha256(self.b).digest()).digest()
 
     def getinfo(self):
-        r = OrderedDict()
+        r = dict()
         r['hash'] = self.hash.hex() if self.hash else None
         try:
             if self.work_hash is None:

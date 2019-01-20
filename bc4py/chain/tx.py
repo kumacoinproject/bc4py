@@ -4,7 +4,6 @@
 from bc4py import __chain_version__
 from bc4py.config import C, V, BlockChainError
 from hashlib import sha256
-from collections import OrderedDict
 from time import time
 import struct
 import msgpack
@@ -128,7 +127,7 @@ class TX:
         self.hash = sha256(sha256(self.b).digest()).digest()
 
     def getinfo(self):
-        r = OrderedDict()
+        r = dict()
         r['hash'] = self.hash.hex()
         r['pos_amount'] = self.pos_amount
         r['height'] = self.height
