@@ -110,6 +110,8 @@ def send_websocket_data(cmd, data, status=True, is_public_data=False):
                 await client.send(send_format)
     if P.F_NOW_BOOTING:
         return
+    if loop.is_closed():
+        return
     send_format = get_send_format(cmd=cmd, data=data, status=status)
     asyncio.run_coroutine_threadsafe(coro=exe(), loop=loop)
 

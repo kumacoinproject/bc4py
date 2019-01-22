@@ -28,6 +28,7 @@ class Search(dict):
                     gap_user -= 1
             user += 1
         log.info("Finish check list {}".format(len(check)))
+        index = None
         for user, is_inner, last_index in check:
             for index in range(last_index, last_index + self.gap_limit):
                 sk, pk, ck = extract_keypair(user=user, is_inner=is_inner, index=index)
