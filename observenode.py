@@ -7,9 +7,9 @@ from bc4py.utils import set_database_path, set_blockchain_params
 from bc4py.user.boot import *
 from bc4py.user.network import *
 from bc4py.user.api import create_rest_server
-from bc4py.contract.emulator.watching import start_contract_watch
 from bc4py.database.create import make_account_db
 from bc4py.database.builder import builder
+from bc4py.chain.msgpack import default_hook, object_hook
 from p2p_python.utils import setup_p2p_params
 from p2p_python.client import PeerClient
 from bc4py.for_debug import set_logger
@@ -21,12 +21,13 @@ def work(port, sub_dir=None):
     set_database_path(sub_dir=sub_dir)
     builder.set_database_path()
     make_account_db()
+    import_keystone(passphrase='hello python')
     genesis_block, network_ver, connections = load_boot_file()
     logging.info("Start p2p network-ver{} .".format(network_ver))
 
     # P2P network setup
     setup_p2p_params(network_ver=network_ver, p2p_port=port, sub_dir=sub_dir)
-    pc = PeerClient()
+    pc = PeerClient(default_hook=default_hook, object_hook=object_hook)
     pc.event.addevent(cmd=DirectCmd.BEST_INFO, f=DirectCmd.best_info)
     pc.event.addevent(cmd=DirectCmd.BLOCK_BY_HEIGHT, f=DirectCmd.block_by_height)
     pc.event.addevent(cmd=DirectCmd.BLOCK_BY_HASH, f=DirectCmd.block_by_hash)
@@ -49,19 +50,25 @@ def work(port, sub_dir=None):
     pc.broadcast_check = broadcast_check
 
     # Update to newest blockchain
-    builder.init(genesis_block, batch_size=500)
-    builder.db.sync = False  # more fast
+    builder.db.sync = False
+    if builder.init(genesis_block, batch_size=500):
+        # only genesisBlock yoy have, try to import bootstrap.dat
+        log = logging.getLogger('bc4py')
+        old_level = log.level
+        log.setLevel(logging.WARNING)
+        load_bootstrap_file()
+        log.setLevel(old_level)
     sync_chain_loop()
 
     # Mining/Staking setup (nothing)
 
-    # Contract watcher
-    start_contract_watch()
     # Debug.F_STICKY_TX_REJECTION = False  # for debug
     logging.info("Finished all initialize. (no mining and staking)")
 
     try:
-        create_rest_server(f_local=False, port=port+1000, user='user', pwd='password')
+        create_rest_server(f_local=False, user='user', pwd='password', port=port+1000)
+        if P.F_NOW_BOOTING is False:
+            create_bootstrap_file()
         P.F_STOP = True
         builder.close()
         pc.close()

@@ -1,19 +1,16 @@
-from bc4py.config import C, BlockChainError
-from multiprocessing import get_context, current_process
-import threading
-import logging
+from bc4py.config import max_workers, executor, C, BlockChainError
 from os import urandom
-from time import time, sleep
+from time import time
+from threading import BoundedSemaphore
 from yespower import hash as yespower_hash  # for CPU
 from x11_hash import getPoWHash as x11_hash  # for ASIC
 from hmq_hash import getPoWHash as hmq_hash  # for GPU
 from litecoin_scrypt import getPoWHash as ltc_hash  # for ASIC
 from shield_x16s_hash import getPoWHash as x16s_hash  # for GPU
-from pooled_multiprocessing import cpu_num
+from logging import getLogger
 
-
-mp_generator = list()
-mp_lock = threading.Lock()
+log = getLogger('bc4py')
+semaphore = BoundedSemaphore(value=max(1, max_workers-1))
 
 
 def self_check_hash_fnc():
@@ -71,124 +68,40 @@ def update_work_hash(block):
 
 
 def generate_many_hash(block, how_many):
+    # CAUTION: mining by one core!
     assert block.flag != C.BLOCK_POS and block.flag != C.BLOCK_GENESIS
     assert how_many > 0
     # hash generating with multi-core
-    start = time()
-    with mp_lock:
-        f_wait = False
-        while True:
-            free_process = list()
-            for hash_generator in mp_generator:
-                if not hash_generator.lock.locked():
-                    free_process.append(hash_generator)
-            if len(free_process) > 0:
-                break
-            else:
-                f_wait = True
-                sleep(0.05)
-        if f_wait:
-            logging.debug("Wait for free_process for mining... {}mSec"
-                          .format(int((time()-start)*1000)))
-        request_num = how_many // len(free_process)
-        # throw task
-        for hash_generator in free_process:
-            hash_generator.generate(block, request_num)
-    block_b = None
-    work_hash = None
-    work_hash_int = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-    for hash_generator in free_process:
-        tmp_block_b, check_hash = hash_generator.result()
-        check_int = int.from_bytes(check_hash, 'little')
-        if check_int < work_hash_int:
-            block_b = tmp_block_b
-            work_hash = check_hash
-            work_hash_int = check_int
-    block.b = block_b
-    block.work_hash = work_hash
+    with semaphore:
+        start = time()
+        future = executor.submit(_pow_generator, block.b, block.flag, how_many)
+        binary, hashed = future.result(timeout=120)
+    if binary is None:
+        raise Exception(hashed)
+    block.b = binary
+    block.work_hash = hashed
     block.deserialize()
     return time() - start
 
 
-def start_work_hash(process=None):
-    if current_process().name != 'MainProcess':
-        raise Exception('Is not main process!')
-    if len(mp_generator) != 0:
-        raise Exception('Already mp_generator is filled.')
-    if process is None:
-        process = cpu_num
-    for index in range(1, process + 1):
-        # Want to use 1 core for main-thread
-        hash_generator = HashGenerator(index=index)
-        hash_generator.start()
-        mp_generator.append(hash_generator)
-
-
-def close_work_hash():
-    for hash_generator in mp_generator:
-        hash_generator.close()
-    mp_generator.clear()
-    logging.debug("Close hashing process.")
-
-
-def _pow_generator(pipe):
-    binary = None
-    while True:
-        try:
-            binary, block_flag, how_many = pipe.recv()
-            hash_fnc = get_workhash_fnc(block_flag)
-            hashed = hash_fnc(binary)
-            minimum_num = int.from_bytes(hashed, 'little')
-            new_binary = binary
-            for i in range(how_many):
-                new_binary = new_binary[:-4] + urandom(4)
-                new_hash = hash_fnc(new_binary)
-                new_num = int.from_bytes(new_hash, 'little')
-                if minimum_num > new_num:
-                    binary = new_binary
-                    hashed = new_hash
-                    minimum_num = new_num
-            pipe.send((binary, hashed))
-        except Exception as e:
-            msg = "Hashing failed {} by \"{}\"".format(binary, e)
-            try:
-                pipe.send(msg)
-            except Exception as e:
-                logging.info("Close by pipe error, {}".format(e))
-                return
-
-
-class HashGenerator:
-    def __init__(self, index):
-        self.index = index
-        cxt = get_context('spawn')
-        parent_conn, child_conn = cxt.Pipe(duplex=True)
-        self.process = cxt.Process(
-            target=_pow_generator, name="Hashing{}".format(index), args=(child_conn,))
-        self.process.daemon = True
-        self.parent_conn = parent_conn
-        self.lock = threading.Lock()
-
-    def start(self):
-        self.process.start()
-        logging.info("Start work hash gene {}".format(self.index))
-
-    def close(self):
-        if self.process.is_alive():
-            self.process.terminate()
-        self.parent_conn.close()
-
-    def generate(self, block, how_many):
-        self.lock.acquire()
-        self.parent_conn.send((block.b, block.flag, how_many))
-
-    def result(self):
-        data = self.parent_conn.recv()
-        self.lock.release()
-        if isinstance(data, tuple):
-            return data
-        else:
-            raise BlockChainError('Unknown status on pipe {}'.format(data))
+def _pow_generator(binary, block_flag, how_many):
+    try:
+        hash_fnc = get_workhash_fnc(block_flag)
+        hashed = hash_fnc(binary)
+        minimum_num = int.from_bytes(hashed, 'little')
+        new_binary = binary
+        for i in range(how_many):
+            new_binary = new_binary[:-4] + urandom(4)
+            new_hash = hash_fnc(new_binary)
+            new_num = int.from_bytes(new_hash, 'little')
+            if minimum_num > new_num:
+                binary = new_binary
+                hashed = new_hash
+                minimum_num = new_num
+        return binary, hashed
+    except Exception as e:
+        error = "Hashing failed {} by \"{}\"".format(binary, e)
+        return None, error
 
 
 self_check_hash_fnc()
@@ -196,8 +109,6 @@ self_check_hash_fnc()
 
 __all__ = [
     "get_workhash_fnc",
-    "start_work_hash",
     "update_work_hash",
     "generate_many_hash",
-    "close_work_hash"
 ]

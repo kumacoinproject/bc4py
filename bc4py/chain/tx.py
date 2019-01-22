@@ -4,10 +4,10 @@
 from bc4py import __chain_version__
 from bc4py.config import C, V, BlockChainError
 from hashlib import sha256
-from binascii import hexlify
-from  time import time
+from time import time
 import struct
-from collections import OrderedDict
+import msgpack
+import json
 
 
 struct_tx_header = struct.Struct('<IIIIQqBBBI')
@@ -20,7 +20,7 @@ class TX:
         "b", "hash", "height", "pos_amount",
         "version", "type", "time", "deadline", "inputs", "outputs",
         "gas_price", "gas_amount", "message_type", "message",
-        "signature", "f_on_memory", "create_time", "__weakref__")
+        "signature", "R", "recode_flag", "create_time", "__weakref__")
 
     def __eq__(self, other):
         return self.hash == other.hash
@@ -30,9 +30,9 @@ class TX:
 
     def __repr__(self):
         return "<TX {} {} {}>".format(
-            self.height, C.txtype2name.get(self.type, None), hexlify(self.hash).decode())
+            self.height, C.txtype2name.get(self.type, None), self.hash.hex())
 
-    def __init__(self, binary=None, tx=None):
+    def __init__(self):
         self.b = None
         # tx id
         self.hash = None
@@ -50,28 +50,38 @@ class TX:
         self.gas_amount = None  # fee
         self.message_type = None  # 2bytes int
         self.message = None  # 0~256**4 bytes bin
-        # proof
-        self.signature = None  # [(pubkey, signature),.. ]
-        # 処理には使わないが有用なデータ
-        self.f_on_memory = None
+        # for validation
+        self.signature = list()    # [(pubkey, signature),.. ]
+        self.R = b''  # use for hash-locked
+        # don't use for process
+        self.recode_flag = None
         self.create_time = time()
 
-        if binary:
-            self.b = binary
-            self.deserialize()
-        elif tx:
-            self.version = tx.get('version', __chain_version__)
-            self.type = tx['type']
-            self.time = tx.get('time', 0)
-            self.deadline = tx.get('deadline', 0)
-            self.inputs = tx.get('inputs', list())
-            self.outputs = tx.get('outputs', list())
-            self.gas_price = tx.get('gas_price', V.COIN_MINIMUM_PRICE)
-            self.gas_amount = tx['gas_amount']
-            self.message_type = tx.get('message_type', C.MSG_NONE)
-            self.message = tx.get('message', b'')
-            self.serialize()
-        self.signature = list()
+    @classmethod
+    def from_binary(cls, binary):
+        self = cls()
+        self.b = binary
+        self.deserialize()
+        return self
+
+    @classmethod
+    def from_dict(cls, tx):
+        self = cls()
+        self.version = tx.get('version', __chain_version__)
+        self.type = tx['type']
+        self.time = tx.get('time', 0)
+        self.deadline = tx.get('deadline', 0)
+        self.inputs = tx.get('inputs', list())
+        self.outputs = tx.get('outputs', list())
+        self.gas_price = tx.get('gas_price', V.COIN_MINIMUM_PRICE)
+        self.gas_amount = tx['gas_amount']
+        self.message_type = tx.get('message_type', C.MSG_NONE)
+        self.message = tx.get('message', b'')
+        self.serialize()
+        # extension
+        self.signature = tx.get('signature', self.signature)
+        self.R = tx.get('R', self.R)
+        return self
 
     def serialize(self):
         # 構造
@@ -117,24 +127,41 @@ class TX:
         self.hash = sha256(sha256(self.b).digest()).digest()
 
     def getinfo(self):
-        r = OrderedDict()
-        r['hash'] = hexlify(self.hash).decode()
+        r = dict()
+        r['hash'] = self.hash.hex()
         r['pos_amount'] = self.pos_amount
         r['height'] = self.height
         r['version'] = self.version
         r['type'] = C.txtype2name.get(self.type, None)
         r['time'] = self.time + V.BLOCK_GENESIS_TIME
         r['deadline'] = self.deadline + V.BLOCK_GENESIS_TIME
-        r['inputs'] = [(hexlify(txhash).decode(), txindex) for txhash, txindex in self.inputs]
+        r['inputs'] = [(txhash.hex(), txindex) for txhash, txindex in self.inputs]
         r['outputs'] = self.outputs
         r['gas_price'] = self.gas_price
         r['gas_amount'] = self.gas_amount
         r['message_type'] = C.msg_type2name.get(self.message_type) or self.message_type
-        r['message'] = self.message.decode() if self.message_type == C.MSG_PLAIN else hexlify(self.message).decode()
-        r['signature'] = [(pubkey, hexlify(signature).decode()) for pubkey, signature in self.signature]
-        r['f_on_memory'] = self.f_on_memory
+        r['message'] = self.message.decode() if self.message_type == C.MSG_PLAIN else self.message.hex()
+        r['signature'] = [(pubkey, signature.hex()) for pubkey, signature in self.signature]
+        r['hash_locked'] = self.R.hex()
+        r['recode_flag'] = self.recode_flag
         r['create_time'] = self.create_time
         return r
+
+    def encoded_message(self):
+        if self.message_type == C.MSG_NONE:
+            return None
+        elif self.message_type == C.MSG_PLAIN:
+            return self.message.decode()
+        elif self.message_type == C.MSG_BYTE:
+            return self.message.hex()
+        elif self.message_type == C.MSG_JSON:
+            return json.loads(self.message)
+        elif self.message_type == C.MSG_MSGPACK:
+            return msgpack.unpackb(self.message, raw=True, encoding='utf8')
+        elif self.message_type == C.MSG_HASHLOCKED:
+            return self.message.hex()
+        else:
+            raise BlockChainError('Unknown message type {}'.format(self.message_type))
 
     @property
     def size(self):
@@ -162,16 +189,3 @@ class TX:
         self.time = now - V.BLOCK_GENESIS_TIME
         self.deadline = now - V.BLOCK_GENESIS_TIME + retention
         self.serialize()
-
-"""
-'version'
-'type'
-'time'
-'deadline'
-'inputs'
-'outputs'
-'gas_price'
-'gas_amount'
-'message_type'
-'message'
-"""

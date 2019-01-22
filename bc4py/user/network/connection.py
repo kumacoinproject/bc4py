@@ -1,11 +1,11 @@
 from bc4py.config import V, P, BlockChainError
 from bc4py.user.network.directcmd import DirectCmd
-import logging
 import random
 from collections import Counter
 from time import sleep
+from logging import getLogger
 
-
+log = getLogger('bc4py')
 good_node = list()
 bad_node = list()
 best_hash_on_network = None
@@ -23,7 +23,7 @@ def set_good_node():
             if isinstance(r, str):
                 continue
         except TimeoutError:
-            logging.debug("timeout", exc_info=True)
+            log.debug("timeout", exc_info=True)
             continue
         status_counter[(r['height'], r['hash'])] += 1
         if r['booting'] is False:
@@ -70,7 +70,7 @@ def ask_node(cmd, data=None, f_continue_asking=False):
                 if isinstance(r, str):
                     failed += 1
                     if f_continue_asking:
-                        logging.warning("Failed cmd={} to {} by \"{}\"".format(cmd, user.name, r))
+                        log.warning("Failed cmd={} to {} by \"{}\"".format(cmd, user.name, r))
                         continue
                 return r
             elif user in bad_node:
@@ -117,7 +117,7 @@ def check_network_connection(minimum=None):
     while not P.F_STOP and len(V.PC_OBJ.p2p.user) <= need:
         count += 1
         if count % 30 == 0:
-            logging.debug("{} connections, waiting for new.. {}Sec".format(len(V.PC_OBJ.p2p.user), count))
+            log.debug("{} connections, waiting for new.. {}Sec".format(len(V.PC_OBJ.p2p.user), count))
         sleep(1)
 
 

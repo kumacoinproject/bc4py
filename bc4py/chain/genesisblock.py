@@ -10,7 +10,7 @@ from bc4py.database.create import closing, create_db
 from bc4py.database.account import create_new_user_keypair
 from nem_ed25519.key import convert_address
 from time import time
-import bjson
+import msgpack
 from more_itertools import chunked
 
 
@@ -50,7 +50,7 @@ def create_genesis_block(all_supply, block_span, prefix=b'\x98', contract_prefix
     # premine
     premine_txs = list()
     for index, chunk in enumerate(chunked(premine or list(), 255)):
-        tx = TX(tx={
+        tx = TX.from_dict(tx={
             'version': __chain_version__,
             'type': C.TX_TRANSFER,
             'time': 0,
@@ -81,7 +81,7 @@ def create_genesis_block(all_supply, block_span, prefix=b'\x98', contract_prefix
         'contract_minimum_amount': pow(10, digit_number),
         'consensus': consensus}  # Block承認のアルゴリズム
     # BLockChainの設定TX
-    setting_tx = TX(tx={
+    setting_tx = TX.from_dict(tx={
         'version': __chain_version__,
         'type': C.TX_GENESIS,
         'time': 0,
@@ -90,11 +90,11 @@ def create_genesis_block(all_supply, block_span, prefix=b'\x98', contract_prefix
         'outputs': list(),
         'gas_price': 0,
         'gas_amount': 0,
-        'message_type': C.MSG_BYTE,
-        'message': bjson.dumps(params, compress=False)})
+        'message_type': C.MSG_MSGPACK,
+        'message': msgpack.packb(params, use_bin_type=True)})
     setting_tx.height = 0
     # height0のBlock生成
-    genesis_block = Block(block={
+    genesis_block = Block.from_dict(block={
         'merkleroot': b'\x00'*32,
         'time': 0,
         'previous_hash': b'\xff'*32,

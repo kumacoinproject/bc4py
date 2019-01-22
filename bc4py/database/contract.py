@@ -1,12 +1,12 @@
 from bc4py.config import C, BlockChainError
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.validator import get_validator_object
-from binascii import hexlify
 from threading import Lock
-from collections import OrderedDict
 from copy import deepcopy
-import bjson
-import logging
+from logging import getLogger
+import msgpack
+
+log = getLogger('bc4py')
 
 
 M_INIT = 'init'
@@ -103,17 +103,17 @@ class Contract:
     def info(self):
         if self.version == -1:
             return None
-        d = OrderedDict()
-        d['c_address'] = self.c_address
-        d['db_index'] = self.db_index
-        d['version'] = self.version
-        d['binary'] = hexlify(self.binary).decode()
-        d['extra_imports'] = self.extra_imports
-        d['storage_key'] = len(self.storage)
-        d['settings'] = self.settings
-        d['start_hash'] = hexlify(self.start_hash).decode()
-        d['finish_hash'] = hexlify(self.finish_hash).decode()
-        return d
+        return {
+            'c_address': self.c_address,
+            'db_index': self.db_index,
+            'version': self.version,
+            'binary': self.binary.hex(),
+            'extra_imports': self.extra_imports,
+            'storage_key': len(self.storage),
+            'settings': self.settings,
+            'start_hash': self.start_hash.hex(),
+            'finish_hash': self.finish_hash.hex(),
+        }
 
     def update(self, db_index, start_hash, finish_hash, c_method, c_args, c_storage):
         # DO NOT RAISE ERROR
@@ -148,15 +148,15 @@ class Contract:
         self.finish_hash = finish_hash
 
 
+def encode(*args):
+    assert len(args) == 3
+    return msgpack.packb(args, use_bin_type=True)
+
+
 def decode(b):
     # transfer: [c_address]-[c_method]-[redeem_address]-[c_args]
     # conclude: [c_address]-[start_hash]-[c_storage]
-    return bjson.loads(b)
-
-
-def encode(*args):
-    assert len(args) == 3
-    return bjson.dumps(args, compress=False)
+    return msgpack.unpackb(b, raw=True, encoding='utf8')
 
 
 def contract_fill(c: Contract, best_block=None, best_chain=None, stop_txhash=None):
@@ -265,7 +265,9 @@ def get_conclude_hash_from_start(c_address, start_hash, best_block=None, best_ch
 def start_tx2index(start_hash=None, start_tx=None):
     if start_hash:
         start_tx = tx_builder.get_tx(txhash=start_hash)
-    block = builder.get_block(blockhash=builder.get_block_hash(height=start_tx.height))
+    if start_tx.height is None:
+        raise BlockChainError('Not confirmed startTX {}'.format(start_tx))
+    block = builder.get_block(height=start_tx.height)
     if block is None:
         raise BlockChainError('Not found block of start_tx included? {}'.format(start_tx))
     if start_tx not in block.txs:
@@ -284,7 +286,7 @@ def update_contract_cashe():
                 c_contract.update(db_index=index, start_hash=start_hash, finish_hash=finish_hash,
                                   c_method=c_method, c_args=c_args, c_storage=c_storage)
                 count += 1
-    logging.debug("Contract cashe update {}tx".format(count))
+    log.debug("Contract cashe update {}tx".format(count))
 
 
 __all__ = [

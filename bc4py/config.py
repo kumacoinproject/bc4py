@@ -3,8 +3,24 @@
 
 
 import configparser
-from queue import Queue, Full, Empty
-from threading import Lock
+from rx.subjects import Subject
+from concurrent.futures import ProcessPoolExecutor
+import atexit
+import psutil
+
+# internal stream by ReactiveX
+# doc: https://github.com/ReactiveX/RxPY/blob/develop/notebooks/Getting%20Started.ipynb
+stream = Subject()
+atexit.register(stream.dispose)
+
+
+# multiprocessing executor
+max_process_num = 8
+logical_cpu_num = psutil.cpu_count(logical=True) or max_process_num
+physical_cpu_nam = psutil.cpu_count(logical=False) or max_process_num
+max_workers = min(logical_cpu_num, physical_cpu_nam)
+executor = ProcessPoolExecutor(max_workers=max_workers)
+atexit.register(executor.shutdown, wait=True)
 
 
 class C:  # Constant
@@ -19,15 +35,17 @@ class C:  # Constant
 
     # consensus
     BLOCK_GENESIS = 0
-    BLOCK_YES_POW = 1
-    BLOCK_POS = 2
-    # HYBRID = 3
-    BLOCK_X11_POW = 4
-    BLOCK_HMQ_POW = 5
-    BLOCK_LTC_POW = 6
-    BLOCK_X16R_POW = 7
-    consensus2name = {0: 'GENESIS', 1: 'POW_YES', 2: 'POS', 4: 'POW_X11', 5: 'POW_HMQ',
-                      6: 'POW_LTC', 7: 'POW_X16R'}
+    BLOCK_POS = 1
+
+    BLOCK_YES_POW = 5
+    BLOCK_X11_POW = 6
+    BLOCK_HMQ_POW = 7
+    BLOCK_LTC_POW = 8
+    BLOCK_X16R_POW = 9
+    consensus2name = {
+        BLOCK_GENESIS: 'GENESIS', BLOCK_POS: 'POS',
+        BLOCK_YES_POW: 'POW_YES', BLOCK_X11_POW: 'POW_X11', BLOCK_HMQ_POW: 'POW_HMQ',
+        BLOCK_LTC_POW: 'POW_LTC', BLOCK_X16R_POW: 'POW_X16R'}
 
     # tx type
     TX_GENESIS = 0  # Height0の初期設定TX
@@ -47,10 +65,18 @@ class C:  # Constant
     MSG_NONE = 0  # no message
     MSG_PLAIN = 1  # 明示的にunicode
     MSG_BYTE = 2  # 明示的にbinary
-    msg_type2name = {0: 'NONE', 1: 'PLAIN', 2: 'BYTE'}
+    MSG_JSON = 3  # json
+    MSG_MSGPACK = 4  # msgpack protocol
+    MSG_HASHLOCKED = 5  # hash-locked transaction
+    msg_type2name = {
+        MSG_NONE: 'NONE', MSG_PLAIN: 'PLAIN', MSG_BYTE: 'BYTE',
+        MSG_JSON: 'JSON', MSG_MSGPACK: 'MSGPACK', MSG_HASHLOCKED: 'HASHLOCKED'}
 
     # difficulty
     DIFF_RETARGET = 20  # difficultyの計算Block数
+
+    # BIP32
+    BIP44_COIN_TYPE = 0x800002aa
 
     # block params
     MATURE_HEIGHT = 20  # 採掘されたBlockのOutputsが成熟する期間
@@ -103,8 +129,11 @@ class V:  # 起動時に設定される変数
     DB_HOME_DIR = None
     DB_ACCOUNT_PATH = None
 
-    # encryption key
-    ENCRYPT_KEY = None
+    # Wallet
+    # mnemonic =(decrypt)=> seed ==> 44' => coinType' => secret key
+    BIP44_ENCRYPTED_MNEMONIC = None
+    BIP44_ROOT_PUB_KEY = None  # path: m
+    BIP44_BRANCH_SEC_KEY = None  # path: m/44'/coin_type'
 
     # mining
     MINING_ADDRESS = None
@@ -124,45 +153,6 @@ class Debug:
     F_SHOW_DIFFICULTY = False
     F_CONSTANT_DIFF = False
     F_STICKY_TX_REJECTION = True
-
-
-class NewInfo:
-    ques = list()  # [(que, name), ..]
-    empty = Empty
-    lock = Lock()
-
-    def __init__(self):
-        raise Exception('Not init the class!')
-
-    @staticmethod
-    def put(obj):
-        for q, name in NewInfo.ques.copy():
-            try:
-                q.put_nowait(obj)
-            except Full:
-                with NewInfo.lock:
-                    NewInfo.ques.remove((q, name))
-
-    @staticmethod
-    def get(channel, timeout=None):
-        # caution: Don't forget remove! memory leak risk.
-        while True:
-            for q, ch in NewInfo.ques.copy():
-                if channel == ch:
-                    return q.get(timeout=timeout)
-            else:
-                que = Queue(maxsize=3000)
-                with NewInfo.lock:
-                    NewInfo.ques.append((que, channel))
-
-    @staticmethod
-    def remove(channel):
-        for q, ch in NewInfo.ques.copy():
-            if ch == channel:
-                with NewInfo.lock:
-                    NewInfo.ques.remove((q, ch))
-                return True
-        return False
 
 
 class MyConfigParser(configparser.ConfigParser):
@@ -221,3 +211,13 @@ class MyConfigParser(configparser.ConfigParser):
 
 class BlockChainError(Exception):
     pass
+
+
+__all__ = [
+    'stream',
+    'max_workers',
+    'executor',
+    'C', 'V', 'P',
+    'Debug', 'MyConfigParser',
+    'BlockChainError'
+]

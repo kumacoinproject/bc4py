@@ -1,14 +1,15 @@
 from bc4py.contract.params import *
 from bc4py.contract import basiclib
-from types import FunctionType, CodeType, MethodType
+from types import FunctionType, CodeType, MethodType, ModuleType
 from io import BytesIO, StringIO
 from importlib import import_module
 import importlib.util
 from dis import dis
-import pickle
-import builtins
 import os
-import logging
+import msgpack
+from logging import getLogger
+
+log = getLogger('bc4py')
 
 
 # from A.B import C
@@ -16,24 +17,111 @@ import logging
 
 class_const_types = (int, str, bytes)
 function_essential_attr = ("__code__", "__name__", "__defaults__", "__closure__")
-function_optional_attr = ("__annotations__", "__dict__", "__doc__", "__kwdefaults__")
+function_optional_attr = ("__dict__", "__doc__", "__kwdefaults__")
 code_attr_order = ("co_argcount", "co_kwonlyargcount", "co_nlocals", "co_stacksize", "co_flags",
                    "co_code", "co_consts", "co_names", "co_varnames", "co_filename", "co_name",
                    "co_firstlineno", "co_lnotab", "co_freevars", "co_cellvars")
 
 
-class ControlledUnpickler(pickle.Unpickler):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args)
-        self.safe_builtins = kwargs['safe_builtins'] or list()
+def default_hook(obj):
+    if isinstance(obj, CodeType):
+        data = list()
+        for name in code_attr_order:
+            code_obj = getattr(obj, name)
+            if name == 'co_filename':
+                data.append('')
+            elif name == 'co_consts':
+                const = list()
+                for o in code_obj:
+                    if isinstance(o, CodeType):
+                        const.append(default_hook(o))
+                    else:
+                        const.append(o)
+                data.append(tuple(const))  # Important: detect by list type
+            elif name.startswith('__'):
+                continue
+            else:
+                data.append(code_obj)
+        return {'_contract_': 'CodeType', 'data': data}
 
-    def find_class(self, module, name):
-        # Only allow safe classes from builtins.
-        if module == "builtins":
-            if name in self.safe_builtins:
-                return getattr(builtins, name)
-        # Forbid everything else.
-        raise pickle.UnpicklingError("global '{}.{}' is forbidden".format(module, name))
+    if isinstance(obj, FunctionType):
+        data = dict()
+        for name in function_essential_attr + function_optional_attr:
+            fnc_obj = getattr(obj, name)
+            if name == '__code__':
+                data[name] = default_hook(fnc_obj)
+            else:
+                data[name] = fnc_obj
+        return {'_contract_': 'FunctionType', 'data': data}
+
+    if isinstance(obj, type):
+        name2fnc = dict()
+        name2const = dict()
+        for name in dir(obj):
+            class_obj = getattr(obj, name)
+            if name == '__doc__' and isinstance(class_obj, str):
+                name2const[name] = class_obj
+            elif name.startswith('__'):
+                pass  # pass include __init__
+            elif isinstance(class_obj, FunctionType):
+                name2fnc[name] = default_hook(class_obj)
+            elif type(class_obj) in class_const_types:
+                name2const[name] = class_obj
+            else:
+                pass  # pass unknown type
+        return {'_contract_': 'ContractType', 'name2fnc': name2fnc, 'name2const': name2const}
+
+    return obj
+
+
+class Unpacker(msgpack.Unpacker):
+    def __init__(self, fp, global_dict, args_list):
+        super().__init__(fp, use_list=False, raw=True,
+                         object_hook=self.object_hook, encoding='utf8')
+        self.global_dict = global_dict
+        self.args = args_list
+
+    def object_hook(self, dct):
+        if isinstance(dct, dict) and '_contract_' in dct:
+            if dct['_contract_'] == 'CodeType':
+                code_dict = dict()
+                for index, name in enumerate(code_attr_order):
+                    code_dict[name] = dct['data'][index]
+                co_consts = list()
+                for const in code_dict['co_consts']:
+                    if isinstance(const, dict):
+                        co_consts.append(self.object_hook(const))
+                    else:
+                        co_consts.append(const)
+                code_dict['co_consts'] = tuple(co_consts)
+                return CodeType(
+                    code_dict['co_argcount'], code_dict['co_kwonlyargcount'], code_dict['co_nlocals'],
+                    code_dict['co_stacksize'], code_dict['co_flags'], code_dict['co_code'],
+                    code_dict['co_consts'], code_dict['co_names'], code_dict['co_varnames'],
+                    code_dict['co_filename'], code_dict['co_name'], code_dict['co_firstlineno'],
+                    code_dict['co_lnotab'], code_dict['co_freevars'], code_dict['co_cellvars'])
+
+            if dct['_contract_'] == 'FunctionType':
+                fnc = FunctionType(
+                    self.object_hook(dct['data']['__code__']),
+                    self.global_dict,
+                    name=dct['data']['__name__'],
+                    argdefs=dct['data']['__defaults__'],
+                    closure=dct['data']['__closure__'])
+                for name in function_optional_attr:
+                    setattr(fnc, name, dct['data'][name])
+                return fnc
+
+            if dct['_contract_'] == 'ContractType':
+                contract = ContractTemplate(*self.args)
+                for name, fnc in dct['name2fnc'].items():
+                    fnc = self.object_hook(fnc)
+                    setattr(contract, name, MethodType(fnc, contract))
+                for name, const in dct['name2const'].items():
+                    setattr(contract, name, const)
+                contract.__module__ = None
+                return contract
+        return dct
 
 
 class ContractTemplate(object):
@@ -51,7 +139,7 @@ def get_limited_globals(extra_imports=None):
     g = {name: getattr(basiclib, name) for name in basiclib.__all__}
     if extra_imports:
         for path, name in extra_imports:
-            logging.warning("Import an external library => 'from {} import {}'".format(path, name))
+            log.warning("Import an external library => 'from {} import {}'".format(path, name))
             if name == "*":
                 module = import_module(path)
                 for module_name in module.__all__:
@@ -65,6 +153,8 @@ def get_limited_globals(extra_imports=None):
         if deny in g:
             del g[deny]
     __builtins__ = globals()['__builtins__']
+    if isinstance(__builtins__, ModuleType):
+        __builtins__ = {name: getattr(__builtins__, name) for name in dir(__builtins__)}
     builtin_dict = dict()
     for allow in allow_builtins:
         if allow in __builtins__:
@@ -76,151 +166,16 @@ def get_limited_globals(extra_imports=None):
     return g
 
 
-def code2pre(code):
-    assert isinstance(code, CodeType)
-    data = list()
-    for name in code_attr_order:
-        obj = getattr(code, name)
-        if name == 'co_filename':
-            data.append('')
-        elif name == 'co_consts':
-            const = list()
-            for o in obj:
-                if isinstance(o, CodeType):
-                    const.append(code2pre(o))
-                else:
-                    const.append(o)
-            data.append(const)  # Important: detect by list type
-        else:
-            data.append(obj)
-    return data
-
-
-def pre2code(pre):
-    co_argcount, co_kwonlyargcount, co_nlocals, co_stacksize, co_flags, co_code, co_consts, co_names,\
-    co_varnames, co_filename, co_name, co_firstlineno, co_lnotab, co_freevars, co_cellvars = pre
-    const = list()
-    for o in co_consts:
-        if isinstance(o, list):
-            const.append(pre2code(o))
-        else:
-            const.append(o)
-    co_consts = tuple(const)
-    code = CodeType(
-        co_argcount, co_kwonlyargcount, co_nlocals, co_stacksize,
-        co_flags, co_code, co_consts,
-        co_names, co_varnames, co_filename,
-        co_name, co_firstlineno, co_lnotab,
-        co_freevars, co_cellvars)
-    return code
-
-
-def function2pre(fnc):
-    assert isinstance(fnc, FunctionType)
-    data = dict()
-    for name in function_essential_attr + function_optional_attr:
-        obj = getattr(fnc, name)
-        if name == '__code__':
-            data[name] = code2pre(obj)
-        else:
-            data[name] = obj
-    return data
-
-
-def pre2function(pre, global_dict):
-    fnc = FunctionType(
-        pre2code(pre['__code__']),
-        global_dict,
-        name=pre['__name__'],
-        argdefs=pre['__defaults__'],
-        closure=pre['__closure__'])
-    for name in function_optional_attr:
-        setattr(fnc, name, pre[name])
-    return fnc
-
-
-def contract2pre(contract):
-    isinstance(contract, type)
-    name2fnc = dict()
-    name2const = dict()
-    for name in dir(contract):
-        obj = getattr(contract, name)
-        if name == '__doc__' and isinstance(obj, str):
-            name2const[name] = obj
-            continue
-        if name.startswith('__'):
-            continue  # pass include __init__
-        if isinstance(obj, FunctionType):
-            name2fnc[name] = function2pre(obj)
-        elif type(obj) in class_const_types:
-            name2const[name] = obj
-        else:
-            continue  # pass unknown type
-    return name2fnc, name2const
-
-
-def pre2contract(name2fnc, name2const, global_dict, *args):
-    contract = ContractTemplate(*args)
-    for name, fnc in name2fnc.items():
-        fnc = pre2function(fnc, global_dict)
-        setattr(contract, name, MethodType(fnc, contract))
-    for name, const in name2const.items():
-        setattr(contract, name, const)
-    contract.__module__ = None
+def binary2contract(b, extra_imports=None, args=()):
+    global_dict = get_limited_globals(extra_imports=extra_imports)
+    bio = BytesIO(b)
+    contract = Unpacker(fp=bio, global_dict=global_dict, args_list=args).unpack()
+    bio.close()
     return contract
 
 
-def binary2pre(b, safe_builtins=None):
-    bio = BytesIO(b)
-    pre = ControlledUnpickler(bio, safe_builtins=safe_builtins).load()
-    bio.close()
-    return pre
-
-
-def pre2binary(pre):
-    return pickle.dumps(obj=pre, protocol=4, fix_imports=False)
-
-
-def contract2binary(contract):
-    pre = contract2pre(contract)
-    return pre2binary(pre)
-
-
-def binary2contract(b, extra_imports, args):
-    pre = binary2pre(b=b, safe_builtins=None)
-    global_dict = get_limited_globals(extra_imports)
-    return pre2contract(*pre, global_dict, *args)
-
-
-""" note: will delete
-def string2contract(string, global_dict, doc=''):
-    def create_cell(contents):
-        return (lambda y: contents).__closure__[0]
-    code_obj = compile(string, "Contract", 'exec')
-    for const in reversed(code_obj.co_consts):
-        if const and isinstance(const, CodeType):
-            code_obj = const
-            break
-    else:
-        raise Exception('Not found contract code object.')
-    f_name = code_obj.co_name
-    f_obj = (object,)
-    f_dict = {'__module__': '__main__', '__doc__': doc}
-    defaults = None
-    for code in code_obj.co_consts:
-        if isinstance(code, CodeType):
-            # ExampleContractTemplate.__init__.__closure__[0].cell_contents is ExampleContractTemplate
-            for name in dir(code):
-                print(name, getattr(code, name))
-            closure = tuple(create_cell(getattr(code_obj, name)) for name in code.co_freevars)
-            f_dict[code.co_name] = FunctionType(
-                code, global_dict, name=code.co_name, argdefs=defaults, closure=closure)
-        # elif type(code) in class_const_types:
-        #    f_dict[code.co_name] = code
-        else:
-            logging.debug("Ignore code => {}".format(code))
-    return type(f_name, f_obj, f_dict)
-"""
+def contract2binary(pre):
+    return msgpack.packb(pre, default=default_hook, use_bin_type=True)
 
 
 def path2contract(path):
@@ -239,7 +194,7 @@ def path2contract(path):
         elif obj.__module__ != 'Contract':
             continue
         elif len(obj.__init__.__closure__) != 1:
-            logging.warning("Find class but don't hesitate ContractTemplate.")
+            log.warning("Find class but don't hesitate ContractTemplate.")
             continue
         else:
             return obj

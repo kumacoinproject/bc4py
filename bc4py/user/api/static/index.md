@@ -6,8 +6,10 @@ Index page
 * [bootstrap3 components](https://getbootstrap.com/docs/3.3/components/)
 
 
-[System](./doc_system.md)
+System
 ----
+[document link](./doc_system.md)
+
 |URL    |Method    |Type    |About   |
 |----   |----   |----   |----   |
 |[/public/getsysteminfo](./public/getsysteminfo)    |GET    |public   | System public info.                    |
@@ -18,24 +20,30 @@ Index page
 |[/private/resync](./private/resync)                |GET    |private  | Make system resync status.              |
 |[/private/stop](./private/stop)                    |GET    |private  | Stop system.                            |
 
-[Account](./doc_account.md)
+Account
 ----
+[document link](./doc_account.md)
+
 |URL    |Method    |Type    |About   |
 |----   |----   |----   |----   |
 |[/private/listbalance](./private/listbalance)               |GET    |private  | List all user balance.                 |
 |[/private/listtransactions](./private/listtransactions)     |GET    |private  | List user related transaction info.    |
+|[/public/listunspents](./public/listunspents)                |GET    |public  | List unused outputs by addresses.      |
 |[/private/listunspents](./private/listunspents)              |GET    |private  | List system's unused outputs.         |
 |[/private/listaccountaddress](./private/listaccountaddress) |GET    |private  | List user related addresses.          |
-|[/private/lock](./private/lock)                               |POST   |private  | Encrypt keypair storage.              |
-|[/private/unlock](./private/unlock)                           |POST   |private  | Decrypt keypair storage.             |
-|[/private/changepassword](./private/changepassword)          |POST   |private  | Change keypair storage password.      |
+|[/private/lockwallet](./private/lockwallet)                  |POST   |private  | delete private key from system        |
+|[/private/unlockwallet](./private/unlockwallet)              |POST   |private  | decrypt and recode private key to memory |
+|[/private/createwallet](./private/createwallet)              |POST   |private  | generate new wallet private/public pair |
+|[/private/importprivatekey](./private/importprivatekey)      |POST   |private  | import private key manually           |
 |[/private/move](./private/move)                               |POST   |private  | Move inner account balance.           |
 |[/private/movemany](./private/movemany)                       |POST   |private  | Move inner account balances.          |
 |[/private/newaddress](./private/newaddress)                   |GET    |private  | Get new incoming address by account.  |
 |[/private/getkeypair](./private/getkeypair)                   |GET    |private  | Get keypair by address.               |
 
-[Sending](./doc_sending.md)
+Sending
 ----
+[document link](./doc_sending.md)
+
 |URL    |Method    |Type    |About   |
 |----   |----   |----   |----   |
 |[/public/createrawtx](./public/createrawtx)        |POST   |public   | Create raw transaction by params.   |
@@ -46,8 +54,10 @@ Index page
 |[/private/issueminttx](./private/issueminttx)      |POST   |private  | Issue new mintcoin.                 |
 |[/private/changeminttx](./private/changeminttx)    |POST   |private  | Cahge mintcoin's status.            |
 
-[Contract](./doc_contract.md)
+Contract
 ----
+[document link](./doc_contract.md)
+
 |URL    |Method    |Type    |About   |
 |----   |----   |----   |----   |
 |[/public/getcontractinfo](./public/getcontractinfo)           |GET    |public   | Get contract info.                           |
@@ -64,8 +74,10 @@ Index page
 |[/private/validatoredit](./private/validatoredit)              |POST   |private  | Edit validator status.                      |
 |[/private/validateunconfirmed](./private/validateunconfirmed) |POST   |private  | Validate unconfirmed contract transactions.  |
 
-[Blockchain](./doc_blockchain.md)
+Blockchain
 ----
+[document link](./doc_blockchain.md)
+
 |URL    |Method    |Type    |About   |
 |----   |----   |----   |----   |
 |[/public/getblockbyheight](./public/getblockbyheight)  |GET    |public   | Get block by height.         |
@@ -74,8 +86,10 @@ Index page
 |[/public/getmintinfo](./public/getmintinfo)            |GET    |public   | Get mintcoin info.           |
 |[/public/getminthistory](./public/getminthistory)      |GET    |public   | Get mintcoin history.        |
 
-[Others](./doc_others.md)
+Others
 ----
+[document link](./doc_others.md)
+
 |URL    |Method    |Type    |About   |
 |----   |----   |----   |----   |
 |[/public/ws](./public/ws)          |GET   |public      | Realtime information stream.                       |

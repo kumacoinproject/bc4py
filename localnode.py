@@ -10,10 +10,9 @@ from bc4py.user.boot import *
 from bc4py.user.network import *
 from bc4py.user.api import create_rest_server
 from bc4py.contract.emulator import start_emulators, Emulate
-from bc4py.contract.emulator.watching import start_contract_watch
 from bc4py.database.create import make_account_db
 from bc4py.database.builder import builder
-from bc4py.chain.workhash import start_work_hash, close_work_hash
+from bc4py.chain.msgpack import default_hook, object_hook
 from p2p_python.utils import setup_p2p_params
 from p2p_python.client import PeerClient
 from bc4py.for_debug import set_logger, f_already_bind
@@ -26,8 +25,8 @@ def copy_boot(port):
     if port == 2000:
         return
     else:
-        original = os.path.join(os.path.split(V.DB_HOME_DIR)[0], '2000', 'boot.dat')
-    destination = os.path.join(V.DB_HOME_DIR, 'boot.dat')
+        original = os.path.join(os.path.split(V.DB_HOME_DIR)[0], '2000', 'boot.json')
+    destination = os.path.join(V.DB_HOME_DIR, 'boot.json')
     if original == destination:
         return
     with open(original, mode='br') as ifp:
@@ -41,12 +40,13 @@ def work(port, sub_dir):
     builder.set_database_path()
     copy_boot(port)
     make_account_db()
+    import_keystone(passphrase='hello python')
     genesis_block, network_ver, connections = load_boot_file()
     logging.info("Start p2p network-ver{} .".format(network_ver))
 
     # P2P network setup
     setup_p2p_params(network_ver=network_ver, p2p_port=port, sub_dir=sub_dir)
-    pc = PeerClient(f_local=True)
+    pc = PeerClient(f_local=True, default_hook=default_hook, object_hook=object_hook)
     pc.event.addevent(cmd=DirectCmd.BEST_INFO, f=DirectCmd.best_info)
     pc.event.addevent(cmd=DirectCmd.BLOCK_BY_HEIGHT, f=DirectCmd.block_by_height)
     pc.event.addevent(cmd=DirectCmd.BLOCK_BY_HASH, f=DirectCmd.block_by_hash)
@@ -70,26 +70,30 @@ def work(port, sub_dir):
     pc.broadcast_check = broadcast_check
 
     # Update to newest blockchain
-    builder.init(genesis_block, batch_size=500)
-    # builder.db.sync = False  # more fast
+    builder.db.sync = False
+    if builder.init(genesis_block, batch_size=500):
+        # only genesisBlock yoy have, try to import bootstrap.dat
+        log = logging.getLogger('bc4py')
+        old_level = log.level
+        log.setLevel(logging.WARNING)
+        load_bootstrap_file()
+        log.setLevel(old_level)
     sync_chain_loop()
 
     # Mining/Staking setup
-    start_work_hash()
     # Debug.F_CONSTANT_DIFF = True
     # Debug.F_SHOW_DIFFICULTY = True
     # Debug.F_STICKY_TX_REJECTION = False  # for debug
     if port % 3 == 0:
-        Generate(consensus=C.BLOCK_YES_POW, power_limit=0.01).start()
+        Generate(consensus=C.BLOCK_YES_POW, power_limit=0.03).start()
     if port % 3 == 1:
-        Generate(consensus=C.BLOCK_HMQ_POW, power_limit=0.01).start()
+        Generate(consensus=C.BLOCK_HMQ_POW, power_limit=0.03).start()
     if port % 3 == 2:
-        Generate(consensus=C.BLOCK_X11_POW, power_limit=0.01).start()
+        Generate(consensus=C.BLOCK_X11_POW, power_limit=0.03).start()
     Generate(consensus=C.BLOCK_POS, power_limit=0.3).start()
-    # Contract watcher
-    start_contract_watch()
-    # Emulate(c_address='CJ4QZ7FDEH5J7B2O3OLPASBHAFEDP6I7UKI2YMKF')
-    Emulate(c_address='CLBKXHOTXTLK3FENVTCH6YPM5MFZS4BNAXFYNWBD')
+    # contract emulator
+    Emulate(c_address='CJ4QZ7FDEH5J7B2O3OLPASBHAFEDP6I7UKI2YMKF')
+    # Emulate(c_address='CLBKXHOTXTLK3FENVTCH6YPM5MFZS4BNAXFYNWBD')
     start_emulators(genesis_block)
     # Stratum
     # Stratum(port=port+2000, consensus=C.BLOCK_HMQ_POW, first_difficulty=4)
@@ -98,13 +102,14 @@ def work(port, sub_dir):
 
     try:
         # start_stratum(f_blocking=False)
-        create_rest_server(f_local=True, port=port+1000, user='user', pwd='password')
+        create_rest_server(f_local=True, user='user', pwd='password', port=port+1000)
+        if P.F_NOW_BOOTING is False:
+            create_bootstrap_file()
         P.F_STOP = True
         builder.close()
         # close_stratum()
         pc.close()
         close_generate()
-        close_work_hash()
     except KeyboardInterrupt:
         logging.debug("KeyboardInterrupt.")
 

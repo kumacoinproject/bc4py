@@ -5,8 +5,7 @@ from bc4py.database.account import create_new_user_keypair, read_user2name, inse
 from bc4py.user import Balance, Accounting
 from bc4py.user.txcreation.utils import *
 import random
-import bjson
-from binascii import hexlify
+import msgpack
 
 
 MINTCOIN_DUMMY_ADDRESS = '_____MINTCOIN_____DUMMY_____ADDRESS_____'
@@ -24,14 +23,14 @@ def issue_mintcoin(name, unit, digit, amount, cur, description=None, image=None,
     result = check_mintcoin_new_format(m_before=m_before, new_params=params, new_setting=setting)
     if isinstance(result, str):
         raise BlockChainError('check_mintcoin_new_format(): {}'.format(result))
-    msg_body = bjson.dumps((mint_id, params, setting), compress=False)
-    tx = TX(tx={
+    msg_body = msgpack.packb((mint_id, params, setting), use_bin_type=True)
+    tx = TX.from_dict(tx={
         'type': C.TX_MINT_COIN,
         'inputs': list(),
         'outputs': [(MINTCOIN_DUMMY_ADDRESS, 0, amount)],
         'gas_price': gas_price or V.COIN_MINIMUM_PRICE,
         'gas_amount': 1,
-        'message_type': C.MSG_BYTE,
+        'message_type': C.MSG_MSGPACK,
         'message': msg_body})
     tx.update_time(retention)
     additional_gas = C.MINTCOIN_GAS
@@ -43,7 +42,7 @@ def issue_mintcoin(name, unit, digit, amount, cur, description=None, image=None,
     # input_address.add(mint_address)
     fee_coins = Balance(coin_id=fee_coin_id, amount=tx.gas_price * tx.gas_amount)
     # check amount
-    check_enough_amount(sender=sender, send_coins=Balance(0, amount), fee_coins=fee_coins)
+    check_enough_amount(sender=sender, send_coins=Balance(0, amount), fee_coins=fee_coins, cur=cur)
     # replace dummy address
     replace_redeem_dummy_address(tx=tx, cur=cur)
     # replace dummy mint_id
@@ -82,12 +81,12 @@ def change_mintcoin(mint_id, cur, amount=None, description=None, image=None, set
     result = check_mintcoin_new_format(m_before=m_before, new_params=params, new_setting=setting)
     if isinstance(result, str):
         raise BlockChainError('check_mintcoin_new_format(): {}'.format(result))
-    msg_body = bjson.dumps((mint_id, params, setting), compress=False)
-    tx = TX(tx={
+    msg_body = msgpack.packb((mint_id, params, setting), use_bin_type=True)
+    tx = TX.from_dict(tx={
         'type': C.TX_MINT_COIN,
         'gas_price': gas_price or V.COIN_MINIMUM_PRICE,
         'gas_amount': 1,
-        'message_type': C.MSG_BYTE,
+        'message_type': C.MSG_MSGPACK,
         'message': msg_body})
     if amount:
         tx.outputs.append((MINTCOIN_DUMMY_ADDRESS, 0, amount))
@@ -106,7 +105,7 @@ def change_mintcoin(mint_id, cur, amount=None, description=None, image=None, set
     input_address.add(m_before.address)
     fee_coins = Balance(coin_id=fee_coin_id, amount=tx.gas_price * tx.gas_amount)
     # check amount
-    check_enough_amount(sender=sender, send_coins=send_coins, fee_coins=fee_coins)
+    check_enough_amount(sender=sender, send_coins=send_coins, fee_coins=fee_coins, cur=cur)
     # replace dummy address
     replace_redeem_dummy_address(tx=tx, cur=cur)
     # replace dummy mint_id

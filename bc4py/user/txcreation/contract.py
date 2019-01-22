@@ -6,9 +6,11 @@ from bc4py.database.builder import tx_builder
 from bc4py.database.account import create_new_user_keypair, read_user2name
 from bc4py.user.txcreation.utils import *
 from bc4py.user.txcreation.transfer import send_many
-import bjson
 from copy import deepcopy
-import logging
+from logging import getLogger
+import msgpack
+
+log = getLogger('bc4py')
 
 
 def create_contract_init_tx(c_address, c_bin, cur, c_extra_imports=None, c_settings=None,
@@ -17,11 +19,11 @@ def create_contract_init_tx(c_address, c_bin, cur, c_extra_imports=None, c_setti
         raise BlockChainError('Not allowed inner account.')
     c_method = contract.M_INIT
     c_args = (c_bin, c_extra_imports, c_settings)
-    redeem_address = create_new_user_keypair(read_user2name(sender, cur), cur)
-    msg_body = bjson.dumps((c_address, c_method, redeem_address, c_args), compress=False)
+    redeem_address = create_new_user_keypair(read_user2name(sender, cur), cur, True)
+    msg_body = msgpack.packb((c_address, c_method, redeem_address, c_args), use_bin_type=True)
     send_pairs = send_pairs_format_check(c_address=c_address, send_pairs=send_pairs)
     tx = send_many(sender=sender, send_pairs=send_pairs, cur=cur, fee_coin_id=0, gas_price=gas_price,
-                   msg_type=C.MSG_BYTE, msg_body=msg_body, retention=retention)
+                   msg_type=C.MSG_MSGPACK, msg_body=msg_body, retention=retention)
     return tx
 
 
@@ -32,11 +34,11 @@ def create_contract_update_tx(c_address, cur, c_bin=None, c_extra_imports=None, 
         raise BlockChainError('Not allowed inner account.')
     c_method = contract.M_UPDATE
     c_args = (c_bin, c_extra_imports, c_settings)
-    redeem_address = create_new_user_keypair(read_user2name(sender, cur), cur)
-    msg_body = bjson.dumps((c_address, c_method, redeem_address, c_args), compress=False)
+    redeem_address = create_new_user_keypair(read_user2name(sender, cur), cur, True)
+    msg_body = msgpack.packb((c_address, c_method, redeem_address, c_args), use_bin_type=True)
     send_pairs = send_pairs_format_check(c_address=c_address, send_pairs=send_pairs)
     tx = send_many(sender=sender, send_pairs=send_pairs, cur=cur, fee_coin_id=0, gas_price=gas_price,
-                   msg_type=C.MSG_BYTE, msg_body=msg_body, retention=retention)
+                   msg_type=C.MSG_MSGPACK, msg_body=msg_body, retention=retention)
     return tx
 
 
@@ -49,11 +51,11 @@ def create_contract_transfer_tx(c_address, cur, c_method, c_args=None,
         c_args = tuple()
     else:
         c_args = tuple(c_args)
-    redeem_address = create_new_user_keypair(read_user2name(sender, cur), cur)
-    msg_body = bjson.dumps((c_address, c_method, redeem_address, c_args), compress=False)
+    redeem_address = create_new_user_keypair(read_user2name(sender, cur), cur, True)
+    msg_body = msgpack.packb((c_address, c_method, redeem_address, c_args), use_bin_type=True)
     send_pairs = send_pairs_format_check(c_address=c_address, send_pairs=send_pairs)
     tx = send_many(sender=sender, send_pairs=send_pairs, cur=cur, fee_coin_id=0, gas_price=gas_price,
-                   msg_type=C.MSG_BYTE, msg_body=msg_body, retention=retention)
+                   msg_type=C.MSG_MSGPACK, msg_body=msg_body, retention=retention)
     return tx
 
 
@@ -62,17 +64,17 @@ def create_conclude_tx(c_address, start_tx, redeem_address, send_pairs=None, c_s
     assert send_pairs is None or isinstance(send_pairs, list)
     assert c_storage is None or isinstance(c_storage, dict)
     assert isinstance(emulate_gas, int)
-    message = bjson.dumps((c_address, start_tx.hash, c_storage), compress=False)
+    message = msgpack.packb((c_address, start_tx.hash, c_storage), use_bin_type=True)
     v = get_validator_object(c_address=c_address)
     send_pairs = send_pairs or list()
-    tx = TX(tx={
+    tx = TX.from_dict(tx={
         'type': C.TX_CONCLUDE_CONTRACT,
         'time': start_tx.time,
         'deadline': start_tx.deadline,
         'gas_price': start_tx.gas_price,
         'gas_amount': 0,
         'outputs': [tuple(s) for s in send_pairs],
-        'message_type': C.MSG_BYTE,
+        'message_type': C.MSG_MSGPACK,
         'message': message})
     extra_gas = C.SIGNATURE_GAS * v.require
     tx.gas_amount = tx.size + extra_gas
@@ -100,7 +102,7 @@ def create_conclude_tx(c_address, start_tx, redeem_address, send_pairs=None, c_s
         if not (f_finish_add and f_finish_sub):
             raise BlockChainError('Cannot move conclude fee, add={} sub={}'
                                   .format(f_finish_add, f_finish_sub))
-        logging.debug("Move conclude fee {}:{}".format(fee_coin_id, conclude_fee))
+        log.debug("Move conclude fee {}:{}".format(fee_coin_id, conclude_fee))
     tx.serialize()
     if v.version == -1:
         raise BlockChainError('Not init validator address. {}'.format(c_address))
@@ -129,12 +131,12 @@ def create_validator_edit_tx(c_address, new_address=None,
         if not (0 < next_require <= next_validator_num):
             raise BlockChainError('ReqError, 0 < {} <= {}'.format(next_require, next_validator_num))
     # tx create
-    message = bjson.dumps((c_address, new_address, flag, sig_diff), compress=False)
-    tx = TX(tx={
+    message = msgpack.packb((c_address, new_address, flag, sig_diff), use_bin_type=True)
+    tx = TX.from_dict(tx={
         'type': C.TX_VALIDATOR_EDIT,
         'gas_price': gas_price or V.COIN_MINIMUM_PRICE,
         'gas_amount': 0,
-        'message_type': C.MSG_BYTE,
+        'message_type': C.MSG_MSGPACK,
         'message': message})
     extra_gas = C.VALIDATOR_EDIT_GAS + C.SIGNATURE_GAS * v.require
     tx.gas_amount = tx.size + extra_gas
@@ -151,10 +153,9 @@ def create_validator_edit_tx(c_address, new_address=None,
 
 def create_signed_tx_as_validator(tx: TX):
     assert tx.type in (C.TX_VALIDATOR_EDIT, C.TX_CONCLUDE_CONTRACT)
-    assert tx.hash in tx_builder.unconfirmed
     copied_tx = deepcopy(tx)
     # sign as another validator
-    c_address, *dummy = bjson.loads(copied_tx.message)
+    c_address, *dummy = copied_tx.encoded_message()
     # validator object
     stop_txhash = copied_tx.hash if copied_tx.type == C.TX_VALIDATOR_EDIT else None
     v = get_validator_object(c_address=c_address, stop_txhash=stop_txhash)

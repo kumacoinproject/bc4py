@@ -2,7 +2,6 @@ from bc4py import __chain_version__
 from bc4py.config import C, BlockChainError
 from bc4py.chain.utils import GompertzCurve
 from bc4py.database.builder import tx_builder
-from binascii import hexlify
 
 
 def check_tx_pow_reward(tx, include_block):
@@ -46,7 +45,7 @@ def check_tx_pos_reward(tx, include_block):
     base_tx = tx_builder.get_tx(txhash)
     if base_tx is None:
         print(list(tx_builder.chained_tx.values()))
-        raise BlockChainError('Not found PosBaseTX:{} of {}.'.format(hexlify(txhash).decode(), tx))
+        raise BlockChainError('Not found PosBaseTX:{} of {}.'.format(txhash.hex(), tx))
     input_address, input_coin_id, input_amount = base_tx.outputs[txindex]
     tx.pos_amount = input_amount
     output_address, output_coin_id, output_amount = tx.outputs[0]

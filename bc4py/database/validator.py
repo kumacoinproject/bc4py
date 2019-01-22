@@ -1,11 +1,11 @@
 from bc4py.config import C, BlockChainError
 from bc4py.database.builder import builder, tx_builder
-from binascii import hexlify
-from collections import OrderedDict
 from threading import Lock
 from copy import deepcopy
-import bjson
-import logging
+from logging import getLogger
+import msgpack
+
+log = getLogger('bc4py')
 
 F_ADD = 1
 F_REMOVE = -1
@@ -56,24 +56,25 @@ class Validator:
     def info(self):
         if self.version == -1:
             return None
-        d = OrderedDict()
-        d['db_index'] = self.db_index
-        d['index'] = self.version
-        d['c_address'] = self.c_address
-        d['txhash'] = hexlify(self.txhash).decode()
-        d['validators'] = self.validators
-        d['require'] = self.require
-        return d
+        else:
+            return {
+                'db_index': self.db_index,
+                'index': self.version,
+                'c_address': self.c_address,
+                'txhash': self.txhash.hex(),
+                'validators': self.validators,
+                'require': self.require,
+            }
 
 
-def decode(msg):
+def decode(b):
     # [c_address]-[new_address]-[flag]-[sig_diff]
-    return bjson.loads(msg)
+    return msgpack.unpackb(b, raw=True, encoding='utf8')
 
 
 def encode(*args):
     assert len(args) == 4
-    return bjson.dumps(args, compress=False)
+    return msgpack.packb(args, use_bin_type=True)
 
 
 def validator_fill_iter(v: Validator, best_block=None, best_chain=None):
@@ -95,7 +96,7 @@ def validator_fill_iter(v: Validator, best_block=None, best_chain=None):
             c_address, address, flag, sig_diff = decode(tx.message)
             if c_address != v.c_address:
                 continue
-            index = tx.height * 0xffffffff + block.txs.index(tx)
+            index = block.height * 0xffffffff + block.txs.index(tx)
             yield index, flag, address, sig_diff, tx.hash
     # unconfirmed
     if best_block is None:
@@ -124,7 +125,7 @@ def get_validator_object(c_address, best_block=None, best_chain=None, stop_txhas
         if txhash == select_hash:
             return v  # caution: select_hash works only on memory/unconfirmed!
     if select_hash:
-        raise BlockChainError('Failed get Validator by select_hash {}'.format(hexlify(select_hash)))
+        raise BlockChainError('Failed get Validator by select_hash {}'.format(select_hash.hex()))
     # elif stop_txhash:
     #    raise BlockChainError('Failed get Validator by stop_txhash {}'.format(hexlify(stop_txhash)))
     else:
@@ -138,7 +139,7 @@ def validator_tx2index(txhash=None, tx=None):
         raise BlockChainError('Not found ValidatorTX {}'.format(tx))
     if tx.height is None:
         raise BlockChainError('Not confirmed ValidatorTX {}'.format(tx))
-    block = builder.get_block(blockhash=builder.get_block_hash(height=tx.height))
+    block = builder.get_block(height=tx.height)
     if block is None:
         raise BlockChainError('Not found block of start_tx included? {}'.format(tx))
     if tx not in block.txs:
@@ -157,7 +158,7 @@ def update_validator_cashe():
                 c_validator.update(db_index=index, flag=flag,
                                    address=address, sig_diff=sig_diff, txhash=txhash)
                 count += 1
-    logging.debug("Validator cashe update {}tx".format(count))
+    log.debug("Validator cashe update {}tx".format(count))
 
 
 __all__ = [

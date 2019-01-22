@@ -1,12 +1,13 @@
 # from bc4py.chain.difficulty import get_bits_by_hash
 from bc4py.config import C
 from bc4py.user.generate import confirmed_generating_block
-from binascii import hexlify, unhexlify
+from binascii import a2b_hex
 from os import urandom
 from time import time
-import logging
+from logging import getLogger
 
 
+log = getLogger('bc4py')
 base_target = 0x00000000ffff0000000000000000000000000000000000000000000000000000
 
 
@@ -19,11 +20,11 @@ async def mining_subscribe(*args, **kwargs):
     kwargs['user']["subscription_id"] = (subscription_id_1, subscription_id_2)
     subscription_details = [
         ('mining.set_difficulty', str(kwargs['user']['diff'])),
-        ('mining.notify', hexlify(subscription_id_2).decode())]
+        ('mining.notify', subscription_id_2.hex())]
     extra_nonce1 = urandom(4)
     extra_nonce2_size = 4
     kwargs['user']['extra_nonce1'] = extra_nonce1
-    return subscription_details, hexlify(extra_nonce1).decode(), extra_nonce2_size
+    return subscription_details, extra_nonce1.hex(), extra_nonce2_size
 
 
 async def mining_extranonce_subscribe(*args, **kwargs):
@@ -52,18 +53,18 @@ async def mining_submit(*args, **kwargs):
     mined_block = job_queue.get(int(job_id, 16))
     if mined_block is None:
         return 'Not found job {}'.format(job_id)
-    mined_block.time = int.from_bytes(unhexlify(ntime.encode()), 'little')
-    mined_block.nonce = unhexlify(nonce.encode())
+    mined_block.time = int.from_bytes(a2b_hex(ntime), 'little')
+    mined_block.nonce = a2b_hex(nonce)
     # reset proof tx
     proof_tx = mined_block.txs[0]
-    proof_tx.b = proof_tx[:91] + user['extra_nonce1'] + unhexlify(extra_nonce2.encode()) + b''
+    proof_tx.b = proof_tx[:91] + user['extra_nonce1'] + a2b_hex(extra_nonce2) + b''
     proof_tx.deserialize()
     mined_block.update_merkleroot()
     mined_block.update_pow()
     int.from_bytes(mined_block.work_hash, 'little')
     if base_target // user['diff'] > int.from_bytes(mined_block.work_hash, 'little'):
         return 'not satisfied request work.'
-    logging.info("Accept work by \"{}\"".format(user['user']))
+    log.info("Accept work by \"{}\"".format(user['user']))
     user['deque'].append(time())  # accept!
     if mined_block.pow_check():
         confirmed_generating_block(mined_block)
@@ -83,12 +84,12 @@ async def mining_notify(job_id, clean_jobs, mining_block):
     proof_tx.message_type = C.MSG_BYTE
     proof_tx.message = b'\x00' * 8  # no_message tx is 91bytes, need extra
     proof_tx.serialize()
-    coinbase1 = hexlify(proof_tx.b[:91]).decode()
+    coinbase1 = proof_tx.b[:91].hex()
     coinbase2 = ""
     merkleroot_branch = [bin2hex(tx.hash) for tx in mining_block.txs[1:]]  # ['ac9c224e5a1344bb659a8716c9ef5e9c7a07c71ec955260fa83964175f3014b4']
-    block_version = hexlify(mining_block.version.to_bytes(4, 'little')).decode()  # 20000000
-    bits = hexlify(mining_block.bits.to_bytes(4, 'big')).decode()  # 1c034394
-    ntime = hexlify(mining_block.time.to_bytes(4, 'little')).decode()  # 5bd3a90a
+    block_version = mining_block.version.to_bytes(4, 'little').hex()  # 20000000
+    bits = mining_block.bits.to_bytes(4, 'big').hex()  # 1c034394
+    ntime = mining_block.time.to_bytes(4, 'little').hex()  # 5bd3a90a
     # clean_jobs = None  # True
     return job_id, previous_hash, coinbase1, coinbase2, \
         merkleroot_branch, block_version, bits, ntime, clean_jobs
@@ -97,7 +98,7 @@ async def mining_notify(job_id, clean_jobs, mining_block):
 
 
 def bin2hex(b):
-    return hexlify(b[::-1]).decode()
+    return b[::-1].hex()
 
 
 __all__ = [

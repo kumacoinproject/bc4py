@@ -6,25 +6,25 @@ from bc4py.database.builder import tx_builder
 from bc4py.database.validator import *
 from bc4py.database.contract import *
 from nem_ed25519.key import is_address
-from binascii import hexlify
-import bjson
-import logging
+from logging import getLogger
+
+log = getLogger('bc4py')
 
 
 def check_tx_contract_conclude(tx: TX, include_block: Block):
     # common check
     if not (len(tx.inputs) > 0 and len(tx.inputs) > 0):
         raise BlockChainError('No inputs or outputs.')
-    elif tx.message_type != C.MSG_BYTE:
-        raise BlockChainError('validator_edit_tx is bytes msg.')
+    elif tx.message_type != C.MSG_MSGPACK:
+        raise BlockChainError('validator_edit_tx is MSG_MSGPACK.')
     elif V.BLOCK_CONTRACT_PREFIX is None:
         raise BlockChainError('Not set contract prefix ?')
     elif V.BLOCK_CONTRACT_PREFIX == V.BLOCK_PREFIX:
         raise BlockChainError('normal prefix same with contract prefix.')
     try:
-        c_address, start_hash, c_storage = bjson.loads(tx.message)
+        c_address, start_hash, c_storage = tx.encoded_message()
     except Exception as e:
-        raise BlockChainError('BjsonError: {}'.format(e))
+        raise BlockChainError('EncodeMessageError: {}'.format(e))
     if not (isinstance(c_address, str) and len(c_address) == 40):
         raise BlockChainError('1. Not correct format. {}'.format(c_address))
     if not (isinstance(start_hash, bytes) and len(start_hash) == 32):
@@ -35,7 +35,7 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
     finish_hash = get_conclude_hash_from_start(
         c_address=c_address, start_hash=start_hash, best_block=include_block)
     if finish_hash and finish_hash != tx.hash:
-        raise BlockChainError('Already start_hash used. {}'.format(hexlify(finish_hash).decode()))
+        raise BlockChainError('Already start_hash used. {}'.format(finish_hash.hex()))
     # inputs address check
     for txhash, txindex in tx.inputs:
         input_tx = tx_builder.get_tx(txhash)
@@ -51,17 +51,17 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
     # check start tx
     start_tx = tx_builder.get_tx(txhash=start_hash)
     if start_tx is None:
-        raise BlockChainError('Not found start tx. {}'.format(hexlify(start_hash).decode()))
+        raise BlockChainError('Not found start tx. {}'.format(start_hash.hex()))
     if start_tx.height is None:
         raise BlockChainError('Start tx is unconfirmed. {}'.format(start_tx))
     if start_tx.type != C.TX_TRANSFER:
         raise BlockChainError('Start tx is TRANSFER, not {}.'.format(C.txtype2name.get(start_tx.type, None)))
-    if start_tx.message_type != C.MSG_BYTE:
-        raise BlockChainError('Start tx is MSG_BYTE, not {}.'.format(C.msg_type2name.get(start_tx.message_type, None)))
+    if start_tx.message_type != C.MSG_MSGPACK:
+        raise BlockChainError('Start tx is MSG_MSGPACK, not {}.'.format(C.msg_type2name.get(start_tx.message_type, None)))
     if start_tx.time != tx.time or start_tx.deadline != tx.deadline:
         raise BlockChainError('time of conclude_tx and start_tx is same, {}!={}.'.format(start_tx.time, tx.time))
     try:
-        c_start_address, c_method, redeem_address, c_args = bjson.loads(start_tx.message)
+        c_start_address, c_method, redeem_address, c_args = start_tx.encoded_message()
     except Exception as e:
         raise BlockChainError('BjsonError: {}'.format(e))
     if c_address != c_start_address:
@@ -123,15 +123,15 @@ def check_tx_validator_edit(tx: TX, include_block: Block):
     # common check
     if not (len(tx.inputs) > 0 and len(tx.inputs) > 0):
         raise BlockChainError('No inputs or outputs.')
-    elif tx.message_type != C.MSG_BYTE:
-        raise BlockChainError('validator_edit_tx is bytes msg.')
+    elif tx.message_type != C.MSG_MSGPACK:
+        raise BlockChainError('validator_edit_tx is MSG_MSGPACK.')
     elif V.BLOCK_CONTRACT_PREFIX is None:
         raise BlockChainError('Not set contract prefix ?')
     elif V.BLOCK_CONTRACT_PREFIX == V.BLOCK_PREFIX:
         raise BlockChainError('normal prefix same with contract prefix.')
     # message
     try:
-        c_address, new_address, flag, sig_diff = bjson.loads(tx.message)
+        c_address, new_address, flag, sig_diff = tx.encoded_message()
     except Exception as e:
         raise BlockChainError('BjsonError: {}'.format(e))
     # inputs/outputs address check
@@ -211,7 +211,7 @@ def contract_signature_check(extra_tx: TX, v: Validator, include_block: Block):
                 raise BlockChainError('No acceptable signature. signed={}'.format(signed_cks))
             if len(accept_cks) > v.require:
                 # accept signature more than required
-                logging.debug('Too many signatures, accept={} req={}'.format(accept_cks, v.require))
+                log.debug('Too many signatures, accept={} req={}'.format(accept_cks, v.require))
         else:
             # need to marge signature
             if original_tx.height is not None:
@@ -225,7 +225,7 @@ def contract_signature_check(extra_tx: TX, v: Validator, include_block: Block):
                                       .format(signed_cks, original_cks, set(v.validators)))
             if len(accept_new_cks) + len(original_cks) > v.require:
                 # accept signature more than required
-                logging.debug('Too many signatures, new={} original={} req={}'
+                log.debug('Too many signatures, new={} original={} req={}'
                               .format(accept_new_cks, original_cks, v.require))
 
 

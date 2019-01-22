@@ -129,8 +129,6 @@ get contract storage
 
 get watching info
 ----
-* Arguments
-    1. pickle     (bool, optional, default=False) tx data by pickled
 * Request example
     * `curl -H "accept: application/json" "127.0.0.1:3000/private/watchinginfo"`
 * Response
@@ -157,7 +155,7 @@ get watching info
 ]
 ```
 * About
-    * Do not use pickle data from outside because of security risk. 
+    * ~~Do not use pickle data from outside because of security risk.~~ removed pickle option. 
     * Your account related contract/validator tx displayed, check update by **time**.
     * If you want to sign, use **/private/validateunconfirmed** method.
 
