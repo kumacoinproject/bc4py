@@ -16,17 +16,17 @@ Development process (external contributors)
 2. commit to your repository.
 3. marge pull request to `develop`, please wait reply from core contributors.
 
-Before pull request
+Check before pull request
 ----
 * Functions, do you confirm the function is easy to understand? enough documents?
 * Migrations, do you confirm the migration has backward compatibility?
 * Tools, do you confirm the tool is backed by realistic scenarios? check dependency?
 
-Before issue
+Check before issue
 ----
 * Duplication, already raised same issues?
 * Documents, already written in documents?
-* Question, easily solved if you search by Google?
+* Question, easily solved if you search by Google or Github?
 
 In Japanese
 ----
@@ -34,6 +34,6 @@ In Japanese
 * コア開発者は、主に`develop`にCommit、採用するか不明な機能はBranchきって別にCommitする。
 * コア開発者は、`develop`での開発が一段落したらSubVer上げて`master`にMargeする。
 * コントリビュータは、`develop`よりForkして変更点を加えた後に`develop`へプルリクエストする。
-* プルリクエストへのMarge可否がコア開発者より返信されます。
+* プルリクエストへのMarge可否がコア開発者より返信されます。後方互換性に注意して下さい。
 * コントリビュータは、プルリクエスト/イシュー作成前にご確認よろしくお願いします。
-
+* Alpha版ではこの規則に従いません。

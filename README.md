@@ -34,8 +34,8 @@ cd ~
 git clone https://github.com/namuyan/bc4py
 mv bc4py blockchain-py
 cd blockchain-py
-pip install --user -r requirements.txt
-pip install --user -r requirements-c.txt
+pip3 install --user -r requirements.txt
+pip3 install --user -r requirements-c.txt
 wget http://example.com/boot.json
 ```
 
@@ -63,26 +63,20 @@ pip install plyvel
 
 Start node
 ----
-* `python localnode.py` Node working on local env, for debug.
-* `python publicnode.py` Node with mining/staking.
-* `python observenode.py` Node only accept blocks/txs.
+* `python3 localnode.py` Node working on local env, for debug.
+* `python3 publicnode.py` Node with mining/staking.
+* `python3 observenode.py` Node only accept blocks/txs.
+* `python3 repairwallet.py` Fix wallet data.
 
 Documents
 ----
 * [Create genesis block](doc/GenesisBlock.md)
 * [Ho to mining](doc/Mining.md)
 * [API doc](bc4py/user/api/static/index.md)
-* [Development Guidelines](.github/CONTRIBUTING.md)
+* [Development](doc/Development.md)
+* [About new function pullrequest](doc/AboutPullrequest.md)
 * [Proxy introduction](doc/Proxy.md)
-
-Build for windows
-----
-`nuitka3 --mingw --recurse-none publicnode.py`
 
 Author
 ----
 [@namuyan_mine](http://twitter.com/namuyan_mine/)
-
-Licence
-----
-[MIT](https://opensource.org/licenses/MIT)
