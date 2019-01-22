@@ -2,7 +2,7 @@ from bc4py.config import C, V
 from bc4py.chain import msgpack
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
-from bc4py.utils import AESCipher
+from bc4py.utils import AESCipher, ProgressBar
 from bc4py.database.create import closing, create_db
 from bc4py.database.builder import builder, tx_builder
 from bc4py.chain.checking import new_insert_block
@@ -71,15 +71,16 @@ def create_bootstrap_file():
         log.warning("old file exists, skip create bootstrap.dat.")
         return
     s = time()
-    with open(boot_path, mode='ba') as fp:
-        block = None
-        fp.seek(0)
-        fp.truncate(0)
-        for height, blockhash in builder.db.read_block_hash_iter(start_height=1):
-            block = builder.get_block(blockhash=blockhash)
-            msgpack.dump((block, block.work_hash, block.bias), fp)
-            if block.height % 5000 == 0:
-                print("Recode block height {} {}Sec".format(block.height, round(time()-s)))
+    with ProgressBar('create bootstrap', total=builder.best_block.height) as pb:
+        with open(boot_path, mode='ba') as fp:
+            block = None
+            fp.seek(0)
+            fp.truncate(0)
+            for height, blockhash in builder.db.read_block_hash_iter(start_height=1):
+                block = builder.get_block(blockhash=blockhash)
+                msgpack.dump((block, block.work_hash, block.bias), fp)
+                if block.height % 500 == 0:
+                    pb.print_progress_bar(block.height, "now {} {}Sec".format(block.height, round(time()-s)))
     log.info("create new bootstrap.dat finished, last={} {}Minutes".format(block, (time()-s)//60))
 
 

@@ -6,12 +6,15 @@ from bc4py.chain.utils import GompertzCurve
 from Cryptodome.Cipher import AES
 from Cryptodome import Random
 from Cryptodome.Hash import SHA256
+from logging import getLogger
 import multiprocessing
 import os
 import psutil
+import sys
 
 
 WALLET_VERSION = 0
+log = getLogger('bc4py')
 
 
 def set_database_path(sub_dir=None):
@@ -105,10 +108,51 @@ class AESCipher:
         return s[:-ord(s[len(s) - 1:])]
 
 
+class ProgressBar:
+    """
+    terminal progressbar
+    original: https://github.com/bozoh/console_progressbar
+    author: Carlos Alexandre S. da Fonseca
+    """
+    def __init__(self, prefix, default_suffix='', total=100, decimals=0, length=50, fill='X', zfill='-'):
+        self.prefix = prefix
+        self.default_suffix = default_suffix
+        self.__decimals = decimals
+        self.__length = length
+        self.__fill = fill
+        self.__zfill = zfill
+        self.__total = total
+
+    def _generate_bar(self, iteration, suffix=None):
+        percent = ("{0:." + str(self.__decimals) + "f}")
+        percent = percent.format(100 * (iteration / float(self.__total)))
+        filled_length = int(self.__length * iteration // self.__total)
+        bar = self.__fill * filled_length + self.__zfill * (self.__length - filled_length)
+        return '{0} |{1}| {2}% {3}'.format(self.prefix, bar, percent, suffix or self.default_suffix)
+
+    def print_progress_bar(self, iteration, suffix=None):
+        print('\r%s' % (self._generate_bar(iteration, suffix)), end='')
+        sys.stdout.flush()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is None:
+            self.print_progress_bar(self.__total, 'Complete')
+            print()
+        else:
+            print()
+            sys.stdout.flush()
+            log.error('Error on progress, {}'.format(exc_val))
+        return True
+
+
 __all__ = [
     "set_database_path",
     "set_blockchain_params",
     "delete_pid_file",
     "make_pid_file",
     "AESCipher",
+    "ProgressBar",
 ]
