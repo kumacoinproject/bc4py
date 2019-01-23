@@ -181,11 +181,14 @@
 
   function trySendto(btnObj){
       const msgInfo = app.sendMessageInfo;
-      var message = null, hexMessage = null;
+      var data = {
+          from: app.sendInfo.sender,
+          pairs: app.sendInfo.recipients,
+      };
       if (msgInfo==='Plain message'){
-          message = app.sendInfo.message;
+          data['message'] = app.sendInfo.message;
       } else if (msgInfo==='Hex string') {
-          hexMessage = app.sendInfo.message.toLocaleLowerCase();
+          data['hex'] = app.sendInfo.message.toLocaleLowerCase();
       }
       let axios_option = {
         method: 'post',
@@ -196,12 +199,7 @@
           username: app.username,
           password: app.password
         },
-        data: {
-          from: app.sendInfo.sender,
-          pairs: app.sendInfo.recipients,
-          hex: hexMessage,
-          message: message
-        }
+        data: data
       };
       axios(axios_option).then(response => {
           commonMessage('sending success!');
