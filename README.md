@@ -5,10 +5,10 @@ It enable you to create application with blockchain on Python3.
 Function
 ----
 * UTXO base
-* Proof of works or/and proof of stake multi-consensus
-* Minting colored coin (Not token)
-* Python interpreter based smart contract (PyContract)
-* block containing result smart contract　(differ from Ethereum)
+* Proof of work and proof of stake multi-consensus
+* Minting colored coin
+* Python interpreter based smart contract
+* block containing result smart contract
 
 Requirement
 ----
@@ -19,9 +19,8 @@ Requirement
 * LevelDB
     * [plyvel](https://github.com/wbolster/plyvel) for linux and ARM
     * [python-leveldb](https://github.com/happynear/py-leveldb-windows) for linux and windows
-* hash algorithm
+* hashing function
     * [yespower-python](https://github.com/namuyan/yespower-python)  For CPU
-    * [~~yescryptR64~~](https://github.com/namuyan/yescryptR64-python) CPU resistance?
     * [hmq-hash](https://github.com/namuyan/hmq-hash) for GPU
     * [x16s-hash](https://pypi.org/project/shield-x16s-hash/) for GPU
     * [x11_hash](https://pypi.org/project/x11_hash/) For ASIC
@@ -71,7 +70,7 @@ Start node
 Documents
 ----
 * [Create genesis block](doc/GenesisBlock.md)
-* [Ho to mining](doc/Mining.md)
+* [How to mining](doc/Mining.md)
 * [API doc](bc4py/user/api/static/index.md)
 * [Development](doc/Development.md)
 * [About new function pullrequest](doc/AboutPullrequest.md)

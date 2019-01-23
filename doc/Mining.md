@@ -1,56 +1,58 @@
 About Mining
 ====
-* mining interface
-    * [getwork](https://en.bitcoin.it/wiki/Getwork)
-    * [getblocktemplete](https://en.bitcoin.it/wiki/Getblocktemplate)
-    * [~~stratum~~](https://en.bitcoin.it/wiki/Stratum_mining_protocol) not work...
-* mining software
-    * cpuminer (for CPU)
-    * ccminer (for GPU nvidia)
-    * sgminer (for GPU AMD)
-    * cgminer (for ASIC)
-    * and etc..
-* **important**
-    * Miner notify server algo by `password` integer, please check [config.py](/bc4py/config.py).
-    * You can use general mining tools by mimicking a structure of Blockchain of Bitcoin.
-    it is logically possible to mine by all, but it depends on program, because coinbase transaction is differ from Bitcoin's.
-    * Please at your own risk about using binaries.
+We provide mining interface
+[getwork](https://en.bitcoin.it/wiki/Getwork), 
+[getblocktemplete](https://en.bitcoin.it/wiki/Getblocktemplate) and
+[~~stratum~~ developing](/bc4py/user/stratum).
+You can mine by cpuminer, ccminer, sgminer, cgminer with no modification.
 
-Example for Yespower
+important
 ----
-Yespoer's version is `0.9` or `1.0`, so can't use Bitzeny(`0.5`) miner. 
-You need to use [cpuminer-opt](https://github.com/bellflower2015/cpuminer-opt),
-[Binary](https://github.com/bellflower2015/cpuminer-opt/releases).
-Thank to bellflower2015!
+* Miner notify server hashing algorithm by `password` integer, please select by [config.py](/bc4py/config.py).
+* We mimic block header structure of Bitcoin, so you can use general mining tools with no modification.
+But it depends on program, because coinbase transaction is differ from Bitcoin's.
+* Please at your own risk about using a mining tool.
+
+yespower
+----
+Yespower1.0 is anti GPU/ASIC hashing algorithm and next generation of yescrypt.
+* [cpuminer-opt](https://github.com/bellflower2015/cpuminer-opt)
+* [Binary](https://github.com/bellflower2015/cpuminer-opt/releases)
 
 ```commandline
-cpuminer-sse2 -a yespower -o http://127.0.0.1:3000/json-rpc -u USERNAME -p 1 --no-getwork --no-longpoll --no-stratum
-pause
+cpuminer-sse2 -a yespower -o http://127.0.0.1:3000/json-rpc -u USERNAME -p 5 --no-getwork --no-longpoll --no-stratum
 ```
 
-Example for HMQ1725
+X11
+----
+You can mine by ASIC.
+please look [PinIdea X11 USB ASIC Miner DU-1 Coming Soon](https://cryptomining-blog.com/tag/x11-miner-du-1/).
+* [sgminer-nicehash for GPU](https://github.com/nicehash/sgminer)
+* [X11-Miner binaries](https://github.com/stellawxo/X11-Miner)
+
+```commandline
+cgminer --x11 -o http://127.0.0.1:3000/json-rpc -u user -p 6 --dr1-clk 300 --dr1-fan LV1 -S //./COM5 --du1
+```
+
+```commandline
+sgminer -k x11 -o http://127.0.0.1:3000/json-rpc -u user -p 6
+```
+
+HMQ1725
 ----
 **HMQ1725** has been famous for [ESP](https://github.com/CryptoCoderz/Espers).
-You can mine by [cpuminer-hmq1725](https://github.com/CryptoCoderz/cpuminer-hmq1725) or
-[tpruvot-ccminer](https://github.com/tpruvot/ccminer).
-
-Please look [HMQ1725 algorithm – List of HMQ1725 coins and mining software’s](https://coinguides.org/hmq1725-algorithm-coins-miner/)
+* [cpuminer-hmq1725](https://github.com/CryptoCoderz/cpuminer-hmq1725)
+* [tpruvot-ccminer](https://github.com/tpruvot/ccminer).
+* [HMQ1725 algorithm – List of HMQ1725 coins and mining software’s](https://coinguides.org/hmq1725-algorithm-coins-miner/)
 
 I hear hmq1725 is suitable for AMD GPU.
 ```commandline
-cpuminer -a hmq1725 -o http://127.0.0.1:3000/json-rpc -u user -p 5
-pause
+cpuminer -a hmq1725 -o http://127.0.0.1:3000/json-rpc -u user -p 7
 ```
 
-Example for X11
+X16R
 ----
-You can mine **X11** by DU-1, D1, D2 and D3, It's suitable for ASIC,
-please look [PinIdea X11 USB ASIC Miner DU-1 Coming Soon](https://cryptomining-blog.com/tag/x11-miner-du-1/).
-Note: PinIdea deleted modified **ASIC-X11-Miner**,
-you can download from [Dash forum](https://www.dash.org/forum/threads/pinidea-asic-x11-miner-du-1-usb-version-hashrate-9-mh-s-releasing-in-mid-may-2016.8624/page-6),
-but it many be very unsafe.
-
+* [avermore-miner](https://github.com/brian112358/avermore-miner)
 ```commandline
-cgminer --x11 -o http://127.0.0.1:3000/json-rpc -u user -p 4 --dr1-clk 300 --dr1-fan LV1 -S //./COM5 --du1
-pause
+sgminer -k x16r -o http://127.0.0.1:3000/json-rpc -u user -p 9
 ```
