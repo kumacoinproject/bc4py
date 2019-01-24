@@ -59,7 +59,12 @@ def _update_unconfirmed_info():
             check_upgradable_pre_unconfirmed()
 
         # sort unconfirmed txs
-        unconfirmed_txs = sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time)
+        time_limit = s - 30
+        unconfirmed_txs = [
+            tx for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time)
+            if tx.create_time < time_limit]
+        if len(tx_builder.unconfirmed) != len(unconfirmed_txs):
+            log.debug("prune too young tx [{}/{}]".format(len(unconfirmed_txs), len(tx_builder.unconfirmed)))
         pruning_over_size_unconfirmed(unconfirmed_txs)
 
         # reject tx (inputs is unconfirmed)
