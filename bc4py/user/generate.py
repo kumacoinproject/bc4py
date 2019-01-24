@@ -213,8 +213,8 @@ def create_mining_block(consensus):
         'outputs': [(mining_address, 0, reward + fees)],
         'gas_price': 0,
         'gas_amount': 0,
-        'message_type': C.MSG_PLAIN if V.MINING_MESSAGE else C.MSG_NONE,
-        'message': V.MINING_MESSAGE if V.MINING_MESSAGE else b''})
+        'message_type': C.MSG_NONE,
+        'message': b''})
     proof_tx.update_time()
     # create mining block
     bits, target = get_bits_by_hash(

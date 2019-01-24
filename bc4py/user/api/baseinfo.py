@@ -90,11 +90,7 @@ async def system_private_info(request):
             'connections': len(V.PC_OBJ.p2p.user),
             'unconfirmed': [txhash.hex() for txhash in tx_builder.unconfirmed.keys()],
             'directory': V.DB_HOME_DIR,
-            'generate': {
-                'address': V.MINING_ADDRESS,
-                'message': V.MINING_MESSAGE,
-                'threads': [str(s) for s in generating_threads]
-            },
+            'generate_threads': [str(s) for s in generating_threads],
             'access_time': int(time()),
             'start_time': start_time}
         return web_base.json_res(data)
