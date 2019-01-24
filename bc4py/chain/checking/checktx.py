@@ -134,9 +134,9 @@ def check_tx_time(tx):
     if tx.deadline - tx.time < 10800:
         raise BlockChainError('TX acceptable spam is too short. {}-{}<{}'
                               .format(tx.deadline, tx.time, 10800))
-    if tx.deadline - tx.time > 43200:  # 12hours
-        raise BlockChainError('TX acceptable spam is too long. {}-{}<{}'
-                              .format(tx.deadline, tx.time, 10800))
+    if tx.deadline - tx.time > 3600*24*30:  # 30days
+        raise BlockChainError('TX acceptable spam is too long. {}-{}>{}'
+                              .format(tx.deadline, tx.time, 3600*24*30))
 
 
 def check_hash_locked(tx):
