@@ -76,10 +76,10 @@ def create_conclude_tx(c_address, start_tx, redeem_address, send_pairs=None, c_s
         'outputs': [tuple(s) for s in send_pairs],
         'message_type': C.MSG_MSGPACK,
         'message': message})
-    extra_gas = C.SIGNATURE_GAS * v.require
-    tx.gas_amount = tx.size + extra_gas
+    tx.gas_amount = tx.size
     # fill unspents
-    fill_contract_inputs_outputs(tx=tx, c_address=c_address, additional_gas=extra_gas)
+    fill_objective_inputs_outputs(
+        tx=tx, obj_address=c_address, signature_num=v.require, additional_gas=0)
     # replace dummy address
     replace_redeem_dummy_address(tx=tx, replace_by=c_address)
     # fix redeem fees
@@ -138,11 +138,11 @@ def create_validator_edit_tx(c_address, new_address=None,
         'gas_amount': 0,
         'message_type': C.MSG_MSGPACK,
         'message': message})
-    extra_gas = C.VALIDATOR_EDIT_GAS + C.SIGNATURE_GAS * v.require
-    tx.gas_amount = tx.size + extra_gas
+    tx.gas_amount = tx.size
     tx.update_time(retention)
     # fill unspents
-    fill_contract_inputs_outputs(tx=tx, c_address=c_address, additional_gas=extra_gas)
+    fill_objective_inputs_outputs(
+        tx=tx, obj_address=v_address, signature_num=v.require, additional_gas=C.VALIDATOR_EDIT_GAS)
     # replace dummy address
     replace_redeem_dummy_address(tx=tx, replace_by=c_address)
     tx.serialize()

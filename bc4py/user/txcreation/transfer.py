@@ -38,7 +38,7 @@ def send_many(sender, send_pairs, cur, fee_coin_id=0, gas_price=None,
         'message': msg_body})
     tx.gas_amount = tx.size + C.SIGNATURE_GAS
     # fill unspents
-    input_address = fill_inputs_outputs(tx, cur, fee_coin_id, additional_gas=0)
+    input_address = fill_inputs_outputs(tx=tx, cur=cur, fee_coin_id=fee_coin_id)
     # account check
     fee_coins = Balance(coin_id=fee_coin_id, amount=tx.gas_price * tx.gas_amount)
     if f_balance_check:
