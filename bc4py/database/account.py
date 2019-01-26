@@ -162,11 +162,12 @@ def create_account(name, cur, description="", _time=None, is_root=False):
     return d[0]
 
 
-def create_new_user_keypair(name, cur, is_inner=False):
-    assert isinstance(name, str)
+def create_new_user_keypair(user, cur, is_inner=False):
+    assert isinstance(user, int)
     assert isinstance(is_inner, bool)
+    # raise if unknown user_id
+    read_user2name(user, cur)
     # get last_index
-    user = read_name2user(name, cur)
     last_index = get_keypair_last_index(user=user, is_inner=is_inner, cur=cur)
     sk, pk, ck = extract_keypair(user=user, is_inner=is_inner, index=last_index)
     insert_keypair_from_bip(ck=ck, user=user, is_inner=is_inner, index=last_index, cur=cur)

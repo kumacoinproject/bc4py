@@ -147,7 +147,7 @@ async def new_address(request):
         cur = db.cursor()
         user_name = request.query.get('account', C.account2name[C.ANT_UNKNOWN])
         user_id = read_name2user(user_name, cur)
-        address = create_new_user_keypair(user_name, cur)
+        address = create_new_user_keypair(user_id, cur)
         db.commit()
         if user_id == C.ANT_CONTRACT:
             address = convert_address(address, V.BLOCK_CONTRACT_PREFIX)

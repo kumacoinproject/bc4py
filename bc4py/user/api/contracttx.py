@@ -137,7 +137,7 @@ async def validator_edit(request):
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
             if c_address is None:
-                c_address = create_new_user_keypair(name=C.account2name[C.ANT_CONTRACT], cur=cur)
+                c_address = create_new_user_keypair(user=C.ANT_CONTRACT, cur=cur)
             tx = create_validator_edit_tx(c_address=c_address, new_address=new_address, flag=flag, sig_diff=sig_diff)
             if not send_newtx(new_tx=tx, outer_cur=cur):
                 raise Exception('Failed to send new tx.')
