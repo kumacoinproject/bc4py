@@ -13,7 +13,6 @@ from binascii import a2b_hex
 from nem_ed25519 import public_key, get_address, sign
 from time import time
 import msgpack
-import json
 
 
 def type2message(message_type, message):
@@ -25,8 +24,6 @@ def type2message(message_type, message):
         return a2b_hex(message)
     elif message_type == C.MSG_MSGPACK:
         return msgpack.packb(message, use_bin_type=True)
-    elif message_type == C.MSG_JSON:
-        return json.dumps(message).encode()
     elif message_type == C.MSG_HASHLOCKED:
         return a2b_hex(message)
     else:

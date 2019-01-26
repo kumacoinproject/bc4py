@@ -7,7 +7,6 @@ from hashlib import sha256
 from time import time
 import struct
 import msgpack
-import json
 
 
 struct_tx_header = struct.Struct('<IIIIQqBBBI')
@@ -154,8 +153,6 @@ class TX:
             return self.message.decode()
         elif self.message_type == C.MSG_BYTE:
             return self.message.hex()
-        elif self.message_type == C.MSG_JSON:
-            return json.loads(self.message)
         elif self.message_type == C.MSG_MSGPACK:
             return msgpack.unpackb(self.message, raw=True, encoding='utf8')
         elif self.message_type == C.MSG_HASHLOCKED:
