@@ -22,7 +22,7 @@ async def contract_init(request):
         send_pairs = post.get('send_pairs', None)
         args = ("start_tx", "c_address", "c_storage", "redeem_address")  # dummy data
         binary2contract(b=c_bin, extra_imports=c_extra_imports, args=args)  # can compile?
-        sender_name = post.get('from', C.ANT_NAME_UNKNOWN)
+        sender_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
             sender = read_name2user(sender_name, cur)
@@ -55,7 +55,7 @@ async def contract_update(request):
             c_bin = None
         c_settings = post.get('settings', None)
         send_pairs = post.get('send_pairs', None)
-        sender_name = post.get('from', C.ANT_NAME_UNKNOWN)
+        sender_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
             sender = read_name2user(sender_name, cur)
@@ -82,7 +82,7 @@ async def contract_transfer(request):
         c_method = post['c_method']
         c_args = post['c_args']
         send_pairs = post.get('send_pairs', None)
-        sender_name = post.get('from', C.ANT_NAME_UNKNOWN)
+        sender_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
             sender = read_name2user(sender_name, cur)
@@ -137,7 +137,7 @@ async def validator_edit(request):
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
             if c_address is None:
-                c_address = create_new_user_keypair(name=C.ANT_NAME_CONTRACT, cur=cur)
+                c_address = create_new_user_keypair(name=C.account2name[C.ANT_CONTRACT], cur=cur)
             tx = create_validator_edit_tx(c_address=c_address, new_address=new_address, flag=flag, sig_diff=sig_diff)
             if not send_newtx(new_tx=tx, outer_cur=cur):
                 raise Exception('Failed to send new tx.')

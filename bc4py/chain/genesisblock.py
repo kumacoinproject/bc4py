@@ -6,9 +6,6 @@ from bc4py.chain.difficulty import MAX_BITS
 from bc4py.config import C, V, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
-from bc4py.database.create import closing, create_db
-from bc4py.database.account import create_new_user_keypair
-from nem_ed25519.key import convert_address
 from time import time
 import msgpack
 from more_itertools import chunked

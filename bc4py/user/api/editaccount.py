@@ -91,7 +91,7 @@ async def import_private_key(request):
         post = await web_base.content_type_json_check(request)
         sk = a2b_hex(post['private_key'])
         ck = post['address']
-        name = post.get('account', C.ANT_NAME_UNKNOWN)
+        name = post.get('account', C.account2name[C.ANT_UNKNOWN])
         check_ck = get_address(pk=public_key(sk=sk), prefix=V.BLOCK_PREFIX)
         if ck != check_ck:
             return web_base.error_res('Don\'t match, {}!={}'.format(ck, check_ck))

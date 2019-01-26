@@ -83,12 +83,11 @@ class C:  # Constant
     ANT_RESERVED = 0  # 未使用
     ANT_UNKNOWN = 1  # 使用済みだがTag無し
     ANT_OUTSIDE = 2  # 外部への入出金
-    ANT_CONTRACT = 3  # コントラクトアドレス
-    # name
-    ANT_NAME_RESERVED = '@Reserved'
-    ANT_NAME_UNKNOWN = '@Unknown'
-    ANT_NAME_OUTSIDE = '@Outside'
-    ANT_NAME_CONTRACT = '@Contract'
+    ANT_VALIDATOR = 3  # ValidatorAddress
+    ANT_CONTRACT = 4  # ContractAddress
+    account2name = {
+        ANT_RESERVED: '@Reserved', ANT_UNKNOWN: '@Unknown', ANT_OUTSIDE: '@Unknown',
+        ANT_VALIDATOR: '@Validator', ANT_CONTRACT: '@Contract'}
 
     # Block/TX/Fee limit
     ACCEPT_MARGIN_TIME = 120  # 新規データ受け入れ時間マージンSec

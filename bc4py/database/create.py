@@ -76,10 +76,11 @@ def make_account_db():
             db.execute(sql_)
         # default account
         accounts = [
-            (C.ANT_RESERVED, C.ANT_NAME_RESERVED, "Reserved and update to other accounts.", 0),
-            (C.ANT_UNKNOWN, C.ANT_NAME_UNKNOWN, "Not user binding address, for change.", 0),
-            (C.ANT_OUTSIDE, C.ANT_NAME_OUTSIDE, "Address used for movement with outside.", 0),
-            (C.ANT_CONTRACT, C.ANT_NAME_CONTRACT, "Contract bind address.", 0)]
+            (C.ANT_RESERVED, C.account2name[C.ANT_RESERVED], "Reserved and update to other accounts", 0),
+            (C.ANT_UNKNOWN, C.account2name[C.ANT_UNKNOWN], "Not user binding address, for change", 0),
+            (C.ANT_OUTSIDE, C.account2name[C.ANT_OUTSIDE], "Address used for movement with outside", 0),
+            (C.ANT_OUTSIDE, C.account2name[C.ANT_VALIDATOR], "Validator bind address", 0),
+            (C.ANT_CONTRACT, C.account2name[C.ANT_CONTRACT], "Contract bind address", 0)]
         db.executemany("INSERT OR IGNORE INTO `account` VALUES (?,?,?,?)", accounts)
         db.commit()
 

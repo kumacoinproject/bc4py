@@ -87,7 +87,7 @@ async def list_private_unspents(request):
 async def list_account_address(request):
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         cur = db.cursor()
-        user_name = request.query.get('account', C.ANT_NAME_UNKNOWN)
+        user_name = request.query.get('account', C.account2name[C.ANT_UNKNOWN])
         user_id = read_name2user(user_name, cur)
         address_list = list()
         for uuid, address, user in read_pooled_address_iter(cur):
@@ -103,7 +103,7 @@ async def list_account_address(request):
 async def move_one(request):
     try:
         post = await web_base.content_type_json_check(request)
-        ant_from = post.get('from', C.ANT_NAME_UNKNOWN)
+        ant_from = post.get('from', C.account2name[C.ANT_UNKNOWN])
         ant_to = post['to']
         coin_id = int(post.get('coin_id', 0))
         amount = int(post['amount'])
@@ -124,7 +124,7 @@ async def move_one(request):
 async def move_many(request):
     try:
         post = await web_base.content_type_json_check(request)
-        ant_from = post.get('from', C.ANT_NAME_UNKNOWN)
+        ant_from = post.get('from', C.account2name[C.ANT_UNKNOWN])
         ant_to = post['to']
         coins = Balance()
         for k, v in post['coins'].items():
@@ -145,7 +145,7 @@ async def move_many(request):
 async def new_address(request):
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         cur = db.cursor()
-        user_name = request.query.get('account', C.ANT_NAME_UNKNOWN)
+        user_name = request.query.get('account', C.account2name[C.ANT_UNKNOWN])
         user_id = read_name2user(user_name, cur)
         address = create_new_user_keypair(user_name, cur)
         db.commit()
