@@ -23,7 +23,7 @@ consensus = {
  
 # create first block
 genesis_block = create_genesis_block(
-    all_supply=10000000000 * 100000000,  # 10 billion total supply
+    mining_supply=10000000000 * 100000000,  # 10 billion total supply
     block_span=20,  # block time
     prefix=b'\x68',  # normal address prefix "N"
     contract_prefix=b'\x12',  # contract address prefix "C"

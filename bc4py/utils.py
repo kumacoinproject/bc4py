@@ -36,17 +36,16 @@ def set_blockchain_params(genesis_block):
     params = setting_tx.encoded_message()
     V.BLOCK_GENESIS_HASH = genesis_block.hash
     V.BLOCK_PREFIX = params.get('prefix')
+    V.BLOCK_VALIDATOR_PREFIX = params.get('validator_prefix')
     V.BLOCK_CONTRACT_PREFIX = params.get('contract_prefix')
     V.BLOCK_GENESIS_TIME = params.get('genesis_time')
-    V.BLOCK_ALL_SUPPLY = params.get('all_supply')
+    V.BLOCK_MINING_SUPPLY = params.get('mining_supply')
     V.BLOCK_TIME_SPAN = params.get('block_span')
     V.BLOCK_REWARD = params.get('block_reward')
-    V.CONTRACT_VALIDATOR_ADDRESS = params.get('validator_address')
     V.COIN_DIGIT = params.get('digit_number')
     V.COIN_MINIMUM_PRICE = params.get('minimum_price')
-    V.CONTRACT_MINIMUM_AMOUNT = params.get('contract_minimum_amount')
     V.BLOCK_CONSENSUSES = params.get('consensus')
-    GompertzCurve.k = V.BLOCK_ALL_SUPPLY
+    GompertzCurve.k = V.BLOCK_MINING_SUPPLY
 
 
 def delete_pid_file():

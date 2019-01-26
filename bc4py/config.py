@@ -104,14 +104,15 @@ class C:  # Constant
     CONTRACT_MINIMUM_INPUT = int(1 * pow(10, 8))  # Contractの発火最小amount
 
 
-class V:  # 起動時に設定される変数
-    # BLock params
+class V:
+    # Blockchain basic params
     BLOCK_GENESIS_HASH = None
     BLOCK_PREFIX = None
+    BLOCK_VALIDATOR_PREFIX = None
     BLOCK_CONTRACT_PREFIX = None
     BLOCK_GENESIS_TIME = None
     BLOCK_TIME_SPAN = None
-    BLOCK_ALL_SUPPLY = None
+    BLOCK_MINING_SUPPLY = None
     BLOCK_REWARD = None
     BLOCK_BASE_CONSENSUS = None
     BLOCK_CONSENSUSES = None
@@ -119,8 +120,6 @@ class V:  # 起動時に設定される変数
     # base coin
     COIN_DIGIT = None
     COIN_MINIMUM_PRICE = None  # Gasの最小Price
-    CONTRACT_MINIMUM_AMOUNT = None
-    CONTRACT_VALIDATOR_ADDRESS = None
 
     # database path
     SUB_DIR = None

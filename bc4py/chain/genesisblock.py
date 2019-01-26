@@ -14,14 +14,15 @@ import msgpack
 from more_itertools import chunked
 
 
-def create_genesis_block(all_supply, block_span, prefix=b'\x98', contract_prefix=b'\x12',
+def create_genesis_block(mining_supply, block_span, prefix=b'\x98', validator_prefix=b'\xac', contract_prefix=b'\x12',
                          digit_number=8, minimum_price=100, consensus=None, premine=None):
     """
     Height0のGenesisBlockを作成する
-    :param all_supply: PoW/POS合わせた全採掘量、プリマインを除く
+    :param mining_supply: PoW/POS合わせた全採掘量、プリマインを除く
     :param block_span: Blockの採掘間隔(Sec)
-    :param prefix: 一般アドレスの頭文字、b'\x98'=N
-    :param contract_prefix: コントラクトの頭文字、b'\x98'=C
+    :param prefix: Address prefix (N)
+    :param validator_prefix: ValidatorAddress (V)
+    :param contract_prefix: ContractAddress (C)
     :param digit_number: コインの分解能
     :param minimum_price: 最小gas_price
     :param consensus: 採掘アルゴ {consensus: ratio(0~100), ..}
@@ -65,16 +66,12 @@ def create_genesis_block(all_supply, block_span, prefix=b'\x98', contract_prefix
         premine_txs.append(tx)
     # validator
     V.BLOCK_GENESIS_TIME = int(time())
-    with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-        ck = create_new_user_keypair(C.ANT_NAME_CONTRACT, db.cursor())
-        db.commit()
-    c_address = convert_address(ck, contract_prefix)
     params = {
-        'prefix': prefix,  # CompressedKey prefix
-        'contract_prefix': contract_prefix,  # ContractKey prefix
-        'validator_address': c_address,
+        'prefix': prefix,
+        'validator_prefix': validator_prefix,
+        'contract_prefix': contract_prefix,
         'genesis_time': genesis_time,  # GenesisBlockの採掘時間
-        'all_supply': all_supply,  # 全採掘量
+        'mining_supply': mining_supply,  # 全採掘量
         'block_span': block_span,  # ブロックの採掘間隔
         'digit_number': digit_number,  # 小数点以下の桁数
         'minimum_price': minimum_price,
