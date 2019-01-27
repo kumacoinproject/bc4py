@@ -320,13 +320,13 @@ class DataBase:
                     message = unpackb(raw_message, raw=True, use_list=False, encoding='utf8')
                     yield index, start_hash, finish_hash, message
 
-    def read_validator_iter(self, c_address, start_idx=None):
+    def read_validator_iter(self, v_address, start_idx=None):
         f_batch = self.is_batch_thread()
         batch_copy = self.batch['_validator'].copy() if self.batch else dict()
-        b_c_address = c_address.encode()
+        b_v_address = v_address.encode()
         # caution: iterator/RangeIter's result include start and stop, need to add 1.
-        start = b_c_address + ((start_idx+1).to_bytes(8, ITER_ORDER) if start_idx else b'\x00' * 8)
-        stop = b_c_address + b'\xff'*8
+        start = b_v_address + ((start_idx+1).to_bytes(8, ITER_ORDER) if start_idx else b'\x00' * 8)
+        stop = b_v_address + b'\xff'*8
         # from database
         if is_plyvel:
             validator_iter = self._validator.iterator(start=start, stop=stop)
@@ -334,7 +334,7 @@ class DataBase:
             validator_iter = self._validator.RangeIter(key_from=start, key_to=stop)
         for k, v in validator_iter:
             k, v = bytes(k), bytes(v)
-            # KEY [c_address 40s]-[index unit8]
+            # KEY [v_address 40s]-[index unit8]
             # VALUE [new_address 40s]-[flag int1]-[txhash 32s]-[sig_diff int1]
             if f_batch and k in batch_copy and start <= k <= stop:
                 v = batch_copy[k]
@@ -348,7 +348,7 @@ class DataBase:
         # from memory
         if f_batch:
             for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
-                if k.startswith(b_c_address) and start <= k <= stop:
+                if k.startswith(b_v_address) and start <= k <= stop:
                     dummy, index = struct_validator_key.unpack(k)
                     new_address, flag, txhash, sig_diff = struct_validator_value.unpack(v)
                     if new_address == DUMMY_VALIDATOR_ADDRESS:
@@ -417,23 +417,23 @@ class DataBase:
         self.batch['_contract'][k] = v
         log.debug("Insert new contract {} {}".format(c_address, index))
 
-    def write_validator(self, c_address, new_address, flag, tx, sign_diff):
+    def write_validator(self, v_address, new_address, flag, tx, sign_diff):
         assert self.is_batch_thread(), 'Not created batch.'
         include_block = self.read_block(blockhash=self.read_block_hash(height=tx.height))
         index = tx.height * 0xffffffff + include_block.txs.index(tx)
         # check newer index already inserted
         last_index = None
-        for last_index, *dummy in self.read_validator_iter(c_address=c_address, start_idx=index):
+        for last_index, *dummy in self.read_validator_iter(v_address=v_address, start_idx=index):
             pass
         assert last_index is None, 'Not allow older ValidatorEditTX insert. last={}'.format(last_index)
         if new_address is None:
             new_address = DUMMY_VALIDATOR_ADDRESS
         else:
             new_address = new_address.encode()
-        k = c_address.encode() + index.to_bytes(8, ITER_ORDER)
+        k = v_address.encode() + index.to_bytes(8, ITER_ORDER)
         v = struct_validator_value.pack(new_address, flag, tx.hash, sign_diff)
         self.batch['_validator'][k] = v
-        log.debug("Insert new validator {} {}".format(c_address, index))
+        log.debug("Insert new validator {} {}".format(v_address, index))
 
 
 class ChainBuilder:
@@ -712,15 +712,15 @@ class ChainBuilder:
                             self.db.write_coins(coin_id=mint_id, txhash=tx.hash, params=params, setting=setting)
 
                         elif tx.type == C.TX_VALIDATOR_EDIT:
-                            c_address, new_address, flag, sig_diff = tx.encoded_message()
-                            self.db.write_validator(c_address=c_address, new_address=new_address,
+                            v_address, new_address, flag, sig_diff = tx.encoded_message()
+                            self.db.write_validator(v_address=v_address, new_address=new_address,
                                                     flag=flag, tx=tx, sign_diff=sig_diff)
 
                         elif tx.type == C.TX_CONCLUDE_CONTRACT:
-                            c_address, start_hash, c_storage = tx.encoded_message()
+                            v_address, start_hash, c_storage = tx.encoded_message()
                             start_tx = tx_builder.get_tx(txhash=start_hash)
                             dummy, c_method, redeem_address, c_args = start_tx.encoded_message()
-                            self.db.write_contract(c_address=c_address, start_tx=start_tx,
+                            self.db.write_contract(c_address=v_address, start_tx=start_tx,
                                                    finish_hash=tx.hash, message=(c_method, c_args, c_storage))
 
                 # block挿入終了

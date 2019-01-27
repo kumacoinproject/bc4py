@@ -2,7 +2,7 @@ from bc4py.config import C, V, BlockChainError
 from bc4py.chain.tx import TX
 from bc4py.database import contract
 from bc4py.database.validator import F_NOP, F_REMOVE, F_ADD, get_validator_object
-from bc4py.database.builder import tx_builder
+from bc4py.database.contract import get_validator_by_contract_info
 from bc4py.database.account import create_new_user_keypair
 from bc4py.user.txcreation.utils import *
 from bc4py.user.txcreation.transfer import send_many
@@ -13,12 +13,12 @@ import msgpack
 log = getLogger('bc4py')
 
 
-def create_contract_init_tx(c_address, c_bin, cur, c_extra_imports=None, c_settings=None,
+def create_contract_init_tx(c_address, v_address, c_bin, cur, c_extra_imports=None, c_settings=None,
                             send_pairs=None, sender=C.ANT_UNKNOWN, gas_price=None, retention=10800):
     if sender in (C.ANT_OUTSIDE, C.ANT_RESERVED):
         raise BlockChainError('Not allowed inner account.')
     c_method = contract.M_INIT
-    c_args = (c_bin, c_extra_imports, c_settings)
+    c_args = (c_bin, v_address, c_extra_imports, c_settings)
     redeem_address = create_new_user_keypair(sender, cur, True)
     msg_body = msgpack.packb((c_address, c_method, redeem_address, c_args), use_bin_type=True)
     send_pairs = send_pairs_format_check(c_address=c_address, send_pairs=send_pairs)
@@ -65,7 +65,7 @@ def create_conclude_tx(c_address, start_tx, redeem_address, send_pairs=None, c_s
     assert c_storage is None or isinstance(c_storage, dict)
     assert isinstance(emulate_gas, int)
     message = msgpack.packb((c_address, start_tx.hash, c_storage), use_bin_type=True)
-    v = get_validator_object(c_address=c_address)
+    v = get_validator_by_contract_info(c_address=c_address, start_tx=start_tx)
     send_pairs = send_pairs or list()
     tx = TX.from_dict(tx={
         'type': C.TX_CONCLUDE_CONTRACT,
@@ -78,8 +78,7 @@ def create_conclude_tx(c_address, start_tx, redeem_address, send_pairs=None, c_s
         'message': message})
     tx.gas_amount = tx.size
     # fill unspents
-    fill_objective_inputs_outputs(
-        tx=tx, obj_address=c_address, signature_num=v.require, additional_gas=0)
+    fill_inputs_outputs(tx=tx, target_address=(c_address,), signature_num=v.require)
     # replace dummy address
     replace_redeem_dummy_address(tx=tx, replace_by=c_address)
     # fix redeem fees
@@ -111,13 +110,13 @@ def create_conclude_tx(c_address, start_tx, redeem_address, send_pairs=None, c_s
     return tx
 
 
-def create_validator_edit_tx(c_address, new_address=None,
+def create_validator_edit_tx(v_address, cur, new_address=None,
                              flag=F_NOP, sig_diff=0, gas_price=None, retention=10800):
     assert not (flag == F_NOP and sig_diff == 0), 'No edit info.'
     if new_address is None and flag != F_NOP:
         raise BlockChainError('No cosigner edit, but flag is not NOP.')
     # validator object
-    v = get_validator_object(c_address=c_address)
+    v = get_validator_object(v_address=v_address)
     if v.version == -1:
         if new_address is None or flag != F_ADD or sig_diff != 1:
             raise BlockChainError('Not correct info.')
@@ -131,7 +130,7 @@ def create_validator_edit_tx(c_address, new_address=None,
         if not (0 < next_require <= next_validator_num):
             raise BlockChainError('ReqError, 0 < {} <= {}'.format(next_require, next_validator_num))
     # tx create
-    message = msgpack.packb((c_address, new_address, flag, sig_diff), use_bin_type=True)
+    message = msgpack.packb((v_address, new_address, flag, sig_diff), use_bin_type=True)
     tx = TX.from_dict(tx={
         'type': C.TX_VALIDATOR_EDIT,
         'gas_price': gas_price or V.COIN_MINIMUM_PRICE,
@@ -141,27 +140,31 @@ def create_validator_edit_tx(c_address, new_address=None,
     tx.gas_amount = tx.size
     tx.update_time(retention)
     # fill unspents
-    fill_objective_inputs_outputs(
-        tx=tx, obj_address=v_address, signature_num=v.require, additional_gas=C.VALIDATOR_EDIT_GAS)
+    additional_gas = C.VALIDATOR_EDIT_GAS + v.require * C.SIGNATURE_GAS
+    input_address = fill_inputs_outputs(tx=tx, cur=cur, additional_gas=additional_gas)
+    assert len(input_address & set(v.validators)) == 0, 'Not implemented?'
     # replace dummy address
-    replace_redeem_dummy_address(tx=tx, replace_by=c_address)
-    tx.serialize()
-    if len(v.validators) > 0 and setup_contract_signature(tx, v.validators) == 0:
+    replace_redeem_dummy_address(tx=tx, cur=cur)
+    setup_signature(tx, input_address)
+    if v.version > -1 and setup_contract_signature(tx, v.validators) == 0:
         raise BlockChainError('Cannot sign, you are not validator.')
     return tx
 
 
 def create_signed_tx_as_validator(tx: TX):
-    assert tx.type in (C.TX_VALIDATOR_EDIT, C.TX_CONCLUDE_CONTRACT)
-    copied_tx = deepcopy(tx)
-    # sign as another validator
-    c_address, *dummy = copied_tx.encoded_message()
-    # validator object
-    stop_txhash = copied_tx.hash if copied_tx.type == C.TX_VALIDATOR_EDIT else None
-    v = get_validator_object(c_address=c_address, stop_txhash=stop_txhash)
-    if setup_contract_signature(copied_tx, v.validators) == 0:
+    tx = deepcopy(tx)
+    if tx.type == C.TX_VALIDATOR_EDIT:
+        v_address, new_address, flag, sig_diff = tx.encoded_message()
+        v = get_validator_object(v_address=v_address, stop_txhash=tx.hash)
+    elif tx.type == C.TX_CONCLUDE_CONTRACT:
+        c_address, start_hash, c_storage = tx.encoded_message()
+        v = get_validator_by_contract_info(c_address=c_address, start_hash=start_hash)
+    else:
+        raise BlockChainError('Not found tx type {}'.format(tx))
+    # sign and check how many add signs
+    if setup_contract_signature(tx, v.validators) == 0:
         raise BlockChainError('Cannot sign, you are not validator or already signed.')
-    return copied_tx
+    return tx
 
 
 def send_pairs_format_check(c_address, send_pairs):

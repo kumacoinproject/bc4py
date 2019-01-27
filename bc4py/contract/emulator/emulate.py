@@ -128,7 +128,7 @@ def start_emulators(genesis_block):
     for index, em in enumerate(emulators):
         Thread(target=loop_emulator, name='Emulator{}'.format(index),
                args=(index, em, genesis_block), daemon=True).start()
-    stream.subscribe(on_next=on_next)
+    stream.subscribe(on_next=on_next, on_error=log.error)
     lock.acquire()
 
 

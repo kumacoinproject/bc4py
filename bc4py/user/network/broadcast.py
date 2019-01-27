@@ -59,7 +59,7 @@ class BroadcastCmd:
             return True
         except BlockChainError as e:
             error = 'Failed accept new tx "{}"'.format(e)
-            log.error(error)
+            log.error(error, exc_info=True)
             return False
         except Exception:
             error = "Failed accept new tx"

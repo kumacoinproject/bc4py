@@ -16,6 +16,7 @@ async def contract_init(request):
     post = await web_base.content_type_json_check(request)
     try:
         c_address = post['c_address']
+        v_address = post['v_address']
         c_bin = a2b_hex(post['hex'])
         c_extra_imports = post.get('extra_imports', None)
         c_settings = post.get('settings', None)
@@ -26,8 +27,9 @@ async def contract_init(request):
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
             sender = read_name2user(sender_name, cur)
-            tx = create_contract_init_tx(c_address=c_address, c_bin=c_bin, cur=cur, c_extra_imports=c_extra_imports,
-                                         c_settings=c_settings, send_pairs=send_pairs, sender=sender)
+            tx = create_contract_init_tx(c_address=c_address, v_address=v_address, c_bin=c_bin, cur=cur,
+                                         c_extra_imports=c_extra_imports, c_settings=c_settings,
+                                         send_pairs=send_pairs, sender=sender)
             if not send_newtx(new_tx=tx, outer_cur=cur):
                 raise Exception('Failed to send new tx.')
             db.commit()
@@ -129,16 +131,17 @@ async def conclude_contract(request):
 async def validator_edit(request):
     start = time()
     post = await web_base.content_type_json_check(request)
-    c_address = post.get('c_address', None)
+    v_address = post.get('v_address', None)
     new_address = post.get('new_address', None)
     flag = int(post.get('flag', F_NOP))
     sig_diff = int(post.get('sig_diff', 0))
     try:
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
-            if c_address is None:
-                c_address = create_new_user_keypair(user=C.ANT_CONTRACT, cur=cur)
-            tx = create_validator_edit_tx(c_address=c_address, new_address=new_address, flag=flag, sig_diff=sig_diff)
+            if v_address is None:
+                v_address = create_new_user_keypair(user=C.ANT_VALIDATOR, cur=cur)
+            tx = create_validator_edit_tx(
+                v_address=v_address, cur=cur, new_address=new_address, flag=flag, sig_diff=sig_diff)
             if not send_newtx(new_tx=tx, outer_cur=cur):
                 raise Exception('Failed to send new tx.')
             db.commit()

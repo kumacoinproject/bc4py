@@ -10,6 +10,7 @@ from collections import defaultdict
 from threading import Lock, Thread
 from time import time
 from logging import getLogger
+from nem_ed25519.key import is_address
 
 log = getLogger('bc4py')
 update_count = 0
@@ -106,15 +107,15 @@ def _update_unconfirmed_info():
 
         # check validator tx
         sort_validator_txs = defaultdict(list)
-        default_validator = DefaultValidator(best_block=best_block, best_chain=best_chain)
+        defaults = DefaultValidator(best_block=best_block, best_chain=best_chain)
         for tx in unconfirmed_txs.copy():
             if tx.type == C.TX_VALIDATOR_EDIT:
-                c_address, address, flag, sig_diff = tx.encoded_message()
-                v_before = default_validator[c_address]
+                v_address, address, flag, sig_diff = tx.encoded_message()
+                v_before: Validator = defaults.get(v_address, None)
                 if not signature_acceptable(v=v_before, tx=tx):
                     unconfirmed_txs.remove(tx)
                     continue
-                sort_validator_txs[c_address].append(tx)
+                sort_validator_txs[v_address].append(tx)
                 v_before.update(
                     db_index=None, flag=flag, address=address, sig_diff=sig_diff, txhash=tx.hash)
                 unconfirmed_txs.remove(tx)
@@ -127,7 +128,7 @@ def _update_unconfirmed_info():
                 if start_tx is None or start_tx.height is None:
                     unconfirmed_txs.remove(tx)  # start tx is unconfirmed
                     continue
-                v = default_validator[c_address]
+                v: Validator = defaults.get(c_address, start_tx)
                 if not signature_acceptable(v=v, tx=tx):
                     unconfirmed_txs.remove(tx)
                     continue
@@ -139,17 +140,17 @@ def _update_unconfirmed_info():
         # [proof]-[normal]-..-[normal]-[validator]-..-[validator]-[contract]-..-[contract]
         append_txs = list()
         if len(sort_validator_txs) > 0:
-            for c_address, tx_list in sort_validator_txs.items():
+            for v_address, tx_list in sort_validator_txs.items():
                 for tx in tx_list:
                     append_txs.append(tx)
         if len(sort_contract_txs) > 0:
-            for c_address, sort_data in sort_contract_txs.items():
+            for v_address, sort_data in sort_contract_txs.items():
                 c_first = get_contract_object(  # best index on memory
-                    c_address=c_address, best_block=best_block, best_chain=best_chain)
+                    c_address=v_address, best_block=best_block, best_chain=best_chain)
                 index_before = c_first.db_index
                 for tx, index in sorted(sort_data, key=lambda x: x[1]):
                     if index_before:
-                        c_before = get_contract_object(c_address=c_address, stop_txhash=tx.hash)
+                        c_before = get_contract_object(c_address=v_address, stop_txhash=tx.hash)
                         if index_before != c_before.db_index:
                             break  # skip
                     append_txs.append(tx)
@@ -180,20 +181,26 @@ def check_upgradable_pre_unconfirmed():
             if tx.type == C.TX_CONCLUDE_CONTRACT:
                 c_address, start_hash, c_storage = tx.encoded_message()
                 c = get_contract_object(c_address=c_address)
-                index = start_tx2index(start_hash=start_hash)
-                if c.db_index and index < c.db_index:
-                    # delete
-                    del tx_builder.pre_unconfirmed[tx.hash]
-                    log.debug("Delete old ConcludeTX {}".format(tx))
-                    continue
+                if c.version > -1:
+                    index = start_tx2index(start_hash=start_hash)
+                    if c.db_index and index < c.db_index:
+                        # delete
+                        del tx_builder.pre_unconfirmed[tx.hash]
+                        log.debug("Delete old ConcludeTX {}".format(tx))
+                        continue
+                    v = get_validator_object(v_address=c.v_address)
+                else:
+                    # init tx
+                    v = get_validator_by_contract_info(c_address=c_address, start_hash=start_hash)
             elif tx.type == C.TX_VALIDATOR_EDIT:
-                c_address, new_address, flag, sig_diff = tx.encoded_message()
+                v_address, new_address, flag, sig_diff = tx.encoded_message()
+                v = get_validator_object(v_address=v_address)
             else:
                 log.error("Why include pre-unconfirmed? {}".format(tx))
                 continue
             # check upgradable
-            v = get_validator_object(c_address=c_address)
-            if v.require <= len(tx.signature):
+            signed_cks = get_signed_cks(tx)
+            if v.require <= len(signed_cks & set(v.validators)):
                 del tx_builder.pre_unconfirmed[tx.hash]
                 if tx.hash not in tx_builder.unconfirmed:
                     tx_builder.put_unconfirmed(tx=tx)
@@ -225,25 +232,23 @@ def pruning_over_size_unconfirmed(unconfirmed_txs: list):
         log.debug("Purged unconfirmed txs {}/{}".format(len(unconfirmed_txs), original_num))
 
 
-class DefaultValidator(dict):
+class DefaultValidator:
     def __init__(self, best_block, best_chain):
         super().__init__()
         self.best_block = best_block
         self.best_chain = best_chain
+        self._data = dict()
 
-    def __missing__(self, key):
-        ret = self[key] = get_validator_object(
-            c_address=key, best_block=self.best_block, best_chain=self.best_chain)
-        return ret
-
-
-class DefaultContract(dict):
-    def __init__(self, best_block, best_chain):
-        super().__init__()
-        self.best_block = best_block
-        self.best_chain = best_chain
-
-    def __missing__(self, key):
-        ret = self[key] = get_contract_object(
-            c_address=key, best_block=self.best_block, best_chain=self.best_chain)
+    def get(self, address, tx):
+        if address in self._data:
+            return self._data[address]
+        elif is_address(address, V.BLOCK_VALIDATOR_PREFIX):
+            ret = self._data[address] = get_validator_object(
+                v_address=address, best_block=self.best_block, best_chain=self.best_chain)
+        elif is_address(address, V.BLOCK_CONTRACT_PREFIX):
+            v = get_validator_by_contract_info(
+                c_address=address, start_tx=tx, best_block=self.best_block, best_chain=self.best_chain)
+            ret = self._data[v.v_address] = v
+        else:
+            raise Exception('Not found address prefix {}'.format(address))
         return ret

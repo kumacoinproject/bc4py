@@ -1,9 +1,10 @@
-from bc4py.config import C, BlockChainError
+from bc4py.config import C, V, BlockChainError
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.validator import get_validator_object
 from threading import Lock
 from copy import deepcopy
 from logging import getLogger
+from nem_ed25519.key import is_address
 import msgpack
 
 log = getLogger('bc4py')
@@ -78,11 +79,13 @@ class Storage(dict):
 
 
 class Contract:
-    __slots__ = ("c_address", "version", "db_index", "binary", "extra_imports",
+    __slots__ = ("c_address", "v_address", "version", "db_index", "binary", "extra_imports",
                  "storage", "settings", "start_hash", "finish_hash")
 
     def __init__(self, c_address):
+        assert is_address(c_address, V.BLOCK_CONTRACT_PREFIX)
         self.c_address = c_address
+        self.v_address = None
         self.version = -1
         self.db_index = None
         self.binary = None
@@ -105,6 +108,7 @@ class Contract:
             return None
         return {
             'c_address': self.c_address,
+            'v_address': self.v_address,
             'db_index': self.db_index,
             'version': self.version,
             'binary': self.binary.hex(),
@@ -120,8 +124,9 @@ class Contract:
         assert self.db_index is None or self.db_index < db_index, 'Tyr to put old index data.'
         if c_method == M_INIT:
             assert self.version == -1
-            c_bin, c_extra_imports, c_settings = c_args
+            c_bin, v_address, c_extra_imports, c_settings = c_args
             self.binary = c_bin
+            self.v_address = v_address
             self.extra_imports = c_extra_imports or list()
             self.settings = settings_template.copy()
             if c_settings:
@@ -262,6 +267,35 @@ def get_conclude_hash_from_start(c_address, start_hash, best_block=None, best_ch
     return None
 
 
+def get_validator_by_contract_info(c_address, start_tx=None, start_hash=None,
+                                   best_block=None, best_chain=None, stop_txhash=None):
+    c = get_contract_object(c_address=c_address,
+                            best_block=best_block, best_chain=best_chain, stop_txhash=stop_txhash)
+    if c.version > -1:
+        v = get_validator_object(v_address=c.v_address,
+                                 best_block=best_block, best_chain=best_chain, stop_txhash=stop_txhash)
+        if v.version > -1:
+            return v
+        else:
+            raise BlockChainError('ValidatorTX is not init. {}'.format(v.v_address))
+    elif start_tx or start_hash:
+        if start_tx is None:
+            start_tx = tx_builder.get_tx(txhash=start_hash)
+        raw_args = start_tx.encoded_message()
+        if len(raw_args) != 4:
+            raise BlockChainError('Not correct args count {}'.format(raw_args))
+        c_address, c_method, redeem_address, c_args = raw_args
+        if c_method != M_INIT:
+            raise BlockChainError('StartTX method is not INIT')
+        if len(c_args) != 4:
+            raise BlockChainError('Not correct c_args count {}'.format(c_args))
+        c_bin, v_address, c_extra_imports, c_settings = c_args
+        return get_validator_object(v_address=v_address,
+                                    best_block=best_block, best_chain=best_chain, stop_txhash=stop_txhash)
+    else:
+        raise BlockChainError('ContractTX is not init. {}'.format(c_address))
+
+
 def start_tx2index(start_hash=None, start_tx=None):
     if start_hash:
         start_tx = tx_builder.get_tx(txhash=start_hash)
@@ -296,6 +330,7 @@ __all__ = [
     "contract_fill",
     "get_contract_object",
     "get_conclude_hash_from_start",
+    "get_validator_by_contract_info",
     "start_tx2index",
     "update_contract_cashe",
 ]

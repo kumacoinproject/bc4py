@@ -92,7 +92,9 @@ async def list_account_address(request):
         address_list = list()
         for uuid, address, user in read_pooled_address_iter(cur):
             if user_id == user:
-                if user == C.ANT_CONTRACT:
+                if user == C.ANT_VALIDATOR:
+                    address_list.append(convert_address(ck=address, prefix=V.BLOCK_VALIDATOR_PREFIX))
+                elif user == C.ANT_CONTRACT:
                     address_list.append(convert_address(ck=address, prefix=V.BLOCK_CONTRACT_PREFIX))
                 else:
                     address_list.append(address)
@@ -149,6 +151,9 @@ async def new_address(request):
         user_id = read_name2user(user_name, cur)
         address = create_new_user_keypair(user_id, cur)
         db.commit()
+        if user_id == C.ANT_VALIDATOR:
+            print(V.BLOCK_VALIDATOR_PREFIX)
+            address = convert_address(address, V.BLOCK_VALIDATOR_PREFIX)
         if user_id == C.ANT_CONTRACT:
             address = convert_address(address, V.BLOCK_CONTRACT_PREFIX)
     return web_base.json_res({'account': user_name, 'user_id': user_id, 'address': address})

@@ -51,7 +51,7 @@ def set_logger(level=INFO, prefix='main', f_file=False, f_remove=False):
 
 
 def stream_printer():
-    stream.subscribe(on_next=print)
+    stream.subscribe(on_next=print, on_error=log.error)
 
 
 def _debug(sql, path, explain=True):

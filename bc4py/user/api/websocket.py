@@ -120,7 +120,7 @@ def new_info2json_data(cmd, data_list):
     send_data = dict()
     if cmd == C_Conclude:
         _time, tx, related_list, c_address, start_hash, c_storage = data_list
-        send_data['c_address'] = c_address
+        send_data['address'] = c_address
         send_data['hash'] = tx.hash.hex()
         send_data['time'] = _time
         send_data['tx'] = tx.getinfo()
@@ -128,8 +128,8 @@ def new_info2json_data(cmd, data_list):
         send_data['start_hash'] = start_hash.hex()
         send_data['c_storage'] = decode(c_storage)
     elif cmd == C_Validator:
-        _time, tx, related_list, c_address, new_address, flag, sig_diff = data_list
-        send_data['c_address'] = c_address
+        _time, tx, related_list, v_address, new_address, flag, sig_diff = data_list
+        send_data['address'] = v_address
         send_data['hash'] = tx.hash.hex()
         send_data['time'] = _time
         send_data['tx'] = tx.getinfo()
@@ -139,7 +139,7 @@ def new_info2json_data(cmd, data_list):
         send_data['sig_diff'] = sig_diff
     elif cmd == C_RequestConclude:
         _time, tx, related_list, c_address, c_method, redeem_address, c_args = data_list
-        send_data['c_address'] = c_address
+        send_data['address'] = c_address
         send_data['hash'] = tx.hash.hex()
         send_data['time'] = _time
         send_data['tx'] = tx.getinfo()
@@ -184,7 +184,7 @@ def on_next(data):
         pass
 
 
-stream.subscribe(on_next=on_next)
+stream.subscribe(on_next=on_next, on_error=log.error)
 
 
 __all__ = [

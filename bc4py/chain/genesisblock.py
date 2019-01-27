@@ -11,7 +11,7 @@ import msgpack
 from more_itertools import chunked
 
 
-def create_genesis_block(mining_supply, block_span, prefix=b'\x98', validator_prefix=b'\xac', contract_prefix=b'\x12',
+def create_genesis_block(mining_supply, block_span, prefix=b'\x68', validator_prefix=b'\xac', contract_prefix=b'\x12',
                          digit_number=8, minimum_price=100, consensus=None, premine=None):
     """
     Height0のGenesisBlockを作成する

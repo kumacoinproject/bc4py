@@ -89,11 +89,6 @@ def fill_inputs_outputs(tx, target_address=None, cur=None, signature_num=None,
                                    utxo_cashe=utxo_cashe)
 
 
-def fill_objective_inputs_outputs(tx, obj_address, signature_num, additional_gas):
-    return fill_inputs_outputs(
-        tx=tx, target_address=(obj_address,), signature_num=signature_num, additional_gas=additional_gas)
-
-
 def replace_redeem_dummy_address(tx, cur=None, replace_by=None):
     assert cur or replace_by
     new_redeem_address = set()
@@ -112,9 +107,13 @@ def replace_redeem_dummy_address(tx, cur=None, replace_by=None):
 
 def setup_signature(tx, input_address):
     # tx.signature.clear()
+    count = 0
     for address in input_address:
         sign_pairs = message2signature(raw=tx.b, address=address)
-        tx.signature.append(sign_pairs)
+        if sign_pairs not in tx.signature:
+            tx.signature.append(sign_pairs)
+            count += 1
+    return count
 
 
 def setup_contract_signature(tx, validators):
@@ -144,7 +143,6 @@ def check_enough_amount(sender, send_coins, fee_coins, cur):
 __all__ = [
     "DUMMY_REDEEM_ADDRESS",
     "fill_inputs_outputs",
-    "fill_objective_inputs_outputs",
     "replace_redeem_dummy_address",
     "setup_signature",
     "setup_contract_signature",

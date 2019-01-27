@@ -86,7 +86,7 @@ class C:  # Constant
     ANT_VALIDATOR = 3  # ValidatorAddress
     ANT_CONTRACT = 4  # ContractAddress
     account2name = {
-        ANT_RESERVED: '@Reserved', ANT_UNKNOWN: '@Unknown', ANT_OUTSIDE: '@Unknown',
+        ANT_RESERVED: '@Reserved', ANT_UNKNOWN: '@Unknown', ANT_OUTSIDE: '@Outside',
         ANT_VALIDATOR: '@Validator', ANT_CONTRACT: '@Contract'}
 
     # Block/TX/Fee limit
