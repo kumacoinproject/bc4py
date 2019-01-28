@@ -1,4 +1,5 @@
-from bc4py.config import C, V, BlockChainError
+from bc4py.config import C, V, stream, BlockChainError
+from bc4py.chain.block import Block
 from bc4py.database.builder import builder, tx_builder
 from threading import Lock
 from copy import deepcopy
@@ -149,9 +150,7 @@ def validator_tx2index(txhash=None, tx=None):
     return tx.height * 0xffffffff + block.txs.index(tx)
 
 
-def update_validator_cashe():
-    # affect when new blocks inserted to database
-    # TODO: when update? 後で考えるので今は触らない
+def update_validator_cashe(*args):
     with lock:
         count = 0
         for v_address, v in cashe.items():
@@ -161,6 +160,13 @@ def update_validator_cashe():
                          address=address, sig_diff=sig_diff, txhash=txhash)
                 count += 1
     log.debug("Validator cashe update {}tx".format(count))
+
+
+# when receive Block (101 x n height), update validator cashe
+stream.filter(
+    lambda obj: isinstance(obj, Block) and obj.height % 101 == 0
+    ).subscribe(
+    on_next=update_validator_cashe, on_error=log.error)
 
 
 __all__ = [

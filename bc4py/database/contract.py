@@ -1,4 +1,5 @@
-from bc4py.config import C, V, BlockChainError
+from bc4py.config import C, V, stream, BlockChainError
+from bc4py.chain.block import Block
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.validator import get_validator_object
 from threading import Lock
@@ -309,9 +310,7 @@ def start_tx2index(start_hash=None, start_tx=None):
     return start_tx.height * 0xffffffff + block.txs.index(start_tx)
 
 
-def update_contract_cashe():
-    # affect when new blocks inserted to database
-    # TODO: when update? 後で考えるので今は触らない
+def update_contract_cashe(*args):
     with lock:
         count = 0
         for c_address, c_contract in cashe.items():
@@ -321,6 +320,13 @@ def update_contract_cashe():
                                   c_method=c_method, c_args=c_args, c_storage=c_storage)
                 count += 1
     log.debug("Contract cashe update {}tx".format(count))
+
+
+# when receive Block (103 x n height), update contract cashe
+stream.filter(
+    lambda obj: isinstance(obj, Block) and obj.height % 103 == 0
+    ).subscribe(
+    on_next=update_contract_cashe, on_error=log.error)
 
 
 __all__ = [
