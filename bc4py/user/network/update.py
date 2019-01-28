@@ -8,7 +8,7 @@ from bc4py.chain.checking.utils import sticky_failed_txhash
 from bc4py.user.generate import *
 from collections import defaultdict
 from threading import Lock, Thread
-from time import time
+from time import time, sleep
 from logging import getLogger
 from nem_ed25519.key import is_address
 
@@ -19,7 +19,7 @@ unspent_lock = Lock()
 unconfirmed_lock = Lock()
 
 
-def update_mining_staking_all_info(u_block=True, u_unspent=True, u_unconfirmed=True):
+def update_info_for_generate(u_block=True, u_unspent=True, u_unconfirmed=True):
     def _updates():
         consensus = tuple(t.consensus for t in generating_threads)
         info = ''
@@ -38,11 +38,10 @@ def update_mining_staking_all_info(u_block=True, u_unspent=True, u_unconfirmed=T
 
 def _update_block_info():
     with block_lock:
-        s = time()
-        if builder.best_block is not None:
-            update_previous_block(builder.best_block)
-            return ',  height={} {}mS'.format(builder.best_block.height+1, int((time()-s)*1000))
-    return ',  height=No'
+        while builder.best_block is None:
+            sleep(0.2)
+        update_previous_block(builder.best_block)
+        return ',  height={}'.format(builder.best_block.height+1)
 
 
 def _update_unspent_info():
