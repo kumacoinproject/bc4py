@@ -11,7 +11,7 @@ requests
 more_itertools
 expiringdict
 phe  # paillier
-rx  # ReactiveX
+rx==1.6.1  # ReactiveX
 bip32nem
 mnemonic
 msgpack>=0.5.6
