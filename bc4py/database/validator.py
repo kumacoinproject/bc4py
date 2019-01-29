@@ -5,6 +5,7 @@ from threading import Lock
 from copy import deepcopy
 from logging import getLogger
 from nem_ed25519.key import is_address
+from time import time
 import msgpack
 
 log = getLogger('bc4py')
@@ -115,11 +116,12 @@ def validator_fill_iter(v: Validator, best_block=None, best_chain=None):
 
 
 def get_validator_object(v_address, best_block=None, best_chain=None, stop_txhash=None, select_hash=None):
-    if v_address in cashe:
-        with lock:
+    with lock:
+        if v_address in cashe:
             v = cashe[v_address].copy()
-    else:
-        v = Validator(v_address=v_address)
+        else:
+            v = Validator(v_address=v_address)
+            cashe[v_address] = v.copy()
     for index, flag, address, sig_diff, txhash in validator_fill_iter(
             v=v, best_block=best_block, best_chain=best_chain):
         if txhash == stop_txhash:
@@ -152,14 +154,15 @@ def validator_tx2index(txhash=None, tx=None):
 
 def update_validator_cashe(*args):
     with lock:
-        count = 0
+        s = time()
+        line = 0
         for v_address, v in cashe.items():
             v_iter = builder.db.read_validator_iter(v_address=v_address, start_idx=v.db_index)
             for index, address, flag, txhash, sig_diff in v_iter:
                 v.update(db_index=index, flag=flag,
                          address=address, sig_diff=sig_diff, txhash=txhash)
-                count += 1
-    log.debug("Validator cashe update {}tx".format(count))
+                line += 1
+    log.debug("Validator cashe update {}line {}mSec".format(line, int((time()-s)*1000)))
 
 
 # when receive Block (101 x n height), update validator cashe

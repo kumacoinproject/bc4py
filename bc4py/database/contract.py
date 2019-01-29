@@ -6,6 +6,7 @@ from threading import Lock
 from copy import deepcopy
 from logging import getLogger
 from nem_ed25519.key import is_address
+from time import time
 import msgpack
 
 log = getLogger('bc4py')
@@ -223,11 +224,12 @@ def contract_fill(c: Contract, best_block=None, best_chain=None, stop_txhash=Non
 
 def get_contract_object(c_address, best_block=None, best_chain=None, stop_txhash=None):
     # stop_txhash is StartHash or ConcludeHash. Don't include the hash.
-    if c_address in cashe:
-        with lock:
+    with lock:
+        if c_address in cashe:
             c = cashe[c_address].copy()
-    else:
-        c = Contract(c_address=c_address)
+        else:
+            c = Contract(c_address=c_address)
+            cashe[c_address] = c.copy()
     contract_fill(c=c, best_block=best_block, best_chain=best_chain, stop_txhash=stop_txhash)
     return c
 
@@ -312,14 +314,15 @@ def start_tx2index(start_hash=None, start_tx=None):
 
 def update_contract_cashe(*args):
     with lock:
-        count = 0
+        s = time()
+        line = 0
         for c_address, c_contract in cashe.items():
             c_iter = builder.db.read_contract_iter(c_address=c_address, start_idx=c_contract.db_index)
             for index, start_hash, finish_hash, (c_method, c_args, c_storage) in c_iter:
                 c_contract.update(db_index=index, start_hash=start_hash, finish_hash=finish_hash,
                                   c_method=c_method, c_args=c_args, c_storage=c_storage)
-                count += 1
-    log.debug("Contract cashe update {}tx".format(count))
+                line += 1
+    log.debug("Contract cashe update {}line {}mSec".format(line, int((time()-s)*1000)))
 
 
 # when receive Block (103 x n height), update contract cashe
