@@ -9,9 +9,11 @@ from bc4py.user.generate import *
 from threading import Lock, Thread
 from time import time, sleep
 from logging import getLogger
+from expiringdict import ExpiringDict
 
 log = getLogger('bc4py')
 update_count = 0
+failed_txs = ExpiringDict(max_len=1000, max_age_seconds=3600)
 block_lock = Lock()
 unspent_lock = Lock()
 unconfirmed_lock = Lock()
@@ -153,9 +155,17 @@ def _update_unconfirmed_info():
         errored_tx = check_unconfirmed_order(
             previous_hash=builder.best_block.previous_hash, ordered_unconfirmed_txs=unconfirmed_txs)
         if errored_tx is not None:
-            # error is caused by remove tx of too few fee, so should ignore the tx
+            # error is caused by remove tx of too few fee
             unconfirmed_txs = unconfirmed_txs[:unconfirmed_txs.index(errored_tx)]
-            log.warning('prune error tx {}'.format(errored_tx))
+            if errored_tx.hash in failed_txs:
+                if 10 < failed_txs[errored_tx.hash]:
+                    del tx_builder.unconfirmed[errored_tx.hash], failed_txs[errored_tx.hash]
+                    log.warning('delete too many fail {}'.format(errored_tx))
+                else:
+                    failed_txs[errored_tx.hash] += 1
+            else:
+                failed_txs[errored_tx.hash] = 1
+                log.warning('prune error tx {}'.format(errored_tx))
 
         # 6. update unconfirmed txs
         update_unconfirmed_txs(unconfirmed_txs)
