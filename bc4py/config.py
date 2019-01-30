@@ -142,7 +142,6 @@ class P:  # 起動中もダイナミックに変化
 
 
 class Debug:
-    F_LIMIT_INCLUDE_TX_IN_BLOCK = 0  # 1blockに入れるTXの最大数(0=無効)
     F_SHOW_DIFFICULTY = False
     F_CONSTANT_DIFF = False
     F_STICKY_TX_REJECTION = True

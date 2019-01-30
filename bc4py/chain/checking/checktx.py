@@ -1,4 +1,6 @@
 from bc4py.config import C, V, BlockChainError
+from bc4py.chain.tx import TX
+from bc4py.chain.block import Block
 from bc4py.chain.checking.tx_reward import *
 from bc4py.chain.checking.tx_mintcoin import *
 from bc4py.chain.checking.tx_contract import *
@@ -153,3 +155,49 @@ def check_hash_locked(tx):
             raise BlockChainError('Hash-locked check SHA256 failed.')
     else:
         raise BlockChainError('H of Hash-locked is not correct size {}'.format(size))
+
+
+def check_unconfirmed_order(previous_hash, ordered_unconfirmed_txs):
+    if len(ordered_unconfirmed_txs) == 0:
+        return None
+    s = time()
+    dummy_proof_tx = TX()
+    dummy_proof_tx.type = C.TX_POW_REWARD,
+    dummy_block = Block()
+    dummy_block.previous_hash = previous_hash
+    dummy_block.txs.append(dummy_proof_tx)  # dummy for proof tx
+    dummy_block.txs.extend(ordered_unconfirmed_txs)
+    tx = None
+    try:
+        for tx in ordered_unconfirmed_txs:
+            if tx.type == C.TX_GENESIS:
+                pass
+            elif tx.type == C.TX_POS_REWARD:
+                pass
+            elif tx.type == C.TX_POW_REWARD:
+                pass
+            elif tx.type == C.TX_TRANSFER:
+                pass
+            elif tx.type == C.TX_MINT_COIN:
+                check_tx_mint_coin(tx=tx, include_block=dummy_block)
+            elif tx.type == C.TX_VALIDATOR_EDIT:
+                check_tx_validator_edit(tx=tx, include_block=dummy_block)
+            elif tx.type == C.TX_CONCLUDE_CONTRACT:
+                check_tx_contract_conclude(tx=tx, include_block=dummy_block)
+            else:
+                raise BlockChainError('Unknown tx type "{}"'.format(tx.type))
+        else:
+            log.debug('Finish unconfirmed order check {}mSec'.format(int((time()-s)*1000)))
+            return None
+    except Exception as e:
+        log.warning(e, exc_info=True)
+    # return errored tx
+    return tx
+
+
+__all__ = [
+    "check_tx",
+    "check_tx_time",
+    "check_hash_locked",
+    "check_unconfirmed_order"
+]
