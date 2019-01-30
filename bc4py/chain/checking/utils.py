@@ -2,14 +2,9 @@ from bc4py.config import C, V, BlockChainError
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.tools import get_usedindex
 from bc4py.database.validator import get_validator_object
-from bc4py.database.contract import get_validator_by_contract_info
 from bc4py.chain.checking.signature import get_signed_cks
 from bc4py.user import Balance
 from nem_ed25519.key import is_address
-from collections import deque
-
-
-sticky_failed_txhash = deque(maxlen=20)
 
 
 def inputs_origin_check(tx, include_block):
@@ -37,7 +32,6 @@ def inputs_origin_check(tx, include_block):
             pass  # OK
         # 使用済みかチェック
         if txindex in get_usedindex(txhash=txhash, best_block=include_block):
-            sticky_failed_txhash.append(tx.hash)
             raise BlockChainError('1 Input of {} is already used! {}:{}'
                                   .format(tx, txhash.hex(), txindex))
         # 同一Block内で使用されていないかチェック
@@ -47,7 +41,6 @@ def inputs_origin_check(tx, include_block):
                     break
                 for input_hash, input_index in input_tx.inputs:
                     if input_hash == txhash and input_index == txindex:
-                        sticky_failed_txhash.append(tx.hash)
                         raise BlockChainError('2 Input of {} is already used by {}'
                                               .format(tx, input_tx))
 
@@ -116,7 +109,6 @@ def signature_check(tx, include_block):
 
 
 __all__ = [
-    "sticky_failed_txhash",
     "inputs_origin_check",
     "amount_check",
     "signature_check",
