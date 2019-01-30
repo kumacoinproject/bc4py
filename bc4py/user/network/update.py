@@ -153,7 +153,7 @@ def _update_unconfirmed_info():
 
         # 5. check unconfirmed order
         errored_tx = check_unconfirmed_order(
-            previous_hash=builder.best_block.previous_hash, ordered_unconfirmed_txs=unconfirmed_txs)
+            best_block=builder.best_block, ordered_unconfirmed_txs=unconfirmed_txs)
         if errored_tx is not None:
             # error is caused by remove tx of too few fee
             unconfirmed_txs = unconfirmed_txs[:unconfirmed_txs.index(errored_tx)]

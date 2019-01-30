@@ -157,14 +157,15 @@ def check_hash_locked(tx):
         raise BlockChainError('H of Hash-locked is not correct size {}'.format(size))
 
 
-def check_unconfirmed_order(previous_hash, ordered_unconfirmed_txs):
+def check_unconfirmed_order(best_block, ordered_unconfirmed_txs):
     if len(ordered_unconfirmed_txs) == 0:
         return None
     s = time()
     dummy_proof_tx = TX()
     dummy_proof_tx.type = C.TX_POW_REWARD,
     dummy_block = Block()
-    dummy_block.previous_hash = previous_hash
+    dummy_block.height = best_block.height + 1
+    dummy_block.previous_hash = best_block.hash
     dummy_block.txs.append(dummy_proof_tx)  # dummy for proof tx
     dummy_block.txs.extend(ordered_unconfirmed_txs)
     tx = None

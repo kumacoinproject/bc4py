@@ -35,6 +35,8 @@ def _generate_workhash(task_list):
 
 def _callback(future):
     data_list = future.result()
+    if len(data_list) == 0:
+        return
     if isinstance(data_list[0], str):
         log.error("error on callback_workhash(), {}".format(data_list[0]))
         return
