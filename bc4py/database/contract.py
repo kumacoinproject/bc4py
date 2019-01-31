@@ -2,7 +2,7 @@ from bc4py.config import C, V, stream, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.validator import get_validator_object
-from threading import Lock
+from bc4py.database.cashe import Cashe
 from copy import deepcopy
 from logging import getLogger
 from nem_ed25519.key import is_address
@@ -11,15 +11,9 @@ import msgpack
 
 log = getLogger('bc4py')
 
-
 M_INIT = 'init'
 M_UPDATE = 'update'
 
-
-# cashe Contract (Storage include Contract.storage)
-# only store database side (not memory, not unconfirmed)
-cashe = dict()
-lock = Lock()
 
 # default setting of Storage
 settings_template = {
@@ -79,6 +73,16 @@ class Storage(dict):
             raise Exception("All key type is same {}".format([type(k) for k in diff]))
         return diff
 
+    def serialize(self):
+        return self.c_address, self.version, dict(self)
+
+    @classmethod
+    def deserialize(cls, args):
+        c_address, version, init_storage = args
+        self = cls(c_address=c_address, init_storage=init_storage)
+        self.version = version
+        return self
+
 
 class Contract:
     __slots__ = ("c_address", "v_address", "version", "db_index", "binary", "extra_imports",
@@ -98,7 +102,7 @@ class Contract:
         self.finish_hash = None
 
     def __repr__(self):
-        return "<Contract {} ver={} idx={}>"\
+        return "<Contract {} ver={} idx={}>" \
             .format(self.c_address, self.version, self.db_index)
 
     def copy(self):
@@ -153,6 +157,25 @@ class Contract:
         self.db_index = db_index
         self.start_hash = start_hash
         self.finish_hash = finish_hash
+
+    def serialize(self):
+        storage = self.storage.serialize() if self.storage else None
+        return self.c_address, self.v_address, self.version, self.db_index, self.binary,\
+            self.extra_imports, storage, self.settings, self.start_hash, self.finish_hash
+
+    @classmethod
+    def deserialize(cls, args):
+        self = cls(c_address=args[0])
+        self.c_address, self.v_address, self.version, self.db_index, self.binary, self.extra_imports, \
+            storage, self.settings, self.start_hash, self.finish_hash = args
+        if storage:
+            self.storage = Storage.deserialize(storage)
+        return self
+
+
+# cashe Contract (Storage include Contract.storage)
+# only store database side (not memory, not unconfirmed)
+cashe = Cashe(path='cashe.contract.dat', default=Contract)
 
 
 def encode(*args):
@@ -224,12 +247,7 @@ def contract_fill(c: Contract, best_block=None, best_chain=None, stop_txhash=Non
 
 def get_contract_object(c_address, best_block=None, best_chain=None, stop_txhash=None):
     # stop_txhash is StartHash or ConcludeHash. Don't include the hash.
-    with lock:
-        if c_address in cashe:
-            c = cashe[c_address].copy()
-        else:
-            c = Contract(c_address=c_address)
-            cashe[c_address] = c.copy()
+    c = cashe.get(c_address)
     contract_fill(c=c, best_block=best_block, best_chain=best_chain, stop_txhash=stop_txhash)
     return c
 
@@ -313,27 +331,26 @@ def start_tx2index(start_hash=None, start_tx=None):
 
 
 def update_contract_cashe(*args):
-    with lock:
-        s = time()
-        line = 0
-        for c_address, c_contract in cashe.items():
-            c_iter = builder.db.read_contract_iter(c_address=c_address, start_idx=c_contract.db_index)
-            for index, start_hash, finish_hash, (c_method, c_args, c_storage) in c_iter:
-                c_contract.update(db_index=index, start_hash=start_hash, finish_hash=finish_hash,
-                                  c_method=c_method, c_args=c_args, c_storage=c_storage)
-                line += 1
-    log.debug("Contract cashe update {}line {}mSec".format(line, int((time()-s)*1000)))
+    s = time()
+    line = 0
+    for c_address, c_contract in cashe:
+        c_iter = builder.db.read_contract_iter(c_address=c_address, start_idx=c_contract.db_index)
+        for index, start_hash, finish_hash, (c_method, c_args, c_storage) in c_iter:
+            c_contract.update(db_index=index, start_hash=start_hash, finish_hash=finish_hash,
+                              c_method=c_method, c_args=c_args, c_storage=c_storage)
+            line += 1
+    log.debug("Contract cashe update {}line {}mSec".format(line, int((time() - s) * 1000)))
 
 
 # when receive Block (103 x n height), update contract cashe
 stream.filter(
     lambda obj: isinstance(obj, Block) and obj.height % 103 == 0
-    ).subscribe(
+).subscribe(
     on_next=update_contract_cashe, on_error=log.error)
 
-
 __all__ = [
-    "M_INIT", "M_UPDATE",
+    "M_INIT",
+    "M_UPDATE",
     "Storage",
     "Contract",
     "contract_fill",

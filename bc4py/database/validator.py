@@ -1,7 +1,7 @@
 from bc4py.config import C, V, stream, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.database.builder import builder, tx_builder
-from threading import Lock
+from bc4py.database.cashe import Cashe
 from copy import deepcopy
 from logging import getLogger
 from nem_ed25519.key import is_address
@@ -13,10 +13,6 @@ log = getLogger('bc4py')
 F_ADD = 1
 F_REMOVE = -1
 F_NOP = 0
-
-# cashe Validator, only store database side (not memory, not unconfirmed)
-cashe = dict()
-lock = Lock()
 
 
 class Validator:
@@ -70,6 +66,24 @@ class Validator:
                 'require': self.require,
             }
 
+    def serialize(self):
+        return self.v_address, self.validators, self.require, self.db_index, self.version, self.txhash
+
+    @classmethod
+    def deserialize(cls, args):
+        v_address, validators, require, db_index, version, txhash = args
+        self = cls(v_address=v_address)
+        self.validators = validators
+        self.require = require
+        self.db_index = db_index
+        self.version = version
+        self.txhash = txhash
+        return self
+
+
+# cashe Validator, only store database side (not memory, not unconfirmed)
+cashe = Cashe(path='cashe.validator.dat', default=Validator)
+
 
 def decode(b):
     # [v_address]-[new_address]-[flag]-[sig_diff]
@@ -116,12 +130,7 @@ def validator_fill_iter(v: Validator, best_block=None, best_chain=None):
 
 
 def get_validator_object(v_address, best_block=None, best_chain=None, stop_txhash=None, select_hash=None):
-    with lock:
-        if v_address in cashe:
-            v = cashe[v_address].copy()
-        else:
-            v = Validator(v_address=v_address)
-            cashe[v_address] = v.copy()
+    v = cashe.get(v_address)
     for index, flag, address, sig_diff, txhash in validator_fill_iter(
             v=v, best_block=best_block, best_chain=best_chain):
         if txhash == stop_txhash:
@@ -153,15 +162,14 @@ def validator_tx2index(txhash=None, tx=None):
 
 
 def update_validator_cashe(*args):
-    with lock:
-        s = time()
-        line = 0
-        for v_address, v in cashe.items():
-            v_iter = builder.db.read_validator_iter(v_address=v_address, start_idx=v.db_index)
-            for index, address, flag, txhash, sig_diff in v_iter:
-                v.update(db_index=index, flag=flag,
-                         address=address, sig_diff=sig_diff, txhash=txhash)
-                line += 1
+    s = time()
+    line = 0
+    for v_address, v in cashe:
+        v_iter = builder.db.read_validator_iter(v_address=v_address, start_idx=v.db_index)
+        for index, address, flag, txhash, sig_diff in v_iter:
+            v.update(db_index=index, flag=flag,
+                     address=address, sig_diff=sig_diff, txhash=txhash)
+            line += 1
     log.debug("Validator cashe update {}line {}mSec".format(line, int((time()-s)*1000)))
 
 
