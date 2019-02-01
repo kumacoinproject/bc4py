@@ -77,7 +77,6 @@ class C:  # Constant
 
     # block params
     MATURE_HEIGHT = 20  # 採掘されたBlockのOutputsが成熟する期間
-    CHECKPOINT_SPAN = 200  # checkpointの作成間隔
 
     # account
     ANT_UNKNOWN = 0  # 使用済みだがTag無し
