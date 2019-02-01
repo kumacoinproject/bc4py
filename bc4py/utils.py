@@ -18,7 +18,6 @@ log = getLogger('bc4py')
 
 
 def set_database_path(sub_dir=None):
-    V.SUB_DIR = sub_dir
     V.DB_HOME_DIR = os.path.join(os.path.expanduser("~"), 'blockchain-py')
     if not os.path.exists(V.DB_HOME_DIR):
         os.makedirs(V.DB_HOME_DIR)

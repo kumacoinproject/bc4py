@@ -120,7 +120,6 @@ class V:
     COIN_MINIMUM_PRICE = None  # Gasの最小Price
 
     # database path
-    SUB_DIR = None
     DB_HOME_DIR = None
     DB_ACCOUNT_PATH = None
 
