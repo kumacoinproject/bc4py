@@ -47,7 +47,7 @@ def send_many(sender, send_pairs, cur, fee_coin_id=0, gas_price=None,
         for address, coin_id, amount in send_pairs:
             send_coins[coin_id] += amount
         check_enough_amount(sender=sender, send_coins=send_coins, fee_coins=fee_coins, cur=cur)
-    if sender in (C.ANT_OUTSIDE, C.ANT_RESERVED):
+    if sender == C.ANT_OUTSIDE:
         # 内部アカウントは不可
         raise BlockChainError('Not allowed inner account.')
     # replace dummy address

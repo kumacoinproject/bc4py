@@ -15,7 +15,7 @@ log = getLogger('bc4py')
 
 def create_contract_init_tx(c_address, v_address, c_bin, cur, c_extra_imports=None, c_settings=None,
                             send_pairs=None, sender=C.ANT_UNKNOWN, gas_price=None, retention=10800):
-    if sender in (C.ANT_OUTSIDE, C.ANT_RESERVED):
+    if sender == C.ANT_OUTSIDE:
         raise BlockChainError('Not allowed inner account.')
     c_method = contract.M_INIT
     c_args = (c_bin, v_address, c_extra_imports, c_settings)
@@ -30,7 +30,7 @@ def create_contract_init_tx(c_address, v_address, c_bin, cur, c_extra_imports=No
 def create_contract_update_tx(c_address, cur, c_bin=None, c_extra_imports=None, c_settings=None,
                               send_pairs=None, sender=C.ANT_UNKNOWN, gas_price=None, retention=10800):
     assert c_bin or c_extra_imports or c_settings
-    if sender in (C.ANT_OUTSIDE, C.ANT_RESERVED):
+    if sender == C.ANT_OUTSIDE:
         raise BlockChainError('Not allowed inner account.')
     c_method = contract.M_UPDATE
     c_args = (c_bin, c_extra_imports, c_settings)
@@ -45,7 +45,7 @@ def create_contract_update_tx(c_address, cur, c_bin=None, c_extra_imports=None, 
 def create_contract_transfer_tx(c_address, cur, c_method, c_args=None,
                                 send_pairs=None, sender=C.ANT_UNKNOWN, gas_price=None, retention=10800):
     assert isinstance(c_method, str)
-    if sender in (C.ANT_OUTSIDE, C.ANT_RESERVED):
+    if sender == C.ANT_OUTSIDE:
         raise BlockChainError('Not allowed inner account.')
     if c_args is None:
         c_args = tuple()

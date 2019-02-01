@@ -80,13 +80,12 @@ class C:  # Constant
     CHECKPOINT_SPAN = 200  # checkpointの作成間隔
 
     # account
-    ANT_RESERVED = 0  # 未使用
-    ANT_UNKNOWN = 1  # 使用済みだがTag無し
-    ANT_OUTSIDE = 2  # 外部への入出金
-    ANT_VALIDATOR = 3  # ValidatorAddress
-    ANT_CONTRACT = 4  # ContractAddress
+    ANT_UNKNOWN = 0  # 使用済みだがTag無し
+    ANT_OUTSIDE = 1  # 外部への入出金
+    ANT_VALIDATOR = 2  # ValidatorAddress
+    ANT_CONTRACT = 3  # ContractAddress
     account2name = {
-        ANT_RESERVED: '@Reserved', ANT_UNKNOWN: '@Unknown', ANT_OUTSIDE: '@Outside',
+        ANT_UNKNOWN: '@Unknown', ANT_OUTSIDE: '@Outside',
         ANT_VALIDATOR: '@Validator', ANT_CONTRACT: '@Contract'}
 
     # Block/TX/Fee limit
