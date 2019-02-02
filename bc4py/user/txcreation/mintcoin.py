@@ -53,9 +53,9 @@ def issue_mintcoin(name, unit, digit, amount, cur, description=None, image=None,
     movements = Accounting()
     minting_coins = Balance(mint_id, amount)
     movements[sender] += minting_coins
-    movements[C.ANT_OUTSIDE] -= minting_coins
+    # movements[C.ANT_OUTSIDE] -= minting_coins
     movements[sender] -= fee_coins
-    movements[C.ANT_OUTSIDE] += fee_coins
+    # movements[C.ANT_OUTSIDE] += fee_coins
     insert_log(movements, cur, tx.type, tx.time, tx.hash)
     return mint_id, tx
 
@@ -115,9 +115,9 @@ def change_mintcoin(mint_id, cur, amount=None, description=None, image=None, set
     # movement
     movements = Accounting()
     movements[sender] += minting_coins
-    movements[C.ANT_OUTSIDE] -= minting_coins
+    # movements[C.ANT_OUTSIDE] -= minting_coins
     movements[sender] -= fee_coins
-    movements[C.ANT_OUTSIDE] += fee_coins
+    # movements[C.ANT_OUTSIDE] += fee_coins
     insert_log(movements, cur, tx.type, tx.time, tx.hash)
     return tx
 

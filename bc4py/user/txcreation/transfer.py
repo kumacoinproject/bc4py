@@ -22,7 +22,7 @@ def send_many(sender, send_pairs, cur, fee_coin_id=0, gas_price=None,
         coins[coin_id] += amount
         outputs.append((address, coin_id, amount))
     movements[sender] -= coins
-    movements[C.ANT_OUTSIDE] += coins
+    # movements[C.ANT_OUTSIDE] += coins
     # tx
     now = int(time() - V.BLOCK_GENESIS_TIME)
     tx = TX.from_dict(tx={
@@ -47,16 +47,13 @@ def send_many(sender, send_pairs, cur, fee_coin_id=0, gas_price=None,
         for address, coin_id, amount in send_pairs:
             send_coins[coin_id] += amount
         check_enough_amount(sender=sender, send_coins=send_coins, fee_coins=fee_coins, cur=cur)
-    if sender == C.ANT_OUTSIDE:
-        # 内部アカウントは不可
-        raise BlockChainError('Not allowed inner account.')
     # replace dummy address
     replace_redeem_dummy_address(tx, cur)
     # setup signature
     tx.serialize()
     setup_signature(tx, input_address)
     movements[sender] -= fee_coins
-    movements[C.ANT_OUTSIDE] += fee_coins
+    # movements[C.ANT_OUTSIDE] += fee_coins
     insert_log(movements, cur, tx.type, tx.time, tx.hash)
     return tx
 

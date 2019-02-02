@@ -79,13 +79,11 @@ class C:  # Constant
     MATURE_HEIGHT = 20  # 採掘されたBlockのOutputsが成熟する期間
 
     # account
-    ANT_UNKNOWN = 0  # 使用済みだがTag無し
-    ANT_OUTSIDE = 1  # 外部への入出金
-    ANT_VALIDATOR = 2  # ValidatorAddress
-    ANT_CONTRACT = 3  # ContractAddress
+    ANT_UNKNOWN = 0  # Unknown user
+    ANT_VALIDATOR = 1  # ValidatorAddress
+    ANT_CONTRACT = 2  # ContractAddress
     account2name = {
-        ANT_UNKNOWN: '@Unknown', ANT_OUTSIDE: '@Outside',
-        ANT_VALIDATOR: '@Validator', ANT_CONTRACT: '@Contract'}
+        ANT_UNKNOWN: '@Unknown', ANT_VALIDATOR: '@Validator', ANT_CONTRACT: '@Contract'}
 
     # Block/TX/Fee limit
     ACCEPT_MARGIN_TIME = 120  # 新規データ受け入れ時間マージンSec
