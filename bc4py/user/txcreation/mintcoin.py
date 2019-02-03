@@ -1,7 +1,7 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.chain.tx import TX
 from bc4py.database.mintcoin import *
-from bc4py.database.account import create_new_user_keypair, read_user2name, insert_log
+from bc4py.database.account import create_new_user_keypair, insert_log
 from bc4py.user import Balance, Accounting
 from bc4py.user.txcreation.utils import *
 import random
@@ -14,8 +14,7 @@ MINTCOIN_DUMMY_ADDRESS = '_____MINTCOIN_____DUMMY_____ADDRESS_____'
 def issue_mintcoin(name, unit, digit, amount, cur, description=None, image=None, additional_issue=True,
                    change_address=True, gas_price=None, sender=C.ANT_UNKNOWN, retention=10800):
     mint_id = get_new_coin_id()
-    sender_name = read_user2name(user=sender, cur=cur)
-    mint_address = create_new_user_keypair(name=sender_name, cur=cur)
+    mint_address = create_new_user_keypair(user=sender, cur=cur)
     params = {"name": name, "unit": unit, "digit": digit,
               "address": mint_address, "description": description, "image": image}
     setting = {"additional_issue": additional_issue, "change_address": change_address}
@@ -54,9 +53,9 @@ def issue_mintcoin(name, unit, digit, amount, cur, description=None, image=None,
     movements = Accounting()
     minting_coins = Balance(mint_id, amount)
     movements[sender] += minting_coins
-    movements[C.ANT_OUTSIDE] -= minting_coins
+    # movements[C.ANT_OUTSIDE] -= minting_coins
     movements[sender] -= fee_coins
-    movements[C.ANT_OUTSIDE] += fee_coins
+    # movements[C.ANT_OUTSIDE] += fee_coins
     insert_log(movements, cur, tx.type, tx.time, tx.hash)
     return mint_id, tx
 
@@ -116,9 +115,9 @@ def change_mintcoin(mint_id, cur, amount=None, description=None, image=None, set
     # movement
     movements = Accounting()
     movements[sender] += minting_coins
-    movements[C.ANT_OUTSIDE] -= minting_coins
+    # movements[C.ANT_OUTSIDE] -= minting_coins
     movements[sender] -= fee_coins
-    movements[C.ANT_OUTSIDE] += fee_coins
+    # movements[C.ANT_OUTSIDE] += fee_coins
     insert_log(movements, cur, tx.type, tx.time, tx.hash)
     return tx
 

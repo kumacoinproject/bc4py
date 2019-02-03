@@ -27,7 +27,7 @@ def _get_best_chain_all(best_block):
 
 
 def get_utxo_iter(target_address, best_block=None, best_chain=None):
-    assert isinstance(target_address, set), 'TargetAddress is set.'
+    assert isinstance(target_address, set) or isinstance(target_address, list) or isinstance(target_address, tuple)
     failed = 0
     while failed < 20:
         best_chain = best_chain or _get_best_chain_all(best_block)

@@ -1,7 +1,9 @@
-from bc4py.config import C, V, P, stream
+from bc4py.config import C, V, P, stream, BlockChainError
 from bc4py.database.create import closing, create_db
+from bc4py.database.builder import tx_builder
 from bc4py.database.account import read_address2user, read_user2name
 from bc4py.database.validator import *
+from bc4py.database.contract import get_validator_by_contract_info
 from expiringdict import ExpiringDict
 from time import time
 from bc4py.chain.block import Block
@@ -29,7 +31,7 @@ def check_new_tx(tx: TX):
     elif tx.type == C.TX_CONCLUDE_CONTRACT:
         # 十分な署名が集まったら消す
         c_address, start_hash, c_storage = tx.encoded_message()
-        v = get_validator_object(c_address=c_address, stop_txhash=tx.hash)
+        v = get_validator_by_contract_info(c_address=c_address, start_hash=start_hash, stop_txhash=tx.hash)
         related_list = check_related_address(v.validators)
         if related_list:
             data = (time(), tx, related_list, c_address, start_hash, c_storage)
@@ -38,11 +40,11 @@ def check_new_tx(tx: TX):
                 stream.on_next((C_Conclude, False, data))
     elif tx.type == C.TX_VALIDATOR_EDIT:
         # 十分な署名が集まったら消す
-        c_address, new_address, flag, sig_diff = tx.encoded_message()
-        v = get_validator_object(c_address=c_address, stop_txhash=tx.hash)
+        v_address, new_address, flag, sig_diff = tx.encoded_message()
+        v = get_validator_object(v_address=v_address, stop_txhash=tx.hash)
         related_list = check_related_address(v.validators)
         if related_list:
-            data = (time(), tx, related_list, c_address, new_address, flag, sig_diff)
+            data = (time(), tx, related_list, v_address, new_address, flag, sig_diff)
             watching_tx[tx.hash] = data
             if not stream.is_disposed:
                 stream.on_next((C_Validator, False, data))
@@ -60,7 +62,7 @@ def check_new_block(block: Block):
         elif tx.type == C.TX_TRANSFER:
             # ConcludeTXを作成するべきフォーマットのTXを見つける
             c_address, c_method, redeem_address, c_args = tx.encoded_message()
-            v = get_validator_object(c_address=c_address)
+            v = get_validator_by_contract_info(c_address=c_address, start_tx=tx)
             related_list = check_related_address(v.validators)
             if related_list:
                 data = (time(), tx, related_list, c_address, c_method, redeem_address, c_args)
@@ -107,7 +109,7 @@ def on_next(obj):
         pass
 
 
-stream.subscribe(on_next=on_next)
+stream.subscribe(on_next=on_next, on_error=log.error)
 
 
 __all__ = [

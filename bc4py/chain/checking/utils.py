@@ -5,10 +5,6 @@ from bc4py.database.validator import get_validator_object
 from bc4py.chain.checking.signature import get_signed_cks
 from bc4py.user import Balance
 from nem_ed25519.key import is_address
-from collections import deque
-
-
-sticky_failed_txhash = deque(maxlen=20)
 
 
 def inputs_origin_check(tx, include_block):
@@ -36,7 +32,6 @@ def inputs_origin_check(tx, include_block):
             pass  # OK
         # 使用済みかチェック
         if txindex in get_usedindex(txhash=txhash, best_block=include_block):
-            sticky_failed_txhash.append(tx.hash)
             raise BlockChainError('1 Input of {} is already used! {}:{}'
                                   .format(tx, txhash.hex(), txindex))
         # 同一Block内で使用されていないかチェック
@@ -46,7 +41,6 @@ def inputs_origin_check(tx, include_block):
                     break
                 for input_hash, input_index in input_tx.inputs:
                     if input_hash == txhash and input_index == txindex:
-                        sticky_failed_txhash.append(tx.hash)
                         raise BlockChainError('2 Input of {} is already used by {}'
                                               .format(tx, input_tx))
 
@@ -81,6 +75,7 @@ def amount_check(tx, payfee_coin_id):
 def signature_check(tx, include_block):
     require_cks = set()
     checked_cks = set()
+    signed_cks = get_signed_cks(tx)
     for txhash, txindex in tx.inputs:
         input_tx = tx_builder.get_tx(txhash)
         if input_tx is None:
@@ -92,9 +87,16 @@ def signature_check(tx, include_block):
             continue
         elif is_address(address, V.BLOCK_PREFIX):
             require_cks.add(address)
-        elif is_address(address, V.BLOCK_CONTRACT_PREFIX):
-            v_before = get_validator_object(c_address=address, best_block=include_block, stop_txhash=tx.hash)
+        elif is_address(address, V.BLOCK_VALIDATOR_PREFIX):
+            v_before = get_validator_object(v_address=address, best_block=include_block, stop_txhash=tx.hash)
+            if v_before.version == -1:
+                raise BlockChainError('Not init validator {}'.format(address))
+            if len(signed_cks & v_before.validators) < v_before.require:
+                raise BlockChainError('Don\'t satisfy required signature {}<{}'
+                                      .format(len(signed_cks & v_before.validators), v_before.require))
             require_cks.update(v_before.validators)
+        elif is_address(address, V.BLOCK_CONTRACT_PREFIX):
+            raise BlockChainError('Not allow ContractAddress include in normal Transfer. {}'.format(address, tx))
         else:
             raise BlockChainError('Not common address {} {}.'.format(address, tx))
         # success check
@@ -102,13 +104,11 @@ def signature_check(tx, include_block):
 
     if not (0 < len(require_cks) < 256):
         raise BlockChainError('require signature is over range num={}'.format(len(require_cks)))
-    signed_cks = get_signed_cks(tx)
     if require_cks != signed_cks:
         raise BlockChainError('Signature verification failed. [{}={}]'.format(require_cks, signed_cks))
 
 
 __all__ = [
-    "sticky_failed_txhash",
     "inputs_origin_check",
     "amount_check",
     "signature_check",

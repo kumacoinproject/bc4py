@@ -1,8 +1,11 @@
-from bc4py.config import C, BlockChainError
+from bc4py.config import C, V, stream, BlockChainError
+from bc4py.chain.block import Block
 from bc4py.database.builder import builder, tx_builder
-from threading import Lock
+from bc4py.database.cashe import Cashe
 from copy import deepcopy
 from logging import getLogger
+from nem_ed25519.key import is_address
+from time import time
 import msgpack
 
 log = getLogger('bc4py')
@@ -11,16 +14,13 @@ F_ADD = 1
 F_REMOVE = -1
 F_NOP = 0
 
-# cashe Validator, only store database side (not memory, not unconfirmed)
-cashe = dict()
-lock = Lock()
-
 
 class Validator:
-    __slots__ = ("c_address", "validators", "require", "db_index", "version", "txhash")
+    __slots__ = ("v_address", "validators", "require", "db_index", "version", "txhash")
 
-    def __init__(self, c_address):
-        self.c_address = c_address
+    def __init__(self, v_address):
+        assert is_address(v_address, V.BLOCK_VALIDATOR_PREFIX)
+        self.v_address = v_address
         self.validators = list()
         self.require = 0
         self.db_index = None
@@ -29,7 +29,7 @@ class Validator:
 
     def __repr__(self):
         return "<Validator {} ver={} {}/{}>".format(
-            self.c_address, self.version, self.require, len(self.validators))
+            self.v_address, self.version, self.require, len(self.validators))
 
     def copy(self):
         return deepcopy(self)
@@ -60,15 +60,33 @@ class Validator:
             return {
                 'db_index': self.db_index,
                 'index': self.version,
-                'c_address': self.c_address,
+                'v_address': self.v_address,
                 'txhash': self.txhash.hex(),
                 'validators': self.validators,
                 'require': self.require,
             }
 
+    def serialize(self):
+        return self.v_address, self.validators, self.require, self.db_index, self.version, self.txhash
+
+    @classmethod
+    def deserialize(cls, args):
+        v_address, validators, require, db_index, version, txhash = args
+        self = cls(v_address=v_address)
+        self.validators = validators
+        self.require = require
+        self.db_index = db_index
+        self.version = version
+        self.txhash = txhash
+        return self
+
+
+# cashe Validator, only store database side (not memory, not unconfirmed)
+cashe = Cashe(path='cashe.validator.dat', default=Validator)
+
 
 def decode(b):
-    # [c_address]-[new_address]-[flag]-[sig_diff]
+    # [v_address]-[new_address]-[flag]-[sig_diff]
     return msgpack.unpackb(b, raw=True, encoding='utf8')
 
 
@@ -79,7 +97,7 @@ def encode(*args):
 
 def validator_fill_iter(v: Validator, best_block=None, best_chain=None):
     # database
-    v_iter = builder.db.read_validator_iter(c_address=v.c_address, start_idx=v.db_index)
+    v_iter = builder.db.read_validator_iter(v_address=v.v_address, start_idx=v.db_index)
     for index, address, flag, txhash, sig_diff in v_iter:
         yield index, flag, address, sig_diff, txhash
     # memory
@@ -93,8 +111,8 @@ def validator_fill_iter(v: Validator, best_block=None, best_chain=None):
         for tx in block.txs:
             if tx.type != C.TX_VALIDATOR_EDIT:
                 continue
-            c_address, address, flag, sig_diff = decode(tx.message)
-            if c_address != v.c_address:
+            v_address, address, flag, sig_diff = decode(tx.message)
+            if v_address != v.v_address:
                 continue
             index = block.height * 0xffffffff + block.txs.index(tx)
             yield index, flag, address, sig_diff, tx.hash
@@ -103,20 +121,16 @@ def validator_fill_iter(v: Validator, best_block=None, best_chain=None):
         for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time):
             if tx.type != C.TX_VALIDATOR_EDIT:
                 continue
-            c_address, address, flag, sig_diff = decode(tx.message)
-            if c_address != v.c_address:
+            v_address, address, flag, sig_diff = decode(tx.message)
+            if v_address != v.v_address:
                 continue
             if len(tx.signature) < v.require:
                 continue
             yield None, flag, address, sig_diff, tx.hash
 
 
-def get_validator_object(c_address, best_block=None, best_chain=None, stop_txhash=None, select_hash=None):
-    if c_address in cashe:
-        with lock:
-            v = cashe[c_address].copy()
-    else:
-        v = Validator(c_address=c_address)
+def get_validator_object(v_address, best_block=None, best_chain=None, stop_txhash=None, select_hash=None):
+    v = cashe.get(v_address)
     for index, flag, address, sig_diff, txhash in validator_fill_iter(
             v=v, best_block=best_block, best_chain=best_chain):
         if txhash == stop_txhash:
@@ -147,18 +161,23 @@ def validator_tx2index(txhash=None, tx=None):
     return tx.height * 0xffffffff + block.txs.index(tx)
 
 
-def update_validator_cashe():
-    # affect when new blocks inserted to database
-    # TODO: when update? 後で考えるので今は触らない
-    with lock:
-        count = 0
-        for c_address, c_validator in cashe.items():
-            v_iter = builder.db.read_validator_iter(c_address=c_address, start_idx=c_validator.db_index)
-            for index, address, flag, txhash, sig_diff in v_iter:
-                c_validator.update(db_index=index, flag=flag,
-                                   address=address, sig_diff=sig_diff, txhash=txhash)
-                count += 1
-    log.debug("Validator cashe update {}tx".format(count))
+def update_validator_cashe(*args):
+    s = time()
+    line = 0
+    for v_address, v in cashe:
+        v_iter = builder.db.read_validator_iter(v_address=v_address, start_idx=v.db_index)
+        for index, address, flag, txhash, sig_diff in v_iter:
+            v.update(db_index=index, flag=flag,
+                     address=address, sig_diff=sig_diff, txhash=txhash)
+            line += 1
+    log.debug("Validator cashe update {}line {}mSec".format(line, int((time()-s)*1000)))
+
+
+# when receive Block (101 x n height), update validator cashe
+stream.filter(
+    lambda obj: isinstance(obj, Block) and obj.height % 101 == 0
+    ).subscribe(
+    on_next=update_validator_cashe, on_error=log.error)
 
 
 __all__ = [

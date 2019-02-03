@@ -1,22 +1,19 @@
-from bc4py.config import C, BlockChainError
+from bc4py.config import C, V, stream, BlockChainError
+from bc4py.chain.block import Block
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.validator import get_validator_object
-from threading import Lock
+from bc4py.database.cashe import Cashe
 from copy import deepcopy
 from logging import getLogger
+from nem_ed25519.key import is_address
+from time import time
 import msgpack
 
 log = getLogger('bc4py')
 
-
 M_INIT = 'init'
 M_UPDATE = 'update'
 
-
-# cashe Contract (Storage include Contract.storage)
-# only store database side (not memory, not unconfirmed)
-cashe = dict()
-lock = Lock()
 
 # default setting of Storage
 settings_template = {
@@ -76,13 +73,25 @@ class Storage(dict):
             raise Exception("All key type is same {}".format([type(k) for k in diff]))
         return diff
 
+    def serialize(self):
+        return self.c_address, self.version, dict(self)
+
+    @classmethod
+    def deserialize(cls, args):
+        c_address, version, init_storage = args
+        self = cls(c_address=c_address, init_storage=init_storage)
+        self.version = version
+        return self
+
 
 class Contract:
-    __slots__ = ("c_address", "version", "db_index", "binary", "extra_imports",
+    __slots__ = ("c_address", "v_address", "version", "db_index", "binary", "extra_imports",
                  "storage", "settings", "start_hash", "finish_hash")
 
     def __init__(self, c_address):
+        assert is_address(c_address, V.BLOCK_CONTRACT_PREFIX)
         self.c_address = c_address
+        self.v_address = None
         self.version = -1
         self.db_index = None
         self.binary = None
@@ -93,7 +102,7 @@ class Contract:
         self.finish_hash = None
 
     def __repr__(self):
-        return "<Contract {} ver={} idx={}>"\
+        return "<Contract {} ver={} idx={}>" \
             .format(self.c_address, self.version, self.db_index)
 
     def copy(self):
@@ -105,6 +114,7 @@ class Contract:
             return None
         return {
             'c_address': self.c_address,
+            'v_address': self.v_address,
             'db_index': self.db_index,
             'version': self.version,
             'binary': self.binary.hex(),
@@ -120,8 +130,9 @@ class Contract:
         assert self.db_index is None or self.db_index < db_index, 'Tyr to put old index data.'
         if c_method == M_INIT:
             assert self.version == -1
-            c_bin, c_extra_imports, c_settings = c_args
+            c_bin, v_address, c_extra_imports, c_settings = c_args
             self.binary = c_bin
+            self.v_address = v_address
             self.extra_imports = c_extra_imports or list()
             self.settings = settings_template.copy()
             if c_settings:
@@ -146,6 +157,25 @@ class Contract:
         self.db_index = db_index
         self.start_hash = start_hash
         self.finish_hash = finish_hash
+
+    def serialize(self):
+        storage = self.storage.serialize() if self.storage else None
+        return self.c_address, self.v_address, self.version, self.db_index, self.binary,\
+            self.extra_imports, storage, self.settings, self.start_hash, self.finish_hash
+
+    @classmethod
+    def deserialize(cls, args):
+        self = cls(c_address=args[0])
+        self.c_address, self.v_address, self.version, self.db_index, self.binary, self.extra_imports, \
+            storage, self.settings, self.start_hash, self.finish_hash = args
+        if storage:
+            self.storage = Storage.deserialize(storage)
+        return self
+
+
+# cashe Contract (Storage include Contract.storage)
+# only store database side (not memory, not unconfirmed)
+cashe = Cashe(path='cashe.contract.dat', default=Contract)
 
 
 def encode(*args):
@@ -217,11 +247,7 @@ def contract_fill(c: Contract, best_block=None, best_chain=None, stop_txhash=Non
 
 def get_contract_object(c_address, best_block=None, best_chain=None, stop_txhash=None):
     # stop_txhash is StartHash or ConcludeHash. Don't include the hash.
-    if c_address in cashe:
-        with lock:
-            c = cashe[c_address].copy()
-    else:
-        c = Contract(c_address=c_address)
+    c = cashe.get(c_address)
     contract_fill(c=c, best_block=best_block, best_chain=best_chain, stop_txhash=stop_txhash)
     return c
 
@@ -262,6 +288,35 @@ def get_conclude_hash_from_start(c_address, start_hash, best_block=None, best_ch
     return None
 
 
+def get_validator_by_contract_info(c_address, start_tx=None, start_hash=None,
+                                   best_block=None, best_chain=None, stop_txhash=None):
+    c = get_contract_object(c_address=c_address,
+                            best_block=best_block, best_chain=best_chain, stop_txhash=stop_txhash)
+    if c.version > -1:
+        v = get_validator_object(v_address=c.v_address,
+                                 best_block=best_block, best_chain=best_chain, stop_txhash=stop_txhash)
+        if v.version > -1:
+            return v
+        else:
+            raise BlockChainError('ValidatorTX is not init. {}'.format(v.v_address))
+    elif start_tx or start_hash:
+        if start_tx is None:
+            start_tx = tx_builder.get_tx(txhash=start_hash)
+        raw_args = start_tx.encoded_message()
+        if len(raw_args) != 4:
+            raise BlockChainError('Not correct args count {}'.format(raw_args))
+        c_address, c_method, redeem_address, c_args = raw_args
+        if c_method != M_INIT:
+            raise BlockChainError('StartTX method is not INIT')
+        if len(c_args) != 4:
+            raise BlockChainError('Not correct c_args count {}'.format(c_args))
+        c_bin, v_address, c_extra_imports, c_settings = c_args
+        return get_validator_object(v_address=v_address,
+                                    best_block=best_block, best_chain=best_chain, stop_txhash=stop_txhash)
+    else:
+        raise BlockChainError('ContractTX is not init. {}'.format(c_address))
+
+
 def start_tx2index(start_hash=None, start_tx=None):
     if start_hash:
         start_tx = tx_builder.get_tx(txhash=start_hash)
@@ -275,27 +330,33 @@ def start_tx2index(start_hash=None, start_tx=None):
     return start_tx.height * 0xffffffff + block.txs.index(start_tx)
 
 
-def update_contract_cashe():
-    # affect when new blocks inserted to database
-    # TODO: when update? 後で考えるので今は触らない
-    with lock:
-        count = 0
-        for c_address, c_contract in cashe.items():
-            c_iter = builder.db.read_contract_iter(c_address=c_address, start_idx=c_contract.db_index)
-            for index, start_hash, finish_hash, (c_method, c_args, c_storage) in c_iter:
-                c_contract.update(db_index=index, start_hash=start_hash, finish_hash=finish_hash,
-                                  c_method=c_method, c_args=c_args, c_storage=c_storage)
-                count += 1
-    log.debug("Contract cashe update {}tx".format(count))
+def update_contract_cashe(*args):
+    s = time()
+    line = 0
+    for c_address, c_contract in cashe:
+        c_iter = builder.db.read_contract_iter(c_address=c_address, start_idx=c_contract.db_index)
+        for index, start_hash, finish_hash, (c_method, c_args, c_storage) in c_iter:
+            c_contract.update(db_index=index, start_hash=start_hash, finish_hash=finish_hash,
+                              c_method=c_method, c_args=c_args, c_storage=c_storage)
+            line += 1
+    log.debug("Contract cashe update {}line {}mSec".format(line, int((time() - s) * 1000)))
 
+
+# when receive Block (103 x n height), update contract cashe
+stream.filter(
+    lambda obj: isinstance(obj, Block) and obj.height % 103 == 0
+).subscribe(
+    on_next=update_contract_cashe, on_error=log.error)
 
 __all__ = [
-    "M_INIT", "M_UPDATE",
+    "M_INIT",
+    "M_UPDATE",
     "Storage",
     "Contract",
     "contract_fill",
     "get_contract_object",
     "get_conclude_hash_from_start",
+    "get_validator_by_contract_info",
     "start_tx2index",
     "update_contract_cashe",
 ]

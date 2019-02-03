@@ -6,7 +6,7 @@ from bc4py.chain.checking.signature import batch_sign_cashe
 from bc4py.chain.workhash import get_workhash_fnc
 from bc4py.database.builder import builder, tx_builder, user_account
 from bc4py.database.create import closing, create_db
-from bc4py.user.network import update_mining_staking_all_info
+from bc4py.user.network import update_info_for_generate
 from bc4py.user.network.directcmd import DirectCmd
 from bc4py.user.network.connection import *
 from bc4py.user.exit import system_exit
@@ -35,6 +35,8 @@ def _generate_workhash(task_list):
 
 def _callback(future):
     data_list = future.result()
+    if len(data_list) == 0:
+        return
     if isinstance(data_list[0], str):
         log.error("error on callback_workhash(), {}".format(data_list[0]))
         return
@@ -273,7 +275,7 @@ def sync_chain_loop():
                         log.warning("Reset booting mode.")
                         P.F_NOW_BOOTING = False
                         if builder.best_block:
-                            update_mining_staking_all_info()
+                            update_info_for_generate()
                         failed = 0
                     elif failed < 0:
                         exit_msg = 'Failed sync.'

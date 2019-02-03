@@ -87,7 +87,7 @@ def work(port, sub_dir):
     if port % 3 == 0:
         Generate(consensus=C.BLOCK_YES_POW, power_limit=0.03).start()
     if port % 3 == 1:
-        Generate(consensus=C.BLOCK_HMQ_POW, power_limit=0.03).start()
+        Generate(consensus=C.BLOCK_X16R_POW, power_limit=0.03).start()
     if port % 3 == 2:
         Generate(consensus=C.BLOCK_X11_POW, power_limit=0.03).start()
     Generate(consensus=C.BLOCK_POS, power_limit=0.3).start()

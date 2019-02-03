@@ -3,7 +3,7 @@ from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.chain.checking import new_insert_block, check_tx, check_tx_time
 from bc4py.database.builder import builder, tx_builder
-from bc4py.user.network.update import update_mining_staking_all_info
+from bc4py.user.network.update import update_info_for_generate
 from bc4py.user.network.directcmd import DirectCmd
 from bc4py.user.network.connection import ask_node
 from logging import getLogger
@@ -30,7 +30,7 @@ class BroadcastCmd:
             return False
         try:
             if new_insert_block(new_block, time_check=True):
-                update_mining_staking_all_info()
+                update_info_for_generate()
                 log.info("Accept new block {}".format(new_block))
                 return True
             else:
@@ -55,11 +55,11 @@ class BroadcastCmd:
             else:
                 tx_builder.put_unconfirmed(tx=new_tx)
             log.info("Accept new tx {}".format(new_tx))
-            update_mining_staking_all_info(u_block=False, u_unspent=False, u_unconfirmed=True)
+            update_info_for_generate(u_block=False, u_unspent=False, u_unconfirmed=True)
             return True
         except BlockChainError as e:
             error = 'Failed accept new tx "{}"'.format(e)
-            log.error(error)
+            log.error(error, exc_info=True)
             return False
         except Exception:
             error = "Failed accept new tx"

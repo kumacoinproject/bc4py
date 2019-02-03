@@ -3,7 +3,7 @@ from bc4py.chain.checking import new_insert_block, check_tx, check_tx_time
 from bc4py.user.network import BroadcastCmd
 from p2p_python.client import ClientCmd
 from bc4py.database.builder import tx_builder, builder
-from bc4py.user.network.update import update_mining_staking_all_info
+from bc4py.user.network.update import update_info_for_generate
 from time import time
 import queue
 from logging import getLogger
@@ -26,7 +26,7 @@ def mined_newblock(que, pc):
             elif new_insert_block(new_block, time_check=True):
                 log.info("Mined new block {}".format(new_block.getinfo()))
             else:
-                update_mining_staking_all_info()
+                update_info_for_generate()
                 continue
             proof_tx = new_block.txs[0]
             txs_hash_list = [tx.hash for tx in new_block.txs]
@@ -42,7 +42,7 @@ def mined_newblock(que, pc):
             try:
                 pc.send_command(cmd=ClientCmd.BROADCAST, data=data)
                 log.info("Success broadcast new block {}".format(new_block))
-                update_mining_staking_all_info()
+                update_info_for_generate()
             except TimeoutError:
                 log.warning("Failed broadcast new block, other nodes don\'t accept {}"
                                 .format(new_block.getinfo()))
@@ -72,7 +72,7 @@ def send_newtx(new_tx, outer_cur=None, exc_info=True):
         else:
             tx_builder.put_unconfirmed(tx=new_tx)
         log.info("Success broadcast new tx {}".format(new_tx))
-        update_mining_staking_all_info(u_block=False, u_unspent=True, u_unconfirmed=True)
+        update_info_for_generate(u_block=False, u_unspent=True, u_unconfirmed=True)
         return True
     except Exception as e:
         log.warning("Failed broadcast new tx, other nodes don\'t accept {}"

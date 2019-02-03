@@ -63,12 +63,11 @@ class C:  # Constant
     MSG_NONE = 0  # no message
     MSG_PLAIN = 1  # 明示的にunicode
     MSG_BYTE = 2  # 明示的にbinary
-    MSG_JSON = 3  # json
-    MSG_MSGPACK = 4  # msgpack protocol
-    MSG_HASHLOCKED = 5  # hash-locked transaction
+    MSG_MSGPACK = 3  # msgpack protocol
+    MSG_HASHLOCKED = 4  # hash-locked transaction
     msg_type2name = {
         MSG_NONE: 'NONE', MSG_PLAIN: 'PLAIN', MSG_BYTE: 'BYTE',
-        MSG_JSON: 'JSON', MSG_MSGPACK: 'MSGPACK', MSG_HASHLOCKED: 'HASHLOCKED'}
+        MSG_MSGPACK: 'MSGPACK', MSG_HASHLOCKED: 'HASHLOCKED'}
 
     # difficulty
     DIFF_RETARGET = 20  # difficultyの計算Block数
@@ -78,18 +77,15 @@ class C:  # Constant
 
     # block params
     MATURE_HEIGHT = 20  # 採掘されたBlockのOutputsが成熟する期間
-    CHECKPOINT_SPAN = 200  # checkpointの作成間隔
 
     # account
-    ANT_RESERVED = 0  # 未使用
-    ANT_UNKNOWN = 1  # 使用済みだがTag無し
-    ANT_OUTSIDE = 2  # 外部への入出金
-    ANT_CONTRACT = 3  # コントラクトアドレス
-    # name
-    ANT_NAME_RESERVED = '@Reserved'
-    ANT_NAME_UNKNOWN = '@Unknown'
-    ANT_NAME_OUTSIDE = '@Outside'
-    ANT_NAME_CONTRACT = '@Contract'
+    ANT_UNKNOWN = 0  # Unknown user
+    ANT_VALIDATOR = 1  # ValidatorAddress
+    ANT_CONTRACT = 2  # ContractAddress
+    ANT_MINING = 3  # MiningAddress
+    account2name = {
+        ANT_UNKNOWN: '@Unknown', ANT_VALIDATOR: '@Validator', ANT_CONTRACT: '@Contract',
+        ANT_MINING: '@Mining'}
 
     # Block/TX/Fee limit
     ACCEPT_MARGIN_TIME = 120  # 新規データ受け入れ時間マージンSec
@@ -104,14 +100,15 @@ class C:  # Constant
     CONTRACT_MINIMUM_INPUT = int(1 * pow(10, 8))  # Contractの発火最小amount
 
 
-class V:  # 起動時に設定される変数
-    # BLock params
+class V:
+    # Blockchain basic params
     BLOCK_GENESIS_HASH = None
     BLOCK_PREFIX = None
+    BLOCK_VALIDATOR_PREFIX = None
     BLOCK_CONTRACT_PREFIX = None
     BLOCK_GENESIS_TIME = None
     BLOCK_TIME_SPAN = None
-    BLOCK_ALL_SUPPLY = None
+    BLOCK_MINING_SUPPLY = None
     BLOCK_REWARD = None
     BLOCK_BASE_CONSENSUS = None
     BLOCK_CONSENSUSES = None
@@ -119,11 +116,8 @@ class V:  # 起動時に設定される変数
     # base coin
     COIN_DIGIT = None
     COIN_MINIMUM_PRICE = None  # Gasの最小Price
-    CONTRACT_MINIMUM_AMOUNT = None
-    CONTRACT_VALIDATOR_ADDRESS = None
 
     # database path
-    SUB_DIR = None
     DB_HOME_DIR = None
     DB_ACCOUNT_PATH = None
 
@@ -145,7 +139,6 @@ class P:  # 起動中もダイナミックに変化
 
 
 class Debug:
-    F_LIMIT_INCLUDE_TX_IN_BLOCK = 0  # 1blockに入れるTXの最大数(0=無効)
     F_SHOW_DIFFICULTY = False
     F_CONSTANT_DIFF = False
     F_STICKY_TX_REJECTION = True

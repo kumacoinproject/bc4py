@@ -7,7 +7,7 @@ from bc4py.chain.workhash import update_work_hash
 from hashlib import sha256
 import struct
 from time import time
-from math import log
+from math import log2
 
 struct_block = struct.Struct('<I32s32sII4s')
 
@@ -115,8 +115,8 @@ class Block:
         r['f_orphan'] = self.f_orphan
         r['recode_flag'] = self.recode_flag
         r['height'] = self.height
-        r['difficulty'] = self.difficulty
-        r['fixed_difficulty'] = round(self.difficulty / self.bias, 8)
+        r['difficulty'] = round(self.difficulty / 100000000, 8)
+        r['fixed_difficulty'] = round(self.difficulty / self.bias / 100000000, 8)
         r['score'] = round(self.score, 8)
         r['flag'] = C.consensus2name[self.flag]
         r['merkleroot'] = self.merkleroot.hex() if self.merkleroot else None
@@ -138,7 +138,7 @@ class Block:
     @property
     def score(self):
         # fixed_diff = difficulty / bias
-        return log(max(1.0, self.inner_score * self.difficulty / self.bias * 1000000))
+        return log2(max(1.0, self.inner_score * self.difficulty / self.bias))
 
     @property
     def difficulty(self):
@@ -170,14 +170,14 @@ class Block:
         return int(MAX_256_INT / (difficulty*100000000)).to_bytes(32, 'little')
 
     def target2diff(self):
-        self._difficulty = round((MAX_256_INT // int.from_bytes(self.target_hash, 'little')) / 1000000, 8)
+        self._difficulty = MAX_256_INT // int.from_bytes(self.target_hash, 'little')
 
     def bits2target(self):
         target = bits2target(self.bits)
         self.target_hash = target.to_bytes(32, 'little')
 
     def work2diff(self):
-        self._work_difficulty = round((MAX_256_INT // int.from_bytes(self.work_hash, 'little')) / 1000000, 8)
+        self._work_difficulty = MAX_256_INT // int.from_bytes(self.work_hash, 'little')
 
     def pow_check(self, extra_target=None):
         if extra_target:

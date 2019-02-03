@@ -46,6 +46,7 @@ def params(block_span=600):
 MAX_BITS = 0x1f0fffff
 MAX_TARGET = bits2target(MAX_BITS)
 GENESIS_PREVIOUS_HASH = b'\xff'*32
+MAX_SEARCH_BLOCKS = 1000
 
 
 @lru_cache(maxsize=512)
@@ -66,7 +67,7 @@ def get_bits_by_hash(previous_hash, consensus):
     timestamp = list()
     target = list()
     j = 0
-    while True:
+    for _ in range(MAX_SEARCH_BLOCKS):
         target_block = builder.get_block(target_hash)
         if target_block is None:
             return MAX_BITS, MAX_TARGET
@@ -81,6 +82,9 @@ def get_bits_by_hash(previous_hash, consensus):
         target_hash = target_block.previous_hash
         if target_hash == GENESIS_PREVIOUS_HASH:
             return MAX_BITS, MAX_TARGET
+    else:
+        # search too many block
+        return MAX_BITS, MAX_TARGET
 
     sum_target = t = j = 0
     for i in range(N):
@@ -114,7 +118,7 @@ def get_bias_by_hash(previous_hash, consensus):
     base_difficulty_sum = MAX_TARGET * N
     target_diffs = list()
     target_hash = previous_hash
-    while True:
+    for _ in range(MAX_SEARCH_BLOCKS):
         target_block = builder.get_block(target_hash)
         if target_block is None:
             return 1.0
@@ -125,6 +129,9 @@ def get_bias_by_hash(previous_hash, consensus):
             target_diffs.append(bits2target(target_block.bits) * (N-len(target_diffs)))
         elif len(target_diffs) >= N:
             break
+    else:
+        # search too many block
+        return 1.0
 
     bias = base_difficulty_sum / sum(target_diffs)
     if Debug.F_SHOW_DIFFICULTY:

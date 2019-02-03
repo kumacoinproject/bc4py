@@ -28,7 +28,7 @@ unspents_txs = None
 staking_limit = 500
 
 
-def new_key(user=C.ANT_NAME_UNKNOWN):
+def new_key(user=C.ANT_MINING):
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         ck = create_new_user_keypair(user, db.cursor())
         db.commit()

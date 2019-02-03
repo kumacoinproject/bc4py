@@ -13,7 +13,6 @@ from binascii import a2b_hex
 from nem_ed25519 import public_key, get_address, sign
 from time import time
 import msgpack
-import json
 
 
 def type2message(message_type, message):
@@ -25,8 +24,6 @@ def type2message(message_type, message):
         return a2b_hex(message)
     elif message_type == C.MSG_MSGPACK:
         return msgpack.packb(message, use_bin_type=True)
-    elif message_type == C.MSG_JSON:
-        return json.dumps(message).encode()
     elif message_type == C.MSG_HASHLOCKED:
         return a2b_hex(message)
     else:
@@ -130,7 +127,7 @@ async def send_from_user(request):
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         cur = db.cursor()
         try:
-            from_name = post.get('from', C.ANT_NAME_UNKNOWN)
+            from_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
             from_id = read_name2user(from_name, cur)
             to_address = post['address']
             coin_id = int(post.get('coin_id', 0))
@@ -170,7 +167,7 @@ async def send_many_user(request):
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         cur = db.cursor()
         try:
-            user_name = post.get('from', C.ANT_NAME_UNKNOWN)
+            user_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
             user_id = read_name2user(user_name, cur)
             send_pairs = list()
             for address, coin_id, amount in post['pairs']:
@@ -205,7 +202,7 @@ async def issue_mint_tx(request):
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         cur = db.cursor()
         try:
-            user_name = post.get('from', C.ANT_NAME_UNKNOWN)
+            user_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
             sender = read_name2user(user_name, cur)
             mint_id, tx = issue_mintcoin(
                 name=post['name'], unit=post['unit'], digit=post.get('digit', 8),
@@ -232,7 +229,7 @@ async def change_mint_tx(request):
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         cur = db.cursor()
         try:
-            user_name = post.get('from', C.ANT_NAME_UNKNOWN)
+            user_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
             sender = read_name2user(user_name, cur)
             tx = change_mintcoin(
                 mint_id=post['mint_id'], cur=cur, amount=post.get('amount'), description=post.get('description'),
