@@ -82,8 +82,10 @@ class C:  # Constant
     ANT_UNKNOWN = 0  # Unknown user
     ANT_VALIDATOR = 1  # ValidatorAddress
     ANT_CONTRACT = 2  # ContractAddress
+    ANT_MINING = 3  # MiningAddress
     account2name = {
-        ANT_UNKNOWN: '@Unknown', ANT_VALIDATOR: '@Validator', ANT_CONTRACT: '@Contract'}
+        ANT_UNKNOWN: '@Unknown', ANT_VALIDATOR: '@Validator', ANT_CONTRACT: '@Contract',
+        ANT_MINING: '@Mining'}
 
     # Block/TX/Fee limit
     ACCEPT_MARGIN_TIME = 120  # 新規データ受け入れ時間マージンSec

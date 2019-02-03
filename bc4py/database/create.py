@@ -1,12 +1,9 @@
-#!/user/env python3
-# -*- coding: utf-8 -*-
-
 from bc4py.config import C, V
-import sqlite3
 from contextlib import closing
-import re
 from time import time
 from logging import getLogger
+import sqlite3
+import re
 
 log = getLogger('bc4py')
 
@@ -76,12 +73,17 @@ def make_account_db():
             db.execute(sql_)
         # default account
         accounts = [
-            (C.ANT_UNKNOWN, C.account2name[C.ANT_UNKNOWN], "Not user binding address, for change", 0),
+            (C.ANT_UNKNOWN, C.account2name[C.ANT_UNKNOWN], "Unknown account, not specified", 0),
             (C.ANT_VALIDATOR, C.account2name[C.ANT_VALIDATOR], "Validator bind address", 0),
-            (C.ANT_CONTRACT, C.account2name[C.ANT_CONTRACT], "Contract bind address", 0)]
+            (C.ANT_CONTRACT, C.account2name[C.ANT_CONTRACT], "Contract bind address", 0),
+            (C.ANT_MINING, C.account2name[C.ANT_MINING], "Mining related accounts", 0)]
         db.executemany("INSERT OR IGNORE INTO `account` VALUES (?,?,?,?)", accounts)
         db.commit()
 
 
-# add last_index to account
-# "ALTER TABLE `account` ADD COLUMN 'last_index' INTEGER NOT NULL AFTER `description`"
+__all__ = [
+    "closing",
+    "create_db",
+    "sql_info",
+    "make_account_db",
+]
