@@ -1,9 +1,12 @@
 from bc4py.config import C, V
+from bc4py.chain.pochash import poc_hash_iter
 from bc4py.database.create import closing, create_db
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.account import *
 from bc4py.user import *
 from logging import getLogger
+from time import time
+import os
 
 log = getLogger('bc4py')
 
@@ -113,6 +116,59 @@ def repair_wallet(gap_user=10, gap_limit=20):
     log.info("Finish wallet repair.")
 
 
+def create_unoptimized_plots(address, start, end, path='plots'):
+    # unoptimized file format
+    # [hash0 #0]-[hash0 #1]-...-[hash0 #127]-  # nonce=0
+    # [hash1 #0]-[hash1 #1]-...-[hash1 #127]-  # nonce=1
+    # ....
+    # [hashN #0]-[hashN #1]-...-[hashN #127]  # nonce=N
+    assert 0 <= start < end <= 256**4
+    s = time()
+    if not os.path.exists(path):
+        os.makedirs(path)
+    fix_str = '{}-{}-{}'.format(address.decode(), start, end)
+    with open(os.path.join(path, 'unoptimized.{}.dat'.format(fix_str)), mode='bw') as fp:
+        for i in range(start, end):
+            nonce = i.to_bytes(4, 'little')
+            for h in poc_hash_iter(address, nonce):
+                fp.write(h)
+            if i % 10000 == 0:
+                log.info('generate plot {} nonce...'.format(i))
+    log.info("create unoptimized plot data, {}nonce {}Sec".format(end-start, round(time()-s, 3)))
+
+
+def convert_optimize_plot(address, start, end, path='plots'):
+    # file format
+    # [address 40bytes]-[start 4bytes]-[end 4bytes]-
+    # [hash0 #0]-[hash1 #0]-...-[hashN #0]-
+    # [hash0 #1]-[hash1 #1]-...-[hashN #1]-
+    # ...
+    # [hash0 #127]-[hash1 #127]-...-[hashN #127]
+    s = time()
+    fix_str = '{}-{}-{}'.format(address.decode(), start, end)
+    with open(os.path.join(path, 'optimized.{}.dat'.format(fix_str)), mode='bw') as wfp:
+        with open(os.path.join(path, 'unoptimized.{}.dat'.format(fix_str)), mode='br') as rfp:
+            wfp.write(address)
+            wfp.write(start.to_bytes(4, 'little'))
+            wfp.write(end.to_bytes(4, 'little'))
+            for index in range(128):
+                while True:
+                    hashes_bin = rfp.read(32*128)
+                    if len(hashes_bin) == 0:
+                        break
+                    if len(hashes_bin) != 32*128:
+                        raise Exception('unoptimized file not correct len {}b'.format(len(hashes_bin)))
+                    wfp.write(hashes_bin[index*32:(index+1)*32])
+                rfp.seek(0)
+                if index % 6 == 0:
+                    log.info('converting {}/127...'.format(index))
+    # remove unoptimized file
+    os.remove(os.path.join(path, 'unoptimized.{}.dat'.format(fix_str)))
+    log.info("create optimized plot data, {}-{} {}Sec".format(start, end, round(time()-s, 3)))
+
+
 __all__ = [
     "repair_wallet",
+    "create_unoptimized_plots",
+    "convert_optimize_plot",
 ]
