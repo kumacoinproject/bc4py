@@ -90,7 +90,9 @@ def work(port, sub_dir):
         Generate(consensus=C.BLOCK_X16R_POW, power_limit=0.03).start()
     if port % 3 == 2:
         Generate(consensus=C.BLOCK_X11_POW, power_limit=0.03).start()
-    Generate(consensus=C.BLOCK_POS, power_limit=0.3).start()
+    Generate(consensus=C.BLOCK_COIN_POS, power_limit=0.3).start()
+    if port == 2000:
+        Generate(consensus=C.BLOCK_CAP_POS, power_limit=0.3, path='E:\\plots').start()
     # contract emulator
     Emulate(c_address='CJ4QZ7FDEH5J7B2O3OLPASBHAFEDP6I7UKI2YMKF')
     # Emulate(c_address='CLBKXHOTXTLK3FENVTCH6YPM5MFZS4BNAXFYNWBD')

@@ -16,10 +16,11 @@ import_keystone(passphrase='hello python')
  
 # consensus
 consensus = {
-    C.BLOCK_POS: 10,  # Staking algo
-    C.BLOCK_YES_POW: 30,  # Specified for CPU algo
-    C.BLOCK_X11_POW: 30,  # Specified for ASIC algo
-    C.BLOCK_X16R_POW: 30}  # Specified for GPU algo
+    C.BLOCK_COIN_POS: 8,  # Coin staking
+    C.BLOCK_CAP_POS: 8,  # Capacity staking
+    C.BLOCK_YES_POW: 28,  # Yespower mining
+    C.BLOCK_X11_POW: 28,  # X11 mining
+    C.BLOCK_X16R_POW: 28}  # X16R mining
  
 # create first block
 genesis_block = create_genesis_block(

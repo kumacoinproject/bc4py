@@ -1,4 +1,6 @@
 from bc4py.config import max_workers, executor, C, BlockChainError
+from bc4py.chain.pochash import get_poc_hash
+from hashlib import sha256
 from os import urandom
 from time import time
 from threading import BoundedSemaphore
@@ -33,7 +35,7 @@ def get_workhash_fnc(flag):
 def update_work_hash(block):
     if block.flag == C.BLOCK_GENESIS:
         block.work_hash = b'\xff' * 32
-    elif block.flag == C.BLOCK_POS:
+    elif block.flag == C.BLOCK_COIN_POS:
         proof_tx = block.txs[0]
         if proof_tx.pos_amount is None:
             from bc4py.database.builder import tx_builder
@@ -44,6 +46,18 @@ def update_work_hash(block):
             address, coin_id, amount = output_tx.outputs[txindex]
             proof_tx.pos_amount = amount
         block.work_hash = proof_tx.get_pos_hash(block.previous_hash)
+    elif block.flag == C.BLOCK_CAP_POS:
+        proof_tx = block.txs[0]
+        address, coin_id, amount = proof_tx.outputs[0]
+        seed_hash = get_poc_hash(
+            b_address=address.encode(),
+            nonce=block.nonce,
+            previous_hash=block.previous_hash)
+        block.work_hash = sha256(
+            block.time.to_bytes(4, 'little') +
+            seed_hash +
+            block.height.to_bytes(4, 'little')
+        ).digest()
     else:
         # POW_???
         hash_fnc = get_workhash_fnc(block.flag)
@@ -52,7 +66,6 @@ def update_work_hash(block):
 
 def generate_many_hash(block, how_many):
     # CAUTION: mining by one core!
-    assert block.flag != C.BLOCK_POS and block.flag != C.BLOCK_GENESIS
     assert how_many > 0
     # hash generating with multi-core
     with semaphore:

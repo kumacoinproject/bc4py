@@ -19,7 +19,11 @@ hash'N = hashN ^ finalHash
 32bytes binary to integer little endian -> previousInt
 div previousInt by 128 and get remainder -> previousRemainder
 and div previousRemainder by 2 and get q(quotient) and r(remainder)
-get hash'(q) and former if r=0 or latter if r=1
+get hash'(q), former if r=0 or latter if r=1
+
+4. verify block
+workHash = SHA256(blockTime + hash'(q) + BlockHeight)
+verified by "workHash < targetHash"
 """
 
 

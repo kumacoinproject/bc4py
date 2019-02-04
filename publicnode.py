@@ -69,7 +69,8 @@ def work(port, sub_dir=None):
     Generate(consensus=C.BLOCK_YES_POW, power_limit=0.1).start()
     Generate(consensus=C.BLOCK_X16R_POW, power_limit=0.1).start()
     Generate(consensus=C.BLOCK_X11_POW, power_limit=0.1).start()
-    Generate(consensus=C.BLOCK_POS, power_limit=0.3).start()
+    Generate(consensus=C.BLOCK_COIN_POS, power_limit=0.3).start()
+    Generate(consensus=C.BLOCK_CAP_POS, power_limit=0.3).start()
     Thread(target=mined_newblock, name='GeneBlock', args=(output_que, pc)).start()
     logging.info("Finished all initialize.")
 

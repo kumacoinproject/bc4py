@@ -1,7 +1,9 @@
 from bc4py import __chain_version__
 from bc4py.config import C, BlockChainError
+from bc4py.chain.pochash import get_poc_hash
 from bc4py.chain.utils import GompertzCurve
 from bc4py.database.builder import tx_builder
+from hashlib import sha256
 
 
 def check_tx_pow_reward(tx, include_block):
@@ -71,6 +73,46 @@ def check_tx_pos_reward(tx, include_block):
         raise BlockChainError('Proof of stake check is failed.')
 
 
-__all__ = (
-    "check_tx_pow_reward", "check_tx_pos_reward"
-)
+def check_tx_poc_reward(tx, include_block):
+    if not (len(tx.inputs) == 0 and len(tx.outputs) == 1):
+        raise BlockChainError('inputs is 0 and outputs is 1')
+    elif include_block.txs.index(tx) != 0:
+        raise BlockChainError('Proof tx is index 0.')
+    elif not (tx.gas_price == 0 and tx.gas_amount == 0):
+        raise BlockChainError('PoC gas info is wrong. [{}, {}]'.format(tx.gas_price, tx.gas_amount))
+    elif not (tx.message_type == C.MSG_NONE and tx.message == b''):
+        raise BlockChainError('PoC msg is None type. [{},{}]'.format(tx.message_type, tx.message))
+
+    o_address, o_coin_id, o_amount = tx.outputs[0]
+    reward = GompertzCurve.calc_block_reward(include_block.height)
+    total_fee = sum(tx.gas_price * tx.gas_amount for tx in include_block.txs)
+    include_block.bits2target()
+
+    if o_coin_id != 0:
+        raise BlockChainError('output coinID is 0.')
+    if reward + total_fee != o_amount:
+        raise BlockChainError('Inout amount wrong [{}+{}!={}]'.format(reward, total_fee, o_amount))
+    if tx.version != __chain_version__:
+        raise BlockChainError('Not correct tx version')
+    if not (include_block.time == tx.time == tx.deadline - 10800):
+        raise BlockChainError('TX time is wrong 1. [{}={}={}-10800]'
+                              .format(include_block.time, tx.time, tx.deadline))
+
+    seed_hash = get_poc_hash(
+        b_address=o_address.encode(),
+        nonce=include_block.nonce,
+        previous_hash=include_block.previous_hash)
+    work_hash = sha256(
+        include_block.time.to_bytes(4, 'little') +
+        seed_hash +
+        include_block.height.to_bytes(4, 'little')
+    ).digest()
+    if int.from_bytes(work_hash, 'little') > int.from_bytes(include_block.target_hash, 'little'):
+        raise BlockChainError('PoC check is failed, work={}'.format(work_hash.hex()))
+
+
+__all__ = [
+    "check_tx_pow_reward",
+    "check_tx_pos_reward",
+    "check_tx_poc_reward",
+]
