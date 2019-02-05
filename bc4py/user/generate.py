@@ -87,6 +87,9 @@ class Generate(Thread):
                 else:
                     log.error("Unknown error wait60s...", exc_info=True)
                     sleep(60)
+            except KeyError as e:
+                log.debug("Key error by lru_cache bug wait 5s...")
+                sleep(5)
             except Exception:
                 log.error("GeneratingError wait60s...", exc_info=True)
                 sleep(60)
@@ -226,7 +229,7 @@ class Generate(Thread):
             b_block_time = block_time.to_bytes(4, 'little')
             scope_index = int.from_bytes(previous_hash, 'little') % 128
             bits, target = get_bits_by_hash(previous_hash=previous_hash, consensus=C.BLOCK_CAP_POS)
-            reward = GompertzCurve.calc_block_reward(previous_block.height + 1)
+            reward = GompertzCurve.calc_block_reward(height)
             # start staking by capacity
             count = 0
             for file_name in os.listdir(dir_path):
