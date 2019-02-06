@@ -58,11 +58,13 @@ def main(size=65536, num=4):
     s = time()
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         with ProgressBar('plotting', total=num) as pb:
+            pb.print_progress_bar(0, 'start plotting...')
             for i in range(num):
                 start = i * size
                 end = (i + 1) * size
                 futures.append(executor.submit(process, b_address, start, end, path))
-            pb.print_progress_bar(0, 'start plotting...')
+                sleep(10)
+            pb.print_progress_bar(0, 'waiting plot result...')
             for i, f in enumerate(as_completed(futures)):
                 start, end = f.result()
                 pb.print_progress_bar(i, 'finish from {} to {} nonce'.format(start, end))

@@ -235,6 +235,8 @@ class Generate(Thread):
             for file_name in os.listdir(dir_path):
                 if previous_block is None or unconfirmed_txs is None or unspents_txs is None:
                     break
+                if time() - s > self.power_limit:
+                    break
                 if not file_name.startswith('optimized.'):
                     continue
                 with open(os.path.join(dir_path, file_name), mode='br') as fp:
@@ -251,8 +253,6 @@ class Generate(Thread):
                         if previous_block is None or unconfirmed_txs is None:
                             break
                         if previous_block.hash != previous_hash:
-                            break
-                        if time() - s > self.power_limit:
                             break
                         # Staked by capacity yay!!
                         total_fee = sum(tx.gas_price * tx.gas_amount for tx in unconfirmed_txs)

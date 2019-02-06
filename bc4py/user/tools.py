@@ -126,8 +126,8 @@ def create_unoptimized_plots(address, start, end, path='plots'):
     s = time()
     if not os.path.exists(path):
         os.makedirs(path)
-    fix_str = '{}-{}-{}'.format(address.decode(), start, end)
-    with open(os.path.join(path, 'unoptimized.{}.dat'.format(fix_str)), mode='bw') as fp:
+    file_path = os.path.join(path, 'unoptimized.{}-{}-{}.dat'.format(address.decode(), start, end))
+    with open(file_path, mode='bw') as fp:
         for i in range(start, end):
             nonce = i.to_bytes(4, 'little')
             for h in poc_hash_iter(address, nonce):
