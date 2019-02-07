@@ -215,7 +215,7 @@ class Generate(Thread):
         self.event_close.set()
         while self.event_close.is_set():
             # check start mining
-            if previous_block is None or unconfirmed_txs is None or unspents_txs is None:
+            if previous_block is None or unconfirmed_txs is None:
                 sleep(0.1)
                 continue
             if not os.path.exists(dir_path):
@@ -233,7 +233,7 @@ class Generate(Thread):
             # start staking by capacity
             count = 0
             for file_name in os.listdir(dir_path):
-                if previous_block is None or unconfirmed_txs is None or unspents_txs is None:
+                if previous_block is None or unconfirmed_txs is None:
                     break
                 if time() - s > self.power_limit:
                     break
