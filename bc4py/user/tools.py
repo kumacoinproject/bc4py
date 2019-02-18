@@ -4,8 +4,11 @@ from bc4py.database.create import closing, create_db
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.account import *
 from bc4py.user import *
+from fasteners import InterProcessLock
+from tempfile import gettempdir
 from logging import getLogger
 from time import time
+import shutil
 import os
 
 log = getLogger('bc4py')
@@ -116,7 +119,7 @@ def repair_wallet(gap_user=10, gap_limit=20):
     log.info("Finish wallet repair.")
 
 
-def create_unoptimized_plots(address, start, end, path='plots'):
+def create_unoptimized_plots(address, start, end):
     # unoptimized file format
     # [hash0 #0]-[hash0 #1]-...-[hash0 #127]-  # nonce=0
     # [hash1 #0]-[hash1 #1]-...-[hash1 #127]-  # nonce=1
@@ -124,10 +127,8 @@ def create_unoptimized_plots(address, start, end, path='plots'):
     # [hashN #0]-[hashN #1]-...-[hashN #127]  # nonce=N
     assert 0 <= start < end <= 256**4
     s = time()
-    if not os.path.exists(path):
-        os.makedirs(path)
-    file_path = os.path.join(path, 'unoptimized.{}-{}-{}.dat'.format(address.decode(), start, end))
-    with open(file_path, mode='bw') as fp:
+    unoptimized_name = 'unoptimized.{}-{}-{}.dat'.format(address.decode(), start, end)
+    with open(unoptimized_name, mode='bw') as fp:
         for i in range(start, end):
             nonce = i.to_bytes(4, 'little')
             for h in poc_hash_iter(address, nonce):
@@ -145,9 +146,10 @@ def convert_optimize_plot(address, start, end, path='plots'):
     # ...
     # [hash0 #127]-[hash1 #127]-...-[hashN #127]
     s = time()
-    fix_str = '{}-{}-{}'.format(address.decode(), start, end)
-    with open(os.path.join(path, 'optimized.{}.dat'.format(fix_str)), mode='bw') as wfp:
-        with open(os.path.join(path, 'unoptimized.{}.dat'.format(fix_str)), mode='br') as rfp:
+    optimized_name = 'optimized.{}-{}-{}.dat'.format(address.decode(), start, end)
+    unoptimized_name = 'unoptimized.{}-{}-{}.dat'.format(address.decode(), start, end)
+    with open(optimized_name, mode='bw') as wfp:
+        with open(unoptimized_name, mode='br') as rfp:
             wfp.write(address)
             wfp.write(start.to_bytes(4, 'little'))
             wfp.write(end.to_bytes(4, 'little'))
@@ -162,8 +164,13 @@ def convert_optimize_plot(address, start, end, path='plots'):
                 rfp.seek(0)
                 if index % 6 == 0:
                     log.info('converting {}/127...'.format(index))
-    # remove unoptimized file
-    os.remove(os.path.join(path, 'unoptimized.{}.dat'.format(fix_str)))
+    # move optimized file, remove unoptimized file,
+    with InterProcessLock(path=os.path.join(gettempdir(), '.python.lock')):
+        log.info('move generated optimized file')
+        if not os.path.exists(path):
+            os.makedirs(path)
+        shutil.move(src=optimized_name, dst=os.path.join(path, optimized_name))
+        os.remove(unoptimized_name)
     log.info("create optimized plot data, {}-{} {}Sec".format(start, end, round(time()-s, 3)))
 
 

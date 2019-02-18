@@ -16,7 +16,7 @@ def ask(what, default):
 
 
 def process(b_address, start, end, path):
-    create_unoptimized_plots(b_address, start, end, path)
+    create_unoptimized_plots(b_address, start, end)
     convert_optimize_plot(b_address, start, end, path)
     return start, end
 
