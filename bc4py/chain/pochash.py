@@ -29,7 +29,8 @@ verified by "workHash < targetHash"
 
 def create_poc_hashes(b_address, nonce):
     # 64x64=4096bytes
-    bio = BytesIO(initial_bytes=b_address + nonce)
+    bio = BytesIO()
+    bio.write(b_address + nonce)
     hashes = list()
     # create 64bytes 64 hash list
     for _ in range(64):
@@ -42,7 +43,8 @@ def create_poc_hashes(b_address, nonce):
 
 
 def poc_hash_iter(b_address, nonce):
-    bio = BytesIO(initial_bytes=b_address + nonce)
+    bio = BytesIO()
+    bio.write(b_address + nonce)
     hashes = list()
     # create 64bytes 64 hash list
     for _ in range(64):
@@ -57,7 +59,8 @@ def poc_hash_iter(b_address, nonce):
 
 
 def get_poc_hash(b_address, nonce, previous_hash):
-    bio = BytesIO(initial_bytes=b_address + nonce)
+    bio = BytesIO()
+    bio.write(b_address + nonce)
     hashes = list()
     for _ in range(64):
         hashed = sha512(bio.getvalue()).digest()
