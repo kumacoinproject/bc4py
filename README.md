@@ -5,7 +5,7 @@ It enable you to create application with blockchain on Python3.
 Function
 ----
 * UTXO base
-* Proof of work and proof of stake multi-consensus
+* PoW, PoS and PoC multi-consensus
 * Minting colored coin
 * Python interpreter based smart contract
 * block containing result smart contract
@@ -25,7 +25,10 @@ Requirement
     * [x16s-hash](https://pypi.org/project/shield-x16s-hash/) for GPU
     * [x11_hash](https://pypi.org/project/x11_hash/) For ASIC
     * [litecoin_scrypt](https://pypi.org/project/litecoin_scrypt/) For ASIC
-
+* Proof of capacity
+    * Python extension [bc4py-extension](https://github.com/namuyan/bc4py_extension)
+    * plotting tool [bc4py-plotter](https://github.com/namuyan/bc4py_plotter)
+    
 Install
 ----
 ```commandline
@@ -75,6 +78,7 @@ Documents
 * [Development](doc/Development.md)
 * [About new function pullrequest](doc/AboutPullrequest.md)
 * [Proxy introduction](doc/Proxy.md)
+* [Proof of capacity](doc/AboutPoC.md)
 
 Author
 ----

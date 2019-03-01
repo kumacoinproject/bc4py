@@ -1,4 +1,3 @@
-from bc4py import __chain_version__
 from bc4py.config import C, V, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
@@ -8,14 +7,17 @@ from bc4py.chain.utils import GompertzCurve
 from bc4py.database.create import create_db, closing
 from bc4py.database.account import message2signature, create_new_user_keypair
 from bc4py.database.tools import get_unspents_iter
+from bc4py_extension import multi_seek
 from threading import Thread, Event
 from time import time, sleep
-import queue
 from collections import deque
 from nem_ed25519.key import is_address
-import traceback
 from random import random
 from logging import getLogger
+import traceback
+import queue
+import os
+import re
 
 log = getLogger('bc4py')
 generating_threads = list()
@@ -36,9 +38,10 @@ def new_key(user=C.ANT_MINING):
 
 
 class Generate(Thread):
-    def __init__(self, consensus, power_limit=1.0):
+    def __init__(self, consensus, power_limit=1.0, **kwargs):
         assert consensus in V.BLOCK_CONSENSUSES, \
             "{} is not used by blockchain.".format(C.consensus2name[consensus])
+        assert 0.0 < power_limit <= 1.0
         super(Generate, self).__init__(
             name="Gene-{}".format(C.consensus2name[consensus]),
             daemon=True)
@@ -46,6 +49,7 @@ class Generate(Thread):
         self.power_limit = min(1.0, max(0.01, power_limit))
         self.hashrate = (0, 0.0)  # [hash/s, update_time]
         self.event_close = Event()
+        self.config = kwargs
         generating_threads.append(self)
 
     def __repr__(self):
@@ -68,8 +72,10 @@ class Generate(Thread):
         while self.event_close.is_set():
             log.info("Start {} generating!".format(C.consensus2name[self.consensus]))
             try:
-                if self.consensus == C.BLOCK_POS:
+                if self.consensus == C.BLOCK_COIN_POS:
                     self.proof_of_stake()
+                elif self.consensus == C.BLOCK_CAP_POS:
+                    self.proof_of_capacity()
                 else:
                     self.proof_of_work()
             except BlockChainError as e:
@@ -77,9 +83,13 @@ class Generate(Thread):
             except AttributeError as e:
                 if 'previous_block.' in str(traceback.format_exc()):
                     log.debug("attribute error of previous_block, passed.")
+                    sleep(1)
                 else:
                     log.error("Unknown error wait60s...", exc_info=True)
                     sleep(60)
+            except KeyError as e:
+                log.debug("Key error by lru_cache bug wait 5s...")
+                sleep(5)
             except Exception:
                 log.error("GeneratingError wait60s...", exc_info=True)
                 sleep(60)
@@ -143,7 +153,7 @@ class Generate(Thread):
             start = time()
             # create staking block
             bits, target = get_bits_by_hash(
-                previous_hash=previous_block.hash, consensus=C.BLOCK_POS)
+                previous_hash=previous_block.hash, consensus=C.BLOCK_COIN_POS)
             reward = GompertzCurve.calc_block_reward(previous_block.height + 1)
             staking_block = Block.from_dict(block={
                 'merkleroot': b'\xff' * 32,
@@ -152,7 +162,7 @@ class Generate(Thread):
                 'bits': bits,
                 'nonce': b'\xff\xff\xff\xff'})
             staking_block.height = previous_block.height + 1
-            staking_block.flag = C.BLOCK_POS
+            staking_block.flag = C.BLOCK_COIN_POS
             staking_block.bits2target()
             staking_block.txs.append(None)  # Dummy proof tx
             staking_block.txs.extend(unconfirmed_txs)
@@ -182,7 +192,7 @@ class Generate(Thread):
                     staking_block.txs[0] = proof_tx
                     # Fit block size
                     while staking_block.getsize() > C.SIZE_BLOCK_LIMIT:
-                        tx = staking_block.txs.pop()
+                        staking_block.txs.pop()
                     staking_block.update_time(proof_tx.time)
                     staking_block.update_merkleroot()
                     confirmed_generating_block(staking_block)
@@ -198,6 +208,82 @@ class Generate(Thread):
                     log.info("Staking... margin={}% limit={}".format(round(remain*100, 1), staking_limit))
                 self.hashrate = (calculate_nam, time())
                 sleep(max(0.0, remain+random()-0.5))
+        log.info("Close signal")
+
+    def proof_of_capacity(self):
+        dir_path: str = self.config.get('path', os.path.join(V.DB_HOME_DIR, 'plots'))
+        self.event_close.set()
+        while self.event_close.is_set():
+            # check start mining
+            if previous_block is None or unconfirmed_txs is None:
+                sleep(0.1)
+                continue
+            if not os.path.exists(dir_path):
+                sleep(30)
+                continue
+            s = time()
+            previous_hash = previous_block.hash
+            height = previous_block.height + 1
+            block_time = int(s - V.BLOCK_GENESIS_TIME)
+            bits, target = get_bits_by_hash(previous_hash=previous_hash, consensus=C.BLOCK_CAP_POS)
+            reward = GompertzCurve.calc_block_reward(height)
+
+            # start staking by capacity
+            count = 0
+            for file_name in os.listdir(dir_path):
+                m = re.match("^optimized\\.([A-Z0-9]{40})\\-([0-9]+)\\-([0-9]+)\\.dat$", file_name)
+                count += int(m.group(3)) - int(m.group(2))
+            if count < 1:
+                log.debug("not found plot file, wait for 60 sec...")
+                sleep(60)
+                continue
+
+            # let's seek files
+            nonce, work_hash, address = multi_seek(
+                dir=dir_path, previous_hash=previous_hash,
+                target=target.to_bytes(32, 'little'),
+                time=block_time, worker=os.cpu_count())
+            if work_hash is None:
+                # return failed => (None, None, err-msg)
+                if int(s) % 60 == 0:
+                    log.debug("failed PoC mining by \"{}\"".format(address))
+            else:
+                # return success => (nonce, workhash, address)
+                if previous_block is None or unconfirmed_txs is None:
+                    continue
+                if previous_block.hash != previous_hash:
+                    continue
+                # Staked by capacity yay!!
+                total_fee = sum(tx.gas_price * tx.gas_amount for tx in unconfirmed_txs)
+                staked_block = Block.from_dict(block={
+                    'previous_hash': previous_hash,
+                    'merkleroot': b'\x00' * 32,
+                    'time': 0, 'bits': bits,
+                    'nonce': nonce,
+                    'height': height,
+                    'flag': C.BLOCK_CAP_POS})
+                staked_proof_tx = TX.from_dict(tx={
+                    'type': C.TX_POS_REWARD,
+                    'time': block_time,
+                    'deadline': block_time + 10800,
+                    'gas_price': 0,
+                    'gas_amount': 0,
+                    'outputs': [(address, 0, reward + total_fee)]})
+                staked_block.txs.append(staked_proof_tx)
+                staked_block.txs.extend(unconfirmed_txs)
+                while staked_block.getsize() > C.SIZE_BLOCK_LIMIT:
+                    staked_block.txs.pop()
+                staked_block.update_time(staked_proof_tx.time)
+                staked_block.update_merkleroot()
+                staked_block.work_hash = work_hash
+                signature = message2signature(raw=staked_block.b, address=address)
+                staked_proof_tx.signature.append(signature)
+                confirmed_generating_block(staked_block)
+
+            # finish all
+            used_time = time() - s
+            self.hashrate = (count, time())
+            sleep(max(1 - used_time, 0))
         log.info("Close signal")
 
 

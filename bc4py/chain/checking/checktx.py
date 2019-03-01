@@ -45,7 +45,14 @@ def check_tx(tx, include_block):
         f_amount_check = False
         f_minimum_fee_check = False
         # TODO: POS tx need Multisig? f_signature_check
-        check_tx_pos_reward(tx=tx, include_block=include_block)
+        if include_block.flag == C.BLOCK_COIN_POS:
+            check_tx_pos_reward(tx=tx, include_block=include_block)
+        elif include_block.flag == C.BLOCK_CAP_POS:
+            f_signature_check = False
+            f_inputs_origin_check = False
+            check_tx_poc_reward(tx=tx, include_block=include_block)
+        else:
+            raise BlockChainError('Unknown block type {}'.format(include_block.flag))
 
     elif tx.type == C.TX_POW_REWARD:
         f_amount_check = False

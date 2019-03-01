@@ -73,7 +73,7 @@ class TX:
         self.inputs = tx.get('inputs', list())
         self.outputs = tx.get('outputs', list())
         self.gas_price = tx.get('gas_price', V.COIN_MINIMUM_PRICE)
-        self.gas_amount = tx['gas_amount']
+        self.gas_amount = tx.get('gas_amount', 0)
         self.message_type = tx.get('message_type', C.MSG_NONE)
         self.message = tx.get('message', b'')
         self.serialize()

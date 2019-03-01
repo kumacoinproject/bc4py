@@ -73,9 +73,6 @@ def fill_newblock_info(data):
     proof: TX = data['proof']
     new_block.txs.append(proof)
     new_block.flag = data['block_flag']
-    # Check the block is correct info
-    if not new_block.pow_check():
-        raise BlockChainError('Proof of work is not satisfied.')
     my_block = builder.get_block(new_block.hash)
     if my_block:
         raise BlockChainError('Already inserted block {}'.format(my_block))
@@ -93,6 +90,10 @@ def fill_newblock_info(data):
     new_height = before_block.height + 1
     proof.height = new_height
     new_block.height = new_height
+    # work check
+    # TODO: correct position?
+    if not new_block.pow_check():
+        raise BlockChainError('Proof of work is not satisfied.')
     # Append general txs
     for txhash in data['txs'][1:]:
         tx = tx_builder.get_tx(txhash)

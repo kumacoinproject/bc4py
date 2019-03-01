@@ -25,7 +25,7 @@ def update_info_for_generate(u_block=True, u_unspent=True, u_unconfirmed=True):
         info = ''
         if u_block and not block_lock.locked():
             info += _update_block_info()
-        if u_unspent and (C.BLOCK_POS in consensus) and not unspent_lock.locked():
+        if u_unspent and (C.BLOCK_COIN_POS in consensus) and not unspent_lock.locked():
             info += _update_unspent_info()
         if u_unconfirmed and not unconfirmed_lock.locked():
             info += _update_unconfirmed_info()
@@ -144,12 +144,12 @@ def _update_unconfirmed_info():
                     pass  # all ok
 
         # 4: prune oversize txs
-        total_size = 80 + sum(tx.size + len(tx.signature) * 96 for tx in unconfirmed_txs)
+        total_size = 80 + sum(tx.size for tx in unconfirmed_txs)
         for tx in sorted(unconfirmed_txs, key=lambda x: x.gas_price):
             if total_size < C.SIZE_BLOCK_LIMIT:
                 break
             unconfirmed_txs.remove(tx)
-            total_size -= tx.size + len(tx.signature) * 96
+            total_size -= tx.size
 
         # 5. check unconfirmed order
         errored_tx = check_unconfirmed_order(

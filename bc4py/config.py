@@ -33,7 +33,8 @@ class C:  # Constant
 
     # consensus
     BLOCK_GENESIS = 0
-    BLOCK_POS = 1
+    BLOCK_COIN_POS = 1
+    BLOCK_CAP_POS = 2  # proof of capacity
 
     BLOCK_YES_POW = 5
     BLOCK_X11_POW = 6
@@ -41,7 +42,7 @@ class C:  # Constant
     BLOCK_LTC_POW = 8
     BLOCK_X16R_POW = 9
     consensus2name = {
-        BLOCK_GENESIS: 'GENESIS', BLOCK_POS: 'POS',
+        BLOCK_GENESIS: 'GENESIS', BLOCK_COIN_POS: 'POS_COIN', BLOCK_CAP_POS: 'POS_CAP',
         BLOCK_YES_POW: 'POW_YES', BLOCK_X11_POW: 'POW_X11', BLOCK_HMQ_POW: 'POW_HMQ',
         BLOCK_LTC_POW: 'POW_LTC', BLOCK_X16R_POW: 'POW_X16R'}
 
