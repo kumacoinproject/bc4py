@@ -1,7 +1,8 @@
 About proof of capacity
 ====
-PoC is an mining algorithm by using storage media such as HDD.
+PoC is a mining algorithm using storage media such as HDD.
 [BurstCoin](https://burstwiki.org/wiki/Main_Page) is famous for a currency that implement PoC.
+I used [blake2bp](https://blake2.net/) for a hash function. It's very fast and very optimized for multi-processor.
 
 Tools
 ----
