@@ -3,6 +3,7 @@ from bc4py.config import C, BlockChainError
 from bc4py_extension import poc_hash, poc_work, scope_index
 from bc4py.chain.utils import GompertzCurve
 from bc4py.database.builder import tx_builder
+from nem_ed25519.signature import verify
 
 
 def check_tx_pow_reward(tx, include_block):
@@ -14,6 +15,8 @@ def check_tx_pow_reward(tx, include_block):
         raise BlockChainError('Pow gas info is wrong. [{}, {}]'.format(tx.gas_price, tx.gas_amount))
     elif len(tx.message) > 96:
         raise BlockChainError('Pow msg is less than 96bytes. [{}b>96b]'.format(len(tx.message)))
+    elif len(tx.signature) != 0:
+        raise BlockChainError('signature is only zero not {}'.format(len(tx.signature)))
 
     address, coin_id, amount = tx.outputs[0]
     reward = GompertzCurve.calc_block_reward(include_block.height)
@@ -81,6 +84,8 @@ def check_tx_poc_reward(tx, include_block):
         raise BlockChainError('PoC gas info is wrong. [{}, {}]'.format(tx.gas_price, tx.gas_amount))
     elif not (tx.message_type == C.MSG_NONE and tx.message == b''):
         raise BlockChainError('PoC msg is None type. [{},{}]'.format(tx.message_type, tx.message))
+    elif len(tx.signature) != 1:
+        raise BlockChainError('signature is only one not {}'.format(len(tx.signature)))
 
     o_address, o_coin_id, o_amount = tx.outputs[0]
     reward = GompertzCurve.calc_block_reward(include_block.height)
@@ -97,6 +102,7 @@ def check_tx_poc_reward(tx, include_block):
         raise BlockChainError('TX time is wrong 1. [{}={}={}-10800]'
                               .format(include_block.time, tx.time, tx.deadline))
 
+    # work check
     scope_hash = poc_hash(address=o_address, nonce=include_block.nonce)
     index = scope_index(include_block.previous_hash)
     work_hash = poc_work(
@@ -105,6 +111,13 @@ def check_tx_poc_reward(tx, include_block):
         previous_hash=include_block.previous_hash)
     if int.from_bytes(work_hash, 'little') > int.from_bytes(include_block.target_hash, 'little'):
         raise BlockChainError('PoC check is failed, work={}'.format(work_hash.hex()))
+
+    # signature check
+    try:
+        pk, sign = tx.signature[0]
+        verify(msg=include_block.b, sign=sign, pk=pk)
+    except Exception:
+        raise BlockChainError('verification failed on PoC signature')
 
 
 __all__ = [

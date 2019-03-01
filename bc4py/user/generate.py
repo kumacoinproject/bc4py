@@ -276,6 +276,8 @@ class Generate(Thread):
                 staked_block.update_time(staked_proof_tx.time)
                 staked_block.update_merkleroot()
                 staked_block.work_hash = work_hash
+                signature = message2signature(raw=staked_block.b, address=address)
+                staked_proof_tx.signature.append(signature)
                 confirmed_generating_block(staked_block)
 
             # finish all
