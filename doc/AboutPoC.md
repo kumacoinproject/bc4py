@@ -5,8 +5,7 @@ PoC is an mining algorithm by using storage media such as HDD.
 
 Tools
 ----
-* Rust library [bc4py_plotter](http://github.com/namuyan/bc4py_plotter/)
-* Python extension [bc4py_extension](https://github.com/namuyan/bc4py_extension/)
+plotting tool [bc4py_plotter](http://github.com/namuyan/bc4py_plotter/) work on Linux/Windows.
 
 Algorithm
 ----
@@ -16,12 +15,12 @@ Algorithm
     | hash0   | Address        | nonce                |
     | 64bytes | UTF-8 40 bytes | little endian 4bytes |
     +---------+----------------+----------------------+
-     
-        ^     |                                       |
+        ^
+        |     |                                       |
         |     +-------------+ blake2bp +--------------+
         |                        |
         |                        v
-        |                   +----+-----+
+        |                   +----------+
         +------------------ |  hash0   |
                             +----------+
     ```
@@ -31,27 +30,27 @@ Algorithm
     | hashN   | hashN-1 |     | hash0   | Address        | nonce                |
     | 64bytes | 64bytes | XXX | 64bytes | UTF-8 40 bytes | little endian 4bytes |
     +---------+---------+     +---------+----------------+----------------------+
-     
-        ^     |                                                    |
+        ^
+        |     |                                                    |
         |     +----- max size 1024bytes ------+ blake2bp +---//----+
         |                                          |
         |                                          v
-        |                                     +----+-----+
+        |                                     +----------+
         +------------------------------------ |  hashN   |
                                               +----------+
     ```
-3. Once we have created 8192 hashes we are now going to make a Final hash.
+3. Once we have created 8192 hashes, we are now going to make a final hash.
     ```text
-    +----------+----------+     +----------+
-    | hash8191 | hash8190 |     | hash0    |
-    | 64bytes  | 64bytes  | XXX | 64bytes  |
-    +----------+----------+     +----------+
+    +----------+----------+     +----------+----------------+----------------------+
+    | hash8191 | hash8190 |     | hash0    | Address        | nonce                |
+    | 64bytes  | 64bytes  | XXX | 64bytes  | UTF-8 40 bytes | little endian 4bytes |
+    +----------+----------+     +----------+----------------+----------------------+
      
-    |                                      |
-    +---------+ blake2bp  +----------------+
+    |                                                                              |
+    +---------+ blake2bp  +--------------------------------------------------------+
                    |
                    v
-              +----+------+
+              +-----------+
               | finalHash |
               +-----------+
     ```
@@ -76,11 +75,18 @@ Algorithm
     |  scope0    |  scope1    |     | scope16382 | scope16383 |
     |  32bytes   |  32bytes   | XXX | 32bytes    | 32bytes    |
     +-------------------------+     +-------------------------+
-    scopeHash
     ```
-5. We get a scope index by `int(previousHash) % 16384`  and define indexed ths hash a scopeHash.
-6. We generate a pre-workHash from 3 params. Then, we define upper side of 32 bytes is workHash.
+5. We get a scope index by `int(previousHash) % 16384`  and define ths indexed hash a scopeHash.
+6. We generate a pre-workHash from 3 params. Then, we define first 32 bytes a workHash.
     ```text
+    +------------+                               +------------+
+    |  scope0    |                               | scope16383 |
+    |  32bytes   |  X    X    X     X    X    X  | 32bytes    |
+    +------------+         |                     +------------+
+                           |
+                           +-----------+
+                                       |
+                                       v
     +----------------------+ +----------------------+ +----------------------+
     | blocktime            | | scopeHash            | | previousHash         |
     | little endian 4bytes | | 32bytes              | | 32bytes              |
