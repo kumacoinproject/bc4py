@@ -1,4 +1,3 @@
-from bc4py import __chain_version__
 from bc4py.config import C, V, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
@@ -8,16 +7,17 @@ from bc4py.chain.utils import GompertzCurve
 from bc4py.database.create import create_db, closing
 from bc4py.database.account import message2signature, create_new_user_keypair
 from bc4py.database.tools import get_unspents_iter
+from bc4py_extension import multi_seek
 from threading import Thread, Event
 from time import time, sleep
 from collections import deque
 from nem_ed25519.key import is_address
 from random import random
 from logging import getLogger
-from hashlib import sha256
 import traceback
 import queue
 import os
+import re
 
 log = getLogger('bc4py')
 generating_threads = list()
@@ -224,61 +224,60 @@ class Generate(Thread):
             s = time()
             previous_hash = previous_block.hash
             height = previous_block.height + 1
-            b_height = height.to_bytes(4, 'little')
             block_time = int(s - V.BLOCK_GENESIS_TIME)
-            b_block_time = block_time.to_bytes(4, 'little')
-            scope_index = int.from_bytes(previous_hash, 'little') % 128
             bits, target = get_bits_by_hash(previous_hash=previous_hash, consensus=C.BLOCK_CAP_POS)
             reward = GompertzCurve.calc_block_reward(height)
+
             # start staking by capacity
             count = 0
             for file_name in os.listdir(dir_path):
+                m = re.match("^optimized\\.([A-Z0-9]{40})\\-([0-9]+)\\-([0-9]+)\\.dat$", file_name)
+                count += int(m.group(3)) - int(m.group(2))
+            if count < 1:
+                log.debug("not found plot file, wait for 60 sec...")
+                sleep(60)
+                continue
+
+            # let's seek files
+            nonce, work_hash, address = multi_seek(
+                dir=dir_path, previous_hash=previous_hash,
+                target=target.to_bytes(32, 'little'),
+                time=block_time, worker=os.cpu_count())
+            if work_hash is None:
+                # return failed => (None, None, err-msg)
+                if int(s) % 60 == 0:
+                    log.debug("failed PoC mining by \"{}\"".format(address))
+            else:
+                # return success => (nonce, workhash, address)
                 if previous_block is None or unconfirmed_txs is None:
-                    break
-                if time() - s > self.power_limit:
-                    break
-                if not file_name.startswith('optimized.'):
                     continue
-                with open(os.path.join(dir_path, file_name), mode='br') as fp:
-                    address = fp.read(40).decode()
-                    start_nonce = int.from_bytes(fp.read(4), 'little')
-                    end_nonce = int.from_bytes(fp.read(4), 'little')
-                    # setup offset
-                    fp.seek(40 + 4 + 4 + scope_index * (end_nonce - start_nonce) * 32)
-                    for nonce_int in range(start_nonce, end_nonce):
-                        work_hash = sha256(b_block_time + fp.read(32) + b_height).digest()
-                        count += 1
-                        if target < int.from_bytes(work_hash, 'little'):
-                            continue
-                        if previous_block is None or unconfirmed_txs is None:
-                            break
-                        if previous_block.hash != previous_hash:
-                            break
-                        # Staked by capacity yay!!
-                        total_fee = sum(tx.gas_price * tx.gas_amount for tx in unconfirmed_txs)
-                        staked_block = Block.from_dict(block={
-                            'previous_hash': previous_hash,
-                            'merkleroot': b'\x00' * 32,
-                            'time': 0, 'bits': bits,
-                            'nonce': nonce_int.to_bytes(4, 'little'),
-                            'height': height,
-                            'flag': C.BLOCK_CAP_POS})
-                        staked_proof_tx = TX.from_dict(tx={
-                            'type': C.TX_POS_REWARD,
-                            'time': block_time,
-                            'deadline': block_time + 10800,
-                            'gas_price': 0,
-                            'gas_amount': 0,
-                            'outputs': [(address, 0, reward + total_fee)]})
-                        staked_block.txs.append(staked_proof_tx)
-                        staked_block.txs.extend(unconfirmed_txs)
-                        while staked_block.getsize() > C.SIZE_BLOCK_LIMIT:
-                            staked_block.txs.pop()
-                        staked_block.update_time(staked_proof_tx.time)
-                        staked_block.update_merkleroot()
-                        staked_block.work_hash = work_hash
-                        confirmed_generating_block(staked_block)
-                        break
+                if previous_block.hash != previous_hash:
+                    continue
+                # Staked by capacity yay!!
+                total_fee = sum(tx.gas_price * tx.gas_amount for tx in unconfirmed_txs)
+                staked_block = Block.from_dict(block={
+                    'previous_hash': previous_hash,
+                    'merkleroot': b'\x00' * 32,
+                    'time': 0, 'bits': bits,
+                    'nonce': nonce,
+                    'height': height,
+                    'flag': C.BLOCK_CAP_POS})
+                staked_proof_tx = TX.from_dict(tx={
+                    'type': C.TX_POS_REWARD,
+                    'time': block_time,
+                    'deadline': block_time + 10800,
+                    'gas_price': 0,
+                    'gas_amount': 0,
+                    'outputs': [(address, 0, reward + total_fee)]})
+                staked_block.txs.append(staked_proof_tx)
+                staked_block.txs.extend(unconfirmed_txs)
+                while staked_block.getsize() > C.SIZE_BLOCK_LIMIT:
+                    staked_block.txs.pop()
+                staked_block.update_time(staked_proof_tx.time)
+                staked_block.update_merkleroot()
+                staked_block.work_hash = work_hash
+                confirmed_generating_block(staked_block)
+
             # finish all
             used_time = time() - s
             self.hashrate = (count, time())

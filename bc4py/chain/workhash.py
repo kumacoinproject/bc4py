@@ -1,6 +1,5 @@
 from bc4py.config import max_workers, executor, C, BlockChainError
-from bc4py.chain.pochash import get_poc_hash
-from hashlib import sha256
+from bc4py_extension import poc_hash, poc_work, scope_index
 from os import urandom
 from time import time
 from threading import BoundedSemaphore
@@ -49,15 +48,12 @@ def update_work_hash(block):
     elif block.flag == C.BLOCK_CAP_POS:
         proof_tx = block.txs[0]
         address, coin_id, amount = proof_tx.outputs[0]
-        seed_hash = get_poc_hash(
-            b_address=address.encode(),
-            nonce=block.nonce,
+        scope_hash = poc_hash(address=address, nonce=block.nonce)
+        index = scope_index(block.previous_hash)
+        block.work_hash = poc_work(
+            time=block.time,
+            scope_hash=scope_hash[index*32:index*32+32],
             previous_hash=block.previous_hash)
-        block.work_hash = sha256(
-            block.time.to_bytes(4, 'little') +
-            seed_hash +
-            block.height.to_bytes(4, 'little')
-        ).digest()
     else:
         # POW_???
         hash_fnc = get_workhash_fnc(block.flag)

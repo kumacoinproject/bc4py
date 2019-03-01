@@ -1,9 +1,8 @@
 from bc4py import __chain_version__
 from bc4py.config import C, BlockChainError
-from bc4py.chain.pochash import get_poc_hash
+from bc4py_extension import poc_hash, poc_work, scope_index
 from bc4py.chain.utils import GompertzCurve
 from bc4py.database.builder import tx_builder
-from hashlib import sha256
 
 
 def check_tx_pow_reward(tx, include_block):
@@ -98,15 +97,12 @@ def check_tx_poc_reward(tx, include_block):
         raise BlockChainError('TX time is wrong 1. [{}={}={}-10800]'
                               .format(include_block.time, tx.time, tx.deadline))
 
-    seed_hash = get_poc_hash(
-        b_address=o_address.encode(),
-        nonce=include_block.nonce,
+    scope_hash = poc_hash(address=o_address, nonce=include_block.nonce)
+    index = scope_index(include_block.previous_hash)
+    work_hash = poc_work(
+        time=include_block.time,
+        scope_hash=scope_hash[index*32:index*32+32],
         previous_hash=include_block.previous_hash)
-    work_hash = sha256(
-        include_block.time.to_bytes(4, 'little') +
-        seed_hash +
-        include_block.height.to_bytes(4, 'little')
-    ).digest()
     if int.from_bytes(work_hash, 'little') > int.from_bytes(include_block.target_hash, 'little'):
         raise BlockChainError('PoC check is failed, work={}'.format(work_hash.hex()))
 
