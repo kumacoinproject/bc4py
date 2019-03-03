@@ -103,7 +103,8 @@ class C:  # Constant
 
 class V:
     # Blockchain basic params
-    BLOCK_GENESIS_HASH = None
+    GENESIS_BLOCK = None
+    GENESIS_PARAMS = None
     BLOCK_PREFIX = None
     BLOCK_VALIDATOR_PREFIX = None
     BLOCK_CONTRACT_PREFIX = None

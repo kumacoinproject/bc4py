@@ -13,6 +13,7 @@ from bip32nem import BIP32Key, BIP32_HARDEN
 from threading import Thread
 from time import time, sleep
 from logging import getLogger
+import msgpack
 import json
 import os
 
@@ -20,7 +21,7 @@ import os
 log = getLogger('bc4py')
 
 
-def create_boot_file(genesis_block, network_ver=None, connections=()):
+def create_boot_file(genesis_block, params, network_ver=None, connections=()):
     network_ver = network_ver or randint(0x0, 0xffffffff)
     assert isinstance(network_ver, int) and 0x0 <= network_ver <= 0xffffffff
     data = {
@@ -31,7 +32,8 @@ def create_boot_file(genesis_block, network_ver=None, connections=()):
             'binary': tx.b.hex()
         } for tx in genesis_block.txs],
         'connections': connections,
-        'network_ver': network_ver
+        'network_ver': network_ver,
+        'params': msgpack.packb(params, use_bin_type=True).hex(),
     }
     boot_path = os.path.join(V.DB_HOME_DIR, 'boot.json')
     with open(boot_path, mode='w') as fp:
@@ -62,7 +64,8 @@ def load_boot_file():
         genesis_block.txs.append(tx)
     connections = data['connections']
     network_ver = data['network_ver']
-    return genesis_block, network_ver, connections
+    params = msgpack.unpackb(a2b_hex(data['params']), raw=True, encoding='utf8')
+    return genesis_block, params, network_ver, connections
 
 
 def create_bootstrap_file():

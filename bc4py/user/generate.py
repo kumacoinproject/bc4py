@@ -80,6 +80,7 @@ class Generate(Thread):
                     self.proof_of_work()
             except BlockChainError as e:
                 log.warning(e)
+                sleep(5)
             except AttributeError as e:
                 if 'previous_block.' in str(traceback.format_exc()):
                     log.debug("attribute error of previous_block, passed.")

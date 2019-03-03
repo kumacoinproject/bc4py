@@ -12,7 +12,7 @@ from more_itertools import chunked
 
 
 def create_genesis_block(mining_supply, block_span, prefix=b'\x68', validator_prefix=b'\xac', contract_prefix=b'\x12',
-                         digit_number=8, minimum_price=100, consensus=None, premine=None):
+                         digit_number=8, minimum_price=100, consensus=None, genesis_msg="blockchain for python", premine=None):
     """
     Height0のGenesisBlockを作成する
     :param mining_supply: PoW/POS合わせた全採掘量、プリマインを除く
@@ -23,6 +23,7 @@ def create_genesis_block(mining_supply, block_span, prefix=b'\x68', validator_pr
     :param digit_number: コインの分解能
     :param minimum_price: 最小gas_price
     :param consensus: 採掘アルゴ {consensus: ratio(0~100), ..}
+    :param genesis_msg: GenesisMessage
     :param premine: プリマイン [(address, coin_id, amount), ...]
     """
 
@@ -47,24 +48,7 @@ def create_genesis_block(mining_supply, block_span, prefix=b'\x68', validator_pr
     # params
     assert isinstance(minimum_price, int), 'minimum_price is INT'
     genesis_time = int(time())
-    # premine
-    premine_txs = list()
-    for index, chunk in enumerate(chunked(premine or list(), 255)):
-        tx = TX.from_dict(tx={
-            'version': __chain_version__,
-            'type': C.TX_TRANSFER,
-            'time': 0,
-            'deadline': 10800,
-            'inputs': list(),
-            'outputs': chunk,
-            'gas_price': 0,
-            'gas_amount': 0,
-            'message_type': C.MSG_PLAIN,
-            'message': 'Premine {}'.format(index).encode()})
-        tx.height = 0
-        premine_txs.append(tx)
-    # validator
-    V.BLOCK_GENESIS_TIME = int(time())
+    # BLockChainの設定TX
     params = {
         'prefix': prefix,
         'validator_prefix': validator_prefix,
@@ -75,20 +59,31 @@ def create_genesis_block(mining_supply, block_span, prefix=b'\x68', validator_pr
         'digit_number': digit_number,  # 小数点以下の桁数
         'minimum_price': minimum_price,
         'contract_minimum_amount': pow(10, digit_number),
-        'consensus': consensus}  # Block承認のアルゴリズム
-    # BLockChainの設定TX
-    setting_tx = TX.from_dict(tx={
-        'version': __chain_version__,
+        'consensus': consensus,  # Block承認のアルゴリズム
+    }
+    V.BLOCK_GENESIS_TIME = genesis_time
+    # first tx
+    first_tx = TX.from_dict(tx={
         'type': C.TX_GENESIS,
         'time': 0,
         'deadline': 10800,
-        'inputs': list(),
-        'outputs': list(),
         'gas_price': 0,
         'gas_amount': 0,
-        'message_type': C.MSG_MSGPACK,
-        'message': msgpack.packb(params, use_bin_type=True)})
-    setting_tx.height = 0
+        'message_type': C.MSG_PLAIN,
+        'message': genesis_msg.encode()})
+    first_tx.height = 0
+    # premine
+    premine_txs = list()
+    for index, chunk in enumerate(chunked(premine or list(), 255)):
+        tx = TX.from_dict(tx={
+            'type': C.TX_TRANSFER,
+            'time': 0,
+            'deadline': 10800,
+            'outputs': chunk,
+            'gas_price': 0,
+            'gas_amount': 0})
+        tx.height = 0
+        premine_txs.append(tx)
     # height0のBlock生成
     genesis_block = Block.from_dict(block={
         'merkleroot': b'\x00'*32,
@@ -100,10 +95,10 @@ def create_genesis_block(mining_supply, block_span, prefix=b'\x68', validator_pr
     genesis_block.height = 0
     genesis_block.flag = C.BLOCK_GENESIS
     # block body
-    genesis_block.txs.append(setting_tx)
+    genesis_block.txs.append(first_tx)
     genesis_block.txs.extend(premine_txs)
     genesis_block.bits2target()
     genesis_block.target2diff()
     genesis_block.update_merkleroot()
     genesis_block.serialize()
-    return genesis_block
+    return genesis_block, params

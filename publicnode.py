@@ -24,7 +24,7 @@ def work(port, sub_dir=None):
     builder.set_database_path()
     make_account_db()
     import_keystone(passphrase='hello python')
-    genesis_block, network_ver, connections = load_boot_file()
+    genesis_block, genesis_params, network_ver, connections = load_boot_file()
     logging.info("Start p2p network-ver{} .".format(network_ver))
 
     # P2P network setup
@@ -46,7 +46,7 @@ def work(port, sub_dir=None):
 
     for host, port in connections:
         pc.p2p.create_connection(host, port)
-    set_blockchain_params(genesis_block)
+    set_blockchain_params(genesis_block, genesis_params)
 
     # BroadcastProcess setup
     pc.broadcast_check = broadcast_check

@@ -1,4 +1,4 @@
-from bc4py.config import BlockChainError
+from bc4py.config import V, BlockChainError
 from bc4py.database.contract import get_contract_object
 from bc4py.utils import set_blockchain_params
 from bc4py.contract.serializer import *
@@ -27,10 +27,10 @@ EMU_UNTIL = 'until'
 EMU_RETURN = 'return'
 
 
-def _vm(genesis_block, new_config, start_tx, que, c, c_address, c_method, redeem_address, c_args):
+def _vm(genesis_block, genesis_params, new_config, start_tx, que, c, c_address, c_method, redeem_address, c_args):
     if new_config:
         config.update(new_config)
-    set_blockchain_params(genesis_block)
+    set_blockchain_params(genesis_block, genesis_params)
     c_args = c_args or list()
     virtual_machine = rpdb.Rpdb(port=0)
     try:
@@ -60,11 +60,10 @@ def _vm(genesis_block, new_config, start_tx, que, c, c_address, c_method, redeem
         pass
 
 
-def emulate(genesis_block, start_tx, c_address, c_method,
+def emulate(start_tx, c_address, c_method,
             redeem_address, c_args, new_config=None, gas_limit=None, file=None):
     """
     emulate Contract code
-    :param genesis_block: GenesisBlock
     :param start_tx: emulate StartTX
     :param c_address: contract address
     :param c_method: contract method name
@@ -82,8 +81,9 @@ def emulate(genesis_block, start_tx, c_address, c_method,
     c = get_contract_object(c_address=c_address)
     if c.version == -1 or c.binary is None:
         raise BlockChainError('Need register contract binary first.')
-    kwargs = dict(genesis_block=genesis_block, new_config=new_config, start_tx=start_tx, que=que, c=c,
-                  c_address=c_address, c_method=c_method, redeem_address=redeem_address, c_args=c_args)
+    kwargs = dict(genesis_block=V.GENESIS_BLOCK, genesis_params=V.GENESIS_PARAMS,
+                  new_config=new_config, start_tx=start_tx, que=que, c=c, c_address=c_address,
+                  c_method=c_method, redeem_address=redeem_address, c_args=c_args)
     p = cxt.Process(target=_vm, kwargs=kwargs)
     p.start()
     log.debug('wait for notify of listen port.')

@@ -10,11 +10,11 @@ from logging import getLogger
 log = getLogger('bc4py')
 
 
-def execute(c_address, genesis_block, start_tx, c_method, redeem_address, c_args, gas_limit, f_show_log=False):
+def execute(c_address, start_tx, c_method, redeem_address, c_args, gas_limit, f_show_log=False):
     """ execute contract emulator """
     file = StringIO()
     is_success, result, emulate_gas, work_line = emulate(
-        genesis_block=genesis_block, start_tx=start_tx, c_address=c_address,
+        start_tx=start_tx, c_address=c_address,
         c_method=c_method, redeem_address=redeem_address, c_args=c_args, gas_limit=gas_limit, file=file)
     if is_success:
         log.info('Success gas={} line={} result={}'.format(emulate_gas, work_line, result))

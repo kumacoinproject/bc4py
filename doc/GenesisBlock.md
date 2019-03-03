@@ -23,16 +23,17 @@ consensus = {
     C.BLOCK_X16R_POW: 28}  # X16R mining
  
 # create first block
-genesis_block = create_genesis_block(
+genesis_block, genesis_params = create_genesis_block(
     mining_supply=10000000000 * 100000000,  # 10 billion total supply
     block_span=20,  # block time
     digit_number=8,  # base currency digit
     minimum_price=100,  # minimum gas price
     consensus=consensus,  # mining consensus, key is algo value is ratio
+    genesis_msg="for test params",  # genesis message
     premine=None)  # premine [(address, coin_id, amount), ...]
   
 # check genesis block
-set_blockchain_params(genesis_block)
+set_blockchain_params(genesis_block, genesis_params)
 print(genesis_block.getinfo())
-create_boot_file(genesis_block)
+create_boot_file(genesis_block, genesis_params)
 ```

@@ -41,7 +41,7 @@ def work(port, sub_dir):
     copy_boot(port)
     make_account_db()
     import_keystone(passphrase='hello python')
-    genesis_block, network_ver, connections = load_boot_file()
+    genesis_block, genesis_params, network_ver, connections = load_boot_file()
     logging.info("Start p2p network-ver{} .".format(network_ver))
 
     # P2P network setup
@@ -64,7 +64,7 @@ def work(port, sub_dir):
 
     for host, port in connections:
         pc.p2p.create_connection(host, port)
-    set_blockchain_params(genesis_block)
+    set_blockchain_params(genesis_block, genesis_params)
 
     # BroadcastProcess setup
     pc.broadcast_check = broadcast_check
@@ -96,7 +96,7 @@ def work(port, sub_dir):
     # contract emulator
     Emulate(c_address='CJ4QZ7FDEH5J7B2O3OLPASBHAFEDP6I7UKI2YMKF')
     # Emulate(c_address='CLBKXHOTXTLK3FENVTCH6YPM5MFZS4BNAXFYNWBD')
-    start_emulators(genesis_block)
+    start_emulators()
     # Stratum
     # Stratum(port=port+2000, consensus=C.BLOCK_HMQ_POW, first_difficulty=4)
     Thread(target=mined_newblock, name='GeneBlock', args=(output_que, pc)).start()

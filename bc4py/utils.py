@@ -28,12 +28,10 @@ def set_database_path(sub_dir=None):
     V.DB_ACCOUNT_PATH = os.path.join(V.DB_HOME_DIR, 'wallet.ver{}.dat'.format(WALLET_VERSION))
 
 
-def set_blockchain_params(genesis_block):
+def set_blockchain_params(genesis_block, params):
     assert 'spawn' in multiprocessing.get_all_start_methods(), 'Not found spawn method.'
-    setting_tx = genesis_block.txs[0]
-    assert setting_tx.message_type == C.MSG_MSGPACK
-    params = setting_tx.encoded_message()
-    V.BLOCK_GENESIS_HASH = genesis_block.hash
+    V.GENESIS_BLOCK = genesis_block
+    V.GENESIS_PARAMS = params
     V.BLOCK_PREFIX = params.get('prefix')
     V.BLOCK_VALIDATOR_PREFIX = params.get('validator_prefix')
     V.BLOCK_CONTRACT_PREFIX = params.get('contract_prefix')
