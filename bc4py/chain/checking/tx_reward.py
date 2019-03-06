@@ -110,7 +110,8 @@ def check_tx_poc_reward(tx, include_block):
         scope_hash=scope_hash[index*32:index*32+32],
         previous_hash=include_block.previous_hash)
     if int.from_bytes(work_hash, 'little') > int.from_bytes(include_block.target_hash, 'little'):
-        raise BlockChainError('PoC check is failed, work={}'.format(work_hash.hex()))
+        raise BlockChainError('PoC check is failed, work={} target={}'
+                              .format(work_hash.hex(), include_block.target_hash.hex()))
 
     # signature check
     try:

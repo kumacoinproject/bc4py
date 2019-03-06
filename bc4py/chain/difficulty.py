@@ -84,7 +84,14 @@ def get_bits_by_hash(previous_hash, consensus):
             return MAX_BITS, MAX_TARGET
     else:
         # search too many block
-        return MAX_BITS, MAX_TARGET
+        if len(target) == 0:
+            # not found any mined blocks
+            return MAX_BITS, MAX_TARGET
+        else:
+            # May have been a sudden difficulty raise
+            most_low_diff_target = max(target)
+            most_low_diff_bits = target2bits(most_low_diff_target)
+            return most_low_diff_bits, most_low_diff_target
 
     sum_target = t = j = 0
     for i in range(N):
@@ -98,6 +105,8 @@ def get_bits_by_hash(previous_hash, consensus):
         t = N * K // 3
 
     new_target = t * sum_target // K // N // N
+    if MAX_TARGET < new_target:
+        return MAX_BITS, MAX_TARGET
 
     # convert new target to bits
     new_bits = target2bits(new_target)
