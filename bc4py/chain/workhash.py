@@ -11,7 +11,7 @@ from shield_x16s_hash import getPoWHash as x16s_hash  # for GPU
 from logging import getLogger
 
 log = getLogger('bc4py')
-semaphore = BoundedSemaphore(value=max(1, max_workers-1))
+semaphore = BoundedSemaphore(value=max(1, max_workers - 1))
 
 
 def get_workhash_fnc(flag):
@@ -52,7 +52,7 @@ def update_work_hash(block):
         index = scope_index(block.previous_hash)
         block.work_hash = poc_work(
             time=block.time,
-            scope_hash=scope_hash[index*32:index*32+32],
+            scope_hash=scope_hash[index * 32:index*32 + 32],
             previous_hash=block.previous_hash)
     else:
         # POW_???

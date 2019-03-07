@@ -7,18 +7,14 @@ import struct
 from time import time
 from math import log2
 
-
 log = getLogger('bc4py')
 struct_block = struct.Struct('<I32s32sII4s')
 
 
 class Block:
-    __slots__ = (
-        "b", "hash", "next_hash", "target_hash", "work_hash",
-        "height", "_difficulty", "_work_difficulty", "create_time",
-        "flag", "f_orphan", "recode_flag", "_bias", "inner_score",
-        "version", "previous_hash", "merkleroot", "time", "bits", "nonce", "txs",
-        "__weakref__")
+    __slots__ = ("b", "hash", "next_hash", "target_hash", "work_hash", "height", "_difficulty",
+                 "_work_difficulty", "create_time", "flag", "f_orphan", "recode_flag", "_bias", "inner_score",
+                 "version", "previous_hash", "merkleroot", "time", "bits", "nonce", "txs", "__weakref__")
 
     def __eq__(self, other):
         if isinstance(other, Block):
@@ -31,8 +27,8 @@ class Block:
 
     def __repr__(self):
         return "<Block {} {} {} {} score={} txs={}>".format(
-            self.height, C.consensus2name[self.flag], "ORPHAN" if self.f_orphan else "",
-            self.hash.hex(), round(self.score, 4), len(self.txs))
+            self.height, C.consensus2name[self.flag], "ORPHAN" if self.f_orphan else "", self.hash.hex(),
+            round(self.score, 4), len(self.txs))
 
     def __init__(self):
         self.b = None
@@ -85,13 +81,8 @@ class Block:
         return self
 
     def serialize(self):
-        self.b = struct_block.pack(
-            self.version,
-            self.previous_hash,
-            self.merkleroot,
-            self.time,
-            self.bits,
-            self.nonce)
+        self.b = struct_block.pack(self.version, self.previous_hash, self.merkleroot, self.time, self.bits,
+                                   self.nonce)
         self.hash = sha256(sha256(self.b).digest()).digest()
         assert len(self.b) == 80, 'Not correct header size [{}!={}]'.format(len(self.b), 80)
 
@@ -199,7 +190,9 @@ class Block:
         while len(hash_list) > 1:
             if len(hash_list) % 2:
                 hash_list.append(hash_list[-1])
-            hash_list = [sha256(sha256(hash_list[i] + hash_list[i + 1]).digest()).digest()
-                         for i in range(0, len(hash_list), 2)]
+            hash_list = [
+                sha256(sha256(hash_list[i] + hash_list[i + 1]).digest()).digest()
+                for i in range(0, len(hash_list), 2)
+            ]
         self.merkleroot = hash_list[0]
         self.serialize()

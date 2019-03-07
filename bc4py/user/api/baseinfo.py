@@ -8,7 +8,6 @@ from bc4py.user.generate import generating_threads
 from time import time
 import p2p_python
 
-
 MAX_256_INT = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 start_time = int(time())
 F_ADD_CASHE_INFO = False  # to adjust cashe size
@@ -28,7 +27,7 @@ async def chain_info(request):
             name = C.consensus2name[consensus]
             bits, target = get_bits_by_hash(previous_hash=best_block.hash, consensus=consensus)
             block_time = round(V.BLOCK_TIME_SPAN / ratio * 100)
-            diff = (MAX_256_INT // target) / 100000000
+            diff = (MAX_256_INT//target) / 100000000
             bias = get_bias_by_hash(previous_hash=best_block.previous_hash, consensus=consensus)
             difficulty[name] = {
                 'number': consensus,
@@ -36,7 +35,7 @@ async def chain_info(request):
                 'diff': round(diff, 8),
                 'bias': round(bias, 8),
                 'fixed_diff': round(diff / bias, 8),
-                'hashrate(kh/s)': round((MAX_256_INT//target)/block_time/1000, 3)
+                'hashrate(kh/s)': round((MAX_256_INT//target) / block_time / 1000, 3)
             }
         data['mining'] = difficulty
         data['size'] = best_block.getsize()
@@ -46,7 +45,8 @@ async def chain_info(request):
         if F_ADD_CASHE_INFO:
             data['cashe'] = {
                 'get_bits_by_hash': str(get_bits_by_hash.cache_info()),
-                'get_bias_by_hash': str(get_bias_by_hash.cache_info())}
+                'get_bias_by_hash': str(get_bias_by_hash.cache_info())
+            }
         return web_base.json_res(data)
     except Exception:
         return web_base.error_res()
@@ -55,11 +55,14 @@ async def chain_info(request):
 async def chain_private_info(request):
     try:
         main_chain = [block.getinfo() for block in builder.best_chain]
-        orphan_chain = [block.getinfo() for block in builder.chain.values() if block not in builder.best_chain]
+        orphan_chain = [
+            block.getinfo() for block in builder.chain.values() if block not in builder.best_chain
+        ]
         data = {
             'main': main_chain,
             'orphan': sorted(orphan_chain, key=lambda x: x['height']),
-            'root': builder.root_block.getinfo()}
+            'root': builder.root_block.getinfo()
+        }
         return web_base.json_res(data)
     except Exception:
         return web_base.error_res()
@@ -75,7 +78,8 @@ async def system_info(request):
         'unconfirmed': [txhash.hex() for txhash in tx_builder.unconfirmed.keys()],
         'pre_unconfirmed': [txhash.hex() for txhash in tx_builder.pre_unconfirmed.keys()],
         'access_time': int(time()),
-        'start_time': start_time}
+        'start_time': start_time
+    }
     return web_base.json_res(data)
 
 
@@ -92,7 +96,8 @@ async def system_private_info(request):
             'directory': V.DB_HOME_DIR,
             'generate_threads': [str(s) for s in generating_threads],
             'access_time': int(time()),
-            'start_time': start_time}
+            'start_time': start_time
+        }
         return web_base.json_res(data)
     except Exception:
         return web_base.error_res()
@@ -104,14 +109,16 @@ async def network_info(request):
         data = {
             'p2p_ver': p2p_python.__version__,
             'status': V.PC_OBJ.p2p.get_server_header(),
-            'networks': networks}
+            'networks': networks
+        }
         for user in V.PC_OBJ.p2p.user:
             info = {
                 'number': user.number,
                 'neers': ["{}:{}".format(*conn) for conn in user.neers],
                 'sock_type': user.sock_type,
                 'score': user.score,
-                'warn': user.warn}
+                'warn': user.warn
+            }
             info.update(user.serialize())
             networks.append(info)
         return web_base.json_res(data)

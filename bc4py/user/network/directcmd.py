@@ -7,12 +7,10 @@ def _best_info():
         return {
             'hash': builder.best_block.hash,
             'height': builder.best_block.height,
-            'booting': P.F_NOW_BOOTING}
+            'booting': P.F_NOW_BOOTING
+        }
     else:
-        return {
-            'hash': None,
-            'height': None,
-            'booting': True}
+        return {'hash': None, 'height': None, 'booting': True}
 
 
 def _block_by_height(height):
@@ -43,7 +41,7 @@ def _unconfirmed_tx():
 
 def _big_blocks(index_height):
     data = list()
-    for height in range(index_height, index_height+20):
+    for height in range(index_height, index_height + 20):
         block = builder.get_block(height=height)
         if block is None:
             break

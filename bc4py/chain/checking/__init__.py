@@ -39,14 +39,14 @@ def new_insert_block(block, time_check=False):
             delete_signed_cashe(delete_txhash_set)
             if not stream.is_disposed:
                 stream.on_next(block)
-            log.info("check success {}Sec {}.".format(round(time()-t, 3), block))
+            log.info("check success {}Sec {}.".format(round(time() - t, 3), block))
             return True
         except BlockChainError as e:
             log.warning("Reject new block by \"{}\"".format(e), exc_info=True)
             log.debug("Reject block => {}".format(block.getinfo()))
             delay = time() - builder.best_block.time - V.BLOCK_GENESIS_TIME
             if delay > 10800:  # 3hours
-                log.warning("{}Min before block inserted, too old on DB!".format(delay//60))
+                log.warning("{}Min before block inserted, too old on DB!".format(delay // 60))
                 log.warning("58 Set booting mode.")
                 P.F_NOW_BOOTING = True
             return False
@@ -58,6 +58,8 @@ def new_insert_block(block, time_check=False):
 
 __all__ = [
     "new_insert_block",
-    "check_block", "check_block_time",
-    "check_tx", "check_tx_time",
+    "check_block",
+    "check_block_time",
+    "check_tx",
+    "check_tx_time",
 ]

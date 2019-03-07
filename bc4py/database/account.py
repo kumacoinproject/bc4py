@@ -10,7 +10,8 @@ import os
 
 
 def read_txhash2log(txhash, cur):
-    d = cur.execute("""
+    d = cur.execute(
+        """
         SELECT `type`,`user`,`coin_id`,`amount`,`time` FROM `log` WHERE `hash`=?
     """, (txhash,)).fetchall()
     if len(d) == 0:
@@ -35,14 +36,15 @@ def insert_log(movements, cur, _type=None, _time=None, txhash=None):
     assert isinstance(movements, Accounting), 'movements is Accounting.'
     _type = _type or C.TX_INNER
     _time = _time or int(time() - V.BLOCK_GENESIS_TIME)
-    txhash = txhash or (b'\x00' * 24 + _time.to_bytes(4, 'big') + os.urandom(4))
+    txhash = txhash or (b'\x00'*24 + _time.to_bytes(4, 'big') + os.urandom(4))
     move = list()
     index = 0
     for user, coins in movements.items():
         for coin_id, amount in coins:
             move.append((txhash, index, _type, user, coin_id, amount, _time))
             index += 1
-    cur.executemany("""INSERT INTO `log` (`hash`,`index`,`type`,`user`,`coin_id`,
+    cur.executemany(
+        """INSERT INTO `log` (`hash`,`index`,`type`,`user`,`coin_id`,
     `amount`,`time`) VALUES (?,?,?,?,?,?,?)""", move)
     return txhash
 
@@ -81,7 +83,8 @@ def read_address2user(address, cur):
 def insert_keypair_from_bip(ck, user, is_inner, index, cur):
     assert isinstance(ck, str) and isinstance(user, int)\
            and isinstance(is_inner, bool) and isinstance(index, int)
-    cur.execute("""
+    cur.execute(
+        """
     INSERT OR IGNORE INTO `pool` (`ck`,`user`,`is_inner`,`index`,`time`) VALUES (?,?,?,?,?)
     """, (ck, user, int(is_inner), index, int(time())))
 
@@ -204,11 +207,12 @@ class MoveLog:
             movement = {read_user2name(user, cur): dict(balance) for user, balance in self.movement.items()}
         return {
             'txhash': self.txhash.hex(),
-            'height':  self.height,
+            'height': self.height,
             'recode_flag': recode_flag,
             'type': C.txtype2name.get(self.type, None),
             'movement': movement,
-            'time': self.time + V.BLOCK_GENESIS_TIME}
+            'time': self.time + V.BLOCK_GENESIS_TIME
+        }
 
     def get_tuple_data(self):
         return self.type, self.movement, self.time
@@ -224,10 +228,22 @@ class MoveLog:
 
 
 __all__ = [
-    "read_txhash2log", "read_log_iter", "insert_log", "delete_log",
-    "read_address2keypair", "read_address2user",
-    "insert_keypair_from_bip", "insert_keypair_from_outside", "get_keypair_last_index",
-    "read_account_info", "read_pooled_address_iter", "read_address2account",
-    "read_name2user", "read_user2name", "create_account", "create_new_user_keypair",
-    "message2signature", "MoveLog",
+    "read_txhash2log",
+    "read_log_iter",
+    "insert_log",
+    "delete_log",
+    "read_address2keypair",
+    "read_address2user",
+    "insert_keypair_from_bip",
+    "insert_keypair_from_outside",
+    "get_keypair_last_index",
+    "read_account_info",
+    "read_pooled_address_iter",
+    "read_address2account",
+    "read_name2user",
+    "read_user2name",
+    "create_account",
+    "create_new_user_keypair",
+    "message2signature",
+    "MoveLog",
 ]

@@ -7,8 +7,15 @@ from bc4py.user.txcreation.utils import *
 from time import time
 
 
-def send_many(sender, send_pairs, cur, fee_coin_id=0, gas_price=None,
-              msg_type=C.MSG_NONE, msg_body=b'', f_balance_check=True, retention=10800):
+def send_many(sender,
+              send_pairs,
+              cur,
+              fee_coin_id=0,
+              gas_price=None,
+              msg_type=C.MSG_NONE,
+              msg_body=b'',
+              f_balance_check=True,
+              retention=10800):
     assert isinstance(sender, int), 'Sender is user id.'
     assert 0 < len(send_pairs), 'Empty send_pairs.'
     # send_pairs check
@@ -27,17 +34,19 @@ def send_many(sender, send_pairs, cur, fee_coin_id=0, gas_price=None,
     # movements[C.ANT_OUTSIDE] += coins
     # tx
     now = int(time() - V.BLOCK_GENESIS_TIME)
-    tx = TX.from_dict(tx={
-        'version': __chain_version__,
-        'type': C.TX_TRANSFER,
-        'time': now,
-        'deadline': now + retention,
-        'inputs': list(),
-        'outputs': outputs,
-        'gas_price': gas_price or V.COIN_MINIMUM_PRICE,
-        'gas_amount': 1,
-        'message_type': msg_type,
-        'message': msg_body})
+    tx = TX.from_dict(
+        tx={
+            'version': __chain_version__,
+            'type': C.TX_TRANSFER,
+            'time': now,
+            'deadline': now + retention,
+            'inputs': list(),
+            'outputs': outputs,
+            'gas_price': gas_price or V.COIN_MINIMUM_PRICE,
+            'gas_amount': 1,
+            'message_type': msg_type,
+            'message': msg_body
+        })
     tx.gas_amount = tx.size + C.SIGNATURE_GAS
     # fill unspents
     input_address = fill_inputs_outputs(tx=tx, cur=cur, fee_coin_id=fee_coin_id)
@@ -60,16 +69,25 @@ def send_many(sender, send_pairs, cur, fee_coin_id=0, gas_price=None,
     return tx
 
 
-def send_from(sender, address, coins, cur, fee_coin_id=0, gas_price=None,
-              msg_type=C.MSG_NONE, msg_body=b'', f_balance_check=True, retention=10800):
+def send_from(sender,
+              address,
+              coins,
+              cur,
+              fee_coin_id=0,
+              gas_price=None,
+              msg_type=C.MSG_NONE,
+              msg_body=b'',
+              f_balance_check=True,
+              retention=10800):
     assert isinstance(coins, Balance)
     send_pairs = list()
     for coin_id, amount in coins:
         send_pairs.append((address, coin_id, amount))
-    return send_many(sender, send_pairs, cur, fee_coin_id, gas_price, msg_type,
-                     msg_body, f_balance_check, retention)
+    return send_many(sender, send_pairs, cur, fee_coin_id, gas_price, msg_type, msg_body, f_balance_check,
+                     retention)
 
 
 __all__ = [
-    "send_from", "send_many",
+    "send_from",
+    "send_many",
 ]

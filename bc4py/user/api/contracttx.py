@@ -27,9 +27,15 @@ async def contract_init(request):
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
             sender = read_name2user(sender_name, cur)
-            tx = create_contract_init_tx(c_address=c_address, v_address=v_address, c_bin=c_bin, cur=cur,
-                                         c_extra_imports=c_extra_imports, c_settings=c_settings,
-                                         send_pairs=send_pairs, sender=sender)
+            tx = create_contract_init_tx(
+                c_address=c_address,
+                v_address=v_address,
+                c_bin=c_bin,
+                cur=cur,
+                c_extra_imports=c_extra_imports,
+                c_settings=c_settings,
+                send_pairs=send_pairs,
+                sender=sender)
             if not send_newtx(new_tx=tx, outer_cur=cur):
                 raise Exception('Failed to send new tx.')
             db.commit()
@@ -38,7 +44,8 @@ async def contract_init(request):
                 'gas_amount': tx.gas_amount,
                 'gas_price': tx.gas_price,
                 'fee': tx.gas_amount * tx.gas_price,
-                'time': round(time()-start, 3)})
+                'time': round(time() - start, 3)
+            })
     except Exception:
         return web_base.error_res()
 
@@ -61,8 +68,14 @@ async def contract_update(request):
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
             sender = read_name2user(sender_name, cur)
-            tx = create_contract_update_tx(c_address=c_address, cur=cur, c_bin=c_bin, c_extra_imports=c_extra_imports,
-                                           c_settings=c_settings, send_pairs=send_pairs, sender=sender)
+            tx = create_contract_update_tx(
+                c_address=c_address,
+                cur=cur,
+                c_bin=c_bin,
+                c_extra_imports=c_extra_imports,
+                c_settings=c_settings,
+                send_pairs=send_pairs,
+                sender=sender)
             if not send_newtx(new_tx=tx, outer_cur=cur):
                 raise Exception('Failed to send new tx.')
             db.commit()
@@ -71,7 +84,8 @@ async def contract_update(request):
             'gas_amount': tx.gas_amount,
             'gas_price': tx.gas_price,
             'fee': tx.gas_amount * tx.gas_price,
-            'time': round(time()-start, 3)})
+            'time': round(time() - start, 3)
+        })
     except Exception:
         return web_base.error_res()
 
@@ -88,8 +102,13 @@ async def contract_transfer(request):
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
             sender = read_name2user(sender_name, cur)
-            tx = create_contract_transfer_tx(c_address=c_address, cur=cur, c_method=c_method, c_args=c_args,
-                                             send_pairs=send_pairs, sender=sender)
+            tx = create_contract_transfer_tx(
+                c_address=c_address,
+                cur=cur,
+                c_method=c_method,
+                c_args=c_args,
+                send_pairs=send_pairs,
+                sender=sender)
             if not send_newtx(new_tx=tx, outer_cur=cur):
                 raise Exception('Failed to send new tx.')
             db.commit()
@@ -98,7 +117,8 @@ async def contract_transfer(request):
             'gas_amount': tx.gas_amount,
             'gas_price': tx.gas_price,
             'fee': tx.gas_amount * tx.gas_price,
-            'time': round(time() - start, 3)})
+            'time': round(time() - start, 3)
+        })
     except Exception:
         return web_base.error_res()
 
@@ -114,8 +134,12 @@ async def conclude_contract(request):
         c_address, c_method, redeem_address, c_args = start_tx.encoded_message()
         send_pairs = post.get('send_pairs', None)
         c_storage = post.get('storage', None)
-        tx = create_conclude_tx(c_address=c_address, start_tx=start_tx,
-                                redeem_address=redeem_address, send_pairs=send_pairs, c_storage=c_storage)
+        tx = create_conclude_tx(
+            c_address=c_address,
+            start_tx=start_tx,
+            redeem_address=redeem_address,
+            send_pairs=send_pairs,
+            c_storage=c_storage)
         if not send_newtx(new_tx=tx):
             raise Exception('Failed to send new tx.')
         return web_base.json_res({
@@ -123,7 +147,8 @@ async def conclude_contract(request):
             'gas_amount': tx.gas_amount,
             'gas_price': tx.gas_price,
             'fee': tx.gas_amount * tx.gas_price,
-            'time': round(time()-start, 3)})
+            'time': round(time() - start, 3)
+        })
     except Exception:
         return web_base.error_res()
 
@@ -150,7 +175,8 @@ async def validator_edit(request):
                 'gas_amount': tx.gas_amount,
                 'gas_price': tx.gas_price,
                 'fee': tx.gas_amount * tx.gas_price,
-                'time': round(time()- start, 3)})
+                'time': round(time() - start, 3)
+            })
     except Exception:
         return web_base.error_res()
 
@@ -175,7 +201,8 @@ async def validate_unconfirmed(request):
                 'gas_amount': new_tx.gas_amount,
                 'gas_price': new_tx.gas_price,
                 'fee': new_tx.gas_amount * new_tx.gas_price,
-                'time': round(time() - start, 3)})
+                'time': round(time() - start, 3)
+            })
     except Exception:
         return web_base.error_res()
 
@@ -187,9 +214,7 @@ async def source_compile(request):
         c_obj = path2contract(path=post['path'])
         c_bin = contract2binary(c_obj)
         c_dis = contract2dis(c_obj)
-        return web_base.json_res({
-            'hex': c_bin.hex(),
-            'dis': c_dis})
+        return web_base.json_res({'hex': c_bin.hex(), 'dis': c_dis})
     except Exception:
         return web_base.error_res()
 

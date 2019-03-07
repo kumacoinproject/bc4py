@@ -28,8 +28,8 @@ class Validator:
         self.txhash = None
 
     def __repr__(self):
-        return "<Validator {} ver={} {}/{}>".format(
-            self.v_address, self.version, self.require, len(self.validators))
+        return "<Validator {} ver={} {}/{}>".format(self.v_address, self.version, self.require,
+                                                    len(self.validators))
 
     def copy(self):
         return deepcopy(self)
@@ -167,21 +167,19 @@ def update_validator_cashe(*args):
     for v_address, v in cashe:
         v_iter = builder.db.read_validator_iter(v_address=v_address, start_idx=v.db_index)
         for index, address, flag, txhash, sig_diff in v_iter:
-            v.update(db_index=index, flag=flag,
-                     address=address, sig_diff=sig_diff, txhash=txhash)
+            v.update(db_index=index, flag=flag, address=address, sig_diff=sig_diff, txhash=txhash)
             line += 1
-    log.debug("Validator cashe update {}line {}mSec".format(line, int((time()-s)*1000)))
+    log.debug("Validator cashe update {}line {}mSec".format(line, int((time() - s) * 1000)))
 
 
 # when receive Block (101 x n height), update validator cashe
-stream.filter(
-    lambda obj: isinstance(obj, Block) and obj.height % 101 == 0
-    ).subscribe(
+stream.filter(lambda obj: isinstance(obj, Block) and obj.height % 101 == 0).subscribe(
     on_next=update_validator_cashe, on_error=log.error)
 
-
 __all__ = [
-    "F_ADD", "F_REMOVE", "F_NOP",
+    "F_ADD",
+    "F_REMOVE",
+    "F_NOP",
     "Validator",
     "validator_fill_iter",
     "get_validator_object",

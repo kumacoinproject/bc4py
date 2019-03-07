@@ -45,7 +45,7 @@ async def list_unspents(request):
         page = int(request.query.get('page', 0))
         limit = min(100, int(request.query.get('limit', 25)))
         start = page * limit
-        finish = (page + 1) * limit - 1
+        finish = (page+1) * limit - 1
         f_next_page = False
         target_address = request.query['address']
         unspents_iter = get_utxo_iter(target_address=set(target_address.split(',')))
@@ -63,7 +63,8 @@ async def list_unspents(request):
                 'txhash': txhash.hex(),
                 'txindex': txindex,
                 'coin_id': coin_id,
-                'amount': amount})
+                'amount': amount
+            })
         return web_base.json_res({'data': data, 'next': f_next_page})
     except Exception:
         return web_base.error_res()
@@ -80,7 +81,8 @@ async def list_private_unspents(request):
             'txhash': txhash.hex(),
             'txindex': txindex,
             'coin_id': coin_id,
-            'amount': amount})
+            'amount': amount
+        })
     return web_base.json_res(data)
 
 
@@ -98,8 +100,7 @@ async def list_account_address(request):
                     address_list.append(convert_address(ck=address, prefix=V.BLOCK_CONTRACT_PREFIX))
                 else:
                     address_list.append(address)
-    return web_base.json_res({
-        'account': user_name, 'user_id': user_id, 'address': address_list})
+    return web_base.json_res({'account': user_name, 'user_id': user_id, 'address': address_list})
 
 
 async def move_one(request):
@@ -116,9 +117,7 @@ async def move_one(request):
             _to = read_name2user(ant_to, cur)
             txhash = user_account.move_balance(_from, _to, coins, cur)
             db.commit()
-        return web_base.json_res({
-            'txhash': txhash.hex(),
-            'from_id': _from, 'to_id': _to})
+        return web_base.json_res({'txhash': txhash.hex(), 'from_id': _from, 'to_id': _to})
     except Exception:
         return web_base.error_res()
 
@@ -137,9 +136,7 @@ async def move_many(request):
             _to = read_name2user(ant_to, cur)
             txhash = user_account.move_balance(_from, _to, coins, cur)
             db.commit()
-        return web_base.json_res({
-            'txhash': txhash.hex(),
-            'from_id': _from, 'to_id': _to})
+        return web_base.json_res({'txhash': txhash.hex(), 'from_id': _from, 'to_id': _to})
     except Exception as e:
         return web.Response(text=str(e), status=400)
 
@@ -165,11 +162,7 @@ async def get_keypair(request):
             cur = db.cursor()
             address = request.query['address']
             uuid, sk, pk = read_address2keypair(address, cur)
-            return web_base.json_res({
-                'uuid': uuid,
-                'address': address,
-                'private_key': sk,
-                'public_key': pk})
+            return web_base.json_res({'uuid': uuid, 'address': address, 'private_key': sk, 'public_key': pk})
     except Exception:
         return web_base.error_res()
 

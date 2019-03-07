@@ -45,15 +45,18 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
     if start_tx.type != C.TX_TRANSFER:
         raise BlockChainError('Start tx is TRANSFER, not {}.'.format(C.txtype2name.get(start_tx.type, None)))
     if start_tx.message_type != C.MSG_MSGPACK:
-        raise BlockChainError('Start tx is MSG_MSGPACK, not {}.'.format(C.msg_type2name.get(start_tx.message_type, None)))
+        raise BlockChainError('Start tx is MSG_MSGPACK, not {}.'.format(
+            C.msg_type2name.get(start_tx.message_type, None)))
     if start_tx.time != tx.time or start_tx.deadline != tx.deadline:
-        raise BlockChainError('time of conclude_tx and start_tx is same, {}!={}.'.format(start_tx.time, tx.time))
+        raise BlockChainError('time of conclude_tx and start_tx is same, {}!={}.'.format(
+            start_tx.time, tx.time))
     try:
         c_start_address, c_method, redeem_address, c_args = start_tx.encoded_message()
     except Exception as e:
         raise BlockChainError('BjsonError: {}'.format(e))
     if c_address != c_start_address:
-        raise BlockChainError('Start tx\'s contract address is different. {}!={}'.format(c_address, c_start_address))
+        raise BlockChainError('Start tx\'s contract address is different. {}!={}'.format(
+            c_address, c_start_address))
     if not isinstance(c_method, str):
         raise BlockChainError('c_method is string. {}'.format(c_method))
     if not (isinstance(c_args, tuple) or isinstance(c_args, list)):
@@ -70,8 +73,8 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
         if include_block:
             c_my_before = get_contract_object(c_address=c_address, best_block=None, stop_txhash=tx.hash)
             if c_my_before.version != c_before.version or c_my_before.db_index != c_before.db_index:
-                raise BlockChainError('Block skip old ConcludeTX, idx={} my={} block={}'
-                                      .format(new_index, c_my_before, c_before))
+                raise BlockChainError('Block skip old ConcludeTX, idx={} my={} block={}'.format(
+                    new_index, c_my_before, c_before))
     else:
         pass  # init ConcludeTX, no action
     # c_method check, init, update and others..
@@ -87,7 +90,8 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
             raise BlockChainError('1 ValidatorAddress format is not correct {}'.format(v_address))
         if not is_address(v_address, V.BLOCK_VALIDATOR_PREFIX):
             raise BlockChainError('2 ValidatorAddress format is not correct {}'.format(v_address))
-        if not (c_extra_imports is None or isinstance(c_extra_imports, tuple) or isinstance(c_extra_imports, list)):
+        if not (c_extra_imports is None or isinstance(c_extra_imports, tuple) or
+                isinstance(c_extra_imports, list)):
             raise BlockChainError('6. Not correct format. {}'.format(c_extra_imports))
         if not (c_settings is None or isinstance(c_settings, dict)):
             raise BlockChainError('7. Not correct format. {}'.format(c_settings))
@@ -171,10 +175,11 @@ def check_tx_validator_edit(tx: TX, include_block: Block):
             raise BlockChainError('unknown flag {}.'.format(flag))
         # sig_diff check
         if not (0 < next_require_num <= next_validator_num):
-            raise BlockChainError('sig_diff check failed, 0 < {} <= {}.'
-                                  .format(next_require_num, next_validator_num))
+            raise BlockChainError('sig_diff check failed, 0 < {} <= {}.'.format(
+                next_require_num, next_validator_num))
     required_gas_check(tx=tx, v=v_before, extra_gas=C.VALIDATOR_EDIT_GAS)
-    objective_tx_signature_check(target_address=v_address, extra_tx=tx, v=v_before, include_block=include_block)
+    objective_tx_signature_check(
+        target_address=v_address, extra_tx=tx, v=v_before, include_block=include_block)
 
 
 def objective_tx_signature_check(target_address, extra_tx: TX, v: Validator, include_block: Block):
@@ -212,8 +217,9 @@ def objective_tx_signature_check(target_address, extra_tx: TX, v: Validator, inc
     elif include_block:
         # check satisfy require?
         if len(accept_cks) < necessary_num:
-            raise BlockChainError('Not satisfied require signature. [signed={}, accepted={}, require={}]'
-                                  .format(signed_cks, accept_cks, necessary_num))
+            raise BlockChainError(
+                'Not satisfied require signature. [signed={}, accepted={}, require={}]'.format(
+                    signed_cks, accept_cks, necessary_num))
     else:
         # check can marge?
         original_tx = tx_builder.get_tx(txhash=extra_tx.hash)
@@ -233,17 +239,17 @@ def objective_tx_signature_check(target_address, extra_tx: TX, v: Validator, inc
             original_cks = get_signed_cks(original_tx)
             accept_new_cks = (signed_cks - original_cks) & necessary_cks
             if len(accept_new_cks) == 0:
-                raise BlockChainError('No new acceptable cks. ({} - {}) & {}'
-                                      .format(signed_cks, original_cks, necessary_cks))
+                raise BlockChainError('No new acceptable cks. ({} - {}) & {}'.format(
+                    signed_cks, original_cks, necessary_cks))
             if len(accept_new_cks) + len(original_cks) > necessary_num:
                 # accept signature more than required
-                log.debug('Too many signatures, new={} original={} req={}'
-                          .format(accept_new_cks, original_cks, necessary_num))
+                log.debug('Too many signatures, new={} original={} req={}'.format(
+                    accept_new_cks, original_cks, necessary_num))
 
 
 def required_gas_check(tx: TX, v: Validator, extra_gas=0):
     # gas/cosigner fee check
-    require_gas = tx.size + C.SIGNATURE_GAS*v.require + extra_gas
+    require_gas = tx.size + C.SIGNATURE_GAS * v.require + extra_gas
     if tx.gas_amount < require_gas:
         raise BlockChainError('Unsatisfied required gas. [{}<{}]'.format(tx.gas_amount, require_gas))
 

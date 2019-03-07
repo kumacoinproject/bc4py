@@ -6,6 +6,7 @@ import msgpack
 
 
 class Cashe(object):
+
     def __init__(self, path, default):
         self.path = path
         self.default = default

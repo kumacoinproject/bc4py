@@ -23,15 +23,17 @@ def check_tx_pow_reward(tx, include_block):
     fees = sum(tx.gas_amount * tx.gas_price for tx in include_block.txs)
 
     if not (include_block.time == tx.time == tx.deadline - 10800):
-        raise BlockChainError('TX time is wrong 3. [{}={}={}-10800]'.format(include_block.time, tx.time, tx.deadline))
+        raise BlockChainError('TX time is wrong 3. [{}={}={}-10800]'.format(include_block.time, tx.time,
+                                                                            tx.deadline))
     elif not (coin_id == 0 and amount <= reward + fees):
-        raise BlockChainError('Input and output is wrong coin={} [{}<={}+{}]'.format(coin_id, amount, reward, fees))
+        raise BlockChainError('Input and output is wrong coin={} [{}<={}+{}]'.format(
+            coin_id, amount, reward, fees))
     elif not include_block.pow_check():
         include_block.work2diff()
         include_block.target2diff()
         print(include_block.getinfo())
-        raise BlockChainError('Proof of work check is failed. [{}<{}]'
-                              .format(include_block.difficulty, include_block.work_difficulty))
+        raise BlockChainError('Proof of work check is failed. [{}<{}]'.format(
+            include_block.difficulty, include_block.work_difficulty))
 
 
 def check_tx_pos_reward(tx, include_block):
@@ -57,7 +59,8 @@ def check_tx_pos_reward(tx, include_block):
     include_block.bits2target()
 
     if input_address != output_address:
-        raise BlockChainError('Input address differ from output address. [{}!={}]'.format(input_address, output_address))
+        raise BlockChainError('Input address differ from output address. [{}!={}]'.format(
+            input_address, output_address))
     elif not (input_coin_id == output_coin_id == 0):
         raise BlockChainError('Input and output coinID is zero.')
     elif input_amount + reward != output_amount:
@@ -67,10 +70,11 @@ def check_tx_pos_reward(tx, include_block):
     elif base_tx.height is None:
         raise BlockChainError('Source TX is unconfirmed. {}'.format(base_tx))
     elif not (include_block.height > base_tx.height + C.MATURE_HEIGHT):
-        raise BlockChainError('Source TX height is too young. [{}>{}+{}]'
-                              .format(include_block.height, base_tx.height, C.MATURE_HEIGHT))
+        raise BlockChainError('Source TX height is too young. [{}>{}+{}]'.format(
+            include_block.height, base_tx.height, C.MATURE_HEIGHT))
     elif not (include_block.time == tx.time == tx.deadline - 10800):
-        raise BlockChainError('TX time is wrong 1. [{}={}={}-10800]'.format(include_block.time, tx.time, tx.deadline))
+        raise BlockChainError('TX time is wrong 1. [{}={}={}-10800]'.format(include_block.time, tx.time,
+                                                                            tx.deadline))
     elif not tx.pos_check(include_block.previous_hash, include_block.target_hash):
         raise BlockChainError('Proof of stake check is failed.')
 
@@ -99,19 +103,19 @@ def check_tx_poc_reward(tx, include_block):
     if tx.version != __chain_version__:
         raise BlockChainError('Not correct tx version')
     if not (include_block.time == tx.time == tx.deadline - 10800):
-        raise BlockChainError('TX time is wrong 1. [{}={}={}-10800]'
-                              .format(include_block.time, tx.time, tx.deadline))
+        raise BlockChainError('TX time is wrong 1. [{}={}={}-10800]'.format(include_block.time, tx.time,
+                                                                            tx.deadline))
 
     # work check
     scope_hash = poc_hash(address=o_address, nonce=include_block.nonce)
     index = scope_index(include_block.previous_hash)
     work_hash = poc_work(
         time=include_block.time,
-        scope_hash=scope_hash[index*32:index*32+32],
+        scope_hash=scope_hash[index * 32:index*32 + 32],
         previous_hash=include_block.previous_hash)
     if int.from_bytes(work_hash, 'little') > int.from_bytes(include_block.target_hash, 'little'):
-        raise BlockChainError('PoC check is failed, work={} target={}'
-                              .format(work_hash.hex(), include_block.target_hash.hex()))
+        raise BlockChainError('PoC check is failed, work={} target={}'.format(
+            work_hash.hex(), include_block.target_hash.hex()))
 
     # signature check
     try:

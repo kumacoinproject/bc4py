@@ -17,7 +17,6 @@ import msgpack
 import json
 import os
 
-
 log = getLogger('bc4py')
 
 
@@ -83,8 +82,9 @@ def create_bootstrap_file():
                 block = builder.get_block(blockhash=blockhash)
                 msgpack.dump((block, block.work_hash, block.bias), fp)
                 if block.height % 500 == 0:
-                    pb.print_progress_bar(block.height, "now {} {}Sec".format(block.height, round(time()-s)))
-    log.info("create new bootstrap.dat finished, last={} {}Minutes".format(block, (time()-s)//60))
+                    pb.print_progress_bar(block.height, "now {} {}Sec".format(
+                        block.height, round(time() - s)))
+    log.info("create new bootstrap.dat finished, last={} {}Minutes".format(block, (time() - s) // 60))
 
 
 def load_bootstrap_file(boot_path=None):
@@ -108,17 +108,19 @@ def load_bootstrap_file(boot_path=None):
                 tx.height = block.height
             new_insert_block(block=block, time_check=False)
             if block.height % 1000 == 0:
-                print("Load block now {} height {}Sec".format(block.height, round(time()-s)))
-    log.info("load bootstrap.dat finished, last={} {}Minutes".format(block, (time()-s)//60))
+                print("Load block now {} height {}Sec".format(block.height, round(time() - s)))
+    log.info("load bootstrap.dat finished, last={} {}Minutes".format(block, (time() - s) // 60))
 
 
 def import_keystone(passphrase='', auto_create=True, language='english'):
+
     def timeout_now(count):
         while count > 0:
             count -= 1
             sleep(1)
         V.BIP44_BRANCH_SEC_KEY = None
         log.info("deleted wallet secret key now.")
+
     if V.BIP44_ENCRYPTED_MNEMONIC:
         raise Exception('Already imported, BIP32_ENCRYPTED_MNEMONIC.')
     if V.BIP44_ROOT_PUB_KEY:
@@ -139,7 +141,7 @@ def import_keystone(passphrase='', auto_create=True, language='english'):
                 new_cur = new_db.cursor()
                 swap_old_format(old_cur=old_cur, new_cur=new_cur, bip=bip)
                 new_db.commit()
-        os.rename(src=old_account_path, dst=old_account_path+'.old')
+        os.rename(src=old_account_path, dst=old_account_path + '.old')
     else:
         if not auto_create:
             raise Exception('Cannot load wallet info from {}'.format(keystone_path))
@@ -165,8 +167,8 @@ def swap_old_format(old_cur, new_cur, bip):
     secret_key = secret_key.encode()
     for uuid, sk, pk, ck, user, time in old_cur.execute("SELECT * FROM `pool`"):
         sk = AESCipher.encrypt(key=secret_key, raw=sk)
-        new_cur.execute("INSERT OR IGNORE INTO `pool` (`id`,`sk`,`ck`,`user`,`time`) VALUES (?,?,?,?,?)", (
-            uuid, sk, ck, user, time))
+        new_cur.execute("INSERT OR IGNORE INTO `pool` (`id`,`sk`,`ck`,`user`,`time`) VALUES (?,?,?,?,?)",
+                        (uuid, sk, ck, user, time))
     for args in old_cur.execute("SELECT * FROM `log`"):
         new_cur.execute("INSERT OR IGNORE INTO `log` VALUES (?,?,?,?,?,?,?,?)", args)
     for args in old_cur.execute("SELECT * FROM `account`"):
@@ -198,14 +200,21 @@ def create_keystone(passphrase, keystone_path, language='english'):
     pub = bip.ExtendedKey(private=False)
     timeout = -1
     wallet = {
-        'private_key': bip.ExtendedKey(private=True),
-        'public_key': pub,
-        'mnemonic': mnemonic,
-        'passphrase': passphrase,
-        'timeout': timeout,
-        'comments': 'You should remove "private_key" and "passphrase" for security.'
-                    'Please don\'t forget the two key\'s value or lost your coins.'
-                    'timeout\'s value "-1" make system auto deletion disable.'}
+        'private_key':
+        bip.ExtendedKey(private=True),
+        'public_key':
+        pub,
+        'mnemonic':
+        mnemonic,
+        'passphrase':
+        passphrase,
+        'timeout':
+        timeout,
+        'comments':
+        'You should remove "private_key" and "passphrase" for security.'
+        'Please don\'t forget the two key\'s value or lost your coins.'
+        'timeout\'s value "-1" make system auto deletion disable.'
+    }
     with open(keystone_path, mode='w') as fp:
         json.dump(wallet, fp, indent=4)
     return mnemonic, bip, pub, timeout

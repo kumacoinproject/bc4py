@@ -20,6 +20,7 @@ unconfirmed_lock = Lock()
 
 
 def update_info_for_generate(u_block=True, u_unspent=True, u_unconfirmed=True):
+
     def _updates():
         consensus = tuple(t.consensus for t in generating_threads)
         info = ''
@@ -31,6 +32,7 @@ def update_info_for_generate(u_block=True, u_unspent=True, u_unconfirmed=True):
             info += _update_unconfirmed_info()
         if info:
             log.debug("Update finish{}".format(info))
+
     global update_count
     Thread(target=_updates, name='Update-{}'.format(update_count), daemon=True).start()
     update_count += 1
@@ -41,14 +43,14 @@ def _update_block_info():
         while builder.best_block is None:
             sleep(0.2)
         update_previous_block(builder.best_block)
-        return ',  height={}'.format(builder.best_block.height+1)
+        return ',  height={}'.format(builder.best_block.height + 1)
 
 
 def _update_unspent_info():
     with unspent_lock:
         s = time()
         all_num, next_num = update_unspents_txs()
-    return ',  unspents={}/{} {}mS'.format(next_num, all_num, int((time()-s)*1000))
+    return ',  unspents={}/{} {}mS'.format(next_num, all_num, int((time() - s) * 1000))
 
 
 def _update_unconfirmed_info():
@@ -61,7 +63,8 @@ def _update_unconfirmed_info():
             try:
                 if tx.create_time > prune_limit:
                     continue  # too young tx
-                if not (tx.time-C.ACCEPT_MARGIN_TIME < s-V.BLOCK_GENESIS_TIME < tx.deadline+C.ACCEPT_MARGIN_TIME):
+                if not (tx.time - C.ACCEPT_MARGIN_TIME < s - V.BLOCK_GENESIS_TIME <
+                        tx.deadline + C.ACCEPT_MARGIN_TIME):
                     del tx_builder.pre_unconfirmed[tx.hash]
                     log.debug("Remove from pre-unconfirmed, over deadline. {}".format(tx))
                     continue
@@ -108,7 +111,8 @@ def _update_unconfirmed_info():
         # 2: sort and get txs to include in block
         unconfirmed_txs = [
             tx for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time)
-            if tx.create_time < prune_limit]
+            if tx.create_time < prune_limit
+        ]
         if len(tx_builder.unconfirmed) != len(unconfirmed_txs):
             log.debug("prune too young tx [{}/{}]".format(len(unconfirmed_txs), len(tx_builder.unconfirmed)))
 
@@ -135,8 +139,12 @@ def _update_unconfirmed_info():
                         # too young generated outputs
                         unconfirmed_txs.remove(tx)
                         break
-                elif is_usedindex(txhash=txhash, txindex=txindex,
-                                  except_txhash=tx.hash, best_block=best_block, best_chain=best_chain):
+                elif is_usedindex(
+                        txhash=txhash,
+                        txindex=txindex,
+                        except_txhash=tx.hash,
+                        best_block=best_block,
+                        best_chain=best_chain):
                     # ERROR: already used outputs
                     unconfirmed_txs.remove(tx)
                     break
@@ -171,8 +179,8 @@ def _update_unconfirmed_info():
         update_unconfirmed_txs(unconfirmed_txs)
 
     return ',  unconfirmed={}/{}/{} {}mS'.format(
-        len(unconfirmed_txs), len(tx_builder.unconfirmed),
-        len(tx_builder.pre_unconfirmed), int((time()-s)*1000))
+        len(unconfirmed_txs), len(tx_builder.unconfirmed), len(tx_builder.pre_unconfirmed),
+        int((time() - s) * 1000))
 
 
 """ remove after

@@ -11,8 +11,16 @@ import msgpack
 from more_itertools import chunked
 
 
-def create_genesis_block(mining_supply, block_span, prefix=b'\x68', validator_prefix=b'\xac', contract_prefix=b'\x12',
-                         digit_number=8, minimum_price=100, consensus=None, genesis_msg="blockchain for python", premine=None):
+def create_genesis_block(mining_supply,
+                         block_span,
+                         prefix=b'\x68',
+                         validator_prefix=b'\xac',
+                         contract_prefix=b'\x12',
+                         digit_number=8,
+                         minimum_price=100,
+                         consensus=None,
+                         genesis_msg="blockchain for python",
+                         premine=None):
     """
     Height0のGenesisBlockを作成する
     :param mining_supply: PoW/POS合わせた全採掘量、プリマインを除く
@@ -38,10 +46,12 @@ def create_genesis_block(mining_supply, block_span, prefix=b'\x68', validator_pr
     elif not (0 < max(consensus.values()) <= 100):
         raise BlockChainError('out of range {}'.format(min(consensus.values())))
     all_consensus = {
-        C.BLOCK_COIN_POS, C.BLOCK_CAP_POS,
-        C.BLOCK_YES_POW, C.BLOCK_X11_POW, C.BLOCK_HMQ_POW, C.BLOCK_LTC_POW, C.BLOCK_X16R_POW}
+        C.BLOCK_COIN_POS, C.BLOCK_CAP_POS, C.BLOCK_YES_POW, C.BLOCK_X11_POW, C.BLOCK_HMQ_POW, C.BLOCK_LTC_POW,
+        C.BLOCK_X16R_POW
+    }
     if len(set(consensus.keys()) - all_consensus) > 0:
-        raise BlockChainError('Not found all_consensus number {}'.format(set(consensus.keys()) - all_consensus))
+        raise BlockChainError(
+            'Not found all_consensus number {}'.format(set(consensus.keys()) - all_consensus))
     elif len(set(consensus.keys()) & all_consensus) == 0:
         raise BlockChainError('No usable consensus found {}'.format(set(consensus.keys()) & all_consensus))
 
@@ -63,34 +73,40 @@ def create_genesis_block(mining_supply, block_span, prefix=b'\x68', validator_pr
     }
     V.BLOCK_GENESIS_TIME = genesis_time
     # first tx
-    first_tx = TX.from_dict(tx={
-        'type': C.TX_GENESIS,
-        'time': 0,
-        'deadline': 10800,
-        'gas_price': 0,
-        'gas_amount': 0,
-        'message_type': C.MSG_PLAIN,
-        'message': genesis_msg.encode()})
+    first_tx = TX.from_dict(
+        tx={
+            'type': C.TX_GENESIS,
+            'time': 0,
+            'deadline': 10800,
+            'gas_price': 0,
+            'gas_amount': 0,
+            'message_type': C.MSG_PLAIN,
+            'message': genesis_msg.encode()
+        })
     first_tx.height = 0
     # premine
     premine_txs = list()
     for index, chunk in enumerate(chunked(premine or list(), 255)):
-        tx = TX.from_dict(tx={
-            'type': C.TX_TRANSFER,
-            'time': 0,
-            'deadline': 10800,
-            'outputs': chunk,
-            'gas_price': 0,
-            'gas_amount': 0})
+        tx = TX.from_dict(
+            tx={
+                'type': C.TX_TRANSFER,
+                'time': 0,
+                'deadline': 10800,
+                'outputs': chunk,
+                'gas_price': 0,
+                'gas_amount': 0
+            })
         tx.height = 0
         premine_txs.append(tx)
     # height0のBlock生成
-    genesis_block = Block.from_dict(block={
-        'merkleroot': b'\x00'*32,
-        'time': 0,
-        'previous_hash': b'\xff'*32,
-        'bits': MAX_BITS,
-        'nonce': b'\xff'*4})
+    genesis_block = Block.from_dict(
+        block={
+            'merkleroot': b'\x00' * 32,
+            'time': 0,
+            'previous_hash': b'\xff' * 32,
+            'bits': MAX_BITS,
+            'nonce': b'\xff' * 4
+        })
     # block params
     genesis_block.height = 0
     genesis_block.flag = C.BLOCK_GENESIS

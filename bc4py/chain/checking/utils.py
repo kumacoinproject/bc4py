@@ -32,8 +32,7 @@ def inputs_origin_check(tx, include_block):
             pass  # OK
         # 使用済みかチェック
         if txindex in get_usedindex(txhash=txhash, best_block=include_block):
-            raise BlockChainError('1 Input of {} is already used! {}:{}'
-                                  .format(tx, txhash.hex(), txindex))
+            raise BlockChainError('1 Input of {} is already used! {}:{}'.format(tx, txhash.hex(), txindex))
         # 同一Block内で使用されていないかチェック
         if include_block:
             for input_tx in include_block.txs:
@@ -41,8 +40,7 @@ def inputs_origin_check(tx, include_block):
                     break
                 for input_hash, input_index in input_tx.inputs:
                     if input_hash == txhash and input_index == txindex:
-                        raise BlockChainError('2 Input of {} is already used by {}'
-                                              .format(tx, input_tx))
+                        raise BlockChainError('2 Input of {} is already used by {}'.format(tx, input_tx))
 
 
 def amount_check(tx, payfee_coin_id):
@@ -68,8 +66,8 @@ def amount_check(tx, payfee_coin_id):
     # Check all plus amount
     remain_amount = input_coins - output_coins - fee_coins
     if not remain_amount.is_empty():
-        raise BlockChainError('77 Don\'t match input/output. {}={}-{}-{}'
-                              .format(remain_amount, input_coins, output_coins, fee_coins))
+        raise BlockChainError('77 Don\'t match input/output. {}={}-{}-{}'.format(
+            remain_amount, input_coins, output_coins, fee_coins))
 
 
 def signature_check(tx, include_block):
@@ -92,11 +90,12 @@ def signature_check(tx, include_block):
             if v_before.version == -1:
                 raise BlockChainError('Not init validator {}'.format(address))
             if len(signed_cks & v_before.validators) < v_before.require:
-                raise BlockChainError('Don\'t satisfy required signature {}<{}'
-                                      .format(len(signed_cks & v_before.validators), v_before.require))
+                raise BlockChainError('Don\'t satisfy required signature {}<{}'.format(
+                    len(signed_cks & v_before.validators), v_before.require))
             require_cks.update(v_before.validators)
         elif is_address(address, V.BLOCK_CONTRACT_PREFIX):
-            raise BlockChainError('Not allow ContractAddress include in normal Transfer. {}'.format(address, tx))
+            raise BlockChainError('Not allow ContractAddress include in normal Transfer. {}'.format(
+                address, tx))
         else:
             raise BlockChainError('Not common address {} {}.'.format(address, tx))
         # success check

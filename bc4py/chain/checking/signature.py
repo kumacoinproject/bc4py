@@ -8,7 +8,6 @@ from more_itertools import chunked
 
 log = getLogger('bc4py')
 
-
 verify_cashe = dict()  # {(pubkey, signature, txhash): address, ...}
 limit_time = time()
 limit_delete_set = set()
@@ -103,15 +102,15 @@ def get_signed_cks(tx):
                     failed -= 1
                     continue
                 elif len(signed_cks) < len(tx.signature):
-                    log.debug('Cannot get all signature, throw task. signed={}, include={}'
-                                    .format(signed_cks, len(tx.signature)))
+                    log.debug('Cannot get all signature, throw task. signed={}, include={}'.format(
+                        signed_cks, len(tx.signature)))
                     batch_sign_cashe([tx])
                     failed -= 1
                     sleep(0.02)
                     continue
                 else:
-                    raise Exception('Something wrong. signed={}, include={}'
-                                    .format(signed_cks, len(tx.signature)))
+                    raise Exception('Something wrong. signed={}, include={}'.format(
+                        signed_cks, len(tx.signature)))
         except RuntimeError:
             # dictionary changed size during iteration
             failed -= 1

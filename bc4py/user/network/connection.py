@@ -79,8 +79,8 @@ def ask_node(cmd, data=None, f_continue_asking=False):
                 set_good_node()
         except TimeoutError:
             pass
-    raise BlockChainError('Too many retry ask_node. good={} bad={} failed={} cmd={}'
-                          .format(len(good_node), len(bad_node), failed, cmd))
+    raise BlockChainError('Too many retry ask_node. good={} bad={} failed={} cmd={}'.format(
+        len(good_node), len(bad_node), failed, cmd))
 
 
 def ask_all_nodes(cmd, data=None):
@@ -103,8 +103,8 @@ def ask_all_nodes(cmd, data=None):
             pass
     if len(result) > 0:
         return result
-    raise BlockChainError('Cannot get any data. good={} bad={} cmd={}'
-                          .format(len(good_node), len(bad_node), cmd))
+    raise BlockChainError('Cannot get any data. good={} bad={} cmd={}'.format(
+        len(good_node), len(bad_node), cmd))
 
 
 def get_best_conn_info():

@@ -51,12 +51,13 @@ def batch_workhash(blocks):
     task_list = list()
     s = time()
     for block in blocks:
-        if block.flag in (C.BLOCK_YES_POW, C.BLOCK_HMQ_POW, C.BLOCK_X11_POW, C.BLOCK_LTC_POW, C.BLOCK_X16R_POW):
+        if block.flag in (C.BLOCK_YES_POW, C.BLOCK_HMQ_POW, C.BLOCK_X11_POW, C.BLOCK_LTC_POW,
+                          C.BLOCK_X16R_POW):
             task_list.append((block.height, block.flag, block.b))
     with executor_lock:
         future = executor.submit(_generate_workhash, task_list)
         future.add_done_callback(_callback)
-    log.debug("Success batch workhash {} by {}Sec".format(len(task_list), round(time()-s, 3)))
+    log.debug("Success batch workhash {} by {}Sec".format(len(task_list), round(time() - s, 3)))
     return future
 
 
@@ -165,7 +166,8 @@ def fast_sync_chain():
         # Base check
         base_check_failed_msg = None
         if before_block.hash != new_block.previous_hash:
-            base_check_failed_msg = "Not correct previous hash new={} before={}".format(new_block, before_block)
+            base_check_failed_msg = "Not correct previous hash new={} before={}".format(
+                new_block, before_block)
         # proof of work check
         if not new_block.pow_check():
             base_check_failed_msg = "Not correct work hash {}".format(new_block)
@@ -256,8 +258,8 @@ def fast_sync_chain():
     my_best_height = builder.best_block.height
     best_height_on_network, best_hash_on_network = get_best_conn_info()
     if best_height_on_network <= my_best_height:
-        log.info("Finish update chain data by network. {}Sec [best={}, now={}]"
-                     .format(round(time()-start, 1), best_height_on_network, my_best_height))
+        log.info("Finish update chain data by network. {}Sec [best={}, now={}]".format(
+            round(time() - start, 1), best_height_on_network, my_best_height))
         return True
     else:
         log.debug("Continue update chain, best={}, now={}".format(best_height_on_network, my_best_height))
@@ -265,6 +267,7 @@ def fast_sync_chain():
 
 
 def sync_chain_loop():
+
     def loop():
         global f_changed_status
         failed = 5
@@ -303,4 +306,3 @@ def sync_chain_loop():
 
     log.info("Start sync now {} connections.".format(len(V.PC_OBJ.p2p.user)))
     Thread(target=loop, name='Sync').start()
-

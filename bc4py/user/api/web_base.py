@@ -12,8 +12,7 @@ CONTENT_TYPE_JSON = {'Content-Type': 'application/json'}
 
 async def content_type_json_check(request):
     if request.content_type != 'application/json':
-        raise TypeError('Content-Type is application/json,'
-                        ' not {}'.format(request.content_type))
+        raise TypeError('Content-Type is application/json,' ' not {}'.format(request.content_type))
     else:
         try:
             return await request.json()
@@ -24,9 +23,7 @@ async def content_type_json_check(request):
 
 
 def json_res(data, indent=4):
-    return web.Response(
-        text=json.dumps(data, indent=indent),
-        content_type='application/json')
+    return web.Response(text=json.dumps(data, indent=indent), content_type='application/json')
 
 
 def error_res(errors=None):
@@ -38,4 +35,4 @@ def error_res(errors=None):
     simple_msg = None
     while not simple_msg:
         simple_msg = s.pop(-1)
-    return web.Response(text=simple_msg+'\n', status=400)
+    return web.Response(text=simple_msg + '\n', status=400)

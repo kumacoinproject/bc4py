@@ -38,13 +38,12 @@ def new_key(user=C.ANT_MINING):
 
 
 class Generate(Thread):
+
     def __init__(self, consensus, power_limit=1.0, **kwargs):
         assert consensus in V.BLOCK_CONSENSUSES, \
             "{} is not used by blockchain.".format(C.consensus2name[consensus])
         assert 0.0 < power_limit <= 1.0
-        super(Generate, self).__init__(
-            name="Gene-{}".format(C.consensus2name[consensus]),
-            daemon=True)
+        super(Generate, self).__init__(name="Gene-{}".format(C.consensus2name[consensus]), daemon=True)
         self.consensus = consensus
         self.power_limit = min(1.0, max(0.01, power_limit))
         self.hashrate = (0, 0.0)  # [hash/s, update_time]
@@ -54,8 +53,8 @@ class Generate(Thread):
 
     def __repr__(self):
         hashrate, _time = self.hashrate
-        if time()-_time > 120:
-            data = "NotActive ({}minutes before updated)".format(round((time()-_time)/60, 1))
+        if time() - _time > 120:
+            data = "NotActive ({}minutes before updated)".format(round((time() - _time) / 60, 1))
         elif hashrate < 1000 * 10:
             data = "{}hash/s".format(hashrate)
         elif hashrate < 1000 * 1000 * 10:
@@ -131,11 +130,11 @@ class Generate(Thread):
                 bias = min(2.0, max(0.5, bias))
                 how_many = max(100, int(how_many * bias))
                 if int(time()) % 90 == 0:
-                    log.info("Mining... Next target how_many is {} {}"
-                                 .format(how_many, "Up" if bias > 1 else "Down"))
+                    log.info("Mining... Next target how_many is {} {}".format(
+                        how_many, "Up" if bias > 1 else "Down"))
             except ZeroDivisionError:
                 pass
-            sleep(sleep_span+random()-0.5)
+            sleep(sleep_span + random() - 0.5)
         log.info("Close signal")
 
     def proof_of_stake(self):
@@ -153,15 +152,16 @@ class Generate(Thread):
                 continue
             start = time()
             # create staking block
-            bits, target = get_bits_by_hash(
-                previous_hash=previous_block.hash, consensus=C.BLOCK_COIN_POS)
+            bits, target = get_bits_by_hash(previous_hash=previous_block.hash, consensus=C.BLOCK_COIN_POS)
             reward = GompertzCurve.calc_block_reward(previous_block.height + 1)
-            staking_block = Block.from_dict(block={
-                'merkleroot': b'\xff' * 32,
-                'time': 0,
-                'previous_hash': previous_block.hash,
-                'bits': bits,
-                'nonce': b'\xff\xff\xff\xff'})
+            staking_block = Block.from_dict(
+                block={
+                    'merkleroot': b'\xff' * 32,
+                    'time': 0,
+                    'previous_hash': previous_block.hash,
+                    'bits': bits,
+                    'nonce': b'\xff\xff\xff\xff'
+                })
             staking_block.height = previous_block.height + 1
             staking_block.flag = C.BLOCK_COIN_POS
             staking_block.bits2target()
@@ -183,8 +183,7 @@ class Generate(Thread):
                     sleep(1)
                     break
                 elif not proof_tx.pos_check(
-                        previous_hash=previous_block.hash,
-                        pos_target_hash=staking_block.target_hash):
+                        previous_hash=previous_block.hash, pos_target_hash=staking_block.target_hash):
                     continue
                 else:
                     # Staked yay!!
@@ -206,9 +205,9 @@ class Generate(Thread):
                 limit_deque.append(int(max_limit * self.power_limit))
                 staking_limit = sum(limit_deque) // len(limit_deque)
                 if int(time()) % 90 == 0:
-                    log.info("Staking... margin={}% limit={}".format(round(remain*100, 1), staking_limit))
+                    log.info("Staking... margin={}% limit={}".format(round(remain * 100, 1), staking_limit))
                 self.hashrate = (calculate_nam, time())
-                sleep(max(0.0, remain+random()-0.5))
+                sleep(max(0.0, remain + random() - 0.5))
         log.info("Close signal")
 
     def proof_of_capacity(self):
@@ -241,9 +240,11 @@ class Generate(Thread):
 
             # let's seek files
             nonce, work_hash, address = multi_seek(
-                dir=dir_path, previous_hash=previous_hash,
+                dir=dir_path,
+                previous_hash=previous_hash,
                 target=target.to_bytes(32, 'little'),
-                time=block_time, worker=os.cpu_count())
+                time=block_time,
+                worker=os.cpu_count())
             if work_hash is None:
                 # return failed => (None, None, err-msg)
                 if int(s) % 60 == 0:
@@ -256,20 +257,25 @@ class Generate(Thread):
                     continue
                 # Staked by capacity yay!!
                 total_fee = sum(tx.gas_price * tx.gas_amount for tx in unconfirmed_txs)
-                staked_block = Block.from_dict(block={
-                    'previous_hash': previous_hash,
-                    'merkleroot': b'\x00' * 32,
-                    'time': 0, 'bits': bits,
-                    'nonce': nonce,
-                    'height': height,
-                    'flag': C.BLOCK_CAP_POS})
-                staked_proof_tx = TX.from_dict(tx={
-                    'type': C.TX_POS_REWARD,
-                    'time': block_time,
-                    'deadline': block_time + 10800,
-                    'gas_price': 0,
-                    'gas_amount': 0,
-                    'outputs': [(address, 0, reward + total_fee)]})
+                staked_block = Block.from_dict(
+                    block={
+                        'previous_hash': previous_hash,
+                        'merkleroot': b'\x00' * 32,
+                        'time': 0,
+                        'bits': bits,
+                        'nonce': nonce,
+                        'height': height,
+                        'flag': C.BLOCK_CAP_POS
+                    })
+                staked_proof_tx = TX.from_dict(
+                    tx={
+                        'type': C.TX_POS_REWARD,
+                        'time': block_time,
+                        'deadline': block_time + 10800,
+                        'gas_price': 0,
+                        'gas_amount': 0,
+                        'outputs': [(address, 0, reward + total_fee)]
+                    })
                 staked_block.txs.append(staked_proof_tx)
                 staked_block.txs.extend(unconfirmed_txs)
                 while staked_block.getsize() > C.SIZE_BLOCK_LIMIT:
@@ -294,24 +300,27 @@ def create_mining_block(consensus):
     mining_address = mining_address or V.MINING_ADDRESS or new_key()
     reward = GompertzCurve.calc_block_reward(previous_block.height + 1)
     fees = sum(tx.gas_amount * tx.gas_price for tx in unconfirmed_txs)
-    proof_tx = TX.from_dict(tx={
-        'type': C.TX_POW_REWARD,
-        'inputs': list(),
-        'outputs': [(mining_address, 0, reward + fees)],
-        'gas_price': 0,
-        'gas_amount': 0,
-        'message_type': C.MSG_NONE,
-        'message': b''})
+    proof_tx = TX.from_dict(
+        tx={
+            'type': C.TX_POW_REWARD,
+            'inputs': list(),
+            'outputs': [(mining_address, 0, reward + fees)],
+            'gas_price': 0,
+            'gas_amount': 0,
+            'message_type': C.MSG_NONE,
+            'message': b''
+        })
     proof_tx.update_time()
     # create mining block
-    bits, target = get_bits_by_hash(
-        previous_hash=previous_block.hash, consensus=consensus)
-    mining_block = Block.from_dict(block={
-        'merkleroot': b'\xff' * 32,
-        'time': 0,
-        'previous_hash': previous_block.hash,
-        'bits': bits,
-        'nonce': b'\xff\xff\xff\xff'})
+    bits, target = get_bits_by_hash(previous_hash=previous_block.hash, consensus=consensus)
+    mining_block = Block.from_dict(
+        block={
+            'merkleroot': b'\xff' * 32,
+            'time': 0,
+            'previous_hash': previous_block.hash,
+            'bits': bits,
+            'nonce': b'\xff\xff\xff\xff'
+        })
     proof_tx.height = previous_block.height + 1
     mining_block.height = proof_tx.height
     mining_block.flag = consensus
@@ -372,14 +381,16 @@ def update_unspents_txs(time_limit=0.2):
             log.debug("Unspents limit reached, skip by {} limits.".format(staking_limit))
             break
         all_num += 1
-        proof_tx = TX.from_dict(tx={
-            'type': C.TX_POS_REWARD,
-            'inputs': [(txhash, txindex)],
-            'outputs': [(address, 0, 0)],
-            'gas_price': 0,
-            'gas_amount': 0,
-            'message_type': C.MSG_NONE,
-            'message': b''})
+        proof_tx = TX.from_dict(
+            tx={
+                'type': C.TX_POS_REWARD,
+                'inputs': [(txhash, txindex)],
+                'outputs': [(address, 0, 0)],
+                'gas_price': 0,
+                'gas_amount': 0,
+                'message_type': C.MSG_NONE,
+                'message': b''
+            })
         proof_tx.height = previous_height + 1
         proof_tx.pos_amount = amount
         proof_txs.append(proof_tx)

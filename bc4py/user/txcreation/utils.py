@@ -7,12 +7,17 @@ from logging import getLogger
 
 log = getLogger('bc4py')
 
-
 DUMMY_REDEEM_ADDRESS = '_____DUMMY______REDEEM______ADDRESS_____'  # 40letters
 
 
-def fill_inputs_outputs(tx, target_address=None, cur=None, signature_num=None,
-                        fee_coin_id=0, additional_gas=0, dust_percent=0.8, utxo_cashe=None):
+def fill_inputs_outputs(tx,
+                        target_address=None,
+                        cur=None,
+                        signature_num=None,
+                        fee_coin_id=0,
+                        additional_gas=0,
+                        dust_percent=0.8,
+                        utxo_cashe=None):
     # outputsの合計を取得
     output_coins = Balance()
     for address, coin_id, amount in tx.outputs.copy():
@@ -59,9 +64,15 @@ def fill_inputs_outputs(tx, target_address=None, cur=None, signature_num=None,
         if f_dust_skipped and dust_percent > 0.00001:
             new_dust_percent = round(dust_percent * 0.7, 6)
             log.debug("Retry by lower dust percent. {}=>{}".format(dust_percent, new_dust_percent))
-            return fill_inputs_outputs(tx=tx, target_address=target_address, cur=cur, signature_num=signature_num,
-                                       fee_coin_id=fee_coin_id, additional_gas=additional_gas,
-                                       dust_percent=new_dust_percent, utxo_cashe=utxo_cashe)
+            return fill_inputs_outputs(
+                tx=tx,
+                target_address=target_address,
+                cur=cur,
+                signature_num=signature_num,
+                fee_coin_id=fee_coin_id,
+                additional_gas=additional_gas,
+                dust_percent=new_dust_percent,
+                utxo_cashe=utxo_cashe)
         elif len(tx.inputs) > 255:
             raise BlockChainError('Too many inputs, unspent tx\'s amount is too small.')
         else:
@@ -82,11 +93,17 @@ def fill_inputs_outputs(tx, target_address=None, cur=None, signature_num=None,
     else:
         # insufficient gas
         log.debug("Retry calculate tx fee. [{}=>{}+{}={}]".format(
-            tx.gas_amount, tx.size + len(input_address)*C.SIGNATURE_GAS, additional_gas, need_gas_amount))
+            tx.gas_amount, tx.size + len(input_address) * C.SIGNATURE_GAS, additional_gas, need_gas_amount))
         tx.gas_amount = need_gas_amount
-        return fill_inputs_outputs(tx=tx, target_address=target_address, cur=cur, signature_num=signature_num,
-                                   fee_coin_id=fee_coin_id, additional_gas=additional_gas, dust_percent=dust_percent,
-                                   utxo_cashe=utxo_cashe)
+        return fill_inputs_outputs(
+            tx=tx,
+            target_address=target_address,
+            cur=cur,
+            signature_num=signature_num,
+            fee_coin_id=fee_coin_id,
+            additional_gas=additional_gas,
+            dust_percent=dust_percent,
+            utxo_cashe=utxo_cashe)
 
 
 def replace_redeem_dummy_address(tx, cur=None, replace_by=None):
@@ -136,8 +153,8 @@ def check_enough_amount(sender, send_coins, fee_coins, cur):
     from_coins = user_account.get_balance(outer_cur=cur)[sender]
     remain_coins = from_coins - send_coins - fee_coins
     if not remain_coins.is_all_plus_amount():
-        raise BlockChainError('Not enough balance in id={} balance={} remains={}.'
-                              .format(sender, from_coins, remain_coins))
+        raise BlockChainError('Not enough balance in id={} balance={} remains={}.'.format(
+            sender, from_coins, remain_coins))
 
 
 __all__ = [

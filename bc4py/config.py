@@ -12,7 +12,6 @@ import psutil
 stream = Subject()
 atexit.register(stream.dispose)
 
-
 # multiprocessing executor
 max_process_num = 8
 logical_cpu_num = psutil.cpu_count(logical=True) or max_process_num
@@ -33,7 +32,8 @@ class C:  # Constant
         'digit': 8,
         'address': 'NDUMMYADDRESSAAAAAAAAAAAAAAAAAAAACRSTTMF',
         'description': 'Base currency.',
-        'image': None}
+        'image': None
+    }
 
     # consensus
     BLOCK_GENESIS = 0
@@ -46,9 +46,15 @@ class C:  # Constant
     BLOCK_LTC_POW = 8
     BLOCK_X16R_POW = 9
     consensus2name = {
-        BLOCK_GENESIS: 'GENESIS', BLOCK_COIN_POS: 'POS_COIN', BLOCK_CAP_POS: 'POS_CAP',
-        BLOCK_YES_POW: 'POW_YES', BLOCK_X11_POW: 'POW_X11', BLOCK_HMQ_POW: 'POW_HMQ',
-        BLOCK_LTC_POW: 'POW_LTC', BLOCK_X16R_POW: 'POW_X16R'}
+        BLOCK_GENESIS: 'GENESIS',
+        BLOCK_COIN_POS: 'POS_COIN',
+        BLOCK_CAP_POS: 'POS_CAP',
+        BLOCK_YES_POW: 'POW_YES',
+        BLOCK_X11_POW: 'POW_X11',
+        BLOCK_HMQ_POW: 'POW_HMQ',
+        BLOCK_LTC_POW: 'POW_LTC',
+        BLOCK_X16R_POW: 'POW_X16R'
+    }
 
     # tx type
     TX_GENESIS = 0  # Height0の初期設定TX
@@ -60,9 +66,15 @@ class C:  # Constant
     TX_CONCLUDE_CONTRACT = 9  # conclude static contract tx
     TX_INNER = 255  # 内部のみで扱うTX
     txtype2name = {
-        TX_GENESIS: 'GENESIS', TX_POW_REWARD: 'POW_REWARD', TX_POS_REWARD: 'POS_REWARD',
-        TX_TRANSFER: 'TRANSFER', TX_MINT_COIN: 'MINT_COIN', TX_VALIDATOR_EDIT: 'VALIDATOR_EDIT',
-        TX_CONCLUDE_CONTRACT: 'CONCLUDE_CONTRACT', TX_INNER: 'TX_INNER'}
+        TX_GENESIS: 'GENESIS',
+        TX_POW_REWARD: 'POW_REWARD',
+        TX_POS_REWARD: 'POS_REWARD',
+        TX_TRANSFER: 'TRANSFER',
+        TX_MINT_COIN: 'MINT_COIN',
+        TX_VALIDATOR_EDIT: 'VALIDATOR_EDIT',
+        TX_CONCLUDE_CONTRACT: 'CONCLUDE_CONTRACT',
+        TX_INNER: 'TX_INNER'
+    }
 
     # message format
     MSG_NONE = 0  # no message
@@ -71,8 +83,12 @@ class C:  # Constant
     MSG_MSGPACK = 3  # msgpack protocol
     MSG_HASHLOCKED = 4  # hash-locked transaction
     msg_type2name = {
-        MSG_NONE: 'NONE', MSG_PLAIN: 'PLAIN', MSG_BYTE: 'BYTE',
-        MSG_MSGPACK: 'MSGPACK', MSG_HASHLOCKED: 'HASHLOCKED'}
+        MSG_NONE: 'NONE',
+        MSG_PLAIN: 'PLAIN',
+        MSG_BYTE: 'BYTE',
+        MSG_MSGPACK: 'MSGPACK',
+        MSG_HASHLOCKED: 'HASHLOCKED'
+    }
 
     # difficulty
     DIFF_RETARGET = 20  # difficultyの計算Block数
@@ -89,13 +105,16 @@ class C:  # Constant
     ANT_CONTRACT = 2  # ContractAddress
     ANT_MINING = 3  # MiningAddress
     account2name = {
-        ANT_UNKNOWN: '@Unknown', ANT_VALIDATOR: '@Validator', ANT_CONTRACT: '@Contract',
-        ANT_MINING: '@Mining'}
+        ANT_UNKNOWN: '@Unknown',
+        ANT_VALIDATOR: '@Validator',
+        ANT_CONTRACT: '@Contract',
+        ANT_MINING: '@Mining'
+    }
 
     # Block/TX/Fee limit
     ACCEPT_MARGIN_TIME = 120  # 新規データ受け入れ時間マージンSec
-    SIZE_BLOCK_LIMIT = 300*1000  # 300kb block
-    SIZE_TX_LIMIT = 100*1000  # 100kb tx
+    SIZE_BLOCK_LIMIT = 300 * 1000  # 300kb block
+    SIZE_TX_LIMIT = 100 * 1000  # 100kb tx
     CASHE_LIMIT = 100  # Memoryに置く最大Block数、実質Reorg制限
     BATCH_SIZE = 10
     MINTCOIN_GAS = int(10 * pow(10, 6))  # 新規Mintcoin発行GasFee
@@ -154,12 +173,4 @@ class BlockChainError(Exception):
     pass
 
 
-__all__ = [
-    'stream',
-    'max_workers',
-    'executor',
-    'executor_lock',
-    'C', 'V', 'P',
-    'Debug',
-    'BlockChainError'
-]
+__all__ = ['stream', 'max_workers', 'executor', 'executor_lock', 'C', 'V', 'P', 'Debug', 'BlockChainError']

@@ -12,7 +12,6 @@ import os
 import psutil
 import sys
 
-
 WALLET_VERSION = 0
 log = getLogger('bc4py')
 
@@ -66,6 +65,7 @@ def make_pid_file():
 
 
 class AESCipher:
+
     @staticmethod
     def create_key():
         return os.urandom(AES.block_size)
@@ -110,6 +110,7 @@ class ProgressBar:
     original: https://github.com/bozoh/console_progressbar
     author: Carlos Alexandre S. da Fonseca
     """
+
     def __init__(self, prefix, default_suffix='', total=100, decimals=0, length=50, fill='X', zfill='-'):
         self.prefix = prefix
         self.default_suffix = default_suffix

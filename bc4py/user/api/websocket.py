@@ -16,9 +16,8 @@ CMD_NEW_BLOCK = 'Block'
 CMD_NEW_TX = 'TX'
 CMD_ERROR = 'Error'
 
+
 # TODO: fix error: "socket.send() raised exception." => https://github.com/aio-libs/aiohttp/issues/3448
-
-
 async def websocket_route(request):
     if request.rel_url.path.startswith('/public/'):
         is_public = True
@@ -43,8 +42,8 @@ async def websocket_route(request):
                 log.error("Get error from {} data={}".format(client, msg.data))
         except Exception as e:
             import traceback
-            await client.send(raw_data=get_send_format(
-                cmd=CMD_ERROR, data=str(traceback.format_exc()), status=False))
+            await client.send(
+                raw_data=get_send_format(cmd=CMD_ERROR, data=str(traceback.format_exc()), status=False))
     log.debug("close {}".format(client))
     await client.close()
     return client.ws
@@ -61,6 +60,7 @@ async def websocket_protocol_check(request, is_public):
 
 
 class WsConnection:
+
     def __init__(self, ws, request, is_public):
         global number
         number += 1
@@ -71,8 +71,8 @@ class WsConnection:
         clients.append(self)
 
     def __repr__(self):
-        return "<WsConnection {} {} {}>".format(
-            self.number, 'Pub' if self.is_public else 'Pri', self.request.remote)
+        return "<WsConnection {} {} {}>".format(self.number, 'Pub' if self.is_public else 'Pri',
+                                                self.request.remote)
 
     async def close(self):
         await self.ws.close()
@@ -95,19 +95,17 @@ class WsConnection:
 
 
 def get_send_format(cmd, data, status=True):
-    send_data = {
-        'cmd': cmd,
-        'data': data,
-        'status': status
-    }
+    send_data = {'cmd': cmd, 'data': data, 'status': status}
     return json.dumps(send_data)
 
 
 def send_websocket_data(cmd, data, status=True, is_public_data=False):
+
     async def exe():
         for client in clients.copy():
             if is_public_data or not client.is_public:
                 await client.send(send_format)
+
     if P.F_NOW_BOOTING:
         return
     if loop.is_closed():
@@ -185,7 +183,6 @@ def on_next(data):
 
 
 stream.subscribe(on_next=on_next, on_error=log.error)
-
 
 __all__ = [
     "CMD_ERROR",

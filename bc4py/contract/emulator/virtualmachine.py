@@ -27,7 +27,8 @@ EMU_UNTIL = 'until'
 EMU_RETURN = 'return'
 
 
-def _vm(genesis_block, genesis_params, new_config, start_tx, que, c, c_address, c_method, redeem_address, c_args):
+def _vm(genesis_block, genesis_params, new_config, start_tx, que, c, c_address, c_method, redeem_address,
+        c_args):
     if new_config:
         config.update(new_config)
     set_blockchain_params(genesis_block, genesis_params)
@@ -60,8 +61,8 @@ def _vm(genesis_block, genesis_params, new_config, start_tx, que, c, c_address, 
         pass
 
 
-def emulate(start_tx, c_address, c_method,
-            redeem_address, c_args, new_config=None, gas_limit=None, file=None):
+def emulate(start_tx, c_address, c_method, redeem_address, c_args, new_config=None, gas_limit=None,
+            file=None):
     """
     emulate Contract code
     :param start_tx: emulate StartTX
@@ -81,9 +82,17 @@ def emulate(start_tx, c_address, c_method,
     c = get_contract_object(c_address=c_address)
     if c.version == -1 or c.binary is None:
         raise BlockChainError('Need register contract binary first.')
-    kwargs = dict(genesis_block=V.GENESIS_BLOCK, genesis_params=V.GENESIS_PARAMS,
-                  new_config=new_config, start_tx=start_tx, que=que, c=c, c_address=c_address,
-                  c_method=c_method, redeem_address=redeem_address, c_args=c_args)
+    kwargs = dict(
+        genesis_block=V.GENESIS_BLOCK,
+        genesis_params=V.GENESIS_PARAMS,
+        new_config=new_config,
+        start_tx=start_tx,
+        que=que,
+        c=c,
+        c_address=c_address,
+        c_method=c_method,
+        redeem_address=redeem_address,
+        c_args=c_args)
     p = cxt.Process(target=_vm, kwargs=kwargs)
     p.start()
     log.debug('wait for notify of listen port.')
@@ -143,8 +152,10 @@ def emulate(start_tx, c_address, c_method,
             elif cmd in (EMU_STEP, EMU_NEXT, EMU_UNTIL, EMU_RETURN):
                 working_file = os.path.split(working_path)[1]
                 # logging for debug
-                print("{} d={} {} >> type={} gas={} path={} code=\"{}\"".format(
-                    work_line, code_depth, cmd, working_type, total_gas, working_file, working_code), file=file)
+                print(
+                    "{} d={} {} >> type={} gas={} path={} code=\"{}\"".format(
+                        work_line, code_depth, cmd, working_type, total_gas, working_file, working_code),
+                    file=file)
 
                 # select action by code_depth
                 if code_depth == 0:
@@ -179,14 +190,18 @@ def emulate(start_tx, c_address, c_method,
     sock.send((EMU_QUIT + "\n").encode())
     sock.close()
     # Close emulation
-    log.debug("Finish {}Sec error:\"{}\"".format(round(time()-start, 3), error))
+    log.debug("Finish {}Sec error:\"{}\"".format(round(time() - start, 3), error))
     try:
         cmd, result = que.get(timeout=10)
         # close connect
-        try: que.close()
-        except Exception: pass
-        try: p.terminate()
-        except Exception: pass
+        try:
+            que.close()
+        except Exception:
+            pass
+        try:
+            p.terminate()
+        except Exception:
+            pass
 
         return cmd == CMD_SUCCESS, result, total_gas, work_line
     except Exception:

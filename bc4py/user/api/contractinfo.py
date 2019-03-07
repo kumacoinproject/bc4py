@@ -81,7 +81,7 @@ async def get_contract_history(request):
                     'c_storage': {decode(k): decode(v) for k, v in c_storage.items()} if c_storage else None,
                 })
         # unconfirmed
-        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x:x.create_time):
+        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time):
             if tx.type != C.TX_CONCLUDE_CONTRACT:
                 continue
             _c_address, start_hash, c_storage = tx.encoded_message()
@@ -118,7 +118,8 @@ async def get_validator_history(request):
                 'new_address': new_address,
                 'flag': flag,
                 'txhash': txhash.hex(),
-                'sig_diff': sig_diff})
+                'sig_diff': sig_diff
+            })
         # memory
         for block in reversed(builder.best_chain):
             for tx in block.txs:
@@ -134,7 +135,8 @@ async def get_validator_history(request):
                     'new_address': new_address,
                     'flag': flag,
                     'txhash': tx.hash.hex(),
-                    'sig_diff': sig_diff})
+                    'sig_diff': sig_diff
+                })
         # unconfirmed
         for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time):
             if tx.type != C.TX_VALIDATOR_EDIT:
@@ -148,7 +150,8 @@ async def get_validator_history(request):
                 'new_address': new_address,
                 'flag': flag,
                 'txhash': tx.hash.hex(),
-                'sig_diff': sig_diff})
+                'sig_diff': sig_diff
+            })
         return web_base.json_res(data)
     except Exception as e:
         log.error(e)
@@ -188,8 +191,7 @@ async def watching_info(request):
             'c_address': c_address,
             'related': related_list,
             'args': tuple(map(decode, args)),
-             } for txhash, (time, tx, related_list, c_address, *args) in watching_tx.items()
-        ])
+        } for txhash, (time, tx, related_list, c_address, *args) in watching_tx.items()])
     except Exception as e:
         log.error(e)
         return web_base.error_res()

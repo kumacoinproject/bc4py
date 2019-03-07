@@ -31,26 +31,26 @@ class GompertzCurve:
     def base_total_supply():
         g = GompertzCurve
         e = math.exp(-g.c * g.x0)
-        return round(g.k * (g.b ** e)) - g.calc_block_reward(0)
+        return round(g.k * (g.b**e)) - g.calc_block_reward(0)
 
     @staticmethod
     def calc_total_supply(height):
         g = GompertzCurve
         x = g.x0 + height / g.ybnum / 10.0
         e = math.exp(-g.c * x)
-        return round(g.k * (g.b ** e)) - g.base_total_supply()
+        return round(g.k * (g.b**e)) - g.base_total_supply()
 
 
 def bin2signature(b):
     # pk:32, sign:64
     r = list()
     for i in range(len(b) // 96):
-        r.append((b[i*96:i*96+32].hex(), b[i*96+32:i*96+96]))
+        r.append((b[i * 96:i*96 + 32].hex(), b[i*96 + 32:i*96 + 96]))
     return r
 
 
 def signature2bin(s):
-    return b''.join([a2b_hex(pk)+sign for pk, sign in s])
+    return b''.join([a2b_hex(pk) + sign for pk, sign in s])
 
 
 def bits2target(bits):
@@ -85,5 +85,5 @@ def check_output_format(outputs):
             raise BlockChainError('output address is 40 string. {}'.format(address))
         elif not isinstance(coin_id, int) or coin_id < 0:
             raise BlockChainError('output coin_id is 0< int. {}'.format(coin_id))
-        elif not isinstance(amount, int) or not(amount > 0):
+        elif not isinstance(amount, int) or not (amount > 0):
             raise BlockChainError('output amount is 0<= int. {}'.format(amount))

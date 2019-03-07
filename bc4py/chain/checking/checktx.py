@@ -9,7 +9,6 @@ from logging import getLogger
 from time import time
 from Cryptodome.Hash import RIPEMD160, SHA256
 
-
 log = getLogger('bc4py')
 
 
@@ -28,14 +27,13 @@ def check_tx(tx, include_block):
         if tx not in include_block.txs:
             raise BlockChainError('Block not include the tx.')
         elif not (tx.time <= include_block.time <= tx.deadline):
-            raise BlockChainError('block time isn\'t include in TX time-deadline. [{}<={}<={}]'
-                                  .format(tx.time, include_block.time, tx.deadline))
+            raise BlockChainError('block time isn\'t include in TX time-deadline. [{}<={}<={}]'.format(
+                tx.time, include_block.time, tx.deadline))
         if 0 == include_block.txs.index(tx):
             if tx.type not in (C.TX_POS_REWARD, C.TX_POW_REWARD):
                 raise BlockChainError('tx index is zero, but not proof tx.')
         elif tx.type in (C.TX_POS_REWARD, C.TX_POW_REWARD):
-            raise BlockChainError('{} index is not 0 idx:{}.'
-                                  .format(tx, include_block.txs.index(tx)))
+            raise BlockChainError('{} index is not 0 idx:{}.'.format(tx, include_block.txs.index(tx)))
 
     # 各々のタイプで検査
     if tx.type == C.TX_GENESIS:
@@ -111,8 +109,8 @@ def check_tx(tx, include_block):
     # Feeチェック
     if f_minimum_fee_check:
         if tx.gas_amount < tx.size + C.SIGNATURE_GAS * len(tx.signature):
-            raise BlockChainError('Too low fee [{}<{}+{}]'.format(
-                tx.gas_amount, tx.size, C.SIGNATURE_GAS*len(tx.signature)))
+            raise BlockChainError('Too low fee [{}<{}+{}]'.format(tx.gas_amount, tx.size,
+                                                                  C.SIGNATURE_GAS * len(tx.signature)))
 
     # TX size チェック
     if f_size_check:
@@ -130,22 +128,20 @@ def check_tx_time(tx):
     now = int(time()) - V.BLOCK_GENESIS_TIME
     if tx.type in (C.TX_VALIDATOR_EDIT, C.TX_CONCLUDE_CONTRACT):
         if not (tx.time - C.ACCEPT_MARGIN_TIME < now < tx.deadline + C.ACCEPT_MARGIN_TIME):
-            raise BlockChainError('TX time is not correct range. {}<{}<{}'
-                                  .format(tx.time-C.ACCEPT_MARGIN_TIME, now, tx.deadline+C.ACCEPT_MARGIN_TIME))
+            raise BlockChainError('TX time is not correct range. {}<{}<{}'.format(
+                tx.time - C.ACCEPT_MARGIN_TIME, now, tx.deadline + C.ACCEPT_MARGIN_TIME))
     else:
         if tx.time > now + C.ACCEPT_MARGIN_TIME:
-            raise BlockChainError('TX time too early. {}>{}+{}'
-                                  .format(tx.time, now, C.ACCEPT_MARGIN_TIME))
+            raise BlockChainError('TX time too early. {}>{}+{}'.format(tx.time, now, C.ACCEPT_MARGIN_TIME))
         if tx.deadline < now - C.ACCEPT_MARGIN_TIME:
-            raise BlockChainError('TX time is too late. [{}<{}-{}]'
-                                  .format(tx.deadline, now, C.ACCEPT_MARGIN_TIME))
+            raise BlockChainError('TX time is too late. [{}<{}-{}]'.format(tx.deadline, now,
+                                                                           C.ACCEPT_MARGIN_TIME))
     # common check
     if tx.deadline - tx.time < 10800:
-        raise BlockChainError('TX acceptable spam is too short. {}-{}<{}'
-                              .format(tx.deadline, tx.time, 10800))
-    if tx.deadline - tx.time > 3600*24*30:  # 30days
-        raise BlockChainError('TX acceptable spam is too long. {}-{}>{}'
-                              .format(tx.deadline, tx.time, 3600*24*30))
+        raise BlockChainError('TX acceptable spam is too short. {}-{}<{}'.format(tx.deadline, tx.time, 10800))
+    if tx.deadline - tx.time > 3600 * 24 * 30:  # 30days
+        raise BlockChainError('TX acceptable spam is too long. {}-{}>{}'.format(
+            tx.deadline, tx.time, 3600 * 24 * 30))
 
 
 def check_hash_locked(tx):
@@ -195,7 +191,7 @@ def check_unconfirmed_order(best_block, ordered_unconfirmed_txs):
             else:
                 raise BlockChainError('Unknown tx type "{}"'.format(tx.type))
         else:
-            log.debug('Finish unconfirmed order check {}mSec'.format(int((time()-s)*1000)))
+            log.debug('Finish unconfirmed order check {}mSec'.format(int((time() - s) * 1000)))
             return None
     except Exception as e:
         log.warning(e, exc_info=True)

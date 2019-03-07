@@ -28,7 +28,6 @@ base_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
 markdown_template = open(os.path.join(base_path, 'md_renderer.html'), mode='r', encoding='utf8').read()
 getLogger('aiohttp_basicauth_middleware').setLevel(INFO)
 
-
 localhost_urls = {
     "localhost",
     "127.0.0.1",
@@ -36,15 +35,17 @@ localhost_urls = {
 
 
 def escape_cross_origin_block(app):
-    cors = aiohttp_cors.setup(app, defaults={
-        "*": aiohttp_cors.ResourceOptions(
-            # Access-Control-Allow-Origin
-            allow_credentials=True,
-            expose_headers="*",
-            allow_headers=("X-Requested-With", "Content-Type", "Authorization", "Content-Length"),
-            allow_methods=['POST', 'GET']
-        )
-    })
+    cors = aiohttp_cors.setup(
+        app,
+        defaults={
+            "*":
+            aiohttp_cors.ResourceOptions(
+                # Access-Control-Allow-Origin
+                allow_credentials=True,
+                expose_headers="*",
+                allow_headers=("X-Requested-With", "Content-Type", "Authorization", "Content-Length"),
+                allow_methods=['POST', 'GET'])
+        })
     for resource in app.router.resources():
         cors.add(resource)
 
@@ -146,8 +147,7 @@ def create_rest_server(f_local, user, pwd, port=3000, f_blocking=True, ssl_conte
     # setup basic auth
     assert isinstance(user, str) and len(user) > 2
     assert isinstance(pwd, str) and len(pwd) > 7
-    app.middlewares.append(
-        basic_auth_middleware(('/private/',), {user: pwd}, PrivateAccessStrategy))
+    app.middlewares.append(basic_auth_middleware(('/private/',), {user: pwd}, PrivateAccessStrategy))
 
     # Working
     host = '127.0.0.1' if f_local else '0.0.0.0'
@@ -184,14 +184,13 @@ async def web_page(request):
             markdown_body = open(abs_path, mode='r', encoding='utf8').read()
             markdown_body = markdown_body.replace('\\', '\\\\').replace('\"', '\\\"').replace("\n", "\\n")
             return web.Response(
-                text=markdown_template.replace('{:title}', markdown_title, 1).replace('{:body}', markdown_body, 1),
+                text=markdown_template.replace('{:title}', markdown_title, 1).replace(
+                    '{:body}', markdown_body, 1),
                 headers=web_base.CONTENT_TYPE_HTML)
         elif not os.path.exists(abs_path):
             return web.Response(text="Not found page. {}".format(req_path[-1]), status=404)
         elif os.path.isfile(abs_path):
-            return web.Response(
-                body=open(abs_path, mode='rb').read(),
-                headers=web_base.CONTENT_TYPE_HTML)
+            return web.Response(body=open(abs_path, mode='rb').read(), headers=web_base.CONTENT_TYPE_HTML)
         else:
             return web.Response(
                 body=open(os.path.join(abs_path, 'index.html'), mode='rb').read(),
@@ -208,6 +207,7 @@ async def resync(request):
 
 
 async def close_server(request):
+
     def close():
         loop.call_soon_threadsafe(loop.stop)
 

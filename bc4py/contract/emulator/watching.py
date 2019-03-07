@@ -14,7 +14,6 @@ log = getLogger('bc4py')
 
 watching_tx = ExpiringDict(max_len=100, max_age_seconds=10800)
 
-
 C_Conclude = 'Conclude'
 C_Validator = 'Validator'
 C_RequestConclude = 'RequestConclude'
@@ -110,7 +109,6 @@ def on_next(obj):
 
 
 stream.subscribe(on_next=on_next, on_error=log.error)
-
 
 __all__ = [
     "C_Conclude",

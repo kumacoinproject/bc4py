@@ -5,11 +5,11 @@ from bc4py.database.account import *
 from bc4py.user import *
 from logging import getLogger
 
-
 log = getLogger('bc4py')
 
 
 class Search(dict):
+
     def __init__(self, gap_user, gap_limit, cur):
         super().__init__()
         self.gap_user = gap_user
@@ -42,8 +42,7 @@ class Search(dict):
         next_index = self.biggest_index(user=user, is_inner=is_inner) + 1
         sk, pk, ck = extract_keypair(user=user, is_inner=is_inner, index=next_index)
         self[ck] = (user, is_inner, next_index)
-        log.info("Recode new userID={} is_inner={} index={} address={}"
-                     .format(user, is_inner, index, ck))
+        log.info("Recode new userID={} is_inner={} index={} address={}".format(user, is_inner, index, ck))
 
     def biggest_index(self, user, is_inner):
         index = 0

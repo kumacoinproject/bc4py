@@ -14,11 +14,8 @@ log = getLogger('bc4py')
 M_INIT = 'init'
 M_UPDATE = 'update'
 
-
 # default setting of Storage
-settings_template = {
-    'update_binary': True,
-    'update_extra_imports': True}
+settings_template = {'update_binary': True, 'update_extra_imports': True}
 
 
 class Storage(dict):
@@ -85,8 +82,8 @@ class Storage(dict):
 
 
 class Contract:
-    __slots__ = ("c_address", "v_address", "version", "db_index", "binary", "extra_imports",
-                 "storage", "settings", "start_hash", "finish_hash")
+    __slots__ = ("c_address", "v_address", "version", "db_index", "binary", "extra_imports", "storage",
+                 "settings", "start_hash", "finish_hash")
 
     def __init__(self, c_address):
         assert is_address(c_address, V.BLOCK_CONTRACT_PREFIX)
@@ -195,8 +192,13 @@ def contract_fill(c: Contract, best_block=None, best_chain=None, stop_txhash=Non
     for index, start_hash, finish_hash, (c_method, c_args, c_storage) in c_iter:
         if start_hash == stop_txhash or finish_hash == stop_txhash:
             return
-        c.update(db_index=index, start_hash=start_hash, finish_hash=finish_hash,
-                 c_method=c_method, c_args=c_args, c_storage=c_storage)
+        c.update(
+            db_index=index,
+            start_hash=start_hash,
+            finish_hash=finish_hash,
+            c_method=c_method,
+            c_args=c_args,
+            c_storage=c_storage)
     # memory
     if best_chain:
         _best_chain = None
@@ -218,8 +220,13 @@ def contract_fill(c: Contract, best_block=None, best_chain=None, stop_txhash=Non
             start_tx = tx_builder.get_tx(txhash=start_hash)
             dummy, c_method, redeem_address, c_args = decode(start_tx.message)
             index = start_tx2index(start_tx=start_tx)
-            c.update(db_index=index, start_hash=start_hash, finish_hash=tx.hash,
-                     c_method=c_method, c_args=c_args, c_storage=c_storage)
+            c.update(
+                db_index=index,
+                start_hash=start_hash,
+                finish_hash=tx.hash,
+                c_method=c_method,
+                c_args=c_args,
+                c_storage=c_storage)
     # unconfirmed
     if best_block is None:
         unconfirmed = list()
@@ -241,8 +248,13 @@ def contract_fill(c: Contract, best_block=None, best_chain=None, stop_txhash=Non
                 break
             if conclude_tx.hash == stop_txhash:
                 break
-            c.update(db_index=sort_key, start_hash=start_tx.hash, finish_hash=conclude_tx.hash,
-                     c_method=c_method, c_args=c_args, c_storage=c_storage)
+            c.update(
+                db_index=sort_key,
+                start_hash=start_tx.hash,
+                finish_hash=conclude_tx.hash,
+                c_method=c_method,
+                c_args=c_args,
+                c_storage=c_storage)
 
 
 def get_contract_object(c_address, best_block=None, best_chain=None, stop_txhash=None):
@@ -288,13 +300,17 @@ def get_conclude_hash_from_start(c_address, start_hash, best_block=None, best_ch
     return None
 
 
-def get_validator_by_contract_info(c_address, start_tx=None, start_hash=None,
-                                   best_block=None, best_chain=None, stop_txhash=None):
-    c = get_contract_object(c_address=c_address,
-                            best_block=best_block, best_chain=best_chain, stop_txhash=stop_txhash)
+def get_validator_by_contract_info(c_address,
+                                   start_tx=None,
+                                   start_hash=None,
+                                   best_block=None,
+                                   best_chain=None,
+                                   stop_txhash=None):
+    c = get_contract_object(
+        c_address=c_address, best_block=best_block, best_chain=best_chain, stop_txhash=stop_txhash)
     if c.version > -1:
-        v = get_validator_object(v_address=c.v_address,
-                                 best_block=best_block, best_chain=best_chain, stop_txhash=stop_txhash)
+        v = get_validator_object(
+            v_address=c.v_address, best_block=best_block, best_chain=best_chain, stop_txhash=stop_txhash)
         if v.version > -1:
             return v
         else:
@@ -311,8 +327,8 @@ def get_validator_by_contract_info(c_address, start_tx=None, start_hash=None,
         if len(c_args) != 4:
             raise BlockChainError('Not correct c_args count {}'.format(c_args))
         c_bin, v_address, c_extra_imports, c_settings = c_args
-        return get_validator_object(v_address=v_address,
-                                    best_block=best_block, best_chain=best_chain, stop_txhash=stop_txhash)
+        return get_validator_object(
+            v_address=v_address, best_block=best_block, best_chain=best_chain, stop_txhash=stop_txhash)
     else:
         raise BlockChainError('ContractTX is not init. {}'.format(c_address))
 
@@ -336,16 +352,19 @@ def update_contract_cashe(*args):
     for c_address, c_contract in cashe:
         c_iter = builder.db.read_contract_iter(c_address=c_address, start_idx=c_contract.db_index)
         for index, start_hash, finish_hash, (c_method, c_args, c_storage) in c_iter:
-            c_contract.update(db_index=index, start_hash=start_hash, finish_hash=finish_hash,
-                              c_method=c_method, c_args=c_args, c_storage=c_storage)
+            c_contract.update(
+                db_index=index,
+                start_hash=start_hash,
+                finish_hash=finish_hash,
+                c_method=c_method,
+                c_args=c_args,
+                c_storage=c_storage)
             line += 1
     log.debug("Contract cashe update {}line {}mSec".format(line, int((time() - s) * 1000)))
 
 
 # when receive Block (103 x n height), update contract cashe
-stream.filter(
-    lambda obj: isinstance(obj, Block) and obj.height % 103 == 0
-).subscribe(
+stream.filter(lambda obj: isinstance(obj, Block) and obj.height % 103 == 0).subscribe(
     on_next=update_contract_cashe, on_error=log.error)
 
 __all__ = [
