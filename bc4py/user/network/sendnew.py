@@ -18,16 +18,19 @@ def mined_newblock(que, pc):
             new_block = que.get(timeout=1)
             new_block.create_time = int(time())
             if P.F_NOW_BOOTING:
-                log.debug("Mined but now booting..")
+                log.debug("self reject, mined but now booting..")
                 continue
             elif new_block.height != builder.best_block.height + 1:
-                log.debug("Mined but its old block...")
+                log.debug("self reject, mined but its old block...")
                 continue
-            elif new_insert_block(new_block, time_check=True):
-                log.info("Mined new block {}".format(new_block.getinfo()))
             else:
-                update_info_for_generate()
-                continue
+                log.debug("Mined block check success")
+                if new_insert_block(new_block, time_check=True):
+                    log.info("Mined new block {}".format(new_block.getinfo()))
+                else:
+                    log.debug("self reject, cannot new insert")
+                    update_info_for_generate()
+                    continue
             proof_tx = new_block.txs[0]
             txs_hash_list = [tx.hash for tx in new_block.txs]
             data = {
