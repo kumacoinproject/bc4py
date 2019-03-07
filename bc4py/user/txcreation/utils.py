@@ -146,5 +146,5 @@ __all__ = [
     "replace_redeem_dummy_address",
     "setup_signature",
     "setup_contract_signature",
-    "check_enough_amount"
+    "check_enough_amount",
 ]

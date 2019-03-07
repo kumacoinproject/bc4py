@@ -1167,5 +1167,5 @@ __all__ = [
     "db_config",
     "builder",
     "tx_builder",
-    "user_account"
+    "user_account",
 ]

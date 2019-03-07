@@ -196,5 +196,5 @@ def emulate(start_tx, c_address, c_method,
 
 
 __all__ = [
-    "emulate"
+    "emulate",
 ]

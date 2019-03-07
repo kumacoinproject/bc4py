@@ -42,5 +42,5 @@ __all__ = [
     "allow_globals",
     "deny_globals",
     "allow_builtins",
-    "deny_builtins"
+    "deny_builtins",
 ]

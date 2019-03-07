@@ -141,5 +141,5 @@ def replace_mint_dummy_address(tx, mint_address, mint_id, f_raise):
 
 __all__ = [
     "issue_mintcoin",
-    "change_mintcoin"
+    "change_mintcoin",
 ]

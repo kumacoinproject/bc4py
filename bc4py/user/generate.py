@@ -401,5 +401,5 @@ __all__ = [
     "update_previous_block",
     "update_unconfirmed_txs",
     "update_unspents_txs",
-    "close_generate"
+    "close_generate",
 ]

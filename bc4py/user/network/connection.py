@@ -127,5 +127,5 @@ __all__ = [
     "ask_node",
     "ask_all_nodes",
     "get_best_conn_info",
-    "check_network_connection"
+    "check_network_connection",
 ]

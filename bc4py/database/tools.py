@@ -137,5 +137,5 @@ __all__ = [
     "get_utxo_iter",
     "get_unspents_iter",
     "get_usedindex",
-    "is_usedindex"
+    "is_usedindex",
 ]

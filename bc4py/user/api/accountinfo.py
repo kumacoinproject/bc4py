@@ -183,5 +183,5 @@ __all__ = [
     "move_one",
     "move_many",
     "new_address",
-    "get_keypair"
+    "get_keypair",
 ]

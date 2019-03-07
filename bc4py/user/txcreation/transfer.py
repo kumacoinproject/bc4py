@@ -71,5 +71,5 @@ def send_from(sender, address, coins, cur, fee_coin_id=0, gas_price=None,
 
 
 __all__ = [
-    "send_from", "send_many"
+    "send_from", "send_many",
 ]

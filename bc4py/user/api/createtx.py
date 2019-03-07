@@ -255,5 +255,5 @@ __all__ = [
     "send_from_user",
     "send_many_user",
     "issue_mint_tx",
-    "change_mint_tx"
+    "change_mint_tx",
 ]

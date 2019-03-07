@@ -207,5 +207,5 @@ __all__ = [
     "check_tx",
     "check_tx_time",
     "check_hash_locked",
-    "check_unconfirmed_order"
+    "check_unconfirmed_order",
 ]

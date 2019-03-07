@@ -59,5 +59,5 @@ def new_insert_block(block, time_check=False):
 __all__ = [
     "new_insert_block",
     "check_block", "check_block_time",
-    "check_tx", "check_tx_time"
+    "check_tx", "check_tx_time",
 ]
