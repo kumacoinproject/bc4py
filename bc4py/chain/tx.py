@@ -1,14 +1,13 @@
-#!/user/env python3
-# -*- coding: utf-8 -*-
-
 from bc4py import __chain_version__
 from bc4py.config import C, V, BlockChainError
 from hashlib import sha256
 from time import time
+from logging import getLogger
 import struct
 import msgpack
 
 
+log = getLogger('bc4py')
 struct_tx_header = struct.Struct('<IIIIQqBBBI')
 struct_inputs = struct.Struct('<32sB')
 struct_outputs = struct.Struct('<40sIQ')
@@ -22,7 +21,10 @@ class TX:
         "signature", "R", "recode_flag", "create_time", "__weakref__")
 
     def __eq__(self, other):
-        return self.hash == other.hash
+        if isinstance(other, TX):
+            return self.hash == other.hash
+        log.warning("compare with {} by {}".format(self, other), exc_info=True)
+        return False
 
     def __hash__(self):
         return hash(self.hash)

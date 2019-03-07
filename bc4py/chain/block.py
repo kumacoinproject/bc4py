@@ -1,14 +1,14 @@
-#!/user/env python3
-# -*- coding: utf-8 -*-
-
 from bc4py.config import C, V
 from bc4py.chain.utils import MAX_256_INT, bits2target
 from bc4py.chain.workhash import update_work_hash
 from hashlib import sha256
+from logging import getLogger
 import struct
 from time import time
 from math import log2
 
+
+log = getLogger('bc4py')
 struct_block = struct.Struct('<I32s32sII4s')
 
 
@@ -21,7 +21,10 @@ class Block:
         "__weakref__")
 
     def __eq__(self, other):
-        return self.hash == other.hash
+        if isinstance(other, Block):
+            return self.hash == other.hash
+        log.warning("compare with {} by {}".format(self, other), exc_info=True)
+        return False
 
     def __hash__(self):
         return hash(self.hash)
