@@ -1,4 +1,4 @@
-from bc4py.config import executor, C, V, P, BlockChainError
+from bc4py.config import executor, executor_lock, C, V, P, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.chain.checking import check_block, check_tx, check_tx_time
@@ -53,8 +53,9 @@ def batch_workhash(blocks):
     for block in blocks:
         if block.flag in (C.BLOCK_YES_POW, C.BLOCK_HMQ_POW, C.BLOCK_X11_POW, C.BLOCK_LTC_POW, C.BLOCK_X16R_POW):
             task_list.append((block.height, block.flag, block.b))
-    future = executor.submit(_generate_workhash, task_list)
-    future.add_done_callback(_callback)
+    with executor_lock:
+        future = executor.submit(_generate_workhash, task_list)
+        future.add_done_callback(_callback)
     log.debug("Success batch workhash {} by {}Sec".format(len(task_list), round(time()-s, 3)))
     return future
 

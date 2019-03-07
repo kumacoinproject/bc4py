@@ -3,6 +3,7 @@
 
 from rx.subjects import Subject
 from concurrent.futures import ProcessPoolExecutor
+from threading import Lock
 import atexit
 import psutil
 
@@ -19,6 +20,9 @@ physical_cpu_nam = psutil.cpu_count(logical=False) or max_process_num
 max_workers = min(logical_cpu_num, physical_cpu_nam)
 executor = ProcessPoolExecutor(max_workers=max_workers)
 atexit.register(executor.shutdown, wait=True)
+
+# executor "submit+add_callback_done" lock
+executor_lock = Lock()
 
 
 class C:  # Constant
@@ -154,6 +158,7 @@ __all__ = [
     'stream',
     'max_workers',
     'executor',
+    'executor_lock',
     'C', 'V', 'P',
     'Debug',
     'BlockChainError'

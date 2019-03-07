@@ -1,4 +1,4 @@
-from bc4py.config import max_workers, executor, C, BlockChainError
+from bc4py.config import max_workers, executor, executor_lock, C, BlockChainError
 from bc4py_extension import poc_hash, poc_work, scope_index
 from os import urandom
 from time import time
@@ -66,7 +66,8 @@ def generate_many_hash(block, how_many):
     # hash generating with multi-core
     with semaphore:
         start = time()
-        future = executor.submit(_pow_generator, block.b, block.flag, how_many)
+        with executor_lock:
+            future = executor.submit(_pow_generator, block.b, block.flag, how_many)
         binary, hashed = future.result(timeout=120)
     if binary is None:
         raise Exception(hashed)

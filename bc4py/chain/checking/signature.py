@@ -1,4 +1,4 @@
-from bc4py.config import max_workers, executor, V
+from bc4py.config import executor, executor_lock, V
 from nem_ed25519.key import get_address
 from nem_ed25519.signature import verify
 from threading import Lock
@@ -69,13 +69,14 @@ def batch_sign_cashe(txs):
                 if (pubkey, signature, tx.hash) not in verify_cashe:
                     task_list.append((pubkey, signature, tx.hash, tx.b))
                     verify_cashe[(pubkey, signature, tx.hash)] = None
-        # throw verify
-        if len(task_list) == 0:
-            return
-        else:
+    # throw verify
+    if len(task_list) == 0:
+        return
+    else:
+        with executor_lock:
             for task in chunked(task_list, 25):
                 executor.submit(_verify, task, prefix=V.BLOCK_PREFIX).add_done_callback(_callback)
-            log.debug("Put task {}sign to pool.".format(len(task_list)))
+        log.debug("Put task {}sign to pool.".format(len(task_list)))
 
 
 def get_signed_cks(tx):
