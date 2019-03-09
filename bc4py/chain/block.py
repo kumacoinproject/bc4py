@@ -1,35 +1,34 @@
-#!/user/env python3
-# -*- coding: utf-8 -*-
-
 from bc4py.config import C, V
 from bc4py.chain.utils import MAX_256_INT, bits2target
 from bc4py.chain.workhash import update_work_hash
 from hashlib import sha256
+from logging import getLogger
 import struct
 from time import time
-from math import log
+from math import log2
 
+log = getLogger('bc4py')
 struct_block = struct.Struct('<I32s32sII4s')
 
 
 class Block:
-    __slots__ = (
-        "b", "hash", "next_hash", "target_hash", "work_hash",
-        "height", "_difficulty", "_work_difficulty", "create_time",
-        "flag", "f_orphan", "recode_flag", "_bias", "inner_score",
-        "version", "previous_hash", "merkleroot", "time", "bits", "nonce", "txs",
-        "__weakref__")
+    __slots__ = ("b", "hash", "next_hash", "target_hash", "work_hash", "height", "_difficulty",
+                 "_work_difficulty", "create_time", "flag", "f_orphan", "recode_flag", "_bias", "inner_score",
+                 "version", "previous_hash", "merkleroot", "time", "bits", "nonce", "txs", "__weakref__")
 
     def __eq__(self, other):
-        return self.hash == other.hash
+        if isinstance(other, Block):
+            return self.hash == other.hash
+        log.warning("compare with {} by {}".format(self, other), exc_info=True)
+        return False
 
     def __hash__(self):
         return hash(self.hash)
 
     def __repr__(self):
         return "<Block {} {} {} {} score={} txs={}>".format(
-            self.height, C.consensus2name[self.flag], "ORPHAN" if self.f_orphan else "",
-            self.hash.hex(), round(self.score, 4), len(self.txs))
+            self.height, C.consensus2name[self.flag], "ORPHAN" if self.f_orphan else "", self.hash.hex(),
+            round(self.score, 4), len(self.txs))
 
     def __init__(self):
         self.b = None
@@ -82,13 +81,8 @@ class Block:
         return self
 
     def serialize(self):
-        self.b = struct_block.pack(
-            self.version,
-            self.previous_hash,
-            self.merkleroot,
-            self.time,
-            self.bits,
-            self.nonce)
+        self.b = struct_block.pack(self.version, self.previous_hash, self.merkleroot, self.time, self.bits,
+                                   self.nonce)
         self.hash = sha256(sha256(self.b).digest()).digest()
         assert len(self.b) == 80, 'Not correct header size [{}!={}]'.format(len(self.b), 80)
 
@@ -115,8 +109,8 @@ class Block:
         r['f_orphan'] = self.f_orphan
         r['recode_flag'] = self.recode_flag
         r['height'] = self.height
-        r['difficulty'] = self.difficulty
-        r['fixed_difficulty'] = round(self.difficulty / self.bias, 8)
+        r['difficulty'] = round(self.difficulty / 100000000, 8)
+        r['fixed_difficulty'] = round(self.difficulty / self.bias / 100000000, 8)
         r['score'] = round(self.score, 8)
         r['flag'] = C.consensus2name[self.flag]
         r['merkleroot'] = self.merkleroot.hex() if self.merkleroot else None
@@ -138,7 +132,7 @@ class Block:
     @property
     def score(self):
         # fixed_diff = difficulty / bias
-        return log(max(1.0, self.inner_score * self.difficulty / self.bias * 1000000))
+        return log2(max(1.0, self.inner_score * self.difficulty / self.bias))
 
     @property
     def difficulty(self):
@@ -170,14 +164,14 @@ class Block:
         return int(MAX_256_INT / (difficulty*100000000)).to_bytes(32, 'little')
 
     def target2diff(self):
-        self._difficulty = round((MAX_256_INT // int.from_bytes(self.target_hash, 'little')) / 1000000, 8)
+        self._difficulty = MAX_256_INT // int.from_bytes(self.target_hash, 'little')
 
     def bits2target(self):
         target = bits2target(self.bits)
         self.target_hash = target.to_bytes(32, 'little')
 
     def work2diff(self):
-        self._work_difficulty = round((MAX_256_INT // int.from_bytes(self.work_hash, 'little')) / 1000000, 8)
+        self._work_difficulty = MAX_256_INT // int.from_bytes(self.work_hash, 'little')
 
     def pow_check(self, extra_target=None):
         if extra_target:
@@ -196,7 +190,9 @@ class Block:
         while len(hash_list) > 1:
             if len(hash_list) % 2:
                 hash_list.append(hash_list[-1])
-            hash_list = [sha256(sha256(hash_list[i] + hash_list[i + 1]).digest()).digest()
-                         for i in range(0, len(hash_list), 2)]
+            hash_list = [
+                sha256(sha256(hash_list[i] + hash_list[i + 1]).digest()).digest()
+                for i in range(0, len(hash_list), 2)
+            ]
         self.merkleroot = hash_list[0]
         self.serialize()

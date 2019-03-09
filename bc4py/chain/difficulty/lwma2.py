@@ -30,14 +30,14 @@ def params(block_span=600):
     # height -1 = most recently solved block number
     # target  = 1/difficulty/2^x where x is leading zeros in coin's max_target, I believe
     # Recommended N:
-    N = int(45*(600/T) ** 0.3)
+    N = int(45 * (600 / T)**0.3)
 
     # To get a more accurate solvetime to within +/- ~0.2%, use an adjustment factor.
     # This technique has been shown to be accurate in 4 coins.
     # In a formula:
     # [edit by zawy: since he's using target method, adjust should be 0.998. This was my mistake. ]
-    adjust = 0.9989 ** (500/N)
-    K = int((N+1)/2 * adjust * T)
+    adjust = 0.9989**(500 / N)
+    K = int((N+1) / 2 * adjust * T)
 
     # Bitcoin_gold T=600, N=45, K=13632
     return N, K
@@ -45,7 +45,8 @@ def params(block_span=600):
 
 MAX_BITS = 0x1f0fffff
 MAX_TARGET = bits2target(MAX_BITS)
-GENESIS_PREVIOUS_HASH = b'\xff'*32
+GENESIS_PREVIOUS_HASH = b'\xff' * 32
+MAX_SEARCH_BLOCKS = 1000
 
 
 @lru_cache(maxsize=512)
@@ -66,7 +67,7 @@ def get_bits_by_hash(previous_hash, consensus):
     timestamp = list()
     target = list()
     j = 0
-    while True:
+    for _ in range(MAX_SEARCH_BLOCKS):
         target_block = builder.get_block(target_hash)
         if target_block is None:
             return MAX_BITS, MAX_TARGET
@@ -81,19 +82,31 @@ def get_bits_by_hash(previous_hash, consensus):
         target_hash = target_block.previous_hash
         if target_hash == GENESIS_PREVIOUS_HASH:
             return MAX_BITS, MAX_TARGET
+    else:
+        # search too many block
+        if len(target) == 0:
+            # not found any mined blocks
+            return MAX_BITS, MAX_TARGET
+        else:
+            # May have been a sudden difficulty raise
+            most_low_diff_target = max(target)
+            most_low_diff_bits = target2bits(most_low_diff_target)
+            return most_low_diff_bits, most_low_diff_target
 
     sum_target = t = j = 0
     for i in range(N):
-        solve_time = timestamp[i+1] - timestamp[i]
+        solve_time = timestamp[i + 1] - timestamp[i]
         j += 1
         t += solve_time * j
-        sum_target += target[i+1]
+        sum_target += target[i + 1]
 
     # Keep t reasonable in case strange solvetimes occurred.
     if t < N * K // 3:
         t = N * K // 3
 
     new_target = t * sum_target // K // N // N
+    if MAX_TARGET < new_target:
+        return MAX_BITS, MAX_TARGET
 
     # convert new target to bits
     new_bits = target2bits(new_target)
@@ -114,7 +127,7 @@ def get_bias_by_hash(previous_hash, consensus):
     base_difficulty_sum = MAX_TARGET * N
     target_diffs = list()
     target_hash = previous_hash
-    while True:
+    for _ in range(MAX_SEARCH_BLOCKS):
         target_block = builder.get_block(target_hash)
         if target_block is None:
             return 1.0
@@ -122,9 +135,12 @@ def get_bias_by_hash(previous_hash, consensus):
         if target_hash == GENESIS_PREVIOUS_HASH:
             return 1.0
         elif target_block.flag == consensus and N > len(target_diffs):
-            target_diffs.append(bits2target(target_block.bits) * (N-len(target_diffs)))
+            target_diffs.append(bits2target(target_block.bits) * (N - len(target_diffs)))
         elif len(target_diffs) >= N:
             break
+    else:
+        # search too many block
+        return 1.0
 
     bias = base_difficulty_sum / sum(target_diffs)
     if Debug.F_SHOW_DIFFICULTY:

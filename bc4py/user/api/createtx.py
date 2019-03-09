@@ -13,7 +13,6 @@ from binascii import a2b_hex
 from nem_ed25519 import public_key, get_address, sign
 from time import time
 import msgpack
-import json
 
 
 def type2message(message_type, message):
@@ -25,8 +24,6 @@ def type2message(message_type, message):
         return a2b_hex(message)
     elif message_type == C.MSG_MSGPACK:
         return msgpack.packb(message, use_bin_type=True)
-    elif message_type == C.MSG_JSON:
-        return json.dumps(message).encode()
     elif message_type == C.MSG_HASHLOCKED:
         return a2b_hex(message)
     else:
@@ -52,23 +49,23 @@ async def create_raw_tx(request):
             input_tx = tx_builder.get_tx(txhash)
             address, coin_id, amount = input_tx.outputs[txindex]
             input_address.add(address)
-        tx = TX.from_dict(tx={
-            'version': post.get('version', __chain_version__),
-            'type': post.get('type', C.TX_TRANSFER),
-            'time': publish_time,
-            'deadline': deadline_time,
-            'inputs': inputs,
-            'outputs': post.get('outputs', list()),
-            'gas_price': post.get('gas_price', V.COIN_MINIMUM_PRICE),
-            'gas_amount': 0,
-            'message_type': message_type,
-            'message': message})
+        tx = TX.from_dict(
+            tx={
+                'version': post.get('version', __chain_version__),
+                'type': post.get('type', C.TX_TRANSFER),
+                'time': publish_time,
+                'deadline': deadline_time,
+                'inputs': inputs,
+                'outputs': post.get('outputs', list()),
+                'gas_price': post.get('gas_price', V.COIN_MINIMUM_PRICE),
+                'gas_amount': 0,
+                'message_type': message_type,
+                'message': message
+            })
         require_gas = tx.size + len(input_address) * C.SIGNATURE_GAS
         tx.gas_amount = post.get('gas_amount', require_gas)
         tx.serialize()
-        return web_base.json_res({
-            'tx': tx.getinfo(),
-            'hex': tx.b.hex()})
+        return web_base.json_res({'tx': tx.getinfo(), 'hex': tx.b.hex()})
     except Exception:
         return web_base.error_res()
 
@@ -93,10 +90,7 @@ async def sign_raw_tx(request):
                     raise BlockChainError('Not found secret key "{}"'.format(address))
                 tx.signature.append(other_pairs[address])
         data = tx.getinfo()
-        return web_base.json_res({
-            'hash': data['hash'],
-            'signature': data['signature'],
-            'hex': tx.b.hex()})
+        return web_base.json_res({'hash': data['hash'], 'signature': data['signature'], 'hex': tx.b.hex()})
     except Exception:
         return web_base.error_res()
 
@@ -117,7 +111,8 @@ async def broadcast_tx(request):
             'gas_amount': new_tx.gas_amount,
             'gas_price': new_tx.gas_price,
             'fee': new_tx.gas_amount * new_tx.gas_price,
-            'time': round(time() - start, 3)})
+            'time': round(time() - start, 3)
+        })
     except Exception:
         return web_base.error_res()
 
@@ -130,7 +125,7 @@ async def send_from_user(request):
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         cur = db.cursor()
         try:
-            from_name = post.get('from', C.ANT_NAME_UNKNOWN)
+            from_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
             from_id = read_name2user(from_name, cur)
             to_address = post['address']
             coin_id = int(post.get('coin_id', 0))
@@ -156,7 +151,8 @@ async def send_from_user(request):
                 'gas_amount': new_tx.gas_amount,
                 'gas_price': new_tx.gas_price,
                 'fee': new_tx.gas_amount * new_tx.gas_price,
-                'time': round(time() - start, 3)})
+                'time': round(time() - start, 3)
+            })
         except Exception as e:
             db.rollback()
             return web_base.error_res()
@@ -170,7 +166,7 @@ async def send_many_user(request):
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         cur = db.cursor()
         try:
-            user_name = post.get('from', C.ANT_NAME_UNKNOWN)
+            user_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
             user_id = read_name2user(user_name, cur)
             send_pairs = list()
             for address, coin_id, amount in post['pairs']:
@@ -193,7 +189,8 @@ async def send_many_user(request):
                 'gas_amount': new_tx.gas_amount,
                 'gas_price': new_tx.gas_price,
                 'fee': new_tx.gas_amount * new_tx.gas_price,
-                'time': round(time() - start, 3)})
+                'time': round(time() - start, 3)
+            })
         except Exception as e:
             db.rollback()
             return web_base.error_res()
@@ -205,12 +202,17 @@ async def issue_mint_tx(request):
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         cur = db.cursor()
         try:
-            user_name = post.get('from', C.ANT_NAME_UNKNOWN)
+            user_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
             sender = read_name2user(user_name, cur)
             mint_id, tx = issue_mintcoin(
-                name=post['name'], unit=post['unit'], digit=post.get('digit', 8),
-                amount=post['amount'], cur=cur, description=post.get('description', None),
-                image=post.get('image', None), additional_issue=post.get('additional_issue', True),
+                name=post['name'],
+                unit=post['unit'],
+                digit=post.get('digit', 8),
+                amount=post['amount'],
+                cur=cur,
+                description=post.get('description', None),
+                image=post.get('image', None),
+                additional_issue=post.get('additional_issue', True),
                 sender=sender)
             if not send_newtx(new_tx=tx, outer_cur=cur):
                 raise BlockChainError('Failed to send new tx.')
@@ -221,7 +223,8 @@ async def issue_mint_tx(request):
                 'gas_price': tx.gas_price,
                 'fee': tx.gas_amount * tx.gas_price,
                 'time': round(time() - start, 3),
-                'mint_id': mint_id})
+                'mint_id': mint_id
+            })
         except Exception:
             return web_base.error_res()
 
@@ -232,11 +235,16 @@ async def change_mint_tx(request):
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         cur = db.cursor()
         try:
-            user_name = post.get('from', C.ANT_NAME_UNKNOWN)
+            user_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
             sender = read_name2user(user_name, cur)
             tx = change_mintcoin(
-                mint_id=post['mint_id'], cur=cur, amount=post.get('amount'), description=post.get('description'),
-                image=post.get('image'), setting=post.get('setting'), new_address=post.get('new_address'),
+                mint_id=post['mint_id'],
+                cur=cur,
+                amount=post.get('amount'),
+                description=post.get('description'),
+                image=post.get('image'),
+                setting=post.get('setting'),
+                new_address=post.get('new_address'),
                 sender=sender)
             if not send_newtx(new_tx=tx, outer_cur=cur):
                 raise BlockChainError('Failed to send new tx.')
@@ -246,7 +254,8 @@ async def change_mint_tx(request):
                 'gas_amount': tx.gas_amount,
                 'gas_price': tx.gas_price,
                 'fee': tx.gas_amount * tx.gas_price,
-                'time': round(time() - start, 3)})
+                'time': round(time() - start, 3)
+            })
         except Exception:
             return web_base.error_res()
 
@@ -258,5 +267,5 @@ __all__ = [
     "send_from_user",
     "send_many_user",
     "issue_mint_tx",
-    "change_mint_tx"
+    "change_mint_tx",
 ]

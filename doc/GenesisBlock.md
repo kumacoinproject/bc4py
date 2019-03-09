@@ -16,24 +16,25 @@ import_keystone(passphrase='hello python')
  
 # consensus
 consensus = {
-    C.BLOCK_POS: 10,  # Staking algo
-    C.BLOCK_YES_POW: 30,  # Specified for CPU algo
-    C.BLOCK_X11_POW: 30,  # Specified for ASIC algo
-    C.BLOCK_HMQ_POW: 30}  # Specified for GPU algo
+    C.BLOCK_COIN_POS: 6,  # Coin staking
+    C.BLOCK_CAP_POS: 6,  # Capacity staking
+    C.BLOCK_FLK_POS: 7,  # fund-lock staking
+    C.BLOCK_YES_POW: 27,  # Yespower mining
+    C.BLOCK_X11_POW: 27,  # X11 mining
+    C.BLOCK_X16R_POW: 27}  # X16R mining
  
 # create first block
-genesis_block = create_genesis_block(
-    all_supply=10000000000 * 100000000,  # 10 billion total supply
+genesis_block, genesis_params = create_genesis_block(
+    mining_supply=10000000000 * 100000000,  # 10 billion total supply
     block_span=20,  # block time
-    prefix=b'\x68',  # normal address prefix "N"
-    contract_prefix=b'\x12',  # contract address prefix "C"
     digit_number=8,  # base currency digit
     minimum_price=100,  # minimum gas price
     consensus=consensus,  # mining consensus, key is algo value is ratio
+    genesis_msg="for test params",  # genesis message
     premine=None)  # premine [(address, coin_id, amount), ...]
   
 # check genesis block
-set_blockchain_params(genesis_block)
+set_blockchain_params(genesis_block, genesis_params)
 print(genesis_block.getinfo())
-create_boot_file(genesis_block)
+create_boot_file(genesis_block, genesis_params)
 ```

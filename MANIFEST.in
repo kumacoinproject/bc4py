@@ -1,2 +1,3 @@
 include requirements.txt
 include requirements-c.txt
+include .style.yapf

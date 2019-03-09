@@ -4,7 +4,6 @@ from bc4py.chain.difficulty import get_bits_by_hash
 from logging import getLogger
 from time import time
 
-
 log = getLogger('bc4py')
 
 
@@ -22,11 +21,10 @@ def check_block(block: Block):
 
 def check_block_time(block: Block, fix_delay):
     # 新規受け入れ時のみ検査
-    delay = int(time()-fix_delay) - block.create_time
+    delay = int(time() - fix_delay) - block.create_time
     create_time = block.create_time - V.BLOCK_GENESIS_TIME
-    if C.ACCEPT_MARGIN_TIME < abs(block.time-create_time):
-        raise BlockChainError('Block time is out of range [{}<{}-{}={},{}]'
-                              .format(C.ACCEPT_MARGIN_TIME, block.time, create_time, block.time - create_time, delay))
+    if C.ACCEPT_MARGIN_TIME < abs(block.time - create_time):
+        raise BlockChainError('Block time is out of range [{}<{}-{}={},{}]'.format(
+            C.ACCEPT_MARGIN_TIME, block.time, create_time, block.time - create_time, delay))
     if C.ACCEPT_MARGIN_TIME < delay:
-        log.warning("Long delay, for check new block. [{}<{}]"
-                        .format(C.ACCEPT_MARGIN_TIME, delay))
+        log.warning("Long delay, for check new block. [{}<{}]".format(C.ACCEPT_MARGIN_TIME, delay))

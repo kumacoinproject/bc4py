@@ -28,6 +28,12 @@ Check before issue
 * Documents, already written in documents?
 * Question, easily solved if you search by Google or Github?
 
+Coding style
+----
+* please use for formatter [yapf](https://github.com/google/yapf)
+* create patch `yapf -d -r -p bc4py > yapf.patch`
+* affect patch `patch -p0 < yapf.patch`
+
 In Japanese
 ----
 日本人なせいか英語で書いていたらよくわからなくなったので要約。
@@ -37,3 +43,4 @@ In Japanese
 * プルリクエストへのMarge可否がコア開発者より返信されます。後方互換性に注意して下さい。
 * コントリビュータは、プルリクエスト/イシュー作成前にご確認よろしくお願いします。
 * Alpha版ではこの規則に従いません。
+* Coding styleをフォーマッターで統一しましょう。

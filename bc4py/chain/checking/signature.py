@@ -1,4 +1,4 @@
-from bc4py.config import max_workers, executor, V
+from bc4py.config import executor, executor_lock, V
 from nem_ed25519.key import get_address
 from nem_ed25519.signature import verify
 from threading import Lock
@@ -7,7 +7,6 @@ from logging import getLogger
 from more_itertools import chunked
 
 log = getLogger('bc4py')
-
 
 verify_cashe = dict()  # {(pubkey, signature, txhash): address, ...}
 limit_time = time()
@@ -69,13 +68,14 @@ def batch_sign_cashe(txs):
                 if (pubkey, signature, tx.hash) not in verify_cashe:
                     task_list.append((pubkey, signature, tx.hash, tx.b))
                     verify_cashe[(pubkey, signature, tx.hash)] = None
-        # throw verify
-        if len(task_list) == 0:
-            return
-        else:
+    # throw verify
+    if len(task_list) == 0:
+        return
+    else:
+        with executor_lock:
             for task in chunked(task_list, 25):
                 executor.submit(_verify, task, prefix=V.BLOCK_PREFIX).add_done_callback(_callback)
-            log.debug("Put task {}sign to pool.".format(len(task_list)))
+        log.debug("Put task {}sign to pool.".format(len(task_list)))
 
 
 def get_signed_cks(tx):
@@ -102,15 +102,15 @@ def get_signed_cks(tx):
                     failed -= 1
                     continue
                 elif len(signed_cks) < len(tx.signature):
-                    log.debug('Cannot get all signature, throw task. signed={}, include={}'
-                                    .format(signed_cks, len(tx.signature)))
+                    log.debug('Cannot get all signature, throw task. signed={}, include={}'.format(
+                        signed_cks, len(tx.signature)))
                     batch_sign_cashe([tx])
                     failed -= 1
                     sleep(0.02)
                     continue
                 else:
-                    raise Exception('Something wrong. signed={}, include={}'
-                                    .format(signed_cks, len(tx.signature)))
+                    raise Exception('Something wrong. signed={}, include={}'.format(
+                        signed_cks, len(tx.signature)))
         except RuntimeError:
             # dictionary changed size during iteration
             failed -= 1
@@ -135,5 +135,5 @@ def delete_signed_cashe(txhash_set):
 __all__ = [
     "batch_sign_cashe",
     "get_signed_cks",
-    "delete_signed_cashe"
+    "delete_signed_cashe",
 ]

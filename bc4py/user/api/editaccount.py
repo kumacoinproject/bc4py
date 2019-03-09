@@ -13,7 +13,6 @@ from logging import getLogger
 
 log = getLogger('bc4py')
 
-
 language = 'english'
 words2length = {12: 128, 15: 160, 18: 192, 21: 224, 24: 256}
 loop = asyncio.get_event_loop()
@@ -32,6 +31,7 @@ async def lock_wallet(request):
 
 
 async def unlock_wallet(request):
+
     async def timeout_now():
         await asyncio.sleep(timeout)
         V.BIP44_BRANCH_SEC_KEY = None
@@ -78,8 +78,11 @@ async def create_wallet(request):
         pri = bip.ExtendedKey(private=True)
         pub = bip.ExtendedKey(private=False)
         return web_base.json_res({
-            'mnemonic': mnemonic, 'encrypted': bool(passphrase),
-            'private_key': pri, 'public_key': pub})
+            'mnemonic': mnemonic,
+            'encrypted': bool(passphrase),
+            'private_key': pri,
+            'public_key': pub
+        })
     except Exception:
         return web_base.error_res()
 
@@ -91,7 +94,7 @@ async def import_private_key(request):
         post = await web_base.content_type_json_check(request)
         sk = a2b_hex(post['private_key'])
         ck = post['address']
-        name = post.get('account', C.ANT_NAME_UNKNOWN)
+        name = post.get('account', C.account2name[C.ANT_UNKNOWN])
         check_ck = get_address(pk=public_key(sk=sk), prefix=V.BLOCK_PREFIX)
         if ck != check_ck:
             return web_base.error_res('Don\'t match, {}!={}'.format(ck, check_ck))

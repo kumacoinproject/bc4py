@@ -3,7 +3,7 @@ from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.chain.checking import new_insert_block, check_tx, check_tx_time
 from bc4py.database.builder import builder, tx_builder
-from bc4py.user.network.update import update_mining_staking_all_info
+from bc4py.user.network.update import update_info_for_generate
 from bc4py.user.network.directcmd import DirectCmd
 from bc4py.user.network.connection import ask_node
 from logging import getLogger
@@ -30,7 +30,7 @@ class BroadcastCmd:
             return False
         try:
             if new_insert_block(new_block, time_check=True):
-                update_mining_staking_all_info()
+                update_info_for_generate()
                 log.info("Accept new block {}".format(new_block))
                 return True
             else:
@@ -55,11 +55,11 @@ class BroadcastCmd:
             else:
                 tx_builder.put_unconfirmed(tx=new_tx)
             log.info("Accept new tx {}".format(new_tx))
-            update_mining_staking_all_info(u_block=False, u_unspent=False, u_unconfirmed=True)
+            update_info_for_generate(u_block=False, u_unspent=False, u_unconfirmed=True)
             return True
         except BlockChainError as e:
             error = 'Failed accept new tx "{}"'.format(e)
-            log.error(error)
+            log.error(error, exc_info=True)
             return False
         except Exception:
             error = "Failed accept new tx"
@@ -73,16 +73,13 @@ def fill_newblock_info(data):
     proof: TX = data['proof']
     new_block.txs.append(proof)
     new_block.flag = data['block_flag']
-    # Check the block is correct info
-    if not new_block.pow_check():
-        raise BlockChainError('Proof of work is not satisfied.')
     my_block = builder.get_block(new_block.hash)
     if my_block:
         raise BlockChainError('Already inserted block {}'.format(my_block))
     before_block = builder.get_block(new_block.previous_hash)
     if before_block is None:
-        log.debug("Cannot find beforeBlock {}, try to ask outside node."
-                      .format(new_block.previous_hash.hex()))
+        log.debug("Cannot find beforeBlock {}, try to ask outside node.".format(
+            new_block.previous_hash.hex()))
         # not found beforeBlock, need to check other node have the the block
         new_block.inner_score *= 0.70  # unknown previousBlock, score down
         before_block = make_block_by_node(blockhash=new_block.previous_hash)
@@ -93,6 +90,10 @@ def fill_newblock_info(data):
     new_height = before_block.height + 1
     proof.height = new_height
     new_block.height = new_height
+    # work check
+    # TODO: correct position?
+    if not new_block.pow_check():
+        raise BlockChainError('Proof of work is not satisfied.')
     # Append general txs
     for txhash in data['txs'][1:]:
         tx = tx_builder.get_tx(txhash)

@@ -1,36 +1,33 @@
-#!/user/env python3
-# -*- coding: utf-8 -*-
-
 from bc4py import __chain_version__
 from bc4py.config import C, V, BlockChainError
 from hashlib import sha256
 from time import time
+from logging import getLogger
 import struct
 import msgpack
-import json
 
-
+log = getLogger('bc4py')
 struct_tx_header = struct.Struct('<IIIIQqBBBI')
 struct_inputs = struct.Struct('<32sB')
 struct_outputs = struct.Struct('<40sIQ')
 
 
 class TX:
-    __slots__ = (
-        "b", "hash", "height", "pos_amount",
-        "version", "type", "time", "deadline", "inputs", "outputs",
-        "gas_price", "gas_amount", "message_type", "message",
-        "signature", "R", "recode_flag", "create_time", "__weakref__")
+    __slots__ = ("b", "hash", "height", "pos_amount", "version", "type", "time", "deadline", "inputs",
+                 "outputs", "gas_price", "gas_amount", "message_type", "message", "signature", "R",
+                 "recode_flag", "create_time", "__weakref__")
 
     def __eq__(self, other):
-        return self.hash == other.hash
+        if isinstance(other, TX):
+            return self.hash == other.hash
+        log.warning("compare with {} by {}".format(self, other), exc_info=True)
+        return False
 
     def __hash__(self):
         return hash(self.hash)
 
     def __repr__(self):
-        return "<TX {} {} {}>".format(
-            self.height, C.txtype2name.get(self.type, None), self.hash.hex())
+        return "<TX {} {} {}>".format(self.height, C.txtype2name.get(self.type, None), self.hash.hex())
 
     def __init__(self):
         self.b = None
@@ -51,7 +48,7 @@ class TX:
         self.message_type = None  # 2bytes int
         self.message = None  # 0~256**4 bytes bin
         # for validation
-        self.signature = list()    # [(pubkey, signature),.. ]
+        self.signature = list()  # [(pubkey, signature),.. ]
         self.R = b''  # use for hash-locked
         # don't use for process
         self.recode_flag = None
@@ -74,7 +71,7 @@ class TX:
         self.inputs = tx.get('inputs', list())
         self.outputs = tx.get('outputs', list())
         self.gas_price = tx.get('gas_price', V.COIN_MINIMUM_PRICE)
-        self.gas_amount = tx['gas_amount']
+        self.gas_amount = tx.get('gas_amount', 0)
         self.message_type = tx.get('message_type', C.MSG_NONE)
         self.message = tx.get('message', b'')
         self.serialize()
@@ -87,9 +84,9 @@ class TX:
         # 構造
         # [version I]-[type I]-[time I]-[deadline I]-[gas_price Q]-[gas_amount q]-[msg_type B]-
         # -[input_len B]-[output_len B]-[msg_len I]-[inputs]-[outputs]-[msg]
-        self.b = struct_tx_header.pack(
-            self.version, self.type, self.time, self.deadline, self.gas_price, self.gas_amount,
-            self.message_type, len(self.inputs), len(self.outputs), len(self.message))
+        self.b = struct_tx_header.pack(self.version, self.type, self.time, self.deadline,
+                                       self.gas_price, self.gas_amount, self.message_type, len(self.inputs),
+                                       len(self.outputs), len(self.message))
         # inputs
         for txhash, txindex in self.inputs:
             self.b += struct_inputs.pack(txhash, txindex)
@@ -117,7 +114,7 @@ class TX:
             self.outputs.append((address.decode(), coin_id, amount))
             pos += struct_outputs.size
         # msg
-        self.message = self.b[pos:pos+msg_len]
+        self.message = self.b[pos:pos + msg_len]
         pos += msg_len
         if len(self.b) != pos - first_pos:
             if f_raise:
@@ -154,8 +151,6 @@ class TX:
             return self.message.decode()
         elif self.message_type == C.MSG_BYTE:
             return self.message.hex()
-        elif self.message_type == C.MSG_JSON:
-            return json.loads(self.message)
         elif self.message_type == C.MSG_MSGPACK:
             return msgpack.unpackb(self.message, raw=True, encoding='utf8')
         elif self.message_type == C.MSG_HASHLOCKED:

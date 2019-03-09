@@ -1,44 +1,61 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.chain.tx import TX
 from bc4py.database.mintcoin import *
-from bc4py.database.account import create_new_user_keypair, read_user2name, insert_log
+from bc4py.database.account import create_new_user_keypair, insert_log
 from bc4py.user import Balance, Accounting
 from bc4py.user.txcreation.utils import *
 import random
 import msgpack
 
-
 MINTCOIN_DUMMY_ADDRESS = '_____MINTCOIN_____DUMMY_____ADDRESS_____'
 
 
-def issue_mintcoin(name, unit, digit, amount, cur, description=None, image=None, additional_issue=True,
-                   change_address=True, gas_price=None, sender=C.ANT_UNKNOWN, retention=10800):
+def issue_mintcoin(name,
+                   unit,
+                   digit,
+                   amount,
+                   cur,
+                   description=None,
+                   image=None,
+                   additional_issue=True,
+                   change_address=True,
+                   gas_price=None,
+                   sender=C.ANT_UNKNOWN,
+                   retention=10800):
     mint_id = get_new_coin_id()
-    sender_name = read_user2name(user=sender, cur=cur)
-    mint_address = create_new_user_keypair(name=sender_name, cur=cur)
-    params = {"name": name, "unit": unit, "digit": digit,
-              "address": mint_address, "description": description, "image": image}
+    mint_address = create_new_user_keypair(user=sender, cur=cur)
+    params = {
+        "name": name,
+        "unit": unit,
+        "digit": digit,
+        "address": mint_address,
+        "description": description,
+        "image": image
+    }
     setting = {"additional_issue": additional_issue, "change_address": change_address}
     m_before = get_mintcoin_object(coin_id=mint_id)
     result = check_mintcoin_new_format(m_before=m_before, new_params=params, new_setting=setting)
     if isinstance(result, str):
         raise BlockChainError('check_mintcoin_new_format(): {}'.format(result))
     msg_body = msgpack.packb((mint_id, params, setting), use_bin_type=True)
-    tx = TX.from_dict(tx={
-        'type': C.TX_MINT_COIN,
-        'inputs': list(),
-        'outputs': [(MINTCOIN_DUMMY_ADDRESS, 0, amount)],
-        'gas_price': gas_price or V.COIN_MINIMUM_PRICE,
-        'gas_amount': 1,
-        'message_type': C.MSG_MSGPACK,
-        'message': msg_body})
+    tx = TX.from_dict(
+        tx={
+            'type': C.TX_MINT_COIN,
+            'inputs': list(),
+            'outputs': [(MINTCOIN_DUMMY_ADDRESS, 0, amount)],
+            'gas_price': gas_price or V.COIN_MINIMUM_PRICE,
+            'gas_amount': 1,
+            'message_type': C.MSG_MSGPACK,
+            'message': msg_body
+        })
     tx.update_time(retention)
     additional_gas = C.MINTCOIN_GAS
     tx.gas_amount = tx.size + C.SIGNATURE_GAS + additional_gas
     tx.serialize()
     # fill unspents
     fee_coin_id = 0
-    input_address = fill_inputs_outputs(tx=tx, cur=cur, fee_coin_id=fee_coin_id, additional_gas=additional_gas)
+    input_address = fill_inputs_outputs(
+        tx=tx, cur=cur, fee_coin_id=fee_coin_id, additional_gas=additional_gas)
     # input_address.add(mint_address)
     fee_coins = Balance(coin_id=fee_coin_id, amount=tx.gas_price * tx.gas_amount)
     # check amount
@@ -54,15 +71,23 @@ def issue_mintcoin(name, unit, digit, amount, cur, description=None, image=None,
     movements = Accounting()
     minting_coins = Balance(mint_id, amount)
     movements[sender] += minting_coins
-    movements[C.ANT_OUTSIDE] -= minting_coins
+    # movements[C.ANT_OUTSIDE] -= minting_coins
     movements[sender] -= fee_coins
-    movements[C.ANT_OUTSIDE] += fee_coins
+    # movements[C.ANT_OUTSIDE] += fee_coins
     insert_log(movements, cur, tx.type, tx.time, tx.hash)
     return mint_id, tx
 
 
-def change_mintcoin(mint_id, cur, amount=None, description=None, image=None, setting=None, new_address=None,
-                    gas_price=None, sender=C.ANT_UNKNOWN, retention=10800):
+def change_mintcoin(mint_id,
+                    cur,
+                    amount=None,
+                    description=None,
+                    image=None,
+                    setting=None,
+                    new_address=None,
+                    gas_price=None,
+                    sender=C.ANT_UNKNOWN,
+                    retention=10800):
     assert amount or description or image or setting or new_address
     params = dict()
     if description:
@@ -82,12 +107,14 @@ def change_mintcoin(mint_id, cur, amount=None, description=None, image=None, set
     if isinstance(result, str):
         raise BlockChainError('check_mintcoin_new_format(): {}'.format(result))
     msg_body = msgpack.packb((mint_id, params, setting), use_bin_type=True)
-    tx = TX.from_dict(tx={
-        'type': C.TX_MINT_COIN,
-        'gas_price': gas_price or V.COIN_MINIMUM_PRICE,
-        'gas_amount': 1,
-        'message_type': C.MSG_MSGPACK,
-        'message': msg_body})
+    tx = TX.from_dict(
+        tx={
+            'type': C.TX_MINT_COIN,
+            'gas_price': gas_price or V.COIN_MINIMUM_PRICE,
+            'gas_amount': 1,
+            'message_type': C.MSG_MSGPACK,
+            'message': msg_body
+        })
     if amount:
         tx.outputs.append((MINTCOIN_DUMMY_ADDRESS, 0, amount))
         send_coins = Balance(0, amount)
@@ -101,7 +128,8 @@ def change_mintcoin(mint_id, cur, amount=None, description=None, image=None, set
     tx.serialize()
     # fill unspents
     fee_coin_id = 0
-    input_address = fill_inputs_outputs(tx=tx, cur=cur, fee_coin_id=fee_coin_id, additional_gas=additional_gas)
+    input_address = fill_inputs_outputs(
+        tx=tx, cur=cur, fee_coin_id=fee_coin_id, additional_gas=additional_gas)
     input_address.add(m_before.address)
     fee_coins = Balance(coin_id=fee_coin_id, amount=tx.gas_price * tx.gas_amount)
     # check amount
@@ -116,9 +144,9 @@ def change_mintcoin(mint_id, cur, amount=None, description=None, image=None, set
     # movement
     movements = Accounting()
     movements[sender] += minting_coins
-    movements[C.ANT_OUTSIDE] -= minting_coins
+    # movements[C.ANT_OUTSIDE] -= minting_coins
     movements[sender] -= fee_coins
-    movements[C.ANT_OUTSIDE] += fee_coins
+    # movements[C.ANT_OUTSIDE] += fee_coins
     insert_log(movements, cur, tx.type, tx.time, tx.hash)
     return tx
 
@@ -142,5 +170,5 @@ def replace_mint_dummy_address(tx, mint_address, mint_id, f_raise):
 
 __all__ = [
     "issue_mintcoin",
-    "change_mintcoin"
+    "change_mintcoin",
 ]

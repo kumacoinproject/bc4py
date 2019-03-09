@@ -21,7 +21,6 @@ log = getLogger('bc4py')
 # https://github.com/happynear/py-leveldb-windows
 # https://tangerina.jp/blog/leveldb-1.20-build/
 
-
 try:
     import plyvel
     is_plyvel = True
@@ -32,7 +31,6 @@ except ImportError:
     is_plyvel = False
     create_level_db = leveldb.LevelDB
     getLogger('leveldb').setLevel(INFO)
-
 
 struct_block = struct.Struct('>II32s80sBI')
 struct_tx = struct.Struct('>4IB')
@@ -49,8 +47,8 @@ ITER_ORDER = 'big'
 DB_VERSION = 3  # increase if you change database structure
 ZERO_FILLED_HASH = b'\x00' * 32
 DUMMY_VALIDATOR_ADDRESS = b'\x00' * 40
-database_tuple = ("_block", "_tx", "_used_index", "_block_index",
-                  "_address_index", "_coins", "_contract", "_validator")
+database_tuple = ("_block", "_tx", "_used_index", "_block_index", "_address_index", "_coins", "_contract",
+                  "_validator")
 # basic config
 db_config = {
     'full_address_index': True,  # all address index?
@@ -60,6 +58,7 @@ db_config = {
 
 
 class DataBase:
+
     def __init__(self, f_dummy=False, **kwargs):
         if f_dummy:
             return
@@ -150,13 +149,13 @@ class DataBase:
         b = bytes(b)
         height, _time, work, b_block, flag, tx_len = struct_block.unpack_from(b)
         idx = struct_block.size
-        assert len(b) == idx+tx_len, 'Not correct size. [{}={}]'.format(len(b), idx+tx_len)
+        assert len(b) == idx + tx_len, 'Not correct size. [{}={}]'.format(len(b), idx + tx_len)
         block = Block.from_binary(binary=b_block)
         block.height = height
         block.work_hash = work
         block.flag = flag
         # block.txs = [self.read_tx(b[idx+32*i:idx+32*i+32]) for i in range(tx_len//32)]
-        block.txs = [tx_builder.get_tx(b[idx+32*i:idx+32*i+32]) for i in range(tx_len//32)]
+        block.txs = [tx_builder.get_tx(b[idx + 32*i:idx + 32*i + 32]) for i in range(tx_len // 32)]
         return block
 
     def read_block_hash(self, height):
@@ -204,9 +203,9 @@ class DataBase:
         b = bytes(b)
         height, _time, bin_len, sign_len, r_len = struct_tx.unpack_from(b)
         assert struct_tx.size == 17
-        b_tx = b[17:17+bin_len]
-        b_sign = b[17+bin_len:17+bin_len+sign_len]
-        R = b[17+bin_len+sign_len:17+bin_len+sign_len+r_len]
+        b_tx = b[17:17 + bin_len]
+        b_sign = b[17 + bin_len:17 + bin_len + sign_len]
+        R = b[17 + bin_len + sign_len:17 + bin_len + sign_len + r_len]
         assert len(b) == 17+bin_len+sign_len, 'Wrong len [{}={}]'\
             .format(len(b), 17+bin_len+sign_len)
         tx = TX.from_binary(binary=b_tx)
@@ -245,8 +244,8 @@ class DataBase:
         f_batch = self.is_batch_thread()
         batch_copy = self.batch['_address_index'].copy() if self.batch else dict()
         b_address = address.encode()
-        start = b_address+b'\x00'*(32+1)
-        stop = b_address+b'\xff'*(32+1)
+        start = b_address + b'\x00' * (32+1)
+        stop = b_address + b'\xff' * (32+1)
         if is_plyvel:
             address_iter = self._address_index.iterator(start=start, stop=stop)
         else:
@@ -286,7 +285,8 @@ class DataBase:
             for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
                 if k.startswith(b_coin_id) and start <= k <= stop:
                     dummy, index = struct_coins.unpack(k)
-                    txhash, (params, setting) = v[:32], unpackb(v[32:], raw=True, use_list=False, encoding='utf8')
+                    txhash, (params, setting) = v[:32], unpackb(
+                        v[32:], raw=True, use_list=False, encoding='utf8')
                     yield index, txhash, params, setting
 
     def read_contract_iter(self, c_address, start_idx=None):
@@ -294,7 +294,7 @@ class DataBase:
         batch_copy = self.batch['_contract'].copy() if self.batch else dict()
         b_c_address = c_address.encode()
         # caution: iterator/RangeIter's result include start and stop, need to add 1.
-        start = b_c_address + ((start_idx+1).to_bytes(8, ITER_ORDER) if start_idx else b'\x00'*8)
+        start = b_c_address + ((start_idx + 1).to_bytes(8, ITER_ORDER) if start_idx else b'\x00' * 8)
         stop = b_c_address + b'\xff'*8
         if is_plyvel:
             contract_iter = self._contract.iterator(start=start, stop=stop)
@@ -320,13 +320,13 @@ class DataBase:
                     message = unpackb(raw_message, raw=True, use_list=False, encoding='utf8')
                     yield index, start_hash, finish_hash, message
 
-    def read_validator_iter(self, c_address, start_idx=None):
+    def read_validator_iter(self, v_address, start_idx=None):
         f_batch = self.is_batch_thread()
         batch_copy = self.batch['_validator'].copy() if self.batch else dict()
-        b_c_address = c_address.encode()
+        b_v_address = v_address.encode()
         # caution: iterator/RangeIter's result include start and stop, need to add 1.
-        start = b_c_address + ((start_idx+1).to_bytes(8, ITER_ORDER) if start_idx else b'\x00' * 8)
-        stop = b_c_address + b'\xff'*8
+        start = b_v_address + ((start_idx + 1).to_bytes(8, ITER_ORDER) if start_idx else b'\x00' * 8)
+        stop = b_v_address + b'\xff'*8
         # from database
         if is_plyvel:
             validator_iter = self._validator.iterator(start=start, stop=stop)
@@ -334,7 +334,7 @@ class DataBase:
             validator_iter = self._validator.RangeIter(key_from=start, key_to=stop)
         for k, v in validator_iter:
             k, v = bytes(k), bytes(v)
-            # KEY [c_address 40s]-[index unit8]
+            # KEY [v_address 40s]-[index unit8]
             # VALUE [new_address 40s]-[flag int1]-[txhash 32s]-[sig_diff int1]
             if f_batch and k in batch_copy and start <= k <= stop:
                 v = batch_copy[k]
@@ -348,7 +348,7 @@ class DataBase:
         # from memory
         if f_batch:
             for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
-                if k.startswith(b_c_address) and start <= k <= stop:
+                if k.startswith(b_v_address) and start <= k <= stop:
                     dummy, index = struct_validator_key.unpack(k)
                     new_address, flag, txhash, sig_diff = struct_validator_value.unpack(v)
                     if new_address == DUMMY_VALIDATOR_ADDRESS:
@@ -395,7 +395,8 @@ class DataBase:
     def write_coins(self, coin_id, txhash, params, setting):
         assert self.is_batch_thread(), 'Not created batch.'
         index = -1
-        for index, *dummy in self.read_coins_iter(coin_id=coin_id): pass
+        for index, *dummy in self.read_coins_iter(coin_id=coin_id):
+            pass
         index += 1
         k = coin_id.to_bytes(4, ITER_ORDER) + index.to_bytes(4, ITER_ORDER)
         v = txhash + packb((params, setting), use_bin_type=True)
@@ -411,32 +412,34 @@ class DataBase:
         last_index = None
         for last_index, *dummy in self.read_contract_iter(c_address=c_address, start_idx=index):
             pass
-        assert last_index is None, 'Not allow older ConcludeTX insert. my={} last={}'.format(index, last_index)
+        assert last_index is None, 'Not allow older ConcludeTX insert. my={} last={}'.format(
+            index, last_index)
         k = c_address.encode() + index.to_bytes(8, ITER_ORDER)
         v = start_tx.hash + finish_hash + packb(message, use_bin_type=True)
         self.batch['_contract'][k] = v
         log.debug("Insert new contract {} {}".format(c_address, index))
 
-    def write_validator(self, c_address, new_address, flag, tx, sign_diff):
+    def write_validator(self, v_address, new_address, flag, tx, sign_diff):
         assert self.is_batch_thread(), 'Not created batch.'
         include_block = self.read_block(blockhash=self.read_block_hash(height=tx.height))
         index = tx.height * 0xffffffff + include_block.txs.index(tx)
         # check newer index already inserted
         last_index = None
-        for last_index, *dummy in self.read_validator_iter(c_address=c_address, start_idx=index):
+        for last_index, *dummy in self.read_validator_iter(v_address=v_address, start_idx=index):
             pass
         assert last_index is None, 'Not allow older ValidatorEditTX insert. last={}'.format(last_index)
         if new_address is None:
             new_address = DUMMY_VALIDATOR_ADDRESS
         else:
             new_address = new_address.encode()
-        k = c_address.encode() + index.to_bytes(8, ITER_ORDER)
+        k = v_address.encode() + index.to_bytes(8, ITER_ORDER)
         v = struct_validator_value.pack(new_address, flag, tx.hash, sign_diff)
         self.batch['_validator'][k] = v
-        log.debug("Insert new validator {} {}".format(c_address, index))
+        log.debug("Insert new validator {} {}".format(v_address, index))
 
 
 class ChainBuilder:
+
     def __init__(self, cashe_limit=C.CASHE_LIMIT, batch_size=C.BATCH_SIZE):
         assert cashe_limit > batch_size, 'cashe_limit > batch_size.'
         self.cashe_limit = cashe_limit
@@ -476,10 +479,12 @@ class ChainBuilder:
         try:
             if genesis_block.hash != self.db.read_block_hash(0):
                 raise BlockBuilderError("Don't match genesis hash [{}!={}]".format(
-                    genesis_block.hash.hex(), self.db.read_block_hash(0).hex()))
+                    genesis_block.hash.hex(),
+                    self.db.read_block_hash(0).hex()))
             elif genesis_block != self.db.read_block(genesis_block.hash):
                 raise BlockBuilderError("Don't match genesis binary [{}!={}]".format(
-                    genesis_block.b.hex(), self.db.read_block(genesis_block.hash).b.hex()))
+                    genesis_block.b.hex(),
+                    self.db.read_block(genesis_block.hash).b.hex()))
         except Exception:
             # GenesisBlockしか無いのでDummyBlockを入れる処理
             self.root_block = Block()
@@ -499,18 +504,15 @@ class ChainBuilder:
             for height, blockhash in self.db.read_block_hash_iter(start_height=1):
                 block = self.db.read_block(blockhash)
                 if block.previous_hash != before_block.hash:
-                    raise BlockBuilderError("PreviousHash != BlockHash [{}!={}]"
-                                            .format(block, before_block))
+                    raise BlockBuilderError("PreviousHash != BlockHash [{}!={}]".format(block, before_block))
                 elif block.height != height:
-                    raise BlockBuilderError("BlockHeight != DBHeight [{}!={}]"
-                                            .format(block.height, height))
-                elif height != before_block.height+1:
-                    raise BlockBuilderError("DBHeight != BeforeHeight+1 [{}!={}+1]"
-                                            .format(height, before_block.height))
+                    raise BlockBuilderError("BlockHeight != DBHeight [{}!={}]".format(block.height, height))
+                elif height != before_block.height + 1:
+                    raise BlockBuilderError("DBHeight != BeforeHeight+1 [{}!={}+1]".format(
+                        height, before_block.height))
                 for tx in block.txs:
                     if tx.height != height:
-                        raise BlockBuilderError("TXHeight != BlockHeight [{}!{}]"
-                                                .format(tx.height, height))
+                        raise BlockBuilderError("TXHeight != BlockHeight [{}!{}]".format(tx.height, height))
                     # inputs
                     for txhash, txindex in tx.inputs:
                         input_tx = self.db.read_tx(txhash)
@@ -518,18 +520,22 @@ class ChainBuilder:
                         _coin_id, _amount, f_used = self.db.read_address_idx(address, txhash, txindex)
                         usedindex = self.db.read_usedindex(txhash)
                         if coin_id != _coin_id or amount != _amount:
-                            raise BlockBuilderError("Inputs, coin_id != _coin_id or amount != _amount [{}!{}] [{}!={}]"
-                                                    .format(coin_id, _coin_id, amount, _amount))
+                            raise BlockBuilderError(
+                                "Inputs, coin_id != _coin_id or amount != _amount [{}!{}] [{}!={}]".format(
+                                    coin_id, _coin_id, amount, _amount))
                         elif txindex not in usedindex:
-                            raise BlockBuilderError("Already used but unused. [{} not in {}]".format(txindex, usedindex))
+                            raise BlockBuilderError("Already used but unused. [{} not in {}]".format(
+                                txindex, usedindex))
                         elif not f_used:
-                            raise BlockBuilderError("Already used but unused flag. [{}:{}]".format(input_tx, txindex))
+                            raise BlockBuilderError("Already used but unused flag. [{}:{}]".format(
+                                input_tx, txindex))
                     # outputs
                     for index, (address, coin_id, amount) in enumerate(tx.outputs):
                         _coin_id, _amount, f_used = self.db.read_address_idx(address, tx.hash, index)
                         if coin_id != _coin_id or amount != _amount:
-                            raise BlockBuilderError("Outputs, coin_id != _coin_id or amount != _amount [{}!{}] [{}!={}]"
-                                                    .format(coin_id, _coin_id, amount, _amount))
+                            raise BlockBuilderError(
+                                "Outputs, coin_id != _coin_id or amount != _amount [{}!{}] [{}!={}]".format(
+                                    coin_id, _coin_id, amount, _amount))
                 # Block確認終了
                 before_block = block
                 batch_blocks.append(block)
@@ -554,7 +560,7 @@ class ChainBuilder:
             user_account.new_batch_apply(batched_blocks=batch_blocks, outer_cur=cur)
             user_account.init(outer_cur=cur)
             db.commit()
-        log.info("Init finished, last block is {} {}Sec".format(before_block, round(time()-t, 3)))
+        log.info("Init finished, last block is {} {}Sec".format(before_block, round(time() - t, 3)))
         return False
 
     def save_memory_file(self):
@@ -617,8 +623,8 @@ class ChainBuilder:
             previous_hash = best_block.previous_hash
             while self.root_block.hash != previous_hash:
                 if previous_hash not in self.chain:
-                    raise BlockBuilderError('Cannot find previousHash, may not main-chain. {}'
-                                            .format(previous_hash.hex()))
+                    raise BlockBuilderError('Cannot find previousHash, may not main-chain. {}'.format(
+                        previous_hash.hex()))
                 block = self.chain[previous_hash]
                 previous_hash = block.previous_hash
                 best_chain.append(block)
@@ -680,8 +686,8 @@ class ChainBuilder:
                             # DataBase内でのみのUsedIndexを取得
                             usedindex = self.db.read_usedindex(txhash)
                             if txindex in usedindex:
-                                raise BlockBuilderError('Already used index? {}:{}'
-                                                        .format(txhash.hex(), txindex))
+                                raise BlockBuilderError('Already used index? {}:{}'.format(
+                                    txhash.hex(), txindex))
                             usedindex.add(txindex)
                             self.db.write_usedindex(txhash, usedindex)  # UsedIndex update
                             input_tx = tx_builder.get_tx(txhash)
@@ -709,19 +715,27 @@ class ChainBuilder:
                             pass
                         elif tx.type == C.TX_MINT_COIN:
                             mint_id, params, setting = tx.encoded_message()
-                            self.db.write_coins(coin_id=mint_id, txhash=tx.hash, params=params, setting=setting)
+                            self.db.write_coins(
+                                coin_id=mint_id, txhash=tx.hash, params=params, setting=setting)
 
                         elif tx.type == C.TX_VALIDATOR_EDIT:
-                            c_address, new_address, flag, sig_diff = tx.encoded_message()
-                            self.db.write_validator(c_address=c_address, new_address=new_address,
-                                                    flag=flag, tx=tx, sign_diff=sig_diff)
+                            v_address, new_address, flag, sig_diff = tx.encoded_message()
+                            self.db.write_validator(
+                                v_address=v_address,
+                                new_address=new_address,
+                                flag=flag,
+                                tx=tx,
+                                sign_diff=sig_diff)
 
                         elif tx.type == C.TX_CONCLUDE_CONTRACT:
-                            c_address, start_hash, c_storage = tx.encoded_message()
+                            v_address, start_hash, c_storage = tx.encoded_message()
                             start_tx = tx_builder.get_tx(txhash=start_hash)
                             dummy, c_method, redeem_address, c_args = start_tx.encoded_message()
-                            self.db.write_contract(c_address=c_address, start_tx=start_tx,
-                                                   finish_hash=tx.hash, message=(c_method, c_args, c_storage))
+                            self.db.write_contract(
+                                c_address=v_address,
+                                start_tx=start_tx,
+                                finish_hash=tx.hash,
+                                message=(c_method, c_args, c_storage))
 
                 # block挿入終了
                 self.best_chain = best_chain
@@ -732,8 +746,7 @@ class ChainBuilder:
                 for blockhash, block in self.chain.copy().items():
                     if self.root_block.height >= block.height:
                         del self.chain[blockhash]
-                log.debug("Success batch {} blocks, root={}."
-                              .format(len(batched_blocks), self.root_block))
+                log.debug("Success batch {} blocks, root={}.".format(len(batched_blocks), self.root_block))
                 # アカウントへ反映↓
                 user_account.new_batch_apply(batched_blocks=batched_blocks, outer_cur=cur)
                 db.commit()
@@ -755,23 +768,26 @@ class ChainBuilder:
         commons = set(new_best_chain) & set(old_best_chain)
         for index, block in enumerate(old_best_chain):
             if block not in commons:
-                try: old_best_chain[index+1].next_hash = None
-                except IndexError: pass
+                try:
+                    old_best_chain[index + 1].next_hash = None
+                except IndexError:
+                    pass
                 for tx in block.txs:
                     tx.height = None
                 block.f_orphan = True
         for index, block in enumerate(new_best_chain):
             if block not in commons:
-                try: new_best_chain[index+1].next_hash = block.hash
-                except IndexError: pass
+                try:
+                    new_best_chain[index + 1].next_hash = block.hash
+                except IndexError:
+                    pass
                 for tx in block.txs:
                     tx.height = block.height
                 block.f_orphan = False
         # 変化しているので反映する
         self.best_block, self.best_chain = new_best_block, new_best_chain
         tx_builder.affect_new_chain(
-            new_best_chain=set(new_best_chain) - commons,
-            old_best_chain=set(old_best_chain) - commons)
+            new_best_chain=set(new_best_chain) - commons, old_best_chain=set(old_best_chain) - commons)
 
     def get_block(self, blockhash=None, height=None):
         if height is not None:
@@ -808,6 +824,7 @@ class ChainBuilder:
 
 
 class TransactionBuilder:
+
     def __init__(self):
         # TXs that Blocks don't contain
         self.unconfirmed = dict()
@@ -843,14 +860,14 @@ class TransactionBuilder:
         if tx.hash in self.unconfirmed:
             original_tx = self.unconfirmed[tx.hash]
             new_signature = list(set(tx.signature) | set(original_tx.signature))
-            log.info("Marge unconfirmed TX's signature sign={}>{}"
-                         .format(len(original_tx.signature), len(new_signature)))
+            log.info("Marge unconfirmed TX's signature sign={}>{}".format(
+                len(original_tx.signature), len(new_signature)))
             original_tx.signature = new_signature
         elif tx.hash in self.pre_unconfirmed:
             original_tx = self.pre_unconfirmed[tx.hash]
             new_signature = list(set(tx.signature) | set(original_tx.signature))
-            log.info("Marge pre-unconfirmed TX's signature sign={}>{}"
-                         .format(len(original_tx.signature), len(new_signature)))
+            log.info("Marge pre-unconfirmed TX's signature sign={}>{}".format(
+                len(original_tx.signature), len(new_signature)))
             original_tx.signature = new_signature
         elif tx.hash in self.chained_tx:
             log.error("Try to marge already confirmed TX's signature {}".format(tx))
@@ -902,6 +919,7 @@ class TransactionBuilder:
         return bool(self.get_tx(item.hash))
 
     def affect_new_chain(self, old_best_chain, new_best_chain):
+
         def input_check(_tx):
             for input_hash, input_index in _tx.inputs:
                 if input_index in builder.db.read_usedindex(input_hash):
@@ -945,16 +963,18 @@ class TransactionBuilder:
                 del self.unconfirmed[txhash]
                 continue
         if before_num != len(self.unconfirmed):
-            log.warning("Removed {} unconfirmed txs".format(len(self.unconfirmed)-before_num))
+            log.warning("Removed {} unconfirmed txs".format(len(self.unconfirmed) - before_num))
 
 
 class UserAccount:
+
     def __init__(self):
         self.db_balance = Accounting()
         # {txhash: (_type, movement, _time),..}
         self.memory_movement = dict()
 
     def init(self, f_delete=False, outer_cur=None):
+
         def _wrapper(cur):
             memory_sum = Accounting()
             for move_log in read_log_iter(cur):
@@ -966,6 +986,7 @@ class UserAccount:
                     if f_delete:
                         delete_log(move_log.txhash, cur)
             self.db_balance += memory_sum
+
         assert f_delete is False, 'Unsafe function!'
         if outer_cur:
             _wrapper(outer_cur)
@@ -977,6 +998,7 @@ class UserAccount:
                     db.commit()
 
     def get_balance(self, confirm=6, outer_cur=None):
+
         def _wrapper(cur):
             # DataBase
             account = self.db_balance.copy()
@@ -1009,6 +1031,7 @@ class UserAccount:
                             if amount < 0:
                                 account[user][coin_id] += amount
             return account
+
         assert confirm < builder.cashe_limit - builder.batch_size, 'Too few cashe size.'
         assert builder.best_block, 'Not DataBase init.'
         if outer_cur:
@@ -1018,6 +1041,7 @@ class UserAccount:
                 return _wrapper(db.cursor())
 
     def move_balance(self, _from, _to, coins, outer_cur=None):
+
         def _wrapper(cur):
             # DataBaseに即書き込む(Memoryに入れない)
             movements = Accounting()
@@ -1026,6 +1050,7 @@ class UserAccount:
             txhash = insert_log(movements, cur)
             self.db_balance += movements
             return txhash
+
         assert isinstance(coins, Balance), 'coins is Balance.'
         if outer_cur:
             return _wrapper(outer_cur)
@@ -1036,6 +1061,7 @@ class UserAccount:
                 return r
 
     def get_movement_iter(self, start=0, f_dict=False, outer_cur=None):
+
         def _wrapper(cur):
             count = 0
             # Unconfirmed
@@ -1080,6 +1106,7 @@ class UserAccount:
                     yield move_log.get_dict_data(recode_flag='database', outer_cur=cur)
                 else:
                     yield move_log.get_tuple_data()
+
         if outer_cur:
             yield from _wrapper(outer_cur)
         else:
@@ -1087,6 +1114,7 @@ class UserAccount:
                 yield from _wrapper(db.cursor())
 
     def new_batch_apply(self, batched_blocks, outer_cur=None):
+
         def _wrapper(cur):
             for block in batched_blocks:
                 for tx in block.txs:
@@ -1105,6 +1133,7 @@ class UserAccount:
                         del self.memory_movement[tx.hash]
                         # insert_log
                         insert_log(movement, cur, _type, _time, tx.hash)
+
         if outer_cur:
             _wrapper(outer_cur)
         else:
@@ -1113,6 +1142,7 @@ class UserAccount:
                 db.commit()
 
     def affect_new_tx(self, tx, outer_cur=None):
+
         def _wrapper(cur):
             movement = Accounting()
             # send_from_applyで登録済み
@@ -1124,15 +1154,19 @@ class UserAccount:
                 address, coin_id, amount = input_tx.outputs[txindex]
                 user = read_address2user(address, cur)
                 if user is not None:
-                    balance = Balance(coin_id, amount)
-                    movement[user] -= balance
-                    movement[C.ANT_OUTSIDE] += balance
+                    if tx.type == C.TX_POS_REWARD:
+                        user = C.ANT_MINING
+                    # throw staking reward to @Mining
+                    movement[user][coin_id] -= amount
+                    # movement[C.ANT_OUTSIDE] += balance
             for address, coin_id, amount in tx.outputs:
                 user = read_address2user(address, cur)
                 if user is not None:
-                    balance = Balance(coin_id, amount)
-                    movement[user] += balance
-                    movement[C.ANT_OUTSIDE] -= balance
+                    if tx.type == C.TX_POS_REWARD:
+                        user = C.ANT_MINING
+                    # throw staking reward to @Mining
+                    movement[user][coin_id] += amount
+                    # movement[C.ANT_OUTSIDE] -= balance
             # check
             movement.cleanup()
             if len(movement) == 0:
@@ -1140,6 +1174,7 @@ class UserAccount:
             move_log = MoveLog(tx.hash, tx.type, movement, tx.time, tx)
             self.memory_movement[tx.hash] = move_log
             log.debug("Affect account new tx. {}".format(tx))
+
         if outer_cur:
             _wrapper(outer_cur)
         else:
@@ -1158,10 +1193,9 @@ tx_builder = TransactionBuilder()
 # User情報
 user_account = UserAccount()
 
-
 __all__ = [
     "db_config",
     "builder",
     "tx_builder",
-    "user_account"
+    "user_account",
 ]

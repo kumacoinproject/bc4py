@@ -1,10 +1,9 @@
 #!/user/env python3
 # -*- coding: utf-8 -*-
 
-
-import configparser
 from rx.subjects import Subject
 from concurrent.futures import ProcessPoolExecutor
+from threading import Lock
 import atexit
 import psutil
 
@@ -13,7 +12,6 @@ import psutil
 stream = Subject()
 atexit.register(stream.dispose)
 
-
 # multiprocessing executor
 max_process_num = 8
 logical_cpu_num = psutil.cpu_count(logical=True) or max_process_num
@@ -21,6 +19,9 @@ physical_cpu_nam = psutil.cpu_count(logical=False) or max_process_num
 max_workers = min(logical_cpu_num, physical_cpu_nam)
 executor = ProcessPoolExecutor(max_workers=max_workers)
 atexit.register(executor.shutdown, wait=True)
+
+# executor "submit+add_callback_done" lock
+executor_lock = Lock()
 
 
 class C:  # Constant
@@ -31,11 +32,14 @@ class C:  # Constant
         'digit': 8,
         'address': 'NDUMMYADDRESSAAAAAAAAAAAAAAAAAAAACRSTTMF',
         'description': 'Base currency.',
-        'image': None}
+        'image': None
+    }
 
     # consensus
     BLOCK_GENESIS = 0
-    BLOCK_POS = 1
+    BLOCK_COIN_POS = 1
+    BLOCK_CAP_POS = 2  # proof of capacity
+    BLOCK_FLK_POS = 3  # proof of fund-lock
 
     BLOCK_YES_POW = 5
     BLOCK_X11_POW = 6
@@ -43,9 +47,15 @@ class C:  # Constant
     BLOCK_LTC_POW = 8
     BLOCK_X16R_POW = 9
     consensus2name = {
-        BLOCK_GENESIS: 'GENESIS', BLOCK_POS: 'POS',
-        BLOCK_YES_POW: 'POW_YES', BLOCK_X11_POW: 'POW_X11', BLOCK_HMQ_POW: 'POW_HMQ',
-        BLOCK_LTC_POW: 'POW_LTC', BLOCK_X16R_POW: 'POW_X16R'}
+        BLOCK_GENESIS: 'GENESIS',
+        BLOCK_COIN_POS: 'POS_COIN',
+        BLOCK_CAP_POS: 'POS_CAP',
+        BLOCK_YES_POW: 'POW_YES',
+        BLOCK_X11_POW: 'POW_X11',
+        BLOCK_HMQ_POW: 'POW_HMQ',
+        BLOCK_LTC_POW: 'POW_LTC',
+        BLOCK_X16R_POW: 'POW_X16R'
+    }
 
     # tx type
     TX_GENESIS = 0  # Height0の初期設定TX
@@ -57,20 +67,29 @@ class C:  # Constant
     TX_CONCLUDE_CONTRACT = 9  # conclude static contract tx
     TX_INNER = 255  # 内部のみで扱うTX
     txtype2name = {
-        TX_GENESIS: 'GENESIS', TX_POW_REWARD: 'POW_REWARD', TX_POS_REWARD: 'POS_REWARD',
-        TX_TRANSFER: 'TRANSFER', TX_MINT_COIN: 'MINT_COIN', TX_VALIDATOR_EDIT: 'VALIDATOR_EDIT',
-        TX_CONCLUDE_CONTRACT: 'CONCLUDE_CONTRACT', TX_INNER: 'TX_INNER'}
+        TX_GENESIS: 'GENESIS',
+        TX_POW_REWARD: 'POW_REWARD',
+        TX_POS_REWARD: 'POS_REWARD',
+        TX_TRANSFER: 'TRANSFER',
+        TX_MINT_COIN: 'MINT_COIN',
+        TX_VALIDATOR_EDIT: 'VALIDATOR_EDIT',
+        TX_CONCLUDE_CONTRACT: 'CONCLUDE_CONTRACT',
+        TX_INNER: 'TX_INNER'
+    }
 
     # message format
     MSG_NONE = 0  # no message
     MSG_PLAIN = 1  # 明示的にunicode
     MSG_BYTE = 2  # 明示的にbinary
-    MSG_JSON = 3  # json
-    MSG_MSGPACK = 4  # msgpack protocol
-    MSG_HASHLOCKED = 5  # hash-locked transaction
+    MSG_MSGPACK = 3  # msgpack protocol
+    MSG_HASHLOCKED = 4  # hash-locked transaction
     msg_type2name = {
-        MSG_NONE: 'NONE', MSG_PLAIN: 'PLAIN', MSG_BYTE: 'BYTE',
-        MSG_JSON: 'JSON', MSG_MSGPACK: 'MSGPACK', MSG_HASHLOCKED: 'HASHLOCKED'}
+        MSG_NONE: 'NONE',
+        MSG_PLAIN: 'PLAIN',
+        MSG_BYTE: 'BYTE',
+        MSG_MSGPACK: 'MSGPACK',
+        MSG_HASHLOCKED: 'HASHLOCKED'
+    }
 
     # difficulty
     DIFF_RETARGET = 20  # difficultyの計算Block数
@@ -80,23 +99,23 @@ class C:  # Constant
 
     # block params
     MATURE_HEIGHT = 20  # 採掘されたBlockのOutputsが成熟する期間
-    CHECKPOINT_SPAN = 200  # checkpointの作成間隔
 
     # account
-    ANT_RESERVED = 0  # 未使用
-    ANT_UNKNOWN = 1  # 使用済みだがTag無し
-    ANT_OUTSIDE = 2  # 外部への入出金
-    ANT_CONTRACT = 3  # コントラクトアドレス
-    # name
-    ANT_NAME_RESERVED = '@Reserved'
-    ANT_NAME_UNKNOWN = '@Unknown'
-    ANT_NAME_OUTSIDE = '@Outside'
-    ANT_NAME_CONTRACT = '@Contract'
+    ANT_UNKNOWN = 0  # Unknown user
+    ANT_VALIDATOR = 1  # ValidatorAddress
+    ANT_CONTRACT = 2  # ContractAddress
+    ANT_MINING = 3  # MiningAddress
+    account2name = {
+        ANT_UNKNOWN: '@Unknown',
+        ANT_VALIDATOR: '@Validator',
+        ANT_CONTRACT: '@Contract',
+        ANT_MINING: '@Mining'
+    }
 
     # Block/TX/Fee limit
     ACCEPT_MARGIN_TIME = 120  # 新規データ受け入れ時間マージンSec
-    SIZE_BLOCK_LIMIT = 300*1000  # 300kb block
-    SIZE_TX_LIMIT = 100*1000  # 100kb tx
+    SIZE_BLOCK_LIMIT = 300 * 1000  # 300kb block
+    SIZE_TX_LIMIT = 100 * 1000  # 100kb tx
     CASHE_LIMIT = 100  # Memoryに置く最大Block数、実質Reorg制限
     BATCH_SIZE = 10
     MINTCOIN_GAS = int(10 * pow(10, 6))  # 新規Mintcoin発行GasFee
@@ -106,14 +125,16 @@ class C:  # Constant
     CONTRACT_MINIMUM_INPUT = int(1 * pow(10, 8))  # Contractの発火最小amount
 
 
-class V:  # 起動時に設定される変数
-    # BLock params
-    BLOCK_GENESIS_HASH = None
+class V:
+    # Blockchain basic params
+    GENESIS_BLOCK = None
+    GENESIS_PARAMS = None
     BLOCK_PREFIX = None
+    BLOCK_VALIDATOR_PREFIX = None
     BLOCK_CONTRACT_PREFIX = None
     BLOCK_GENESIS_TIME = None
     BLOCK_TIME_SPAN = None
-    BLOCK_ALL_SUPPLY = None
+    BLOCK_MINING_SUPPLY = None
     BLOCK_REWARD = None
     BLOCK_BASE_CONSENSUS = None
     BLOCK_CONSENSUSES = None
@@ -121,11 +142,8 @@ class V:  # 起動時に設定される変数
     # base coin
     COIN_DIGIT = None
     COIN_MINIMUM_PRICE = None  # Gasの最小Price
-    CONTRACT_MINIMUM_AMOUNT = None
-    CONTRACT_VALIDATOR_ADDRESS = None
 
     # database path
-    SUB_DIR = None
     DB_HOME_DIR = None
     DB_ACCOUNT_PATH = None
 
@@ -137,7 +155,6 @@ class V:  # 起動時に設定される変数
 
     # mining
     MINING_ADDRESS = None
-    MINING_MESSAGE = None
     PC_OBJ = None
     API_OBJ = None
 
@@ -148,76 +165,13 @@ class P:  # 起動中もダイナミックに変化
 
 
 class Debug:
-    F_LIMIT_INCLUDE_TX_IN_BLOCK = 0  # 1blockに入れるTXの最大数(0=無効)
-    F_MINING_POWER_SAVE = 0.0
     F_SHOW_DIFFICULTY = False
     F_CONSTANT_DIFF = False
     F_STICKY_TX_REJECTION = True
-
-
-class MyConfigParser(configparser.ConfigParser):
-    """
-    config = MyConfigParser()
-    config.param('section', 'name', str, 'Bob')
-    config.param('section', 'number', int, 3)
-    """
-    def __init__(self, file='./config.ini'):
-        super(MyConfigParser, self).__init__()
-        self.file = file
-        try:
-            self.read(file, 'UTF-8')
-        except UnicodeEncodeError:
-            self.read(file)
-        except FileNotFoundError:
-            pass
-
-    def __repr__(self):
-        config = ""
-        for k, v in self._sections.items():
-            config += "[{}]\n".format(k)
-            for _k, _v in v.items():
-                config += "{}={}\n".format(_k, _v)
-        return config
-
-    def _write_file(self):
-        with open(self.file, mode='w') as fp:
-            self.write(fp)
-
-    def param(self, section, name, dtype=str, default=None):
-        try:
-            if dtype is bool:
-                data = self.getboolean(section, name)
-            elif dtype is int:
-                data = self.getint(section, name)
-            elif dtype is float:
-                data = self.getfloat(section, name)
-            elif dtype is str:
-                data = self.get(section, name)
-            else:
-                raise configparser.Error('Not found type {}'.format(type(dtype)))
-        except ValueError:
-            return default
-        except configparser.NoSectionError:
-            data = default
-            self.add_section(section)
-            self.set(section, name, str(data))
-            self._write_file()
-        except configparser.NoOptionError:
-            data = default
-            self.set(section, name, str(data))
-            self._write_file()
-        return data
 
 
 class BlockChainError(Exception):
     pass
 
 
-__all__ = [
-    'stream',
-    'max_workers',
-    'executor',
-    'C', 'V', 'P',
-    'Debug', 'MyConfigParser',
-    'BlockChainError'
-]
+__all__ = ['stream', 'max_workers', 'executor', 'executor_lock', 'C', 'V', 'P', 'Debug', 'BlockChainError']

@@ -11,16 +11,15 @@ from logging import getLogger
 
 log = getLogger('bc4py')
 
-
 # from A.B import C
 # module = getattr(import_module('A.B'), 'C')
 
 class_const_types = (int, str, bytes)
 function_essential_attr = ("__code__", "__name__", "__defaults__", "__closure__")
 function_optional_attr = ("__dict__", "__doc__", "__kwdefaults__")
-code_attr_order = ("co_argcount", "co_kwonlyargcount", "co_nlocals", "co_stacksize", "co_flags",
-                   "co_code", "co_consts", "co_names", "co_varnames", "co_filename", "co_name",
-                   "co_firstlineno", "co_lnotab", "co_freevars", "co_cellvars")
+code_attr_order = ("co_argcount", "co_kwonlyargcount", "co_nlocals", "co_stacksize", "co_flags", "co_code",
+                   "co_consts", "co_names", "co_varnames", "co_filename", "co_name", "co_firstlineno",
+                   "co_lnotab", "co_freevars", "co_cellvars")
 
 
 def default_hook(obj):
@@ -75,9 +74,9 @@ def default_hook(obj):
 
 
 class Unpacker(msgpack.Unpacker):
+
     def __init__(self, fp, global_dict, args_list):
-        super().__init__(fp, use_list=False, raw=True,
-                         object_hook=self.object_hook, encoding='utf8')
+        super().__init__(fp, use_list=False, raw=True, object_hook=self.object_hook, encoding='utf8')
         self.global_dict = global_dict
         self.args = args_list
 
@@ -94,12 +93,12 @@ class Unpacker(msgpack.Unpacker):
                     else:
                         co_consts.append(const)
                 code_dict['co_consts'] = tuple(co_consts)
-                return CodeType(
-                    code_dict['co_argcount'], code_dict['co_kwonlyargcount'], code_dict['co_nlocals'],
-                    code_dict['co_stacksize'], code_dict['co_flags'], code_dict['co_code'],
-                    code_dict['co_consts'], code_dict['co_names'], code_dict['co_varnames'],
-                    code_dict['co_filename'], code_dict['co_name'], code_dict['co_firstlineno'],
-                    code_dict['co_lnotab'], code_dict['co_freevars'], code_dict['co_cellvars'])
+                return CodeType(code_dict['co_argcount'], code_dict['co_kwonlyargcount'],
+                                code_dict['co_nlocals'], code_dict['co_stacksize'], code_dict['co_flags'],
+                                code_dict['co_code'], code_dict['co_consts'], code_dict['co_names'],
+                                code_dict['co_varnames'], code_dict['co_filename'], code_dict['co_name'],
+                                code_dict['co_firstlineno'], code_dict['co_lnotab'], code_dict['co_freevars'],
+                                code_dict['co_cellvars'])
 
             if dct['_contract_'] == 'FunctionType':
                 fnc = FunctionType(
@@ -125,6 +124,7 @@ class Unpacker(msgpack.Unpacker):
 
 
 class ContractTemplate(object):
+
     def __init__(self, *args):
         self.start_tx = args[0]
         self.c_address = args[1]
@@ -215,8 +215,10 @@ class ExampleContractTemplate(ContractTemplate):
         super().__init__(*args)
 
     def game(self, *args):
+
         def dummy_func(d):
             return str(d)
+
         a = 'hello world'
         a += dummy_func('ww!')
         return a + ' -> Nice name ' + self.nice

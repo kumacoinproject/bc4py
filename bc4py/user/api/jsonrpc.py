@@ -21,7 +21,6 @@ log = getLogger('bc4py')
 # https://bitcoin.stackexchange.com/questions/13438/difference-between-coinbaseaux-flags-vs-coinbasetxn-data
 # https://github.com/bitcoin/bips/blob/master/bip-0022.mediawiki
 
-
 F_HEAVY_DEBUG = False
 getwork_cashe = ExpiringDict(max_len=100, max_age_seconds=300)
 extra_target = None  # 0x00000000ffff0000000000000000000000000000000000000000000000000000
@@ -58,14 +57,20 @@ async def json_rpc(request):
 
 def res_failed(error, id):
     return web.Response(
-        text=json.dumps({'id': id, 'result': None, 'error': error}),
-        content_type='application/json')
+        text=json.dumps({
+            'id': id,
+            'result': None,
+            'error': error
+        }), content_type='application/json')
 
 
 def res_success(result, id):
     return web.Response(
-        text=json.dumps({'id': id, 'result': result, 'error': None}),
-        content_type='application/json')
+        text=json.dumps({
+            'id': id,
+            'result': result,
+            'error': None
+        }), content_type='application/json')
 
 
 async def get_mining_block(**kwargs):
@@ -99,20 +104,16 @@ async def getwork(*args, **kwargs):
                         '000000000000000000000000000000000000000000000280')  # 48+80=128bytes
         new_data = b''
         for i in range(0, 128, 4):
-            new_data += data[i:i+4][::-1]
+            new_data += data[i:i + 4][::-1]
         if extra_target:
-            return {
-                "data": new_data.hex(),
-                "target": extra_target.to_bytes(32, 'big').hex()}
+            return {"data": new_data.hex(), "target": extra_target.to_bytes(32, 'big').hex()}
         else:
-            return {
-                "data": new_data.hex(),
-                "target": mining_block.target_hash.hex()}
+            return {"data": new_data.hex(), "target": mining_block.target_hash.hex()}
     else:
         data = a2b_hex(args[0])
         new_data = b''
         for i in range(0, 128, 4):
-            new_data += data[i:i+4][::-1]
+            new_data += data[i:i + 4][::-1]
         block = Block.from_binary(binary=new_data[:80])
         if block.previous_hash != builder.best_block.hash:
             return 'PreviousHash don\'t match.'
@@ -143,11 +144,7 @@ async def getblocktemplate(*args, **kwargs):
             "data": mining_block.txs[0].b.hex()
         },  # 採掘報酬TX
         "target": bin2hex(mining_block.target_hash),
-        "mutable": [
-            "time",
-            "transactions",
-            "prevblock"
-        ],
+        "mutable": ["time", "transactions", "prevblock"],
         "noncerange": "00000000ffffffff",
         "sigoplimit": 20000,
         "sizelimit": C.SIZE_BLOCK_LIMIT,
@@ -162,7 +159,8 @@ async def getblocktemplate(*args, **kwargs):
             "hash": bin2hex(tx.hash),
             "depends": list(),
             "fee": 0,
-            "sigops": len(mining_block.txs) - 1})
+            "sigops": len(mining_block.txs) - 1
+        })
     template['transactions'] = transactions
     return template
 

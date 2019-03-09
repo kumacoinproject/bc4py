@@ -12,13 +12,11 @@ import os
 import psutil
 import sys
 
-
 WALLET_VERSION = 0
 log = getLogger('bc4py')
 
 
 def set_database_path(sub_dir=None):
-    V.SUB_DIR = sub_dir
     V.DB_HOME_DIR = os.path.join(os.path.expanduser("~"), 'blockchain-py')
     if not os.path.exists(V.DB_HOME_DIR):
         os.makedirs(V.DB_HOME_DIR)
@@ -29,24 +27,21 @@ def set_database_path(sub_dir=None):
     V.DB_ACCOUNT_PATH = os.path.join(V.DB_HOME_DIR, 'wallet.ver{}.dat'.format(WALLET_VERSION))
 
 
-def set_blockchain_params(genesis_block):
+def set_blockchain_params(genesis_block, params):
     assert 'spawn' in multiprocessing.get_all_start_methods(), 'Not found spawn method.'
-    setting_tx = genesis_block.txs[0]
-    assert setting_tx.message_type == C.MSG_MSGPACK
-    params = setting_tx.encoded_message()
-    V.BLOCK_GENESIS_HASH = genesis_block.hash
+    V.GENESIS_BLOCK = genesis_block
+    V.GENESIS_PARAMS = params
     V.BLOCK_PREFIX = params.get('prefix')
+    V.BLOCK_VALIDATOR_PREFIX = params.get('validator_prefix')
     V.BLOCK_CONTRACT_PREFIX = params.get('contract_prefix')
     V.BLOCK_GENESIS_TIME = params.get('genesis_time')
-    V.BLOCK_ALL_SUPPLY = params.get('all_supply')
+    V.BLOCK_MINING_SUPPLY = params.get('mining_supply')
     V.BLOCK_TIME_SPAN = params.get('block_span')
     V.BLOCK_REWARD = params.get('block_reward')
-    V.CONTRACT_VALIDATOR_ADDRESS = params.get('validator_address')
     V.COIN_DIGIT = params.get('digit_number')
     V.COIN_MINIMUM_PRICE = params.get('minimum_price')
-    V.CONTRACT_MINIMUM_AMOUNT = params.get('contract_minimum_amount')
     V.BLOCK_CONSENSUSES = params.get('consensus')
-    GompertzCurve.k = V.BLOCK_ALL_SUPPLY
+    GompertzCurve.k = V.BLOCK_MINING_SUPPLY
 
 
 def delete_pid_file():
@@ -70,6 +65,7 @@ def make_pid_file():
 
 
 class AESCipher:
+
     @staticmethod
     def create_key():
         return os.urandom(AES.block_size)
@@ -114,6 +110,7 @@ class ProgressBar:
     original: https://github.com/bozoh/console_progressbar
     author: Carlos Alexandre S. da Fonseca
     """
+
     def __init__(self, prefix, default_suffix='', total=100, decimals=0, length=50, fill='X', zfill='-'):
         self.prefix = prefix
         self.default_suffix = default_suffix

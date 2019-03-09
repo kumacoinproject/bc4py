@@ -29,13 +29,13 @@ async def contract_info(request):
 
 async def validator_info(request):
     try:
-        c_address = request.query['c_address']
+        v_address = request.query['v_address']
         f_confirmed = bool(request.query.get('confirmed', False))
         stop_hash = request.query.get('stophash', None)
         if stop_hash:
             stop_hash = a2b_hex(stop_hash)
         best_block = builder.best_block if f_confirmed else None
-        v = get_validator_object(c_address=c_address, best_block=best_block, stop_txhash=stop_hash)
+        v = get_validator_object(v_address=v_address, best_block=best_block, stop_txhash=stop_hash)
         return web_base.json_res(v.info)
     except Exception as e:
         log.error(e)
@@ -81,7 +81,7 @@ async def get_contract_history(request):
                     'c_storage': {decode(k): decode(v) for k, v in c_storage.items()} if c_storage else None,
                 })
         # unconfirmed
-        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x:x.create_time):
+        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time):
             if tx.type != C.TX_CONCLUDE_CONTRACT:
                 continue
             _c_address, start_hash, c_storage = tx.encoded_message()
@@ -108,24 +108,25 @@ async def get_contract_history(request):
 
 async def get_validator_history(request):
     try:
-        c_address = request.query['c_address']
+        v_address = request.query['v_address']
         data = list()
         # database
-        for index, new_address, flag, txhash, sig_diff in builder.db.read_validator_iter(c_address=c_address):
+        for index, new_address, flag, txhash, sig_diff in builder.db.read_validator_iter(v_address=v_address):
             data.append({
                 'index': index,
                 'height': index // 0xffffffff,
                 'new_address': new_address,
                 'flag': flag,
                 'txhash': txhash.hex(),
-                'sig_diff': sig_diff})
+                'sig_diff': sig_diff
+            })
         # memory
         for block in reversed(builder.best_chain):
             for tx in block.txs:
                 if tx.type != C.TX_VALIDATOR_EDIT:
                     continue
                 _c_address, new_address, flag, sig_diff = tx.encoded_message()
-                if _c_address != c_address:
+                if _c_address != v_address:
                     continue
                 index = validator_tx2index(tx=tx)
                 data.append({
@@ -134,13 +135,14 @@ async def get_validator_history(request):
                     'new_address': new_address,
                     'flag': flag,
                     'txhash': tx.hash.hex(),
-                    'sig_diff': sig_diff})
+                    'sig_diff': sig_diff
+                })
         # unconfirmed
         for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time):
             if tx.type != C.TX_VALIDATOR_EDIT:
                 continue
             _c_address, new_address, flag, sig_diff = tx.encoded_message()
-            if _c_address != c_address:
+            if _c_address != v_address:
                 continue
             data.append({
                 'index': None,
@@ -148,7 +150,8 @@ async def get_validator_history(request):
                 'new_address': new_address,
                 'flag': flag,
                 'txhash': tx.hash.hex(),
-                'sig_diff': sig_diff})
+                'sig_diff': sig_diff
+            })
         return web_base.json_res(data)
     except Exception as e:
         log.error(e)
@@ -188,8 +191,7 @@ async def watching_info(request):
             'c_address': c_address,
             'related': related_list,
             'args': tuple(map(decode, args)),
-             } for txhash, (time, tx, related_list, c_address, *args) in watching_tx.items()
-        ])
+        } for txhash, (time, tx, related_list, c_address, *args) in watching_tx.items()])
     except Exception as e:
         log.error(e)
         return web_base.error_res()

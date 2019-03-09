@@ -16,9 +16,8 @@ CMD_NEW_BLOCK = 'Block'
 CMD_NEW_TX = 'TX'
 CMD_ERROR = 'Error'
 
+
 # TODO: fix error: "socket.send() raised exception." => https://github.com/aio-libs/aiohttp/issues/3448
-
-
 async def websocket_route(request):
     if request.rel_url.path.startswith('/public/'):
         is_public = True
@@ -43,8 +42,8 @@ async def websocket_route(request):
                 log.error("Get error from {} data={}".format(client, msg.data))
         except Exception as e:
             import traceback
-            await client.send(raw_data=get_send_format(
-                cmd=CMD_ERROR, data=str(traceback.format_exc()), status=False))
+            await client.send(
+                raw_data=get_send_format(cmd=CMD_ERROR, data=str(traceback.format_exc()), status=False))
     log.debug("close {}".format(client))
     await client.close()
     return client.ws
@@ -61,6 +60,7 @@ async def websocket_protocol_check(request, is_public):
 
 
 class WsConnection:
+
     def __init__(self, ws, request, is_public):
         global number
         number += 1
@@ -71,8 +71,8 @@ class WsConnection:
         clients.append(self)
 
     def __repr__(self):
-        return "<WsConnection {} {} {}>".format(
-            self.number, 'Pub' if self.is_public else 'Pri', self.request.remote)
+        return "<WsConnection {} {} {}>".format(self.number, 'Pub' if self.is_public else 'Pri',
+                                                self.request.remote)
 
     async def close(self):
         await self.ws.close()
@@ -95,19 +95,17 @@ class WsConnection:
 
 
 def get_send_format(cmd, data, status=True):
-    send_data = {
-        'cmd': cmd,
-        'data': data,
-        'status': status
-    }
+    send_data = {'cmd': cmd, 'data': data, 'status': status}
     return json.dumps(send_data)
 
 
 def send_websocket_data(cmd, data, status=True, is_public_data=False):
+
     async def exe():
         for client in clients.copy():
             if is_public_data or not client.is_public:
                 await client.send(send_format)
+
     if P.F_NOW_BOOTING:
         return
     if loop.is_closed():
@@ -120,7 +118,7 @@ def new_info2json_data(cmd, data_list):
     send_data = dict()
     if cmd == C_Conclude:
         _time, tx, related_list, c_address, start_hash, c_storage = data_list
-        send_data['c_address'] = c_address
+        send_data['address'] = c_address
         send_data['hash'] = tx.hash.hex()
         send_data['time'] = _time
         send_data['tx'] = tx.getinfo()
@@ -128,8 +126,8 @@ def new_info2json_data(cmd, data_list):
         send_data['start_hash'] = start_hash.hex()
         send_data['c_storage'] = decode(c_storage)
     elif cmd == C_Validator:
-        _time, tx, related_list, c_address, new_address, flag, sig_diff = data_list
-        send_data['c_address'] = c_address
+        _time, tx, related_list, v_address, new_address, flag, sig_diff = data_list
+        send_data['address'] = v_address
         send_data['hash'] = tx.hash.hex()
         send_data['time'] = _time
         send_data['tx'] = tx.getinfo()
@@ -139,7 +137,7 @@ def new_info2json_data(cmd, data_list):
         send_data['sig_diff'] = sig_diff
     elif cmd == C_RequestConclude:
         _time, tx, related_list, c_address, c_method, redeem_address, c_args = data_list
-        send_data['c_address'] = c_address
+        send_data['address'] = c_address
         send_data['hash'] = tx.hash.hex()
         send_data['time'] = _time
         send_data['tx'] = tx.getinfo()
@@ -184,8 +182,7 @@ def on_next(data):
         pass
 
 
-stream.subscribe(on_next=on_next)
-
+stream.subscribe(on_next=on_next, on_error=log.error)
 
 __all__ = [
     "CMD_ERROR",

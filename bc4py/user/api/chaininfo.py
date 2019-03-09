@@ -82,11 +82,7 @@ async def get_mintcoin_history(request):
         mint_id = int(request.query.get('mint_id', 0))
         data = list()
         for index, txhash, params, setting in builder.db.read_coins_iter(coin_id=mint_id):
-            data.append({
-                'index': index,
-                'txhash': txhash.hex(),
-                'params': params,
-                'setting': setting})
+            data.append({'index': index, 'txhash': txhash.hex(), 'params': params, 'setting': setting})
         return web_base.json_res(data)
     except Exception:
         return web_base.error_res()

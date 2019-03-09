@@ -3,7 +3,6 @@ from bc4py.database.builder import builder, tx_builder
 from expiringdict import ExpiringDict
 import msgpack
 
-
 setting_template = {
     "additional_issue": True,
     "change_description": True,
@@ -14,6 +13,7 @@ cashe = ExpiringDict(max_len=100, max_age_seconds=1800)
 
 
 class MintCoin:
+
     def __init__(self, coin_id):
         self.coin_id = coin_id
         self.name = None
@@ -43,7 +43,8 @@ class MintCoin:
             "image": self.image,
             "txhash": self.txhash.hex(),
             "address": self.address,
-            "setting": self.setting}
+            "setting": self.setting
+        }
 
     def update(self, params, setting, txhash):
         if self.version == -1:
@@ -142,7 +143,7 @@ def get_mintcoin_object(coin_id, best_block=None, best_chain=None, stop_txhash=N
         m.update(
             params=C.BASE_CURRENCY,
             setting={k: False for k, v in setting_template.items()},
-            txhash=b'\x00'*32)
+            txhash=b'\x00' * 32)
     elif key:
         cashe[key] = m
     return m

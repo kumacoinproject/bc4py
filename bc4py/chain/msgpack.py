@@ -10,14 +10,16 @@ def default_hook(obj):
             'binary': obj.b,
             'height': obj.height,
             'flag': obj.flag,
-            'txs': [default_hook(tx) for tx in obj.txs]}
+            'txs': [default_hook(tx) for tx in obj.txs]
+        }
     if isinstance(obj, TX):
         return {
             '_bc4py_class_': 'TX',
             'binary': obj.b,
             'height': obj.height,
             'signature': [(pubkey, signature) for pubkey, signature in obj.signature],
-            'R': obj.R}
+            'R': obj.R
+        }
     return obj
 
 

@@ -9,6 +9,7 @@ log = getLogger('bc4py')
 
 
 class Search(dict):
+
     def __init__(self, gap_user, gap_limit, cur):
         super().__init__()
         self.gap_user = gap_user
@@ -41,8 +42,7 @@ class Search(dict):
         next_index = self.biggest_index(user=user, is_inner=is_inner) + 1
         sk, pk, ck = extract_keypair(user=user, is_inner=is_inner, index=next_index)
         self[ck] = (user, is_inner, next_index)
-        log.info("Recode new userID={} is_inner={} index={} address={}"
-                     .format(user, is_inner, index, ck))
+        log.info("Recode new userID={} is_inner={} index={} address={}".format(user, is_inner, index, ck))
 
     def biggest_index(self, user, is_inner):
         index = 0
@@ -92,15 +92,13 @@ def repair_wallet(gap_user=10, gap_limit=20):
                         address, coin_id, amount = input_tx.outputs[txindex]
                         user = read_address2user(address=address, cur=cur)
                         if user is not None:
-                            balance = Balance(coin_id, amount)
-                            movement[user] -= balance
-                            movement[C.ANT_OUTSIDE] += balance
+                            movement[user][coin_id] -= amount
+                            # movement[C.ANT_OUTSIDE] += balance
                     for address, coin_id, amount in tx.outputs:
                         user = read_address2user(address, cur)
                         if user is not None:
-                            balance = Balance(coin_id, amount)
-                            movement[user] += balance
-                            movement[C.ANT_OUTSIDE] -= balance
+                            movement[user][coin_id] += amount
+                            # movement[C.ANT_OUTSIDE] -= balance
                     # check
                     movement.cleanup()
                     if len(movement) == 0:

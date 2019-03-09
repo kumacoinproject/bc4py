@@ -54,9 +54,15 @@ var ssl = {
   cert: fs.readFileSync('./ssl/cert.pem', 'utf8')
 };
  
-httpProxy.createServer({
+var server = httpProxy.createServer({
   target: {host: 'localhost', port: 3000},
   ssl: ssl,
   ws: true
-}).listen(443);
+});
+ 
+server.on('error', function(err, req, res) {
+  res.end();
+});
+ 
+server.listen(443);
 ```

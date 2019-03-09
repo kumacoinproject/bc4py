@@ -19,6 +19,7 @@ DEFAULT_PORT = 4444
 
 
 class FileObjectWrapper(object):
+
     def __init__(self, fileobject, stdio):
         self._obj = fileobject
         self._io = stdio
@@ -50,8 +51,7 @@ class Rpdb(pdb.Pdb):
 
         # Writes to stdout are forbidden in mod_wsgi environments
         try:
-            sys.stderr.write("pdb is running on %s:%d\n"
-                             % self.skt.getsockname())
+            sys.stderr.write("pdb is running on %s:%d\n" % self.skt.getsockname())
         except IOError:
             pass
 
@@ -170,6 +170,7 @@ class OccupiedPorts(object):
         except KeyError:
             pass
         self.lock.release()
+
 
 # {port: sys.stdout} pairs to track recursive rpdb invocation on same port.
 # This scheme doesn't interfere with recursive invocations on separate ports -

@@ -1,32 +1,33 @@
-bc4py (blockchain-for-python)
+bc4py
 =============================
-It enable you to create application with blockchain on Python3.
+[bc4py](https://github.com/namuyan/bc4py)\(blockchain-for-python) enables you to
+create blockchain application by Python3.
 
 Function
 ----
 * UTXO base
-* Proof of works or/and proof of stake multi-consensus
-* Minting colored coin (Not token)
-* Python interpreter based smart contract (PyContract)
-* block containing result smart contract　(differ from Ethereum)
+* PoW, PoS and PoC multi-consensus
+* Minting colored coin
+* Python interpreter based smart contract
+* block containing result smart contract
 
 Requirement
 ----
 * Windows/Linux
 * **Python3.6** or more
-* [nem-ed25519](https://github.com/namuyan/nem-ed25519) my encryption lib
-* [p2p-python](https://github.com/namuyan/p2p-python) my peer2peer lib
+* **Rust nightly** for extension
+* [nem-ed25519](https://github.com/namuyan/nem-ed25519)
+* [p2p-python](https://github.com/namuyan/p2p-python)
 * LevelDB
-    * [plyvel](https://github.com/wbolster/plyvel) for linux and ARM
-    * [python-leveldb](https://github.com/happynear/py-leveldb-windows) for linux and windows
-* hash algorithm
+* hash function
     * [yespower-python](https://github.com/namuyan/yespower-python)  For CPU
-    * [~~yescryptR64~~](https://github.com/namuyan/yescryptR64-python) CPU resistance?
     * [hmq-hash](https://github.com/namuyan/hmq-hash) for GPU
     * [x16s-hash](https://pypi.org/project/shield-x16s-hash/) for GPU
     * [x11_hash](https://pypi.org/project/x11_hash/) For ASIC
     * [litecoin_scrypt](https://pypi.org/project/litecoin_scrypt/) For ASIC
-
+* Python extension [bc4py-extension](https://github.com/namuyan/bc4py_extension)
+* plotting tool [bc4py-plotter](https://github.com/namuyan/bc4py_plotter)
+    
 Install
 ----
 ```commandline
@@ -39,28 +40,6 @@ pip3 install --user -r requirements-c.txt
 wget http://example.com/boot.json
 ```
 
-* install leveldb
-    * For windows, please look [py-leveldb-windows](https://github.com/happynear/py-leveldb-windows)
-    * For linux, `pip install plyvel` or `pip install leveldb`
-    * For ARM, [leveldb-1.20-build](https://tangerina.jp/blog/leveldb-1.20-build/)
-
-```text
-# compile
-wget https://github.com/google/leveldb/archive/v1.20.tar.gz
-zcat v1.20.tar.gz | tar xf -
-cd leveldb-1.20
-make
-make check
-# copy source
-sudo cp -r include/leveldb /usr/local/include/
-sudo install -o root -m 644 -p out-shared/libleveldb.so.1.20 /usr/local/lib/
-sudo cp -d out-shared/libleveldb.so out-shared/libleveldb.so.1 /usr/local/lib/
-sudo install -o root -m 644 -p out-static/lib* /usr/local/lib/
-# affect changes
-sudo ldconfig
-pip install plyvel
-```
-
 Start node
 ----
 * `python3 localnode.py` Node working on local env, for debug.
@@ -71,11 +50,17 @@ Start node
 Documents
 ----
 * [Create genesis block](doc/GenesisBlock.md)
-* [Ho to mining](doc/Mining.md)
-* [API doc](bc4py/user/api/static/index.md)
-* [Development](doc/Development.md)
-* [About new function pullrequest](doc/AboutPullrequest.md)
-* [Proxy introduction](doc/Proxy.md)
+* [How to mining](doc/Mining.md)
+* [API document](bc4py/user/api/static/index.md)
+* [About development](doc/Development.md)
+* [About new offer about program](doc/AboutPullrequest.md)
+* [HTTPS proxy introduction](doc/Proxy.md)
+* [Proof of capacity](doc/AboutPoC.md)
+* [Install LevelDB](doc/InstallLevedb.md)
+
+Licence
+----
+MIT
 
 Author
 ----

@@ -1,4 +1,4 @@
-from bc4py.config import executor, C, V, P, BlockChainError
+from bc4py.config import executor, executor_lock, C, V, P, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.chain.checking import check_block, check_tx, check_tx_time
@@ -6,7 +6,7 @@ from bc4py.chain.checking.signature import batch_sign_cashe
 from bc4py.chain.workhash import get_workhash_fnc
 from bc4py.database.builder import builder, tx_builder, user_account
 from bc4py.database.create import closing, create_db
-from bc4py.user.network import update_mining_staking_all_info
+from bc4py.user.network import update_info_for_generate
 from bc4py.user.network.directcmd import DirectCmd
 from bc4py.user.network.connection import *
 from bc4py.user.exit import system_exit
@@ -35,6 +35,8 @@ def _generate_workhash(task_list):
 
 def _callback(future):
     data_list = future.result()
+    if len(data_list) == 0:
+        return
     if isinstance(data_list[0], str):
         log.error("error on callback_workhash(), {}".format(data_list[0]))
         return
@@ -49,11 +51,13 @@ def batch_workhash(blocks):
     task_list = list()
     s = time()
     for block in blocks:
-        if block.flag in (C.BLOCK_YES_POW, C.BLOCK_HMQ_POW, C.BLOCK_X11_POW, C.BLOCK_LTC_POW, C.BLOCK_X16R_POW):
+        if block.flag in (C.BLOCK_YES_POW, C.BLOCK_HMQ_POW, C.BLOCK_X11_POW, C.BLOCK_LTC_POW,
+                          C.BLOCK_X16R_POW):
             task_list.append((block.height, block.flag, block.b))
-    future = executor.submit(_generate_workhash, task_list)
-    future.add_done_callback(_callback)
-    log.debug("Success batch workhash {} by {}Sec".format(len(task_list), round(time()-s, 3)))
+    with executor_lock:
+        future = executor.submit(_generate_workhash, task_list)
+        future.add_done_callback(_callback)
+    log.debug("Success batch workhash {} by {}Sec".format(len(task_list), round(time() - s, 3)))
     return future
 
 
@@ -162,7 +166,8 @@ def fast_sync_chain():
         # Base check
         base_check_failed_msg = None
         if before_block.hash != new_block.previous_hash:
-            base_check_failed_msg = "Not correct previous hash new={} before={}".format(new_block, before_block)
+            base_check_failed_msg = "Not correct previous hash new={} before={}".format(
+                new_block, before_block)
         # proof of work check
         if not new_block.pow_check():
             base_check_failed_msg = "Not correct work hash {}".format(new_block)
@@ -253,8 +258,8 @@ def fast_sync_chain():
     my_best_height = builder.best_block.height
     best_height_on_network, best_hash_on_network = get_best_conn_info()
     if best_height_on_network <= my_best_height:
-        log.info("Finish update chain data by network. {}Sec [best={}, now={}]"
-                     .format(round(time()-start, 1), best_height_on_network, my_best_height))
+        log.info("Finish update chain data by network. {}Sec [best={}, now={}]".format(
+            round(time() - start, 1), best_height_on_network, my_best_height))
         return True
     else:
         log.debug("Continue update chain, best={}, now={}".format(best_height_on_network, my_best_height))
@@ -262,6 +267,7 @@ def fast_sync_chain():
 
 
 def sync_chain_loop():
+
     def loop():
         global f_changed_status
         failed = 5
@@ -273,7 +279,7 @@ def sync_chain_loop():
                         log.warning("Reset booting mode.")
                         P.F_NOW_BOOTING = False
                         if builder.best_block:
-                            update_mining_staking_all_info()
+                            update_info_for_generate()
                         failed = 0
                     elif failed < 0:
                         exit_msg = 'Failed sync.'
@@ -300,4 +306,3 @@ def sync_chain_loop():
 
     log.info("Start sync now {} connections.".format(len(V.PC_OBJ.p2p.user)))
     Thread(target=loop, name='Sync').start()
-

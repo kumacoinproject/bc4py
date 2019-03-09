@@ -45,7 +45,7 @@ async def list_unspents(request):
         page = int(request.query.get('page', 0))
         limit = min(100, int(request.query.get('limit', 25)))
         start = page * limit
-        finish = (page + 1) * limit - 1
+        finish = (page+1) * limit - 1
         f_next_page = False
         target_address = request.query['address']
         unspents_iter = get_utxo_iter(target_address=set(target_address.split(',')))
@@ -63,7 +63,8 @@ async def list_unspents(request):
                 'txhash': txhash.hex(),
                 'txindex': txindex,
                 'coin_id': coin_id,
-                'amount': amount})
+                'amount': amount
+            })
         return web_base.json_res({'data': data, 'next': f_next_page})
     except Exception:
         return web_base.error_res()
@@ -80,30 +81,32 @@ async def list_private_unspents(request):
             'txhash': txhash.hex(),
             'txindex': txindex,
             'coin_id': coin_id,
-            'amount': amount})
+            'amount': amount
+        })
     return web_base.json_res(data)
 
 
 async def list_account_address(request):
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         cur = db.cursor()
-        user_name = request.query.get('account', C.ANT_NAME_UNKNOWN)
+        user_name = request.query.get('account', C.account2name[C.ANT_UNKNOWN])
         user_id = read_name2user(user_name, cur)
         address_list = list()
         for uuid, address, user in read_pooled_address_iter(cur):
             if user_id == user:
-                if user == C.ANT_CONTRACT:
+                if user == C.ANT_VALIDATOR:
+                    address_list.append(convert_address(ck=address, prefix=V.BLOCK_VALIDATOR_PREFIX))
+                elif user == C.ANT_CONTRACT:
                     address_list.append(convert_address(ck=address, prefix=V.BLOCK_CONTRACT_PREFIX))
                 else:
                     address_list.append(address)
-    return web_base.json_res({
-        'account': user_name, 'user_id': user_id, 'address': address_list})
+    return web_base.json_res({'account': user_name, 'user_id': user_id, 'address': address_list})
 
 
 async def move_one(request):
     try:
         post = await web_base.content_type_json_check(request)
-        ant_from = post.get('from', C.ANT_NAME_UNKNOWN)
+        ant_from = post.get('from', C.account2name[C.ANT_UNKNOWN])
         ant_to = post['to']
         coin_id = int(post.get('coin_id', 0))
         amount = int(post['amount'])
@@ -114,9 +117,7 @@ async def move_one(request):
             _to = read_name2user(ant_to, cur)
             txhash = user_account.move_balance(_from, _to, coins, cur)
             db.commit()
-        return web_base.json_res({
-            'txhash': txhash.hex(),
-            'from_id': _from, 'to_id': _to})
+        return web_base.json_res({'txhash': txhash.hex(), 'from_id': _from, 'to_id': _to})
     except Exception:
         return web_base.error_res()
 
@@ -124,7 +125,7 @@ async def move_one(request):
 async def move_many(request):
     try:
         post = await web_base.content_type_json_check(request)
-        ant_from = post.get('from', C.ANT_NAME_UNKNOWN)
+        ant_from = post.get('from', C.account2name[C.ANT_UNKNOWN])
         ant_to = post['to']
         coins = Balance()
         for k, v in post['coins'].items():
@@ -135,9 +136,7 @@ async def move_many(request):
             _to = read_name2user(ant_to, cur)
             txhash = user_account.move_balance(_from, _to, coins, cur)
             db.commit()
-        return web_base.json_res({
-            'txhash': txhash.hex(),
-            'from_id': _from, 'to_id': _to})
+        return web_base.json_res({'txhash': txhash.hex(), 'from_id': _from, 'to_id': _to})
     except Exception as e:
         return web.Response(text=str(e), status=400)
 
@@ -145,10 +144,13 @@ async def move_many(request):
 async def new_address(request):
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         cur = db.cursor()
-        user_name = request.query.get('account', C.ANT_NAME_UNKNOWN)
+        user_name = request.query.get('account', C.account2name[C.ANT_UNKNOWN])
         user_id = read_name2user(user_name, cur)
-        address = create_new_user_keypair(user_name, cur)
+        address = create_new_user_keypair(user_id, cur)
         db.commit()
+        if user_id == C.ANT_VALIDATOR:
+            print(V.BLOCK_VALIDATOR_PREFIX)
+            address = convert_address(address, V.BLOCK_VALIDATOR_PREFIX)
         if user_id == C.ANT_CONTRACT:
             address = convert_address(address, V.BLOCK_CONTRACT_PREFIX)
     return web_base.json_res({'account': user_name, 'user_id': user_id, 'address': address})
@@ -160,11 +162,7 @@ async def get_keypair(request):
             cur = db.cursor()
             address = request.query['address']
             uuid, sk, pk = read_address2keypair(address, cur)
-            return web_base.json_res({
-                'uuid': uuid,
-                'address': address,
-                'private_key': sk,
-                'public_key': pk})
+            return web_base.json_res({'uuid': uuid, 'address': address, 'private_key': sk, 'public_key': pk})
     except Exception:
         return web_base.error_res()
 
@@ -178,5 +176,5 @@ __all__ = [
     "move_one",
     "move_many",
     "new_address",
-    "get_keypair"
+    "get_keypair",
 ]

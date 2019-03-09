@@ -28,12 +28,14 @@ ERROR_CODES = [
     (22, "- Duplicate share", None),
     (23, "- Low difficulty share", None),
     (24, "- Unauthorized worker", None),
-    (25, "- Not subscribed", None)]
+    (25, "- Not subscribed", None)
+]
 
 F_DEEP_DEBUG = True
 
 
 class Stratum:
+
     def __init__(self, port, consensus, first_difficulty=128, f_local=True):
         warnings.warn("not work", ResourceWarning)
         self.consensus = consensus
@@ -46,8 +48,8 @@ class Stratum:
         stratum.append(self)
 
     def __repr__(self):
-        return "<Stratum {} {} users={}>".format(
-            C.consensus2name[self.consensus], self.first_difficulty, len(self.users))
+        return "<Stratum {} {} users={}>".format(C.consensus2name[self.consensus], self.first_difficulty,
+                                                 len(self.users))
 
     def close(self):
         self.server.close()
@@ -80,9 +82,12 @@ class Stratum:
             except ConnectionResetError as e:
                 break
             except StratumError as e:
-                writer.write(json.dumps({
-                    "id": data.get('id'), "result": None, "error": ERROR_CODES[0]}
-                ).encode() + b'\n')
+                writer.write(
+                    json.dumps({
+                        "id": data.get('id'),
+                        "result": None,
+                        "error": ERROR_CODES[0]
+                    }).encode() + b'\n')
                 await writer.drain()
                 log.debug("StratumError: {}".format(e))
             except Exception:
@@ -118,9 +123,12 @@ async def reset_difficulty():
                 span = (max(user.deque) - min(user.deque)) / (len(user.deque) - 1)
                 bias = min(2.0, max(0.5, target_span / span))
                 new_diff = user.diff * bias
-            writer.write(json.dumps(
-                {"id": None, "method": "mining.set_difficulty", "params": [new_diff]}
-            ).encode() + b'\n')
+            writer.write(
+                json.dumps({
+                    "id": None,
+                    "method": "mining.set_difficulty",
+                    "params": [new_diff]
+                }).encode() + b'\n')
             await writer.drain()
             count += 1
     log.debug("Update diff {} users.".format(count))
@@ -190,4 +198,3 @@ __all__ = [
     "start_stratum",
     "close_stratum",
 ]
-

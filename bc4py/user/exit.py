@@ -17,5 +17,5 @@ def system_exit():
 
 
 async def api_close():
-        await V.API_OBJ.shutdown()
-        await V.API_OBJ.cleanup()
+    await V.API_OBJ.shutdown()
+    await V.API_OBJ.cleanup()

@@ -16,6 +16,7 @@ lock = Lock()
 
 
 class Emulate:
+
     def __init__(self, c_address, f_claim_gas=True):
         self.c_address = c_address
         self.f_claim_gas = f_claim_gas
@@ -42,7 +43,7 @@ def on_next(data):
         em.que.put(data)
 
 
-def loop_emulator(index: int, em: Emulate, genesis_block):
+def loop_emulator(index: int, em: Emulate):
     # wait for booting_mode finish
     if P.F_NOW_BOOTING:
         log.debug("waiting for booting finish.")
@@ -96,12 +97,21 @@ def loop_emulator(index: int, em: Emulate, genesis_block):
                     else:
                         gas_limit = None  # No limit on gas consumption, turing-complete
                     result, emulate_gas = execute(
-                        c_address=c_address, genesis_block=genesis_block, start_tx=start_tx, c_method=c_method,
-                        redeem_address=redeem_address, c_args=c_args, gas_limit=gas_limit, f_show_log=True)
+                        c_address=c_address,
+                        start_tx=start_tx,
+                        c_method=c_method,
+                        redeem_address=redeem_address,
+                        c_args=c_args,
+                        gas_limit=gas_limit,
+                        f_show_log=True)
                     claim_emulate_gas = emulate_gas if em.f_claim_gas else 0
                     waiting_conclude_hash = broadcast(
-                        c_address=c_address, start_tx=start_tx, redeem_address=redeem_address,
-                        emulate_gas=claim_emulate_gas, result=result, f_not_send=False)
+                        c_address=c_address,
+                        start_tx=start_tx,
+                        redeem_address=redeem_address,
+                        emulate_gas=claim_emulate_gas,
+                        result=result,
+                        f_not_send=False)
                     waiting_start_tx = start_tx
 
             # elif cmd == C_Conclude:
@@ -119,16 +129,15 @@ def loop_emulator(index: int, em: Emulate, genesis_block):
     log.debug("Close emulator listen {}".format(em))
 
 
-def start_emulators(genesis_block):
+def start_emulators():
     """ start emulation listen, need close by close_emulators() """
     # version check, emulator require Python3.6 or more
     if version_info.major < 3 or version_info.minor < 6:
         raise Exception('Emulator require 3.6.0 or more.')
     assert not lock.locked(), 'Already started emulator.'
     for index, em in enumerate(emulators):
-        Thread(target=loop_emulator, name='Emulator{}'.format(index),
-               args=(index, em, genesis_block), daemon=True).start()
-    stream.subscribe(on_next=on_next)
+        Thread(target=loop_emulator, name='Emulator{}'.format(index), args=(index, em), daemon=True).start()
+    stream.subscribe(on_next=on_next, on_error=log.error)
     lock.acquire()
 
 

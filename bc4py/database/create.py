@@ -1,12 +1,9 @@
-#!/user/env python3
-# -*- coding: utf-8 -*-
-
 from bc4py.config import C, V
-import sqlite3
 from contextlib import closing
-import re
 from time import time
 from logging import getLogger
+import sqlite3
+import re
 
 log = getLogger('bc4py')
 
@@ -33,7 +30,7 @@ def create_db(path, f_debug=False, f_on_memory=False, f_wal_mode=False):
 
 def sql_info(data):
     # db.set_trace_callback()に最適
-    log.debug("SQL: {} {}".format(round(time()-V.BLOCK_GENESIS_TIME, 4), re.sub(r"\s+", " ", data)))
+    log.debug("SQL: {} {}".format(round(time() - V.BLOCK_GENESIS_TIME, 4), re.sub(r"\s+", " ", data)))
 
 
 def make_account_db():
@@ -71,18 +68,22 @@ def make_account_db():
             "CREATE INDEX IF NOT EXISTS 'hash_idx' ON `log` (`hash`,`index`)",
             "CREATE INDEX IF NOT EXISTS 'name_idx' ON `account` (`name`)",
             "CREATE INDEX IF NOT EXISTS 'ck_idx' ON `pool` (`ck`)",
-            "CREATE INDEX IF NOT EXISTS 'user_idx' ON `pool` (`user`)"]
+            "CREATE INDEX IF NOT EXISTS 'user_idx' ON `pool` (`user`)"
+        ]
         for sql_ in sql:
             db.execute(sql_)
         # default account
-        accounts = [
-            (C.ANT_RESERVED, C.ANT_NAME_RESERVED, "Reserved and update to other accounts.", 0),
-            (C.ANT_UNKNOWN, C.ANT_NAME_UNKNOWN, "Not user binding address, for change.", 0),
-            (C.ANT_OUTSIDE, C.ANT_NAME_OUTSIDE, "Address used for movement with outside.", 0),
-            (C.ANT_CONTRACT, C.ANT_NAME_CONTRACT, "Contract bind address.", 0)]
+        accounts = [(C.ANT_UNKNOWN, C.account2name[C.ANT_UNKNOWN], "Unknown account, not specified", 0),
+                    (C.ANT_VALIDATOR, C.account2name[C.ANT_VALIDATOR], "Validator bind address", 0),
+                    (C.ANT_CONTRACT, C.account2name[C.ANT_CONTRACT], "Contract bind address", 0),
+                    (C.ANT_MINING, C.account2name[C.ANT_MINING], "Mining related accounts", 0)]
         db.executemany("INSERT OR IGNORE INTO `account` VALUES (?,?,?,?)", accounts)
         db.commit()
 
 
-# add last_index to account
-# "ALTER TABLE `account` ADD COLUMN 'last_index' INTEGER NOT NULL AFTER `description`"
+__all__ = [
+    "closing",
+    "create_db",
+    "sql_info",
+    "make_account_db",
+]

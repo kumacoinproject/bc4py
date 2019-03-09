@@ -6,7 +6,6 @@ from os import urandom
 from time import time
 from logging import getLogger
 
-
 log = getLogger('bc4py')
 base_target = 0x00000000ffff0000000000000000000000000000000000000000000000000000
 
@@ -18,9 +17,8 @@ async def mining_subscribe(*args, **kwargs):
     subscription_id_1 = dead_beef + urandom(8)
     subscription_id_2 = dead_beef + urandom(8)
     kwargs['user']["subscription_id"] = (subscription_id_1, subscription_id_2)
-    subscription_details = [
-        ('mining.set_difficulty', str(kwargs['user']['diff'])),
-        ('mining.notify', subscription_id_2.hex())]
+    subscription_details = [('mining.set_difficulty', str(kwargs['user']['diff'])),
+                            ('mining.notify', subscription_id_2.hex())]
     extra_nonce1 = urandom(4)
     extra_nonce2_size = 4
     kwargs['user']['extra_nonce1'] = extra_nonce1
@@ -86,7 +84,8 @@ async def mining_notify(job_id, clean_jobs, mining_block):
     proof_tx.serialize()
     coinbase1 = proof_tx.b[:91].hex()
     coinbase2 = ""
-    merkleroot_branch = [bin2hex(tx.hash) for tx in mining_block.txs[1:]]  # ['ac9c224e5a1344bb659a8716c9ef5e9c7a07c71ec955260fa83964175f3014b4']
+    merkleroot_branch = [bin2hex(tx.hash) for tx in mining_block.txs[1:]
+                        ]  # ['ac9c224e5a1344bb659a8716c9ef5e9c7a07c71ec955260fa83964175f3014b4']
     block_version = mining_block.version.to_bytes(4, 'little').hex()  # 20000000
     bits = mining_block.bits.to_bytes(4, 'big').hex()  # 1c034394
     ntime = mining_block.time.to_bytes(4, 'little').hex()  # 5bd3a90a
