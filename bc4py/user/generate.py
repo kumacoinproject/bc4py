@@ -232,6 +232,8 @@ class Generate(Thread):
             count = 0
             for file_name in os.listdir(dir_path):
                 m = re.match("^optimized\\.([A-Z0-9]{40})\\-([0-9]+)\\-([0-9]+)\\.dat$", file_name)
+                if m is None:
+                    continue
                 count += int(m.group(3)) - int(m.group(2))
             if count < 1:
                 log.debug("not found plot file, wait for 60 sec...")
