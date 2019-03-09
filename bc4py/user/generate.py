@@ -75,6 +75,8 @@ class Generate(Thread):
                     self.proof_of_stake()
                 elif self.consensus == C.BLOCK_CAP_POS:
                     self.proof_of_capacity()
+                elif self.consensus == C.BLOCK_FLK_POS:
+                    raise BlockChainError("unimplemented")
                 else:
                     self.proof_of_work()
             except BlockChainError as e:

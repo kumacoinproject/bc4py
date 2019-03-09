@@ -39,6 +39,7 @@ class C:  # Constant
     BLOCK_GENESIS = 0
     BLOCK_COIN_POS = 1
     BLOCK_CAP_POS = 2  # proof of capacity
+    BLOCK_FLK_POS = 3  # proof of fund-lock
 
     BLOCK_YES_POW = 5
     BLOCK_X11_POW = 6

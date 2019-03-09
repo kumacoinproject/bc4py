@@ -49,6 +49,8 @@ def check_tx(tx, include_block):
             f_signature_check = False
             f_inputs_origin_check = False
             check_tx_poc_reward(tx=tx, include_block=include_block)
+        elif include_block.flag == C.BLOCK_FLK_POS:
+            raise BlockChainError("unimplemented")
         else:
             raise BlockChainError('Unknown block type {}'.format(include_block.flag))
 

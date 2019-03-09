@@ -54,6 +54,8 @@ def update_work_hash(block):
             time=block.time,
             scope_hash=scope_hash[index * 32:index*32 + 32],
             previous_hash=block.previous_hash)
+    elif block.flag == C.BLOCK_FLK_POS:
+        raise BlockChainError("unimplemented")
     else:
         # POW_???
         hash_fnc = get_workhash_fnc(block.flag)
