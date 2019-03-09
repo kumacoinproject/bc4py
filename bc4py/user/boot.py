@@ -13,6 +13,7 @@ from bip32nem import BIP32Key, BIP32_HARDEN
 from threading import Thread
 from time import time, sleep
 from logging import getLogger
+import requests
 import msgpack
 import json
 import os
@@ -40,10 +41,12 @@ def create_boot_file(genesis_block, params, network_ver=None, connections=()):
     log.info("create new boot.json!")
 
 
-def load_boot_file():
+def load_boot_file(url=None):
     normal_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'boot.json')
     extra_path = os.path.join(V.DB_HOME_DIR, 'boot.json')
-    if os.path.exists(normal_path):
+    if url:
+        data = requests.get(url=url).json()
+    elif os.path.exists(normal_path):
         with open(normal_path, mode='r') as fp:
             data = json.load(fp)
     elif os.path.exists(extra_path):
