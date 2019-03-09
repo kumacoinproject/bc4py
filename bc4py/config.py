@@ -50,11 +50,12 @@ class C:  # Constant
         BLOCK_GENESIS: 'GENESIS',
         BLOCK_COIN_POS: 'POS_COIN',
         BLOCK_CAP_POS: 'POS_CAP',
+        BLOCK_FLK_POS: 'POS_FLK',
         BLOCK_YES_POW: 'POW_YES',
         BLOCK_X11_POW: 'POW_X11',
         BLOCK_HMQ_POW: 'POW_HMQ',
         BLOCK_LTC_POW: 'POW_LTC',
-        BLOCK_X16R_POW: 'POW_X16R'
+        BLOCK_X16R_POW: 'POW_X16R',
     }
 
     # tx type
