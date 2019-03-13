@@ -203,20 +203,14 @@ def create_keystone(passphrase, keystone_path, language='english'):
     pub = bip.ExtendedKey(private=False)
     timeout = -1
     wallet = {
-        'private_key':
-        bip.ExtendedKey(private=True),
-        'public_key':
-        pub,
-        'mnemonic':
-        mnemonic,
-        'passphrase':
-        passphrase,
-        'timeout':
-        timeout,
-        'comments':
-        'You should remove "private_key" and "passphrase" for security.'
-        'Please don\'t forget the two key\'s value or lost your coins.'
-        'timeout\'s value "-1" make system auto deletion disable.'
+        'private_key': bip.ExtendedKey(private=True),
+        'public_key': pub,
+        'mnemonic': mnemonic,
+        'passphrase': passphrase,
+        'timeout': timeout,
+        'comments': 'You should remove "private_key" and "passphrase" for security.'
+                    'Please don\'t forget the two key\'s value or lost your coins.'
+                    'timeout\'s value "-1" make system auto deletion disable.',
     }
     with open(keystone_path, mode='w') as fp:
         json.dump(wallet, fp, indent=4)

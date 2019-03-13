@@ -39,12 +39,12 @@ def escape_cross_origin_block(app):
         app,
         defaults={
             "*":
-            aiohttp_cors.ResourceOptions(
-                # Access-Control-Allow-Origin
-                allow_credentials=True,
-                expose_headers="*",
-                allow_headers=("X-Requested-With", "Content-Type", "Authorization", "Content-Length"),
-                allow_methods=['POST', 'GET'])
+                aiohttp_cors.ResourceOptions(
+                    # Access-Control-Allow-Origin
+                    allow_credentials=True,
+                    expose_headers="*",
+                    allow_headers=("X-Requested-With", "Content-Type", "Authorization", "Content-Length"),
+                    allow_methods=['POST', 'GET'])
         })
     for resource in app.router.resources():
         cors.add(resource)
