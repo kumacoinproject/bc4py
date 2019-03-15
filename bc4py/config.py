@@ -159,6 +159,9 @@ class V:
     PC_OBJ = None
     API_OBJ = None
 
+    # developer
+    BRANCH_NAME = None
+
 
 class P:  # 起動中もダイナミックに変化
     F_STOP = False  # Stop signal
