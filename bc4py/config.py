@@ -1,6 +1,3 @@
-#!/user/env python3
-# -*- coding: utf-8 -*-
-
 from rx.subjects import Subject
 from concurrent.futures import ProcessPoolExecutor
 from threading import Lock

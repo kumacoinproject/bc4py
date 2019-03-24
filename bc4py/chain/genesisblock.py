@@ -1,7 +1,3 @@
-#!/user/env python3
-# -*- coding: utf-8 -*-
-
-from bc4py import __chain_version__
 from bc4py.chain.difficulty import MAX_BITS
 from bc4py.config import C, V, BlockChainError
 from bc4py.chain.block import Block

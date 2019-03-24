@@ -1,6 +1,3 @@
-#!/user/env python3
-# -*- coding: utf-8 -*-
-
 from bc4py.config import C, V
 from bc4py.gittool import get_current_branch
 from bc4py.chain.utils import GompertzCurve
