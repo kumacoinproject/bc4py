@@ -14,7 +14,7 @@ from threading import Thread
 from time import time, sleep
 from logging import getLogger
 import requests
-import msgpack
+import msgpack as original_mpk
 import json
 import os
 
@@ -33,7 +33,7 @@ def create_boot_file(genesis_block, params, network_ver=None, connections=()):
         } for tx in genesis_block.txs],
         'connections': connections,
         'network_ver': network_ver,
-        'params': msgpack.packb(params, use_bin_type=True).hex(),
+        'params': original_mpk.packb(params, use_bin_type=True).hex(),
     }
     boot_path = os.path.join(V.DB_HOME_DIR, 'boot.json')
     with open(boot_path, mode='w') as fp:
@@ -66,7 +66,7 @@ def load_boot_file(url=None):
         genesis_block.txs.append(tx)
     connections = data['connections']
     network_ver = data['network_ver']
-    params = msgpack.unpackb(a2b_hex(data['params']), raw=True, encoding='utf8')
+    params = original_mpk.unpackb(a2b_hex(data['params']), raw=True, encoding='utf8')
     return genesis_block, params, network_ver, connections
 
 

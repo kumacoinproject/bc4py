@@ -5,7 +5,7 @@ from bc4py.database.validator import get_validator_object
 from bc4py.database.cashe import Cashe
 from copy import deepcopy
 from logging import getLogger
-from nem_ed25519.key import is_address
+from nem_ed25519 import is_address
 from time import time
 import msgpack
 

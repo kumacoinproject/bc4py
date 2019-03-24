@@ -2,8 +2,8 @@ aiohttp>=3.0.0b0 # ver3 required
 aiohttp_cors
 aiohttp-basicauth-middleware==1.1.0
 pycryptodomex
-nem-ed25519
-p2p_python>=2.0.0
+git+https://github.com/namuyan/nem-ed25519@rust-ver # nem-ed25519>=0.1.0
+p2p_python>=2.0.1
 psutil
 pysha3
 xmltodict
@@ -15,3 +15,4 @@ rx==1.6.1  # ReactiveX
 bip32nem
 mnemonic
 msgpack>=0.5.6
+setuptools-rust

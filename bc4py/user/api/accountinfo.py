@@ -6,7 +6,7 @@ from bc4py.database.create import closing, create_db
 from bc4py.database.account import *
 from bc4py.database.tools import get_utxo_iter, get_unspents_iter
 from aiohttp import web
-from nem_ed25519.key import convert_address
+from nem_ed25519 import convert_address
 
 
 async def list_balance(request):

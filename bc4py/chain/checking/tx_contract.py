@@ -5,7 +5,7 @@ from bc4py.chain.checking.signature import *
 from bc4py.database.builder import tx_builder
 from bc4py.database.validator import *
 from bc4py.database.contract import *
-from nem_ed25519.key import is_address
+from nem_ed25519 import is_address
 from logging import getLogger
 
 log = getLogger('bc4py')

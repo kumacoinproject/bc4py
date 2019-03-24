@@ -4,7 +4,7 @@ from bc4py.database.tools import get_usedindex
 from bc4py.database.validator import get_validator_object
 from bc4py.chain.checking.signature import get_signed_cks
 from bc4py.user import Balance
-from nem_ed25519.key import is_address
+from nem_ed25519 import is_address
 
 
 def inputs_origin_check(tx, include_block):

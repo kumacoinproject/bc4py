@@ -12,7 +12,7 @@ import weakref
 import os
 import threading
 from time import time
-from nem_ed25519.key import is_address
+from nem_ed25519 import is_address
 from logging import getLogger, INFO
 
 log = getLogger('bc4py')

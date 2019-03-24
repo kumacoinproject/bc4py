@@ -1,6 +1,5 @@
 from bc4py.config import executor, executor_lock, V
-from nem_ed25519.key import get_address
-from nem_ed25519.signature import verify
+from nem_ed25519 import get_address, verify
 from threading import Lock
 from time import time, sleep
 from logging import getLogger

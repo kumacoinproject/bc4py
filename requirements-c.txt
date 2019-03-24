@@ -6,5 +6,4 @@ litecoin_scrypt
 git+https://github.com/namuyan/shield-x16s-hash
 # leveldb  # for linux and windows
 plyvel  # for linux and arm
-setuptools-rust
 bc4py_extension

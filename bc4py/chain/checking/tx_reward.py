@@ -3,7 +3,7 @@ from bc4py.config import C, BlockChainError
 from bc4py_extension import poc_hash, poc_work, scope_index
 from bc4py.chain.utils import GompertzCurve
 from bc4py.database.builder import tx_builder
-from nem_ed25519.signature import verify
+from nem_ed25519 import verify
 
 
 def check_tx_pow_reward(tx, include_block):

@@ -11,7 +11,7 @@ from bc4py_extension import multi_seek
 from threading import Thread, Event
 from time import time, sleep
 from collections import deque
-from nem_ed25519.key import is_address
+from nem_ed25519 import is_address
 from random import random
 from logging import getLogger
 import traceback
