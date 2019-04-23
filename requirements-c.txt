@@ -7,3 +7,4 @@ git+https://github.com/namuyan/shield-x16s-hash
 # leveldb  # for linux and windows
 plyvel  # for linux and arm
 bc4py_extension
+fastecdsa

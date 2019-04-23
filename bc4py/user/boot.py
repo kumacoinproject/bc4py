@@ -2,6 +2,7 @@ from bc4py.config import C, V
 from bc4py.chain import msgpack
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
+from bc4py.bip32 import Bip32, BIP32_HARDEN
 from bc4py.utils import AESCipher, ProgressBar
 from bc4py.database.create import closing, create_db
 from bc4py.database.builder import builder, tx_builder
@@ -9,7 +10,6 @@ from bc4py.chain.checking import new_insert_block
 from random import randint
 from binascii import a2b_hex
 from mnemonic import Mnemonic
-from bip32nem import BIP32Key, BIP32_HARDEN
 from threading import Thread
 from time import time, sleep
 from logging import getLogger
@@ -154,9 +154,9 @@ def import_keystone(passphrase='', auto_create=True, language='english'):
     if bip:
         # m/44' / coin_type' / account' / change / address_index
         V.BIP44_BRANCH_SEC_KEY = bip \
-            .ChildKey(44 + BIP32_HARDEN) \
-            .ChildKey(C.BIP44_COIN_TYPE) \
-            .ExtendedKey(private=True)
+            .child_key(44 + BIP32_HARDEN) \
+            .child_key(C.BIP44_COIN_TYPE) \
+            .extended_key(is_private=True)
     if timeout > 0:
         Thread(target=timeout_now, args=(timeout,), name='timer{}Sec'.format(timeout)).start()
     log.info("import wallet, unlock={} timeout={}".format(bool(bip), timeout))
@@ -164,9 +164,9 @@ def import_keystone(passphrase='', auto_create=True, language='english'):
 
 def swap_old_format(old_cur, new_cur, bip):
     secret_key = bip \
-        .ChildKey(44 + BIP32_HARDEN) \
-        .ChildKey(C.BIP44_COIN_TYPE) \
-        .ExtendedKey(private=True)
+        .child_key(44 + BIP32_HARDEN) \
+        .child_key(C.BIP44_COIN_TYPE) \
+        .extended_key(is_private=True)
     secret_key = secret_key.encode()
     for uuid, sk, pk, ck, user, time in old_cur.execute("SELECT * FROM `pool`"):
         sk = AESCipher.encrypt(key=secret_key, raw=sk)
@@ -187,8 +187,8 @@ def load_keystone(keystone_path):
         passphrase = str(wallet['passphrase'])
         timeout = int(wallet.get('timeout', -1))
         seed = Mnemonic.to_seed(mnemonic, passphrase)
-        bip = BIP32Key.fromEntropy(entropy=seed)
-        if pub != bip.ExtendedKey(private=False):
+        bip = Bip32.from_entropy(seed)
+        if pub != bip.extended_key(is_private=False):
             raise Exception('Don\'t match with public key.')
     else:
         bip = None
@@ -199,11 +199,11 @@ def load_keystone(keystone_path):
 def create_keystone(passphrase, keystone_path, language='english'):
     mnemonic = Mnemonic(language).generate()
     seed = Mnemonic.to_seed(mnemonic, passphrase)
-    bip = BIP32Key.fromEntropy(seed)
-    pub = bip.ExtendedKey(private=False)
+    bip = Bip32.from_entropy(seed)
+    pub = bip.extended_key(is_private=False)
     timeout = -1
     wallet = {
-        'private_key': bip.ExtendedKey(private=True),
+        'private_key': bip.extended_key(is_private=True),
         'public_key': pub,
         'mnemonic': mnemonic,
         'passphrase': passphrase,
