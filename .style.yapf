@@ -3,5 +3,8 @@ based_on_style = google
 ARITHMETIC_PRECEDENCE_INDICATION = true
 NO_SPACES_AROUND_SELECTED_BINARY_OPERATORS = true
 SPLIT_ARGUMENTS_WHEN_COMMA_TERMINATED = true
-COLUMN_LIMIT = 110
+COLUMN_LIMIT = 115
 INDENT_DICTIONARY_VALUE = true
+
+# create: yapf -d -r -p bc4py > yapf.patch
+# affect: patch -p0 < yapf.patch
