@@ -9,8 +9,7 @@ import os
 
 
 def read_txhash2log(txhash, cur):
-    d = cur.execute(
-        """
+    d = cur.execute("""
         SELECT `type`,`user`,`coin_id`,`amount`,`time` FROM `log` WHERE `hash`=?
     """, (txhash,)).fetchall()
     if len(d) == 0:

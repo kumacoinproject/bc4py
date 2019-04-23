@@ -285,8 +285,7 @@ class DataBase:
             for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
                 if k.startswith(b_coin_id) and start <= k <= stop:
                     dummy, index = struct_coins.unpack(k)
-                    txhash, (params, setting) = v[:32], unpackb(
-                        v[32:], raw=True, use_list=False, encoding='utf8')
+                    txhash, (params, setting) = v[:32], unpackb(v[32:], raw=True, use_list=False, encoding='utf8')
                     yield index, txhash, params, setting
 
     def read_contract_iter(self, c_address, start_idx=None):
@@ -412,8 +411,7 @@ class DataBase:
         last_index = None
         for last_index, *dummy in self.read_contract_iter(c_address=c_address, start_idx=index):
             pass
-        assert last_index is None, 'Not allow older ConcludeTX insert. my={} last={}'.format(
-            index, last_index)
+        assert last_index is None, 'Not allow older ConcludeTX insert. my={} last={}'.format(index, last_index)
         k = c_address.encode() + index.to_bytes(8, ITER_ORDER)
         v = start_tx.hash + finish_hash + packb(message, use_bin_type=True)
         self.batch['_contract'][k] = v
@@ -686,8 +684,7 @@ class ChainBuilder:
                             # DataBase内でのみのUsedIndexを取得
                             usedindex = self.db.read_usedindex(txhash)
                             if txindex in usedindex:
-                                raise BlockBuilderError('Already used index? {}:{}'.format(
-                                    txhash.hex(), txindex))
+                                raise BlockBuilderError('Already used index? {}:{}'.format(txhash.hex(), txindex))
                             usedindex.add(txindex)
                             self.db.write_usedindex(txhash, usedindex)  # UsedIndex update
                             input_tx = tx_builder.get_tx(txhash)
@@ -715,17 +712,12 @@ class ChainBuilder:
                             pass
                         elif tx.type == C.TX_MINT_COIN:
                             mint_id, params, setting = tx.encoded_message()
-                            self.db.write_coins(
-                                coin_id=mint_id, txhash=tx.hash, params=params, setting=setting)
+                            self.db.write_coins(coin_id=mint_id, txhash=tx.hash, params=params, setting=setting)
 
                         elif tx.type == C.TX_VALIDATOR_EDIT:
                             v_address, new_address, flag, sig_diff = tx.encoded_message()
                             self.db.write_validator(
-                                v_address=v_address,
-                                new_address=new_address,
-                                flag=flag,
-                                tx=tx,
-                                sign_diff=sig_diff)
+                                v_address=v_address, new_address=new_address, flag=flag, tx=tx, sign_diff=sig_diff)
 
                         elif tx.type == C.TX_CONCLUDE_CONTRACT:
                             v_address, start_hash, c_storage = tx.encoded_message()

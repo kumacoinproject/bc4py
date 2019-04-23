@@ -20,7 +20,7 @@ def __string_to_int(data):
         data = bytearray(data)
 
     for (i, c) in enumerate(data[::-1]):
-        val += (256**i)*c
+        val += (256**i) * c
     return val
 
 
@@ -35,14 +35,14 @@ def encode(data):
         enc = __base58_alphabet[val] + enc
 
     # Pad for leading zeroes
-    n = len(data)-len(data.lstrip(b'\0'))
-    return __base58_alphabet[0]*n + enc
+    n = len(data) - len(data.lstrip(b'\0'))
+    return __base58_alphabet[0] * n + enc
 
 
 def check_encode(raw):
     """Encode raw bytes into Bitcoin base58 string with checksum"""
     chk = sha256(sha256(raw).digest()).digest()[:4]
-    return encode(raw+chk)
+    return encode(raw + chk)
 
 
 def decode(data):
@@ -84,7 +84,6 @@ def test():
 
 if __name__ == '__main__':
     test()
-
 
 __all__ = [
     "encode",

@@ -82,8 +82,8 @@ class Storage(dict):
 
 
 class Contract:
-    __slots__ = ("c_address", "v_address", "version", "db_index", "binary", "extra_imports", "storage",
-                 "settings", "start_hash", "finish_hash")
+    __slots__ = ("c_address", "v_address", "version", "db_index", "binary", "extra_imports", "storage", "settings",
+                 "start_hash", "finish_hash")
 
     def __init__(self, c_address):
         assert is_address(c_address, V.BLOCK_CONTRACT_PREFIX)

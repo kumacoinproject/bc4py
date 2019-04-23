@@ -4,11 +4,7 @@ from bc4py.database.builder import builder, tx_builder
 
 def _best_info():
     if builder.best_block:
-        return {
-            'hash': builder.best_block.hash,
-            'height': builder.best_block.height,
-            'booting': P.F_NOW_BOOTING
-        }
+        return {'hash': builder.best_block.hash, 'height': builder.best_block.height, 'booting': P.F_NOW_BOOTING}
     else:
         return {'hash': None, 'height': None, 'booting': True}
 

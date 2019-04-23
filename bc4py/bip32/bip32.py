@@ -48,8 +48,7 @@ class Bip32(object):
         if entropy is None:
             entropy = urandom(MIN_ENTROPY_LEN // 8)  # Python doesn't have os.random()
         if not len(entropy) >= MIN_ENTROPY_LEN // 8:
-            raise ValueError("Initial entropy %i must be at least %i bits" %
-                             (len(entropy), MIN_ENTROPY_LEN))
+            raise ValueError("Initial entropy %i must be at least %i bits" % (len(entropy), MIN_ENTROPY_LEN))
         i64 = hmac.new(b"Bitcoin seed", entropy, hashlib.sha512).digest()
         il, ir = i64[:32], i64[32:]
         # FIXME test Il for 0 or less than SECP256k1 prime field order
@@ -104,7 +103,7 @@ class Bip32(object):
             # Python3 FIX
             lsb = secret[0] & 1 if type(secret[0]) == int else ord(secret[0]) & 1
             x = int.from_bytes(secret[1:], 'big')
-            ys = (x ** 3 + 7) % FIELD_ORDER  # y^2 = x^3 + 7 mod p
+            ys = (x**3 + 7) % FIELD_ORDER  # y^2 = x^3 + 7 mod p
             y, _ = mod_sqrt(ys, FIELD_ORDER)
             if y & 1 != lsb:
                 y = FIELD_ORDER - y
@@ -182,7 +181,7 @@ class Bip32(object):
         Il_int = int.from_bytes(Il, 'big')
         if Il_int >= CURVE_ORDER:
             return None
-        point = Il_int * CURVE_GEN + self.public
+        point = Il_int*CURVE_GEN + self.public
         if point == INFINITY:
             return None
 

@@ -108,8 +108,7 @@ def get_signed_cks(tx):
                     sleep(0.02)
                     continue
                 else:
-                    raise Exception('Something wrong. signed={}, include={}'.format(
-                        signed_cks, len(tx.signature)))
+                    raise Exception('Something wrong. signed={}, include={}'.format(signed_cks, len(tx.signature)))
         except RuntimeError:
             # dictionary changed size during iteration
             failed -= 1

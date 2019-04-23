@@ -103,8 +103,7 @@ def ask_all_nodes(cmd, data=None):
             pass
     if len(result) > 0:
         return result
-    raise BlockChainError('Cannot get any data. good={} bad={} cmd={}'.format(
-        len(good_node), len(bad_node), cmd))
+    raise BlockChainError('Cannot get any data. good={} bad={} cmd={}'.format(len(good_node), len(bad_node), cmd))
 
 
 def get_best_conn_info():

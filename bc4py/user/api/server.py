@@ -184,8 +184,7 @@ async def web_page(request):
             markdown_body = open(abs_path, mode='r', encoding='utf8').read()
             markdown_body = markdown_body.replace('\\', '\\\\').replace('\"', '\\\"').replace("\n", "\\n")
             return web.Response(
-                text=markdown_template.replace('{:title}', markdown_title, 1).replace(
-                    '{:body}', markdown_body, 1),
+                text=markdown_template.replace('{:title}', markdown_title, 1).replace('{:body}', markdown_body, 1),
                 headers=web_base.CONTENT_TYPE_HTML)
         elif not os.path.exists(abs_path):
             return web.Response(text="Not found page. {}".format(req_path[-1]), status=404)

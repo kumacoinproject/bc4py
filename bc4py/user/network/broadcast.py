@@ -78,8 +78,7 @@ def fill_newblock_info(data):
         raise BlockChainError('Already inserted block {}'.format(my_block))
     before_block = builder.get_block(new_block.previous_hash)
     if before_block is None:
-        log.debug("Cannot find beforeBlock {}, try to ask outside node.".format(
-            new_block.previous_hash.hex()))
+        log.debug("Cannot find beforeBlock {}, try to ask outside node.".format(new_block.previous_hash.hex()))
         # not found beforeBlock, need to check other node have the the block
         new_block.inner_score *= 0.70  # unknown previousBlock, score down
         before_block = make_block_by_node(blockhash=new_block.previous_hash)

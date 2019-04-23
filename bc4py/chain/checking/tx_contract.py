@@ -48,8 +48,7 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
         raise BlockChainError('Start tx is MSG_MSGPACK, not {}.'.format(
             C.msg_type2name.get(start_tx.message_type, None)))
     if start_tx.time != tx.time or start_tx.deadline != tx.deadline:
-        raise BlockChainError('time of conclude_tx and start_tx is same, {}!={}.'.format(
-            start_tx.time, tx.time))
+        raise BlockChainError('time of conclude_tx and start_tx is same, {}!={}.'.format(start_tx.time, tx.time))
     try:
         c_start_address, c_method, redeem_address, c_args = start_tx.encoded_message()
     except Exception as e:
@@ -175,11 +174,10 @@ def check_tx_validator_edit(tx: TX, include_block: Block):
             raise BlockChainError('unknown flag {}.'.format(flag))
         # sig_diff check
         if not (0 < next_require_num <= next_validator_num):
-            raise BlockChainError('sig_diff check failed, 0 < {} <= {}.'.format(
-                next_require_num, next_validator_num))
+            raise BlockChainError('sig_diff check failed, 0 < {} <= {}.'.format(next_require_num,
+                                                                                next_validator_num))
     required_gas_check(tx=tx, v=v_before, extra_gas=C.VALIDATOR_EDIT_GAS)
-    objective_tx_signature_check(
-        target_address=v_address, extra_tx=tx, v=v_before, include_block=include_block)
+    objective_tx_signature_check(target_address=v_address, extra_tx=tx, v=v_before, include_block=include_block)
 
 
 def objective_tx_signature_check(target_address, extra_tx: TX, v: Validator, include_block: Block):
@@ -217,9 +215,8 @@ def objective_tx_signature_check(target_address, extra_tx: TX, v: Validator, inc
     elif include_block:
         # check satisfy require?
         if len(accept_cks) < necessary_num:
-            raise BlockChainError(
-                'Not satisfied require signature. [signed={}, accepted={}, require={}]'.format(
-                    signed_cks, accept_cks, necessary_num))
+            raise BlockChainError('Not satisfied require signature. [signed={}, accepted={}, require={}]'.format(
+                signed_cks, accept_cks, necessary_num))
     else:
         # check can marge?
         original_tx = tx_builder.get_tx(txhash=extra_tx.hash)

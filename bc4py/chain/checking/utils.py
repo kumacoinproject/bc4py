@@ -94,8 +94,7 @@ def signature_check(tx, include_block):
                     len(signed_cks & v_before.validators), v_before.require))
             require_cks.update(v_before.validators)
         elif is_address(address, V.BLOCK_CONTRACT_PREFIX):
-            raise BlockChainError('Not allow ContractAddress include in normal Transfer. {}'.format(
-                address, tx))
+            raise BlockChainError('Not allow ContractAddress include in normal Transfer. {}'.format(address, tx))
         else:
             raise BlockChainError('Not common address {} {}.'.format(address, tx))
         # success check

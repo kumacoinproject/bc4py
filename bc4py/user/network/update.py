@@ -179,8 +179,8 @@ def _update_unconfirmed_info():
         update_unconfirmed_txs(unconfirmed_txs)
 
     return ',  unconfirmed={}/{}/{} {}mS'.format(
-        len(unconfirmed_txs), len(tx_builder.unconfirmed), len(tx_builder.pre_unconfirmed),
-        int((time() - s) * 1000))
+        len(unconfirmed_txs), len(tx_builder.unconfirmed), len(tx_builder.pre_unconfirmed), int(
+            (time() - s) * 1000))
 
 
 """ remove after

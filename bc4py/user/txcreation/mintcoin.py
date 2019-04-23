@@ -54,8 +54,7 @@ def issue_mintcoin(name,
     tx.serialize()
     # fill unspents
     fee_coin_id = 0
-    input_address = fill_inputs_outputs(
-        tx=tx, cur=cur, fee_coin_id=fee_coin_id, additional_gas=additional_gas)
+    input_address = fill_inputs_outputs(tx=tx, cur=cur, fee_coin_id=fee_coin_id, additional_gas=additional_gas)
     # input_address.add(mint_address)
     fee_coins = Balance(coin_id=fee_coin_id, amount=tx.gas_price * tx.gas_amount)
     # check amount
@@ -128,8 +127,7 @@ def change_mintcoin(mint_id,
     tx.serialize()
     # fill unspents
     fee_coin_id = 0
-    input_address = fill_inputs_outputs(
-        tx=tx, cur=cur, fee_coin_id=fee_coin_id, additional_gas=additional_gas)
+    input_address = fill_inputs_outputs(tx=tx, cur=cur, fee_coin_id=fee_coin_id, additional_gas=additional_gas)
     input_address.add(m_before.address)
     fee_coins = Balance(coin_id=fee_coin_id, amount=tx.gas_price * tx.gas_amount)
     # check amount

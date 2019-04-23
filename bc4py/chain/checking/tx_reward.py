@@ -32,8 +32,8 @@ def check_tx_pow_reward(tx, include_block):
         include_block.work2diff()
         include_block.target2diff()
         print(include_block.getinfo())
-        raise BlockChainError('Proof of work check is failed. [{}<{}]'.format(
-            include_block.difficulty, include_block.work_difficulty))
+        raise BlockChainError('Proof of work check is failed. [{}<{}]'.format(include_block.difficulty,
+                                                                              include_block.work_difficulty))
 
 
 def check_tx_pos_reward(tx, include_block):
@@ -114,8 +114,8 @@ def check_tx_poc_reward(tx, include_block):
         scope_hash=scope_hash[index * 32:index*32 + 32],
         previous_hash=include_block.previous_hash)
     if int.from_bytes(work_hash, 'little') > int.from_bytes(include_block.target_hash, 'little'):
-        raise BlockChainError('PoC check is failed, work={} target={}'.format(
-            work_hash.hex(), include_block.target_hash.hex()))
+        raise BlockChainError('PoC check is failed, work={} target={}'.format(work_hash.hex(),
+                                                                              include_block.target_hash.hex()))
 
     # signature check
     try:

@@ -12,9 +12,9 @@ struct_block = struct.Struct('<I32s32sII4s')
 
 
 class Block:
-    __slots__ = ("b", "hash", "next_hash", "target_hash", "work_hash", "height", "_difficulty",
-                 "_work_difficulty", "create_time", "flag", "f_orphan", "recode_flag", "_bias", "inner_score",
-                 "version", "previous_hash", "merkleroot", "time", "bits", "nonce", "txs", "__weakref__")
+    __slots__ = ("b", "hash", "next_hash", "target_hash", "work_hash", "height", "_difficulty", "_work_difficulty",
+                 "create_time", "flag", "f_orphan", "recode_flag", "_bias", "inner_score", "version",
+                 "previous_hash", "merkleroot", "time", "bits", "nonce", "txs", "__weakref__")
 
     def __eq__(self, other):
         if isinstance(other, Block):
@@ -26,9 +26,9 @@ class Block:
         return hash(self.hash)
 
     def __repr__(self):
-        return "<Block {} {} {} {} score={} txs={}>".format(
-            self.height, C.consensus2name[self.flag], "ORPHAN" if self.f_orphan else "", self.hash.hex(),
-            round(self.score, 4), len(self.txs))
+        return "<Block {} {} {} {} score={} txs={}>".format(self.height, C.consensus2name[self.flag],
+                                                            "ORPHAN" if self.f_orphan else "", self.hash.hex(),
+                                                            round(self.score, 4), len(self.txs))
 
     def __init__(self):
         self.b = None

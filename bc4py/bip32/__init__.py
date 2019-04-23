@@ -1,7 +1,6 @@
 from bc4py.bip32.base58 import *
 from bc4py.bip32.bip32 import *
 
-
 __all__ = [
     "check_encode",
     "check_decode",

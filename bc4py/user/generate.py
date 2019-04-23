@@ -132,8 +132,8 @@ class Generate(Thread):
                 bias = min(2.0, max(0.5, bias))
                 how_many = max(100, int(how_many * bias))
                 if int(time()) % 90 == 0:
-                    log.info("Mining... Next target how_many is {} {}".format(
-                        how_many, "Up" if bias > 1 else "Down"))
+                    log.info("Mining... Next target how_many is {} {}".format(how_many,
+                                                                              "Up" if bias > 1 else "Down"))
             except ZeroDivisionError:
                 pass
             sleep(sleep_span + random() - 0.5)

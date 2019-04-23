@@ -47,8 +47,7 @@ def mined_newblock(que, pc):
                 log.info("Success broadcast new block {}".format(new_block))
                 update_info_for_generate()
             except TimeoutError:
-                log.warning("Failed broadcast new block, other nodes don\'t accept {}".format(
-                    new_block.getinfo()))
+                log.warning("Failed broadcast new block, other nodes don\'t accept {}".format(new_block.getinfo()))
                 # log.warning("47 Set booting mode.")
                 # P.F_NOW_BOOTING = True
         except queue.Empty:

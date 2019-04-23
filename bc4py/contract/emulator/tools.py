@@ -76,8 +76,8 @@ def broadcast(c_address, start_tx, redeem_address, emulate_gas, result, f_not_se
         log.info("Broadcast success {}".format(conclude_tx))
         return conclude_tx.hash
     else:
-        log.error("Failed broadcast, send_pairs={} c_storage={} tx={}".format(
-            send_pairs, c_storage, conclude_tx.getinfo()))
+        log.error("Failed broadcast, send_pairs={} c_storage={} tx={}".format(send_pairs, c_storage,
+                                                                              conclude_tx.getinfo()))
         # Check already confirmed another conclude tx
         a_conclude = calc_tx_movement(
             tx=conclude_tx, c_address=c_address, redeem_address=redeem_address, emulate_gas=emulate_gas)

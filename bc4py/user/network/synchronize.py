@@ -51,8 +51,7 @@ def batch_workhash(blocks):
     task_list = list()
     s = time()
     for block in blocks:
-        if block.flag in (C.BLOCK_YES_POW, C.BLOCK_HMQ_POW, C.BLOCK_X11_POW, C.BLOCK_LTC_POW,
-                          C.BLOCK_X16R_POW):
+        if block.flag in (C.BLOCK_YES_POW, C.BLOCK_HMQ_POW, C.BLOCK_X11_POW, C.BLOCK_LTC_POW, C.BLOCK_X16R_POW):
             task_list.append((block.height, block.flag, block.b))
     with executor_lock:
         future = executor.submit(_generate_workhash, task_list)
@@ -166,8 +165,7 @@ def fast_sync_chain():
         # Base check
         base_check_failed_msg = None
         if before_block.hash != new_block.previous_hash:
-            base_check_failed_msg = "Not correct previous hash new={} before={}".format(
-                new_block, before_block)
+            base_check_failed_msg = "Not correct previous hash new={} before={}".format(new_block, before_block)
         # proof of work check
         if not new_block.pow_check():
             base_check_failed_msg = "Not correct work hash {}".format(new_block)
