@@ -10,7 +10,7 @@ stream = Subject()
 atexit.register(stream.dispose)
 
 # multiprocessing executor
-max_process_num = 8
+max_process_num = 4
 logical_cpu_num = psutil.cpu_count(logical=True) or max_process_num
 physical_cpu_nam = psutil.cpu_count(logical=False) or max_process_num
 max_workers = min(logical_cpu_num, physical_cpu_nam)
@@ -114,8 +114,8 @@ class C:  # Constant
     ACCEPT_MARGIN_TIME = 120  # 新規データ受け入れ時間マージンSec
     SIZE_BLOCK_LIMIT = 300 * 1000  # 300kb block
     SIZE_TX_LIMIT = 100 * 1000  # 100kb tx
-    CASHE_LIMIT = 100  # Memoryに置く最大Block数、実質Reorg制限
-    BATCH_SIZE = 10
+    CASHE_LIMIT = 300  # Memoryに置く最大Block数、実質Reorg制限
+    BATCH_SIZE = 30
     MINTCOIN_GAS = int(10 * pow(10, 6))  # 新規Mintcoin発行GasFee
     SIGNATURE_GAS = int(0.01 * pow(10, 6))  # gas per one signature
     # CONTRACT_CREATE_FEE = int(10 * pow(10, 6))  # コントラクト作成GasFee
@@ -175,4 +175,15 @@ class BlockChainError(Exception):
     pass
 
 
-__all__ = ['stream', 'max_workers', 'executor', 'executor_lock', 'C', 'V', 'P', 'Debug', 'BlockChainError']
+__all__ = [
+    'stream',
+    'max_workers',
+    'executor',
+    'executor_lock',
+    'C',
+    'V',
+    'P',
+    'Debug',
+    'BlockChainError',
+]
+
