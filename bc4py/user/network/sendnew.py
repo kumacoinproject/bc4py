@@ -37,6 +37,7 @@ def mined_newblock(que, pc):
                 'cmd': BroadcastCmd.NEW_BLOCK,
                 'data': {
                     'binary': new_block.b,
+                    'height': new_block.height,
                     'txs': txs_hash_list,
                     'proof': proof_tx,
                     'block_flag': new_block.flag,
@@ -65,7 +66,12 @@ def send_newtx(new_tx, outer_cur=None, exc_info=True):
     try:
         check_tx_time(new_tx)
         check_tx(new_tx, include_block=None)
-        data = {'cmd': BroadcastCmd.NEW_TX, 'data': {'tx': new_tx}}
+        data = {
+            'cmd': BroadcastCmd.NEW_TX,
+            'data': {
+                'tx': new_tx
+            }
+        }
         V.PC_OBJ.send_command(cmd=ClientCmd.BROADCAST, data=data)
         if new_tx.type in (C.TX_VALIDATOR_EDIT, C.TX_CONCLUDE_CONTRACT):
             tx_builder.marge_signature(tx=new_tx)

@@ -111,7 +111,6 @@ class C:  # Constant
     }
 
     # Block/TX/Fee limit
-    ACCEPT_MARGIN_TIME = 120  # 新規データ受け入れ時間マージンSec
     SIZE_BLOCK_LIMIT = 300 * 1000  # 300kb block
     SIZE_TX_LIMIT = 100 * 1000  # 100kb tx
     CASHE_LIMIT = 300  # Memoryに置く最大Block数、実質Reorg制限
@@ -121,6 +120,10 @@ class C:  # Constant
     # CONTRACT_CREATE_FEE = int(10 * pow(10, 6))  # コントラクト作成GasFee
     VALIDATOR_EDIT_GAS = int(10 * pow(10, 6))  # gas
     CONTRACT_MINIMUM_INPUT = int(1 * pow(10, 8))  # Contractの発火最小amount
+
+    # network params
+    ACCEPT_MARGIN_TIME = 120  # 新規データ受け入れ時間マージンSec
+    MAX_RECURSIVE_BLOCK_DEPTH = 10  # recursive accept block limit
 
 
 class V:
