@@ -25,12 +25,22 @@ def set_good_node():
         except TimeoutError:
             log.debug("timeout", exc_info=True)
             continue
+        # success get best-info
+        if not isinstance(r['height'], int):
+            continue
+        if not isinstance(r['hash'], bytes):
+            continue
         status_counter[(r['height'], r['hash'])] += 1
         if r['booting'] is False:
             f_all_booting = False
         node.append((user, r['hash'], r['height'], r['booting']))
-    global best_hash_on_network, best_height_on_network
+    # check unstable?
+    if f_all_booting:
+        raise UnstableNetworkError("unstable network: All connection booting")
+    if len(status_counter) == 0:
+        raise UnstableNetworkError("unstable network: No status count")
     # get best height and best hash
+    global best_hash_on_network, best_height_on_network
     (best_height, best_hash), count = status_counter.most_common()[0]
     if count == 1:
         best_height, best_hash = sorted(status_counter, key=lambda x: x[0], reverse=True)[0]
@@ -79,6 +89,9 @@ def ask_node(cmd, data=None, f_continue_asking=False):
                 set_good_node()
         except TimeoutError:
             pass
+        except UnstableNetworkError as e:
+            log.warning("{}, wait 30sec..".format(e))
+            sleep(30)
     raise BlockChainError('Too many retry ask_node. good={} bad={} failed={} cmd={}'.format(
         len(good_node), len(bad_node), failed, cmd))
 
@@ -101,6 +114,9 @@ def ask_all_nodes(cmd, data=None):
                 set_good_node()
         except TimeoutError:
             pass
+        except UnstableNetworkError as e:
+            log.warning("{}, wait 30sec..".format(e))
+            sleep(30)
     if len(result) > 0:
         return result
     raise BlockChainError('Cannot get any data. good={} bad={} cmd={}'.format(len(good_node), len(bad_node), cmd))
@@ -118,6 +134,10 @@ def check_network_connection(minimum=None):
         if count % 30 == 0:
             log.debug("{} connections, waiting for new.. {}Sec".format(len(V.PC_OBJ.p2p.user), count))
         sleep(1)
+
+
+class UnstableNetworkError(Exception):
+    pass
 
 
 __all__ = [
