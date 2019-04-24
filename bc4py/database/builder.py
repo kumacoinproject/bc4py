@@ -14,23 +14,14 @@ import threading
 from time import time
 from nem_ed25519 import is_address
 from logging import getLogger, INFO
+import plyvel
 
 log = getLogger('bc4py')
+getLogger('plyvel').setLevel(INFO)
 
 # http://blog.livedoor.jp/wolf200x/archives/53052954.html
 # https://github.com/happynear/py-leveldb-windows
 # https://tangerina.jp/blog/leveldb-1.20-build/
-
-try:
-    import plyvel
-    is_plyvel = True
-    create_level_db = plyvel.DB
-    getLogger('plyvel').setLevel(INFO)
-except ImportError:
-    import leveldb
-    is_plyvel = False
-    create_level_db = leveldb.LevelDB
-    getLogger('leveldb').setLevel(INFO)
 
 struct_block = struct.Struct('>II32s80sBI')
 struct_tx = struct.Struct('>4IB')
@@ -76,26 +67,21 @@ class DataBase:
             log.debug('No database directory found.')
             os.mkdir(dirs)
             f_create = True
-        self._block = create_level_db(os.path.join(dirs, 'block'), create_if_missing=f_create)
-        self._tx = create_level_db(os.path.join(dirs, 'tx'), create_if_missing=f_create)
-        self._used_index = create_level_db(os.path.join(dirs, 'used-index'), create_if_missing=f_create)
-        self._block_index = create_level_db(os.path.join(dirs, 'block-index'), create_if_missing=f_create)
-        self._address_index = create_level_db(os.path.join(dirs, 'address-index'), create_if_missing=f_create)
-        self._coins = create_level_db(os.path.join(dirs, 'coins'), create_if_missing=f_create)
-        self._contract = create_level_db(os.path.join(dirs, 'contract'), create_if_missing=f_create)
-        self._validator = create_level_db(os.path.join(dirs, 'validator'), create_if_missing=f_create)
+        self._block = plyvel.DB(os.path.join(dirs, 'block'), create_if_missing=f_create)
+        self._tx = plyvel.DB(os.path.join(dirs, 'tx'), create_if_missing=f_create)
+        self._used_index = plyvel.DB(os.path.join(dirs, 'used-index'), create_if_missing=f_create)
+        self._block_index = plyvel.DB(os.path.join(dirs, 'block-index'), create_if_missing=f_create)
+        self._address_index = plyvel.DB(os.path.join(dirs, 'address-index'), create_if_missing=f_create)
+        self._coins = plyvel.DB(os.path.join(dirs, 'coins'), create_if_missing=f_create)
+        self._contract = plyvel.DB(os.path.join(dirs, 'contract'), create_if_missing=f_create)
+        self._validator = plyvel.DB(os.path.join(dirs, 'validator'), create_if_missing=f_create)
         self.batch = None
         self.batch_thread = None
-        log.debug(':create database connect, plyvel={} path={}'.format(is_plyvel, dirs.replace("\\", "/")))
+        log.debug(':create database connect path={}'.format(dirs.replace("\\", "/")))
 
     def close(self):
-        if is_plyvel:
-            for name in database_tuple:
-                getattr(self, name).close()
-        # else:  # TODO: how to close?
-        #    for name in database_tuple:
-        #        print(getattr(self, name).GetStats())
-        #        getattr(self, name).__dell__()
+        for name in database_tuple:
+            getattr(self, name).close()
         log.info("close database connection.")
 
     def batch_create(self):
@@ -111,18 +97,11 @@ class DataBase:
 
     def batch_commit(self):
         assert self.batch, 'Not created batch.'
-        if is_plyvel:
-            for name, memory in self.batch.items():
-                batch = getattr(self, name).write_batch(sync=self.sync)
-                for k, v in memory.items():
-                    batch.put(k, v)
-                batch.write()
-        else:
-            for name, memory in self.batch.items():
-                new_data = leveldb.WriteBatch()
-                for k, v in memory.items():
-                    new_data.Put(k, v)
-                getattr(self, name).Write(new_data, sync=self.sync)
+        for name, memory in self.batch.items():
+            batch = getattr(self, name).write_batch(sync=self.sync)
+            for k, v in memory.items():
+                batch.put(k, v)
+            batch.write()
         self.batch = None
         self.batch_thread = None
         self.event.set()
@@ -140,10 +119,8 @@ class DataBase:
     def read_block(self, blockhash):
         if self.is_batch_thread() and blockhash in self.batch['_block']:
             b = self.batch['_block'][blockhash]
-        elif is_plyvel:
-            b = self._block.get(blockhash, default=None)
         else:
-            b = self._block.Get(blockhash, default=None)
+            b = self._block.get(blockhash, default=None)
         if b is None:
             return None
         b = bytes(b)
@@ -162,10 +139,7 @@ class DataBase:
         b_height = height.to_bytes(4, ITER_ORDER)
         if self.is_batch_thread() and b_height in self.batch['_block_index']:
             return self.batch['_block_index'][b_height]
-        elif is_plyvel:
-            b = self._block_index.get(b_height, default=None)
-        else:
-            b = self._block_index.Get(b_height, default=None)
+        b = self._block_index.get(b_height, default=None)
         if b is None:
             return None
         else:
@@ -175,10 +149,7 @@ class DataBase:
         f_batch = self.is_batch_thread()
         batch_copy = self.batch['_block_index'].copy() if self.batch else dict()
         start = start_height.to_bytes(4, ITER_ORDER)
-        if is_plyvel:
-            block_iter = self._block_index.iterator(start=start)
-        else:
-            block_iter = self._block_index.RangeIter(key_from=start)
+        block_iter = self._block_index.iterator(start=start)
         for b_height, blockhash in block_iter:
             # height, blockhash
             b_height = bytes(b_height)
@@ -194,10 +165,8 @@ class DataBase:
     def read_tx(self, txhash):
         if self.is_batch_thread() and txhash in self.batch['_tx']:
             b = self.batch['_tx'][txhash]
-        elif is_plyvel:
-            b = self._tx.get(txhash, default=None)
         else:
-            b = self._tx.Get(txhash, default=None)
+            b = self._tx.get(txhash, default=None)
         if b is None:
             return None
         b = bytes(b)
@@ -217,10 +186,8 @@ class DataBase:
     def read_usedindex(self, txhash):
         if self.is_batch_thread() and txhash in self.batch['_used_index']:
             b = self.batch['_used_index'][txhash]
-        elif is_plyvel:
-            b = self._used_index.get(txhash, default=None)
         else:
-            b = self._used_index.Get(txhash, default=None)
+            b = self._used_index.get(txhash, default=None)
         if b is None:
             return set()
         else:
@@ -230,10 +197,8 @@ class DataBase:
         k = address.encode() + txhash + index.to_bytes(1, ITER_ORDER)
         if self.is_batch_thread() and k in self.batch['_address_index']:
             b = self.batch['_address_index'][k]
-        elif is_plyvel:
-            b = self._address_index.get(k, default=None)
         else:
-            b = self._address_index.Get(k, default=None)
+            b = self._address_index.get(k, default=None)
         if b is None:
             return None
         b = bytes(b)
@@ -246,10 +211,7 @@ class DataBase:
         b_address = address.encode()
         start = b_address + b'\x00' * (32+1)
         stop = b_address + b'\xff' * (32+1)
-        if is_plyvel:
-            address_iter = self._address_index.iterator(start=start, stop=stop)
-        else:
-            address_iter = self._address_index.RangeIter(key_from=start, key_to=stop)
+        address_iter = self._address_index.iterator(start=start, stop=stop)
         for k, v in address_iter:
             k, v = bytes(k), bytes(v)
             # address, txhash, index, coin_id, amount, f_used
@@ -268,10 +230,7 @@ class DataBase:
         b_coin_id = coin_id.to_bytes(4, ITER_ORDER)
         start = b_coin_id + b'\x00'*4
         stop = b_coin_id + b'\xff'*4
-        if is_plyvel:
-            coins_iter = self._coins.iterator(start=start, stop=stop)
-        else:
-            coins_iter = self._coins.RangeIter(key_from=start, key_to=stop)
+        coins_iter = self._coins.iterator(start=start, stop=stop)
         for k, v in coins_iter:
             k, v = bytes(k), bytes(v)
             # coin_id, index, txhash
@@ -295,10 +254,7 @@ class DataBase:
         # caution: iterator/RangeIter's result include start and stop, need to add 1.
         start = b_c_address + ((start_idx + 1).to_bytes(8, ITER_ORDER) if start_idx else b'\x00' * 8)
         stop = b_c_address + b'\xff'*8
-        if is_plyvel:
-            contract_iter = self._contract.iterator(start=start, stop=stop)
-        else:
-            contract_iter = self._contract.RangeIter(key_from=start, key_to=stop)
+        contract_iter = self._contract.iterator(start=start, stop=stop)
         for k, v in contract_iter:
             k, v = bytes(k), bytes(v)
             # KEY: [c_address 40s]-[index uint8]
@@ -327,10 +283,7 @@ class DataBase:
         start = b_v_address + ((start_idx + 1).to_bytes(8, ITER_ORDER) if start_idx else b'\x00' * 8)
         stop = b_v_address + b'\xff'*8
         # from database
-        if is_plyvel:
-            validator_iter = self._validator.iterator(start=start, stop=stop)
-        else:
-            validator_iter = self._validator.RangeIter(key_from=start, key_to=stop)
+        validator_iter = self._validator.iterator(start=start, stop=stop)
         for k, v in validator_iter:
             k, v = bytes(k), bytes(v)
             # KEY [v_address 40s]-[index unit8]
@@ -460,7 +413,7 @@ class ChainBuilder:
         try:
             self.db = DataBase(f_dummy=False, **kwargs)
             log.info("connect database.")
-        except leveldb.LevelDBError:
+        except plyvel.Error:
             log.warning("Already connect database.")
         except Exception as e:
             log.debug("Failed connect database, {}.".format(e))
