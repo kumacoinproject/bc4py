@@ -1,8 +1,7 @@
 from bc4py.config import executor, executor_lock, C, V, P, BlockChainError
-from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.chain.checking import check_block, check_tx, check_tx_time
-from bc4py.chain.checking.signature import batch_sign_cashe
+from bc4py.chain.signature import batch_sign_cashe
 from bc4py.chain.workhash import get_workhash_fnc
 from bc4py.database.builder import builder, tx_builder, user_account
 from bc4py.database.create import closing, create_db

@@ -4,7 +4,7 @@ from bc4py.database.tools import is_usedindex
 from bc4py.database.validator import *
 from bc4py.database.contract import *
 from bc4py.chain.checking.checktx import check_unconfirmed_order
-from bc4py.chain.checking.signature import get_signed_cks
+from bc4py.chain.signature import get_signed_cks
 from bc4py.user.generate import *
 from threading import Lock, Thread
 from time import time, sleep

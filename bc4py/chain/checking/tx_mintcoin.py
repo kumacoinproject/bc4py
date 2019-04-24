@@ -1,5 +1,5 @@
-from bc4py.config import C, V, BlockChainError
-from bc4py.chain.checking.signature import *
+from bc4py.config import C, BlockChainError
+from bc4py.chain.signature import *
 from bc4py.database.mintcoin import *
 from bc4py.database.builder import tx_builder
 from bc4py.user import Balance
