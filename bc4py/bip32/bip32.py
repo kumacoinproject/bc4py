@@ -8,7 +8,7 @@ from bc4py.bip32.base58 import check_decode, check_encode
 from fastecdsa.curve import secp256k1
 from fastecdsa.util import mod_sqrt
 from fastecdsa.point import Point
-from fastecdsa.keys import gen_private_key, get_public_key
+from fastecdsa.keys import get_public_key
 from os import urandom
 import hmac
 import hashlib
@@ -41,6 +41,10 @@ class Bip32(object):
         self.depth: int = depth
         self.index: int = index
         self.parent_fpr: bytes = fpr
+
+    def __repr__(self):
+        key_type = "public" if self.secret is None else "secret"
+        return "<BIP32-{} depth={} index={} fpr={}>".format(key_type, self.depth, self.index, self.parent_fpr.hex())
 
     @classmethod
     def from_entropy(cls, entropy, is_public=False):
@@ -213,9 +217,9 @@ class Bip32(object):
         else:
             return b'\2' + x
 
-    def get_address(self):
+    def get_address(self, prefix=ADDR_VERSION):
         """Return compressed public key address"""
-        vh160 = ADDR_VERSION + self.identifier()
+        vh160 = prefix + self.identifier()
         return check_encode(vh160)
 
     def NemKeypair(self, prefix=None):
@@ -258,11 +262,11 @@ class Bip32(object):
         else:
             return check_encode(raw)
 
-    def wallet_import_format(self):
+    def wallet_import_format(self, prefix=WALLET_VERSION):
         """Returns private key encoded for wallet import"""
         if self.secret is None:
             raise Exception("Publicly derived deterministic keys have no private half")
-        raw = WALLET_VERSION + self.get_private_key() + b'\x01'  # Always compressed
+        raw = prefix + self.get_private_key() + b'\x01'  # Always compressed
         return check_encode(raw)
 
     def dump(self):
