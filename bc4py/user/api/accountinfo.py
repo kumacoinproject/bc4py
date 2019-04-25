@@ -38,7 +38,7 @@ async def list_transactions(request):
 
 
 async def list_unspents(request):
-    if not db_config['full_address_index']:
+    if not db_config['addrindex']:
         return web_base.error_res('address isn\'t full indexed.')
     try:
         best_height = builder.best_block.height

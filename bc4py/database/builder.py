@@ -38,11 +38,19 @@ ITER_ORDER = 'big'
 DB_VERSION = 3  # increase if you change database structure
 ZERO_FILLED_HASH = b'\x00' * 32
 DUMMY_VALIDATOR_ADDRESS = b'\x00' * 40
-database_tuple = ("_block", "_tx", "_used_index", "_block_index", "_address_index", "_coins", "_contract",
-                  "_validator")
+database_tuple = (
+    "_block",  # [blockhash] -> [height, time, work, b_block, flag, tx_len][txhash0]..[txhashN]
+    "_tx",  # [txhash] -> [height, _time, bin_len, sign_len, r_len][b_tx][sign][R]
+    "_used_index",  # [txhash] -> [used_bin]
+    "_block_index",  # [height] -> [blockhash]
+    "_address_index",  # [address][txhash][index] -> [coin_id, amount, f_used]
+    "_coins",  # [coin_id][index] -> [txhash][params, setting]
+    "_contract",  # [address][index] -> [start_hash][finish_hash][c_method, c_args, c_storage]
+    "_validator",  # [address][index] -> [new_address][flag][txhash][sig_diff]
+)
 # basic config
 db_config = {
-    'full_address_index': True,  # all address index?
+    'addrindex': True,
     'timeout': None,
     'sync': False
 }
@@ -642,14 +650,14 @@ class ChainBuilder:
                             self.db.write_usedindex(txhash, usedindex)  # UsedIndex update
                             input_tx = tx_builder.get_tx(txhash)
                             address, coin_id, amount = input_tx.outputs[txindex]
-                            if db_config['full_address_index'] or \
+                            if db_config['addrindex'] or \
                                     is_address(ck=address, prefix=V.BLOCK_CONTRACT_PREFIX) or \
                                     read_address2user(address=address, cur=cur):
                                 # 必要なAddressのみ
                                 self.db.write_address_idx(address, txhash, txindex, coin_id, amount, True)
                         # outputs
                         for index, (address, coin_id, amount) in enumerate(tx.outputs):
-                            if db_config['full_address_index'] or \
+                            if db_config['addrindex'] or \
                                     is_address(ck=address, prefix=V.BLOCK_CONTRACT_PREFIX) or \
                                     read_address2user(address=address, cur=cur):
                                 # 必要なAddressのみ
