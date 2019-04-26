@@ -5,6 +5,7 @@ from time import time
 from bc4py.utils import AESCipher
 from nem_ed25519 import public_key, sign
 from weakref import ref
+from binascii import a2b_hex
 import os
 
 
@@ -180,7 +181,7 @@ def message2signature(raw, address):
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         cur = db.cursor()
         uuid, sk, pk = read_address2keypair(address, cur)
-    return pk, sign(msg=raw, sk=sk)
+    return a2b_hex(pk), sign(msg=raw, sk=sk)
 
 
 class MoveLog:

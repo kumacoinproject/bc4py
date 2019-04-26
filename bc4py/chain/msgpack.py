@@ -17,7 +17,7 @@ def default_hook(obj):
             '_bc4py_class_': 'TX',
             'binary': obj.b,
             'height': obj.height,
-            'signature': [(pubkey, signature) for pubkey, signature in obj.signature],
+            'signature': obj.signature,
             'R': obj.R
         }
     return obj
@@ -36,7 +36,7 @@ def object_hook(dct):
         elif dct['_bc4py_class_'] == 'TX':
             tx = TX.from_binary(binary=dct['binary'])
             tx.height = dct['height']
-            tx.signature.extend(tuple(signature) for signature in dct['signature'])
+            tx.signature.extend(tuple(sig) for sig in dct['signature'])
             tx.R = dct['R']
             return tx
         else:

@@ -101,7 +101,7 @@ async def broadcast_tx(request):
     try:
         binary = a2b_hex(post['hex'])
         new_tx = TX.from_binary(binary=binary)
-        new_tx.signature = [(pk, a2b_hex(_sign)) for pk, _sign in post['signature']]
+        new_tx.signature = [(a2b_hex(pk), a2b_hex(sig)) for pk, sig in post['signature']]
         if 'R' in post:
             new_tx.R = a2b_hex(post['R'])
         if not send_newtx(new_tx=new_tx):

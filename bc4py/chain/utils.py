@@ -1,8 +1,9 @@
 from bc4py.config import V, BlockChainError
-from binascii import a2b_hex
+import struct
 import math
 
 MAX_256_INT = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+struct_sig = struct.Struct('>32s64s')
 
 
 class GompertzCurve:
@@ -41,13 +42,19 @@ class GompertzCurve:
 def bin2signature(b):
     # pk:32, sign:64
     r = list()
-    for i in range(len(b) // 96):
-        r.append((b[i * 96:i*96 + 32].hex(), b[i*96 + 32:i*96 + 96]))
+    offset = 0
+    sig_size = struct_sig.size
+    while offset < len(b):
+        r.append(struct_sig.unpack_from(b, offset))
+        offset += sig_size
     return r
 
 
 def signature2bin(s):
-    return b''.join([a2b_hex(pk) + sign for pk, sign in s])
+    b = b''
+    for pk, sig in s:
+        b += struct_sig.pack(pk, sig)
+    return b
 
 
 def bits2target(bits):

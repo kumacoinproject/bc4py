@@ -138,7 +138,7 @@ class TX:
         r['gas_amount'] = self.gas_amount
         r['message_type'] = C.msg_type2name.get(self.message_type) or self.message_type
         r['message'] = self.message.decode() if self.message_type == C.MSG_PLAIN else self.message.hex()
-        r['signature'] = [(pubkey, signature.hex()) for pubkey, signature in self.signature]
+        r['signature'] = [(pubkey.hex(), signature.hex()) for pubkey, signature in self.signature]
         r['hash_locked'] = self.R.hex()
         r['recode_flag'] = self.recode_flag
         r['create_time'] = self.create_time
