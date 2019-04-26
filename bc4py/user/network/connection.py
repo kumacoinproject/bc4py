@@ -35,7 +35,7 @@ def set_good_node():
             f_all_booting = False
         node.append((user, r['hash'], r['height'], r['booting']))
     # check unstable?
-    if f_all_booting:
+    if f_all_booting and len(pc.p2p.user) < 3:
         raise UnstableNetworkError("unstable network: All connection booting")
     if len(status_counter) == 0:
         raise UnstableNetworkError("unstable network: No status count")
