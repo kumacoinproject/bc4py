@@ -38,7 +38,7 @@ async def chain_info(request):
                 'hashrate(kh/s)': round((MAX_256_INT//target) / block_time / 1000, 3)
             }
         data['mining'] = difficulty
-        data['size'] = best_block.getsize()
+        data['size'] = best_block.size
         data['checkpoint'] = {'height': old_block_height, 'blockhash': old_block_hash}
         data['money_supply'] = GompertzCurve.calc_total_supply(best_height)
         data['total_supply'] = GompertzCurve.k

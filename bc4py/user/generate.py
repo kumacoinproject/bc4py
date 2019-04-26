@@ -193,7 +193,7 @@ class Generate(Thread):
                     proof_tx.signature = [message2signature(proof_tx.b, proof_tx.outputs[0][0])]
                     staking_block.txs[0] = proof_tx
                     # Fit block size
-                    while staking_block.getsize() > C.SIZE_BLOCK_LIMIT:
+                    while staking_block.size > C.SIZE_BLOCK_LIMIT:
                         staking_block.txs.pop()
                     staking_block.update_time(proof_tx.time)
                     staking_block.update_merkleroot()
@@ -282,7 +282,7 @@ class Generate(Thread):
                     })
                 staked_block.txs.append(staked_proof_tx)
                 staked_block.txs.extend(unconfirmed_txs)
-                while staked_block.getsize() > C.SIZE_BLOCK_LIMIT:
+                while staked_block.size > C.SIZE_BLOCK_LIMIT:
                     staked_block.txs.pop()
                 staked_block.update_time(staked_proof_tx.time)
                 staked_block.update_merkleroot()

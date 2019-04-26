@@ -142,6 +142,8 @@ class TX:
         r['hash_locked'] = self.R.hex()
         r['recode_flag'] = self.recode_flag
         r['create_time'] = self.create_time
+        r['size'] = self.size
+        r['total_size'] = self.total_size()
         return r
 
     def encoded_message(self):
@@ -162,6 +164,10 @@ class TX:
     def size(self):
         # Do not include signature size
         return len(self.b)
+
+    def total_size(self):
+        signature_size = sum(len(x) for x in self.signature)
+        return len(self.b) + len(self.R) + signature_size
 
     def get_pos_hash(self, previous_hash):
         # staked => sha256(txhash + previous_hash) / amount < 256^32 / diff

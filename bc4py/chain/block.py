@@ -120,6 +120,7 @@ class Block:
         r['nonce'] = self.nonce.hex() if self.nonce else None
         r['txs'] = [tx.hash.hex() for tx in self.txs]
         r['create_time'] = self.create_time
+        r['size'] = self.size
         return r
 
     @property
@@ -147,8 +148,10 @@ class Block:
             self.work2diff()
         return self._work_difficulty
 
-    def getsize(self):
-        tx_sizes = sum(tx.size + len(tx.signature) * 96 for tx in self.txs)
+    @property
+    def size(self):
+        # Do not include signature size
+        tx_sizes = sum(tx.size for tx in self.txs)
         header_size = len(self.b)
         return tx_sizes + header_size
 
