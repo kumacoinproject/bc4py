@@ -1,4 +1,5 @@
 from bc4py.config import C, V, BlockChainError
+from bc4py.bip32 import convert_address
 from bc4py.user import Balance
 from bc4py.user.api import web_base
 from bc4py.database.builder import builder, user_account
@@ -6,7 +7,6 @@ from bc4py.database.create import closing, create_db
 from bc4py.database.account import *
 from bc4py.database.tools import get_utxo_iter, get_unspents_iter
 from aiohttp import web
-from nem_ed25519 import convert_address
 
 
 async def list_balance(request):
@@ -162,7 +162,11 @@ async def get_keypair(request):
             cur = db.cursor()
             address = request.query['address']
             uuid, sk, pk = read_address2keypair(address, cur)
-            return web_base.json_res({'uuid': uuid, 'address': address, 'private_key': sk, 'public_key': pk})
+            return web_base.json_res({
+                'uuid': uuid,
+                'address': address,
+                'private_key': sk.hex(),
+                'public_key': pk.hex()})
     except Exception:
         return web_base.error_res()
 

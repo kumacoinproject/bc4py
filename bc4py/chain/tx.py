@@ -1,5 +1,6 @@
 from bc4py import __chain_version__
 from bc4py.config import C, V, BlockChainError
+from bc4py.bip32 import ADDR_SIZE, addr2bin, bin2addr
 from hashlib import sha256
 from time import time
 from logging import getLogger
@@ -9,7 +10,7 @@ import msgpack
 log = getLogger('bc4py')
 struct_tx_header = struct.Struct('<IIIIQqBBBI')
 struct_inputs = struct.Struct('<32sB')
-struct_outputs = struct.Struct('<40sIQ')
+struct_outputs = struct.Struct('<{}sIQ'.format(ADDR_SIZE))
 
 
 class TX:
@@ -48,7 +49,7 @@ class TX:
         self.message_type = None  # 2bytes int
         self.message = None  # 0~256**4 bytes bin
         # for validation
-        self.signature = list()  # [(pubkey, signature),.. ]
+        self.signature = list()  # [(pk, r, s),.. ]
         self.R = b''  # use for hash-locked
         # don't use for process
         self.recode_flag = None
@@ -92,7 +93,7 @@ class TX:
             self.b += struct_inputs.pack(txhash, txindex)
         # outputs
         for address, coin_id, amount in self.outputs:
-            self.b += struct_outputs.pack(address.encode(), coin_id, amount)
+            self.b += struct_outputs.pack(addr2bin(address), coin_id, amount)
         # message
         self.b += self.message
         # txhash
@@ -110,8 +111,8 @@ class TX:
         # outputs
         self.outputs = list()
         for i in range(outputs_len):
-            address, coin_id, amount = struct_outputs.unpack_from(self.b, pos)
-            self.outputs.append((address.decode(), coin_id, amount))
+            b_address, coin_id, amount = struct_outputs.unpack_from(self.b, pos)
+            self.outputs.append((bin2addr(b_address), coin_id, amount))
             pos += struct_outputs.size
         # msg
         self.message = self.b[pos:pos + msg_len]
@@ -138,7 +139,7 @@ class TX:
         r['gas_amount'] = self.gas_amount
         r['message_type'] = C.msg_type2name.get(self.message_type) or self.message_type
         r['message'] = self.message.decode() if self.message_type == C.MSG_PLAIN else self.message.hex()
-        r['signature'] = [(pubkey.hex(), signature.hex()) for pubkey, signature in self.signature]
+        r['signature'] = [(pk.hex(), r.hex(), s.hex()) for pk, r, s in self.signature]
         r['hash_locked'] = self.R.hex()
         r['recode_flag'] = self.recode_flag
         r['create_time'] = self.create_time

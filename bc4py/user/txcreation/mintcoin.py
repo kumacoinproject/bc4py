@@ -1,4 +1,5 @@
 from bc4py.config import C, V, BlockChainError
+from bc4py.bip32 import dummy_address
 from bc4py.chain.tx import TX
 from bc4py.database.mintcoin import *
 from bc4py.database.account import create_new_user_keypair, insert_log
@@ -7,7 +8,7 @@ from bc4py.user.txcreation.utils import *
 import random
 import msgpack
 
-MINTCOIN_DUMMY_ADDRESS = '_____MINTCOIN_____DUMMY_____ADDRESS_____'
+MINTCOIN_DUMMY_ADDRESS = dummy_address(b'MINTCOIN_DUMMY_ADDR_')
 
 
 def issue_mintcoin(name,

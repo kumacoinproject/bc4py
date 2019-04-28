@@ -59,7 +59,6 @@ async def get_tx_by_hash(request):
             return web_base.json_res(b64encode(tx).decode())
         data = tx.getinfo()
         data['hex'] = tx.b.hex()
-        data['signature'] = [(pubkey.hex(), sign.hex()) for pubkey, sign in tx.signature]
         return web_base.json_res(data)
     except Exception as e:
         return web_base.error_res()

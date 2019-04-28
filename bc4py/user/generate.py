@@ -1,4 +1,5 @@
 from bc4py.config import C, V, BlockChainError
+from bc4py.bip32 import is_address, ADDR_STR_SIZE
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.chain.workhash import generate_many_hash
@@ -11,7 +12,6 @@ from bc4py_extension import multi_seek
 from threading import Thread, Event
 from time import time, sleep
 from collections import deque
-from nem_ed25519 import is_address
 from random import random
 from logging import getLogger
 import traceback
@@ -233,7 +233,8 @@ class Generate(Thread):
             # start staking by capacity
             count = 0
             for file_name in os.listdir(dir_path):
-                m = re.match("^optimized\\.([A-Z0-9]{40})\\-([0-9]+)\\-([0-9]+)\\.dat$", file_name)
+                m = re.match("^optimized\\.([A-Z0-9]{ADDR_STR_SIZE})\\-([0-9]+)\\-([0-9]+)\\.dat$"
+                             .replace('ADDR_STR_SIZE', str(ADDR_STR_SIZE)), file_name)
                 if m is None:
                     continue
                 count += int(m.group(3)) - int(m.group(2))

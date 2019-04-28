@@ -1,9 +1,10 @@
 from bc4py.config import V, BlockChainError
-import struct
+from bc4py.bip32 import ADDR_STR_SIZE
+from io import BytesIO
+import msgpack
 import math
 
 MAX_256_INT = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-struct_sig = struct.Struct('>32s64s')
 
 
 class GompertzCurve:
@@ -40,21 +41,17 @@ class GompertzCurve:
 
 
 def bin2signature(b):
-    # pk:32, sign:64
-    r = list()
-    offset = 0
-    sig_size = struct_sig.size
-    while offset < len(b):
-        r.append(struct_sig.unpack_from(b, offset))
-        offset += sig_size
-    return r
+    # pk:33, r:32or33 s: 32
+    b = BytesIO(b)
+    d = list(msgpack.Unpacker(b, raw=True, use_list=False, encoding='utf8'))
+    return d
 
 
 def signature2bin(s):
-    b = b''
-    for pk, sig in s:
-        b += struct_sig.pack(pk, sig)
-    return b
+    b = BytesIO()
+    for pk, r, s in s:
+        b.write(msgpack.packb((pk, r, s), use_bin_type=True))
+    return b.getvalue()
 
 
 def bits2target(bits):
@@ -85,8 +82,8 @@ def check_output_format(outputs):
         elif len(o) != 3:
             raise BlockChainError('Output is three element.')
         address, coin_id, amount = o
-        if not isinstance(address, str) or len(address) != 40:
-            raise BlockChainError('output address is 40 string. {}'.format(address))
+        if not isinstance(address, str) or len(address) != ADDR_STR_SIZE:
+            raise BlockChainError('output address is {} string. {}'.format(ADDR_STR_SIZE, address))
         elif not isinstance(coin_id, int) or coin_id < 0:
             raise BlockChainError('output coin_id is 0< int. {}'.format(coin_id))
         elif not isinstance(amount, int) or not (amount > 0):

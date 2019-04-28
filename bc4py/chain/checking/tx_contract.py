@@ -1,11 +1,11 @@
 from bc4py.config import C, V, BlockChainError
+from bc4py.bip32 import is_address, ADDR_STR_SIZE
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.chain.signature import *
 from bc4py.database.builder import tx_builder
 from bc4py.database.validator import *
 from bc4py.database.contract import *
-from nem_ed25519 import is_address
 from logging import getLogger
 
 log = getLogger('bc4py')
@@ -25,7 +25,7 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
         c_address, start_hash, c_storage = tx.encoded_message()
     except Exception as e:
         raise BlockChainError('EncodeMessageError: {}'.format(e))
-    if not (isinstance(c_address, str) and len(c_address) == 40):
+    if not (isinstance(c_address, str) and len(c_address) == ADDR_STR_SIZE):
         raise BlockChainError('1. Not correct format. {}'.format(c_address))
     if not (isinstance(start_hash, bytes) and len(start_hash) == 32):
         raise BlockChainError('2. Not correct format. {}'.format(start_hash))
@@ -85,7 +85,7 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
         c_bin, v_address, c_extra_imports, c_settings = c_args
         if not isinstance(c_bin, bytes):
             raise BlockChainError('5. Not correct format. {}'.format(c_args))
-        if not (isinstance(v_address, str) and len(v_address) == 40):
+        if not (isinstance(v_address, str) and len(v_address) == ADDR_STR_SIZE):
             raise BlockChainError('1 ValidatorAddress format is not correct {}'.format(v_address))
         if not is_address(v_address, V.BLOCK_VALIDATOR_PREFIX):
             raise BlockChainError('2 ValidatorAddress format is not correct {}'.format(v_address))

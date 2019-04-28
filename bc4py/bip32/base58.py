@@ -70,7 +70,7 @@ def check_decode(enc):
     dec = decode(enc)
     raw, chk = dec[:-4], dec[-4:]
     if chk != sha256(sha256(raw).digest()).digest()[:4]:
-        raise ValueError("base58 decoding checksum error")
+        raise ValueError("base58 decoding checksum error dec={}".format(dec))
     else:
         return raw
 

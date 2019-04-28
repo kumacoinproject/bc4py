@@ -9,9 +9,9 @@ from more_itertools import chunked
 
 def create_genesis_block(mining_supply,
                          block_span,
-                         prefix=b'\x68',
-                         validator_prefix=b'\xac',
-                         contract_prefix=b'\x12',
+                         prefix=b'\x2d',
+                         validator_prefix=b'\x46',
+                         contract_prefix=b'\x1c',
                          digit_number=8,
                          minimum_price=100,
                          consensus=None,
@@ -21,7 +21,7 @@ def create_genesis_block(mining_supply,
     Height0のGenesisBlockを作成する
     :param mining_supply: PoW/POS合わせた全採掘量、プリマインを除く
     :param block_span: Blockの採掘間隔(Sec)
-    :param prefix: Address prefix (N)
+    :param prefix: Address prefix (K)
     :param validator_prefix: ValidatorAddress (V)
     :param contract_prefix: ContractAddress (C)
     :param digit_number: コインの分解能

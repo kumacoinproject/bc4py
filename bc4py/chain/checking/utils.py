@@ -1,10 +1,10 @@
 from bc4py.config import C, V, BlockChainError
+from bc4py.bip32 import is_address
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.tools import get_usedindex
 from bc4py.database.validator import get_validator_object
 from bc4py.chain.signature import get_signed_cks
 from bc4py.user import Balance
-from nem_ed25519 import is_address
 
 
 def inputs_origin_check(tx, include_block):

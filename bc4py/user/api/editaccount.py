@@ -1,12 +1,11 @@
 from bc4py.config import C, V
-from bc4py.bip32 import Bip32, BIP32_HARDEN
+from bc4py.bip32 import Bip32, BIP32_HARDEN, get_address
 from bc4py.user.api import web_base
 from bc4py.user.tools import repair_wallet
 from bc4py.database.create import closing, create_db
 from bc4py.database.account import insert_keypair_from_outside, read_name2user
+from multi_party_schnorr import PyKeyPair
 from mnemonic import Mnemonic
-from nem_ed25519 import public_key, get_address
-from threading import Thread
 from binascii import a2b_hex
 import asyncio
 from logging import getLogger
@@ -95,7 +94,8 @@ async def import_private_key(request):
         sk = a2b_hex(post['private_key'])
         ck = post['address']
         name = post.get('account', C.account2name[C.ANT_UNKNOWN])
-        check_ck = get_address(pk=public_key(sk=sk), prefix=V.BLOCK_PREFIX)
+        keypair: PyKeyPair = PyKeyPair.from_secret_key(sk)
+        check_ck = get_address(pk=keypair.get_public_key(), prefix=V.BLOCK_PREFIX)
         if ck != check_ck:
             return web_base.error_res('Don\'t match, {}!={}'.format(ck, check_ck))
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:

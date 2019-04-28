@@ -1,4 +1,5 @@
 from bc4py.config import C, V, P, stream
+from bc4py.bip32 import is_address, addr2bin, bin2addr, ADDR_SIZE
 from bc4py.chain.utils import signature2bin, bin2signature
 from bc4py.chain.tx import TX
 from bc4py.chain.block import Block
@@ -12,7 +13,6 @@ import weakref
 import os
 import threading
 from time import time
-from nem_ed25519 import is_address
 from logging import getLogger, INFO
 import plyvel
 
@@ -21,19 +21,19 @@ getLogger('plyvel').setLevel(INFO)
 
 struct_block = struct.Struct('>I32s80sBI')
 struct_tx = struct.Struct('>2IB')
-struct_address = struct.Struct('>40s32sB')
+struct_address = struct.Struct('>{}s32sB'.format(ADDR_SIZE))
 struct_address_idx = struct.Struct('>IQ?')
 struct_coins = struct.Struct('>II')
-struct_construct_key = struct.Struct('>40sQ')
+struct_construct_key = struct.Struct('>{}sQ'.format(ADDR_SIZE))
 struct_construct_value = struct.Struct('>32s32s')
-struct_validator_key = struct.Struct('>40sQ')
-struct_validator_value = struct.Struct('>40sb32sb')
+struct_validator_key = struct.Struct('>{}sQ'.format(ADDR_SIZE))
+struct_validator_value = struct.Struct('>{}sb32sb'.format(ADDR_SIZE))
 
 # constant
 ITER_ORDER = 'big'
-DB_VERSION = 4  # increase if you change database structure
+DB_VERSION = 5  # increase if you change database structure
 ZERO_FILLED_HASH = b'\x00' * 32
-DUMMY_VALIDATOR_ADDRESS = b'\x00' * 40
+DUMMY_VALIDATOR_ADDRESS = b'\x00' * ADDR_SIZE
 
 
 class DataBase:
@@ -229,7 +229,7 @@ class DataBase:
             return set(b)
 
     def read_address_idx(self, address, txhash, index):
-        k = address.encode() + txhash + index.to_bytes(1, ITER_ORDER)
+        k = addr2bin(address) + txhash + index.to_bytes(1, ITER_ORDER)
         if self.is_batch_thread() and k in self.batch['_address_index']:
             b = self.batch['_address_index'][k]
         else:
@@ -243,7 +243,7 @@ class DataBase:
     def read_address_idx_iter(self, address):
         f_batch = self.is_batch_thread()
         batch_copy = self.batch['_address_index'].copy() if self.batch else dict()
-        b_address = address.encode()
+        b_address = addr2bin(address)
         start = b_address + b'\x00' * (32+1)
         stop = b_address + b'\xff' * (32+1)
         address_iter = self._address_index.iterator(start=start, stop=stop)
@@ -285,14 +285,14 @@ class DataBase:
     def read_contract_iter(self, c_address, start_idx=None):
         f_batch = self.is_batch_thread()
         batch_copy = self.batch['_contract'].copy() if self.batch else dict()
-        b_c_address = c_address.encode()
+        b_c_address = addr2bin(c_address)
         # caution: iterator/RangeIter's result include start and stop, need to add 1.
         start = b_c_address + ((start_idx + 1).to_bytes(8, ITER_ORDER) if start_idx else b'\x00' * 8)
         stop = b_c_address + b'\xff'*8
         contract_iter = self._contract.iterator(start=start, stop=stop)
         for k, v in contract_iter:
             k, v = bytes(k), bytes(v)
-            # KEY: [c_address 40s]-[index uint8]
+            # KEY: [c_address 21s]-[index uint8]
             # VALUE: [start_hash 32s]-[finish_hash 32s]-[msgpack(c_method, c_args, c_storage)]
             # c_address, index, start_hash, finish_hash, message
             if f_batch and k in batch_copy and start <= k <= stop:
@@ -313,7 +313,7 @@ class DataBase:
     def read_validator_iter(self, v_address, start_idx=None):
         f_batch = self.is_batch_thread()
         batch_copy = self.batch['_validator'].copy() if self.batch else dict()
-        b_v_address = v_address.encode()
+        b_v_address = addr2bin(v_address)
         # caution: iterator/RangeIter's result include start and stop, need to add 1.
         start = b_v_address + ((start_idx + 1).to_bytes(8, ITER_ORDER) if start_idx else b'\x00' * 8)
         stop = b_v_address + b'\xff'*8
@@ -321,27 +321,27 @@ class DataBase:
         validator_iter = self._validator.iterator(start=start, stop=stop)
         for k, v in validator_iter:
             k, v = bytes(k), bytes(v)
-            # KEY [v_address 40s]-[index unit8]
-            # VALUE [new_address 40s]-[flag int1]-[txhash 32s]-[sig_diff int1]
+            # KEY [v_address 21s]-[index unit8]
+            # VALUE [new_address 21s]-[flag int1]-[txhash 32s]-[sig_diff int1]
             if f_batch and k in batch_copy and start <= k <= stop:
                 v = batch_copy[k]
                 del batch_copy[k]
             dummy, index = struct_validator_key.unpack(k)
-            new_address, flag, txhash, sig_diff = struct_validator_value.unpack(v)
-            if new_address == DUMMY_VALIDATOR_ADDRESS:
+            b_new_address, flag, txhash, sig_diff = struct_validator_value.unpack(v)
+            if b_new_address == DUMMY_VALIDATOR_ADDRESS:
                 yield index, None, flag, txhash, sig_diff
             else:
-                yield index, new_address.decode(), flag, txhash, sig_diff
+                yield index, bin2addr(b_new_address), flag, txhash, sig_diff
         # from memory
         if f_batch:
             for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
                 if k.startswith(b_v_address) and start <= k <= stop:
                     dummy, index = struct_validator_key.unpack(k)
-                    new_address, flag, txhash, sig_diff = struct_validator_value.unpack(v)
-                    if new_address == DUMMY_VALIDATOR_ADDRESS:
+                    b_new_address, flag, txhash, sig_diff = struct_validator_value.unpack(v)
+                    if b_new_address == DUMMY_VALIDATOR_ADDRESS:
                         yield index, None, flag, txhash, sig_diff
                     else:
-                        yield index, new_address.decode(), flag, txhash, sig_diff
+                        yield index, bin2addr(b_new_address), flag, txhash, sig_diff
 
     def write_block(self, block):
         assert self.is_batch_thread(), 'Not created batch.'
@@ -375,7 +375,7 @@ class DataBase:
 
     def write_address_idx(self, address, txhash, index, coin_id, amount, f_used):
         assert self.is_batch_thread(), 'Not created batch.'
-        k = address.encode() + txhash + index.to_bytes(1, ITER_ORDER)
+        k = addr2bin(address) + txhash + index.to_bytes(1, ITER_ORDER)
         v = struct_address_idx.pack(coin_id, amount, f_used)
         self.batch['_address_index'][k] = v
         log.debug("Insert new address idx {}".format(address))
@@ -401,7 +401,7 @@ class DataBase:
         for last_index, *dummy in self.read_contract_iter(c_address=c_address, start_idx=index):
             pass
         assert last_index is None, 'Not allow older ConcludeTX insert. my={} last={}'.format(index, last_index)
-        k = c_address.encode() + index.to_bytes(8, ITER_ORDER)
+        k = addr2bin(c_address) + index.to_bytes(8, ITER_ORDER)
         v = start_tx.hash + finish_hash + packb(message, use_bin_type=True)
         self.batch['_contract'][k] = v
         log.debug("Insert new contract {} {}".format(c_address, index))
@@ -416,11 +416,11 @@ class DataBase:
             pass
         assert last_index is None, 'Not allow older ValidatorEditTX insert. last={}'.format(last_index)
         if new_address is None:
-            new_address = DUMMY_VALIDATOR_ADDRESS
+            b_new_address = DUMMY_VALIDATOR_ADDRESS
         else:
-            new_address = new_address.encode()
-        k = v_address.encode() + index.to_bytes(8, ITER_ORDER)
-        v = struct_validator_value.pack(new_address, flag, tx.hash, sign_diff)
+            b_new_address = addr2bin(new_address)
+        k = addr2bin(v_address) + index.to_bytes(8, ITER_ORDER)
+        v = struct_validator_value.pack(b_new_address, flag, tx.hash, sign_diff)
         self.batch['_validator'][k] = v
         log.debug("Insert new validator {} {}".format(v_address, index))
 

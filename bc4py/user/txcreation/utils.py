@@ -1,4 +1,5 @@
-from bc4py.config import C, BlockChainError
+from bc4py.config import C, V, BlockChainError
+from bc4py.bip32 import dummy_address
 from bc4py.database.builder import user_account
 from bc4py.database.account import message2signature, create_new_user_keypair
 from bc4py.database.tools import get_unspents_iter, get_utxo_iter
@@ -7,7 +8,7 @@ from logging import getLogger
 
 log = getLogger('bc4py')
 
-DUMMY_REDEEM_ADDRESS = '_____DUMMY______REDEEM______ADDRESS_____'  # 40letters
+DUMMY_REDEEM_ADDRESS = dummy_address(b'_DUMMY_REDEEM_ADDR__')
 
 
 def fill_inputs_outputs(tx,

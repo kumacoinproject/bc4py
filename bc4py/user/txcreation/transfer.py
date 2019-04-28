@@ -1,5 +1,6 @@
 from bc4py import __chain_version__
 from bc4py.config import C, V, BlockChainError
+from bc4py.bip32 import ADDR_STR_SIZE
 from bc4py.chain.tx import TX
 from bc4py.database.account import insert_log, read_address2user
 from bc4py.user import Balance, Accounting
@@ -23,7 +24,7 @@ def send_many(sender,
     outputs = list()
     coins = Balance()
     for address, coin_id, amount in send_pairs:
-        assert isinstance(address, str) and len(address) == 40, 'Recipient is 40 letter string.'
+        assert isinstance(address, str) and len(address) == ADDR_STR_SIZE
         assert isinstance(coin_id, int) and isinstance(amount, int), 'CoinID, amount is int.'
         coins[coin_id] += amount
         outputs.append((address, coin_id, amount))

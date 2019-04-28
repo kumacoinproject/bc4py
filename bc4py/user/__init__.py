@@ -108,10 +108,7 @@ def extract_keypair(user, is_inner, index):
     if V.BIP44_BRANCH_SEC_KEY is None:
         raise PermissionError('wallet is locked!')
     bip = Bip32.from_extended_key(V.BIP44_BRANCH_SEC_KEY)
-    account = bip.child_key(user + BIP32_HARDEN).child_key(int(is_inner)).child_key(index)
-    sk = account.get_private_key()
-    pk, ck = account.NemKeypair(prefix=V.BLOCK_PREFIX)
-    return sk, pk, ck
+    return bip.child_key(user + BIP32_HARDEN).child_key(int(is_inner)).child_key(index)
 
 
 __all__ = [

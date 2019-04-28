@@ -1,5 +1,9 @@
 from bc4py.bip32.base58 import *
 from bc4py.bip32.bip32 import *
+from bc4py.bip32.utils import *
+
+ADDR_SIZE = 1 + 20  # bytes: prefix + identifier
+ADDR_STR_SIZE = 34  # str: prefix + identifier + checksum
 
 __all__ = [
     "check_encode",
@@ -7,6 +11,14 @@ __all__ = [
     "Bip32",
     "BIP32_HARDEN",
     "parse_bip32_path",
+    "ADDR_SIZE",
+    "ADDR_STR_SIZE",
+    "is_address",
+    "get_address",
+    "convert_address",
+    "dummy_address",
+    "addr2bin",
+    "bin2addr",
 ]
 
 

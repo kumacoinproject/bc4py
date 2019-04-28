@@ -27,7 +27,6 @@ EX_MAIN_PUBLIC = [codecs.decode('0488b21e', 'hex'),
                   codecs.decode('049d7cb2', 'hex')]  # Version strings for mainnet extended public keys
 EX_TEST_PRIVATE = [codecs.decode('04358394', 'hex')]  # Version strings for testnet extended private keys
 EX_TEST_PUBLIC = [codecs.decode('043587CF', 'hex')]  # Version strings for testnet extended public keys
-ADDR_VERSION = b'\x00'
 WALLET_VERSION = b'\x80'
 
 
@@ -217,24 +216,15 @@ class Bip32(object):
         else:
             return b'\2' + x
 
-    def get_address(self, prefix=ADDR_VERSION):
+    def get_address(self, prefix):
         """Return compressed public key address"""
         vh160 = prefix + self.identifier()
         return check_encode(vh160)
 
-    def NemKeypair(self, prefix=None):
-        # TODO: will be remove
-        from nem_ed25519 import get_address, public_key
-        if self.secret is None:
-            raise Exception('NEM publicKey derive from secretKey directly')
-        pk = public_key(sk=self.get_private_key(), encode=bytes)
-        ck = get_address(pk=pk, main_net=True, prefix=prefix)
-        return pk, ck
-
     def identifier(self):
         """Return key identifier as string"""
-        ck = self.get_public_key()
-        return hashlib.new('ripemd160', hashlib.sha256(ck).digest()).digest()
+        pk = self.get_public_key()
+        return hashlib.new('ripemd160', hashlib.sha256(pk).digest()).digest()
 
     def fingerprint(self):
         """Return key fingerprint as string"""
@@ -274,7 +264,7 @@ class Bip32(object):
         print("   * Identifier")
         print("     * (hex):      ", self.identifier().hex())
         print("     * (fpr):      ", self.fingerprint().hex())
-        print("     * (main addr):", self.get_address())
+        print("     * (main addr):", self.get_address(b'\x00'))
         if self.secret:
             print("   * Secret key")
             print("     * (hex):      ", self.get_private_key().hex())

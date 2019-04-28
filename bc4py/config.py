@@ -27,7 +27,7 @@ class C:  # Constant
         'name': 'PyCoin',
         'unit': 'PC',
         'digit': 8,
-        'address': 'NDUMMYADDRESSAAAAAAAAAAAAAAAAAAAACRSTTMF',
+        'address': 'NDUMMYADDRESSAAAAAAAAAAAACRSTTMF',
         'description': 'Base currency.',
         'image': None
     }
