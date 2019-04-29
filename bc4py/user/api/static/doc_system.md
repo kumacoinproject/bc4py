@@ -12,6 +12,7 @@ get system info (public)
     "system_ver": "0.0.11-alpha",
     "api_ver": "0.0.2",
     "chain_ver": 2,
+    "branch": "0.0.23-alpha",
     "booting": false,
     "connections": 3,
     "unconfirmed": [],
@@ -30,6 +31,7 @@ get system info (private)
     "system_ver": "0.0.11-alpha",
     "api_ver": "0.0.2",
     "chain_ver": 2,
+    "branch": "develop",
     "message": "This is alpha version - use at your own risk, do not use for merchant applications.",
     "booting": false,
     "connections": 3,
@@ -361,6 +363,18 @@ get network info
             "last_seen": 1547908237
         }
     ]
+}
+```
+
+create bootstrap
+----
+* Request example
+    * `curl --basic -u user:password -H "accept: application/json" 127.0.0.1:3000/private/createbootstrap`
+* Response
+```text
+{
+    "height": 10203,
+    "time": 234
 }
 ```
 

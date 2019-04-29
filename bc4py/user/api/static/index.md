@@ -17,6 +17,7 @@ System
 |[/public/getchaininfo](./public/getchaininfo)      |GET    |public   | Blockchain info.                       |
 |[/private/getchaininfo](./private/getchaininfo)    |GET    |public   | inner chain info of database.          |
 |[/public/getnetworkinfo](./public/getnetworkinfo)  |GET    |public   | System network info.                   |
+|[/private/createbootstrap](./private/createbootstrap)  |GET    |private   | create bootstrap.dat file.        |
 |[/private/resync](./private/resync)                |GET    |private  | Make system resync status.              |
 |[/private/stop](./private/stop)                    |GET    |private  | Stop system.                            |
 

@@ -1,6 +1,3 @@
-#!/user/env python3
-# -*- coding: utf-8 -*-
-
 from rx.subjects import Subject
 from concurrent.futures import ProcessPoolExecutor
 from threading import Lock
@@ -13,7 +10,7 @@ stream = Subject()
 atexit.register(stream.dispose)
 
 # multiprocessing executor
-max_process_num = 8
+max_process_num = 4
 logical_cpu_num = psutil.cpu_count(logical=True) or max_process_num
 physical_cpu_nam = psutil.cpu_count(logical=False) or max_process_num
 max_workers = min(logical_cpu_num, physical_cpu_nam)
@@ -30,7 +27,7 @@ class C:  # Constant
         'name': 'PyCoin',
         'unit': 'PC',
         'digit': 8,
-        'address': 'NDUMMYADDRESSAAAAAAAAAAAAAAAAAAAACRSTTMF',
+        'address': 'NDUMMYADDRESSAAAAAAAAAAAACRSTTMF',
         'description': 'Base currency.',
         'image': None
     }
@@ -50,11 +47,12 @@ class C:  # Constant
         BLOCK_GENESIS: 'GENESIS',
         BLOCK_COIN_POS: 'POS_COIN',
         BLOCK_CAP_POS: 'POS_CAP',
+        BLOCK_FLK_POS: 'POS_FLK',
         BLOCK_YES_POW: 'POW_YES',
         BLOCK_X11_POW: 'POW_X11',
         BLOCK_HMQ_POW: 'POW_HMQ',
         BLOCK_LTC_POW: 'POW_LTC',
-        BLOCK_X16R_POW: 'POW_X16R'
+        BLOCK_X16R_POW: 'POW_X16R',
     }
 
     # tx type
@@ -94,7 +92,10 @@ class C:  # Constant
     # difficulty
     DIFF_RETARGET = 20  # difficultyの計算Block数
 
-    # BIP32
+    # address params
+    ADDR_NORMAL_VER = 0
+    ADDR_VALIDATOR_VER = 1
+    ADDR_CONTRACT_VER = 2
     BIP44_COIN_TYPE = 0x800002aa
 
     # block params
@@ -113,25 +114,25 @@ class C:  # Constant
     }
 
     # Block/TX/Fee limit
-    ACCEPT_MARGIN_TIME = 120  # 新規データ受け入れ時間マージンSec
     SIZE_BLOCK_LIMIT = 300 * 1000  # 300kb block
     SIZE_TX_LIMIT = 100 * 1000  # 100kb tx
-    CASHE_LIMIT = 100  # Memoryに置く最大Block数、実質Reorg制限
-    BATCH_SIZE = 10
+    CASHE_LIMIT = 300  # Memoryに置く最大Block数、実質Reorg制限
+    BATCH_SIZE = 30
     MINTCOIN_GAS = int(10 * pow(10, 6))  # 新規Mintcoin発行GasFee
     SIGNATURE_GAS = int(0.01 * pow(10, 6))  # gas per one signature
     # CONTRACT_CREATE_FEE = int(10 * pow(10, 6))  # コントラクト作成GasFee
     VALIDATOR_EDIT_GAS = int(10 * pow(10, 6))  # gas
     CONTRACT_MINIMUM_INPUT = int(1 * pow(10, 8))  # Contractの発火最小amount
 
+    # network params
+    ACCEPT_MARGIN_TIME = 120  # 新規データ受け入れ時間マージンSec
+    MAX_RECURSIVE_BLOCK_DEPTH = 10  # recursive accept block limit
+
 
 class V:
     # Blockchain basic params
     GENESIS_BLOCK = None
     GENESIS_PARAMS = None
-    BLOCK_PREFIX = None
-    BLOCK_VALIDATOR_PREFIX = None
-    BLOCK_CONTRACT_PREFIX = None
     BLOCK_GENESIS_TIME = None
     BLOCK_TIME_SPAN = None
     BLOCK_MINING_SUPPLY = None
@@ -149,6 +150,7 @@ class V:
 
     # Wallet
     # mnemonic =(decrypt)=> seed ==> 44' => coinType' => secret key
+    BECH32_HRP = None  # human readable part
     BIP44_ENCRYPTED_MNEMONIC = None
     BIP44_ROOT_PUB_KEY = None  # path: m
     BIP44_BRANCH_SEC_KEY = None  # path: m/44'/coin_type'
@@ -157,6 +159,9 @@ class V:
     MINING_ADDRESS = None
     PC_OBJ = None
     API_OBJ = None
+
+    # developer
+    BRANCH_NAME = None
 
 
 class P:  # 起動中もダイナミックに変化
@@ -174,4 +179,15 @@ class BlockChainError(Exception):
     pass
 
 
-__all__ = ['stream', 'max_workers', 'executor', 'executor_lock', 'C', 'V', 'P', 'Debug', 'BlockChainError']
+__all__ = [
+    'stream',
+    'max_workers',
+    'executor',
+    'executor_lock',
+    'C',
+    'V',
+    'P',
+    'Debug',
+    'BlockChainError',
+]
+

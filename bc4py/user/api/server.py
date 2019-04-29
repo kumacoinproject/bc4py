@@ -8,6 +8,7 @@ import aiohttp_cors
 from .baseinfo import *
 from .accountinfo import *
 from .editaccount import *
+from .usertool import *
 from .chaininfo import *
 from .websocket import *
 from .createtx import *
@@ -39,12 +40,12 @@ def escape_cross_origin_block(app):
         app,
         defaults={
             "*":
-            aiohttp_cors.ResourceOptions(
-                # Access-Control-Allow-Origin
-                allow_credentials=True,
-                expose_headers="*",
-                allow_headers=("X-Requested-With", "Content-Type", "Authorization", "Content-Length"),
-                allow_methods=['POST', 'GET'])
+                aiohttp_cors.ResourceOptions(
+                    # Access-Control-Allow-Origin
+                    allow_credentials=True,
+                    expose_headers="*",
+                    allow_headers=("X-Requested-With", "Content-Type", "Authorization", "Content-Length"),
+                    allow_methods=['POST', 'GET'])
         })
     for resource in app.router.resources():
         cors.add(resource)
@@ -87,6 +88,7 @@ def create_rest_server(f_local, user, pwd, port=3000, f_blocking=True, ssl_conte
     app.router.add_get('/public/getchaininfo', chain_info)
     app.router.add_get('/private/getchaininfo', chain_private_info)
     app.router.add_get('/public/getnetworkinfo', network_info)
+    app.router.add_get('/private/createbootstrap', create_bootstrap)
     app.router.add_get('/private/resync', resync)
     app.router.add_get('/private/stop', close_server)
     # Account
@@ -184,8 +186,7 @@ async def web_page(request):
             markdown_body = open(abs_path, mode='r', encoding='utf8').read()
             markdown_body = markdown_body.replace('\\', '\\\\').replace('\"', '\\\"').replace("\n", "\\n")
             return web.Response(
-                text=markdown_template.replace('{:title}', markdown_title, 1).replace(
-                    '{:body}', markdown_body, 1),
+                text=markdown_template.replace('{:title}', markdown_title, 1).replace('{:body}', markdown_body, 1),
                 headers=web_base.CONTENT_TYPE_HTML)
         elif not os.path.exists(abs_path):
             return web.Response(text="Not found page. {}".format(req_path[-1]), status=404)

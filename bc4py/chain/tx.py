@@ -1,5 +1,6 @@
 from bc4py import __chain_version__
 from bc4py.config import C, V, BlockChainError
+from bc4py.bip32 import ADDR_SIZE, addr2bin, bin2addr
 from hashlib import sha256
 from time import time
 from logging import getLogger
@@ -9,13 +10,13 @@ import msgpack
 log = getLogger('bc4py')
 struct_tx_header = struct.Struct('<IIIIQqBBBI')
 struct_inputs = struct.Struct('<32sB')
-struct_outputs = struct.Struct('<40sIQ')
+struct_outputs = struct.Struct('<{}sIQ'.format(ADDR_SIZE))
 
 
 class TX:
-    __slots__ = ("b", "hash", "height", "pos_amount", "version", "type", "time", "deadline", "inputs",
-                 "outputs", "gas_price", "gas_amount", "message_type", "message", "signature", "R",
-                 "recode_flag", "create_time", "__weakref__")
+    __slots__ = ("b", "hash", "height", "pos_amount", "version", "type", "time", "deadline", "inputs", "outputs",
+                 "gas_price", "gas_amount", "message_type", "message", "signature", "R", "recode_flag",
+                 "create_time", "__weakref__")
 
     def __eq__(self, other):
         if isinstance(other, TX):
@@ -48,7 +49,7 @@ class TX:
         self.message_type = None  # 2bytes int
         self.message = None  # 0~256**4 bytes bin
         # for validation
-        self.signature = list()  # [(pubkey, signature),.. ]
+        self.signature = list()  # [(pk, r, s),.. ]
         self.R = b''  # use for hash-locked
         # don't use for process
         self.recode_flag = None
@@ -84,15 +85,15 @@ class TX:
         # 構造
         # [version I]-[type I]-[time I]-[deadline I]-[gas_price Q]-[gas_amount q]-[msg_type B]-
         # -[input_len B]-[output_len B]-[msg_len I]-[inputs]-[outputs]-[msg]
-        self.b = struct_tx_header.pack(self.version, self.type, self.time, self.deadline,
-                                       self.gas_price, self.gas_amount, self.message_type, len(self.inputs),
-                                       len(self.outputs), len(self.message))
+        self.b = struct_tx_header.pack(self.version, self.type, self.time, self.deadline, self.gas_price,
+                                       self.gas_amount, self.message_type, len(self.inputs), len(self.outputs),
+                                       len(self.message))
         # inputs
         for txhash, txindex in self.inputs:
             self.b += struct_inputs.pack(txhash, txindex)
         # outputs
         for address, coin_id, amount in self.outputs:
-            self.b += struct_outputs.pack(address.encode(), coin_id, amount)
+            self.b += struct_outputs.pack(addr2bin(ck=address, hrp=V.BECH32_HRP), coin_id, amount)
         # message
         self.b += self.message
         # txhash
@@ -110,8 +111,8 @@ class TX:
         # outputs
         self.outputs = list()
         for i in range(outputs_len):
-            address, coin_id, amount = struct_outputs.unpack_from(self.b, pos)
-            self.outputs.append((address.decode(), coin_id, amount))
+            b_address, coin_id, amount = struct_outputs.unpack_from(self.b, pos)
+            self.outputs.append((bin2addr(b=b_address, hrp=V.BECH32_HRP), coin_id, amount))
             pos += struct_outputs.size
         # msg
         self.message = self.b[pos:pos + msg_len]
@@ -138,10 +139,12 @@ class TX:
         r['gas_amount'] = self.gas_amount
         r['message_type'] = C.msg_type2name.get(self.message_type) or self.message_type
         r['message'] = self.message.decode() if self.message_type == C.MSG_PLAIN else self.message.hex()
-        r['signature'] = [(pubkey, signature.hex()) for pubkey, signature in self.signature]
+        r['signature'] = [(pk.hex(), r.hex(), s.hex()) for pk, r, s in self.signature]
         r['hash_locked'] = self.R.hex()
         r['recode_flag'] = self.recode_flag
         r['create_time'] = self.create_time
+        r['size'] = self.size
+        r['total_size'] = self.total_size
         return r
 
     def encoded_message(self):
@@ -163,19 +166,12 @@ class TX:
         # Do not include signature size
         return len(self.b)
 
-    def get_pos_hash(self, previous_hash):
-        # staked => sha256(txhash + previous_hash) / amount < 256^32 / diff
-        pos_work_hash = sha256(self.hash + previous_hash).digest()
-        work = int.from_bytes(pos_work_hash, 'little')
-        work //= (self.pos_amount // 100000000)
-        return work.to_bytes(32, 'little')
-
-    def pos_check(self, previous_hash, pos_target_hash):
-        # staked => sha256(txhash + previous_hash) / amount < 256^32 / diff
-        pos_work_hash = sha256(self.hash + previous_hash).digest()
-        work = int.from_bytes(pos_work_hash, 'little')
-        work //= (self.pos_amount // 100000000)
-        return work < int.from_bytes(pos_target_hash, 'little')
+    @property
+    def total_size(self):
+        signature_size = 0
+        for s in self.signature:
+            signature_size = sum(len(x) for x in s)
+        return self.size + len(self.R) + signature_size
 
     def update_time(self, retention=10800):
         if retention < 10800:

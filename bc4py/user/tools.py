@@ -32,7 +32,8 @@ class Search(dict):
         index = None
         for user, is_inner, last_index in check:
             for index in range(last_index, last_index + self.gap_limit):
-                sk, pk, ck = extract_keypair(user=user, is_inner=is_inner, index=index)
+                bip = extract_keypair(user=user, is_inner=is_inner, index=index)
+                ck = bip.get_address(hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER)
                 self[ck] = (user, is_inner, index)
             log.info("Finish userID={} is_inner={} index={}".format(user, is_inner, index))
 
@@ -40,7 +41,8 @@ class Search(dict):
         user, is_inner, index = self[ck]
         insert_keypair_from_bip(ck=ck, user=user, is_inner=is_inner, index=index, cur=self.cur)
         next_index = self.biggest_index(user=user, is_inner=is_inner) + 1
-        sk, pk, ck = extract_keypair(user=user, is_inner=is_inner, index=next_index)
+        bip = extract_keypair(user=user, is_inner=is_inner, index=next_index)
+        ck = bip.get_address(hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER)  # over write
         self[ck] = (user, is_inner, next_index)
         log.info("Recode new userID={} is_inner={} index={} address={}".format(user, is_inner, index, ck))
 

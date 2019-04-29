@@ -12,9 +12,9 @@ struct_block = struct.Struct('<I32s32sII4s')
 
 
 class Block:
-    __slots__ = ("b", "hash", "next_hash", "target_hash", "work_hash", "height", "_difficulty",
-                 "_work_difficulty", "create_time", "flag", "f_orphan", "recode_flag", "_bias", "inner_score",
-                 "version", "previous_hash", "merkleroot", "time", "bits", "nonce", "txs", "__weakref__")
+    __slots__ = ("b", "hash", "next_hash", "target_hash", "work_hash", "height", "_difficulty", "_work_difficulty",
+                 "create_time", "flag", "f_orphan", "recode_flag", "_bias", "inner_score", "version",
+                 "previous_hash", "merkleroot", "time", "bits", "nonce", "txs", "__weakref__")
 
     def __eq__(self, other):
         if isinstance(other, Block):
@@ -26,9 +26,9 @@ class Block:
         return hash(self.hash)
 
     def __repr__(self):
-        return "<Block {} {} {} {} score={} txs={}>".format(
-            self.height, C.consensus2name[self.flag], "ORPHAN" if self.f_orphan else "", self.hash.hex(),
-            round(self.score, 4), len(self.txs))
+        return "<Block {} {} {} {} score={} txs={}>".format(self.height, C.consensus2name[self.flag],
+                                                            "ORPHAN" if self.f_orphan else "", self.hash.hex(),
+                                                            round(self.score, 4), len(self.txs))
 
     def __init__(self):
         self.b = None
@@ -120,6 +120,7 @@ class Block:
         r['nonce'] = self.nonce.hex() if self.nonce else None
         r['txs'] = [tx.hash.hex() for tx in self.txs]
         r['create_time'] = self.create_time
+        r['size'] = self.size
         return r
 
     @property
@@ -147,8 +148,10 @@ class Block:
             self.work2diff()
         return self._work_difficulty
 
-    def getsize(self):
-        tx_sizes = sum(tx.size + len(tx.signature) * 96 for tx in self.txs)
+    @property
+    def size(self):
+        # Do not include signature size
+        tx_sizes = sum(tx.size for tx in self.txs)
         header_size = len(self.b)
         return tx_sizes + header_size
 

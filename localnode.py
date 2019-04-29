@@ -105,8 +105,6 @@ def work(port, sub_dir):
     try:
         # start_stratum(f_blocking=False)
         create_rest_server(f_local=True, user='user', pwd='password', port=port+1000)
-        if P.F_NOW_BOOTING is False:
-            create_bootstrap_file()
         P.F_STOP = True
         builder.close()
         # close_stratum()

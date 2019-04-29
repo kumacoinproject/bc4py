@@ -1,10 +1,10 @@
 from bc4py.config import C, V, stream, BlockChainError
+from bc4py.bip32 import is_address
 from bc4py.chain.block import Block
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.cashe import Cashe
 from copy import deepcopy
 from logging import getLogger
-from nem_ed25519.key import is_address
 from time import time
 import msgpack
 
@@ -19,7 +19,7 @@ class Validator:
     __slots__ = ("v_address", "validators", "require", "db_index", "version", "txhash")
 
     def __init__(self, v_address):
-        assert is_address(v_address, V.BLOCK_VALIDATOR_PREFIX)
+        assert is_address(ck=v_address, hrp=V.BECH32_HRP, ver=C.ADDR_VALIDATOR_VER)
         self.v_address = v_address
         self.validators = list()
         self.require = 0

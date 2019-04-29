@@ -1,11 +1,11 @@
 from bc4py.config import C, V, stream, BlockChainError
+from bc4py.bip32 import is_address
 from bc4py.chain.block import Block
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.validator import get_validator_object
 from bc4py.database.cashe import Cashe
 from copy import deepcopy
 from logging import getLogger
-from nem_ed25519.key import is_address
 from time import time
 import msgpack
 
@@ -82,11 +82,11 @@ class Storage(dict):
 
 
 class Contract:
-    __slots__ = ("c_address", "v_address", "version", "db_index", "binary", "extra_imports", "storage",
-                 "settings", "start_hash", "finish_hash")
+    __slots__ = ("c_address", "v_address", "version", "db_index", "binary", "extra_imports", "storage", "settings",
+                 "start_hash", "finish_hash")
 
     def __init__(self, c_address):
-        assert is_address(c_address, V.BLOCK_CONTRACT_PREFIX)
+        assert is_address(ck=c_address, hrp=V.BECH32_HRP, ver=C.ADDR_CONTRACT_VER)
         self.c_address = c_address
         self.v_address = None
         self.version = -1

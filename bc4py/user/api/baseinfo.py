@@ -38,7 +38,7 @@ async def chain_info(request):
                 'hashrate(kh/s)': round((MAX_256_INT//target) / block_time / 1000, 3)
             }
         data['mining'] = difficulty
-        data['size'] = best_block.getsize()
+        data['size'] = best_block.size
         data['checkpoint'] = {'height': old_block_height, 'blockhash': old_block_hash}
         data['money_supply'] = GompertzCurve.calc_total_supply(best_height)
         data['total_supply'] = GompertzCurve.k
@@ -55,9 +55,7 @@ async def chain_info(request):
 async def chain_private_info(request):
     try:
         main_chain = [block.getinfo() for block in builder.best_chain]
-        orphan_chain = [
-            block.getinfo() for block in builder.chain.values() if block not in builder.best_chain
-        ]
+        orphan_chain = [block.getinfo() for block in builder.chain.values() if block not in builder.best_chain]
         data = {
             'main': main_chain,
             'orphan': sorted(orphan_chain, key=lambda x: x['height']),
@@ -73,6 +71,7 @@ async def system_info(request):
         'system_ver': __version__,
         'api_ver': __api_version__,
         'chain_ver': __chain_version__,
+        'branch': V.BRANCH_NAME,
         'booting': P.F_NOW_BOOTING,
         'connections': len(V.PC_OBJ.p2p.user),
         'unconfirmed': [txhash.hex() for txhash in tx_builder.unconfirmed.keys()],
@@ -89,6 +88,7 @@ async def system_private_info(request):
             'system_ver': __version__,
             'api_ver': __api_version__,
             'chain_ver': __chain_version__,
+            'branch': V.BRANCH_NAME,
             'message': __message__,
             'booting': P.F_NOW_BOOTING,
             'connections': len(V.PC_OBJ.p2p.user),

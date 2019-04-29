@@ -1,5 +1,5 @@
-from bc4py.config import C, V, BlockChainError
-from bc4py.chain.checking.signature import *
+from bc4py.config import C, BlockChainError
+from bc4py.chain.signature import *
 from bc4py.database.mintcoin import *
 from bc4py.database.builder import tx_builder
 from bc4py.user import Balance
@@ -13,9 +13,9 @@ def check_tx_mint_coin(tx, include_block):
     elif include_block and 0 == include_block.txs.index(tx):
         raise BlockChainError('tx index is not proof tx.')
     elif tx.gas_amount < tx.size + len(tx.signature) * C.SIGNATURE_GAS + C.MINTCOIN_GAS:
-        raise BlockChainError('Insufficient gas amount [{}<{}+{}+{}]'.format(
-            tx.gas_amount, tx.size,
-            len(tx.signature) * C.SIGNATURE_GAS, C.MINTCOIN_GAS))
+        raise BlockChainError('Insufficient gas amount [{}<{}+{}+{}]'.format(tx.gas_amount, tx.size,
+                                                                             len(tx.signature) * C.SIGNATURE_GAS,
+                                                                             C.MINTCOIN_GAS))
     # check new mintcoin format
     try:
         mint_id, params, setting = tx.encoded_message()

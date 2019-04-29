@@ -141,9 +141,7 @@ def get_mintcoin_object(coin_id, best_block=None, best_chain=None, stop_txhash=N
     fill_mintcoin_status(m=m, best_block=best_block, best_chain=best_chain, stop_txhash=stop_txhash)
     if coin_id == 0:
         m.update(
-            params=C.BASE_CURRENCY,
-            setting={k: False for k, v in setting_template.items()},
-            txhash=b'\x00' * 32)
+            params=C.BASE_CURRENCY, setting={k: False for k, v in setting_template.items()}, txhash=b'\x00' * 32)
     elif key:
         cashe[key] = m
     return m

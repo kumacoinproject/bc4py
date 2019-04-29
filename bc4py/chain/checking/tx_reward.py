@@ -2,8 +2,9 @@ from bc4py import __chain_version__
 from bc4py.config import C, BlockChainError
 from bc4py_extension import poc_hash, poc_work, scope_index
 from bc4py.chain.utils import GompertzCurve
+from bc4py.chain.checking.utils import stake_coin_check
+from bc4py.chain.signature import get_signed_cks
 from bc4py.database.builder import tx_builder
-from nem_ed25519.signature import verify
 
 
 def check_tx_pow_reward(tx, include_block):
@@ -32,8 +33,8 @@ def check_tx_pow_reward(tx, include_block):
         include_block.work2diff()
         include_block.target2diff()
         print(include_block.getinfo())
-        raise BlockChainError('Proof of work check is failed. [{}<{}]'.format(
-            include_block.difficulty, include_block.work_difficulty))
+        raise BlockChainError('Proof of work check is failed. [{}<{}]'.format(include_block.difficulty,
+                                                                              include_block.work_difficulty))
 
 
 def check_tx_pos_reward(tx, include_block):
@@ -75,7 +76,8 @@ def check_tx_pos_reward(tx, include_block):
     elif not (include_block.time == tx.time == tx.deadline - 10800):
         raise BlockChainError('TX time is wrong 1. [{}={}={}-10800]'.format(include_block.time, tx.time,
                                                                             tx.deadline))
-    elif not tx.pos_check(include_block.previous_hash, include_block.target_hash):
+    elif not stake_coin_check(
+            tx=tx, previous_hash=include_block.previous_hash, target_hash=include_block.target_hash):
         raise BlockChainError('Proof of stake check is failed.')
 
 
@@ -114,15 +116,16 @@ def check_tx_poc_reward(tx, include_block):
         scope_hash=scope_hash[index * 32:index*32 + 32],
         previous_hash=include_block.previous_hash)
     if int.from_bytes(work_hash, 'little') > int.from_bytes(include_block.target_hash, 'little'):
-        raise BlockChainError('PoC check is failed, work={} target={}'.format(
-            work_hash.hex(), include_block.target_hash.hex()))
+        raise BlockChainError('PoC check is failed, work={} target={}'.format(work_hash.hex(),
+                                                                              include_block.target_hash.hex()))
 
     # signature check
-    try:
-        pk, sign = tx.signature[0]
-        verify(msg=include_block.b, sign=sign, pk=pk)
-    except Exception:
-        raise BlockChainError('verification failed on PoC signature')
+    signed_cks = get_signed_cks(tx)
+    if len(signed_cks) != 1:
+        raise BlockChainError('PoC signature num is wrong num={}'.format(len(signed_cks)))
+    ck = signed_cks.pop()
+    if ck != o_address:
+        raise BlockChainError('PoC signature ck is miss math {}!={}'.format(ck, o_address))
 
 
 __all__ = [

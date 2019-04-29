@@ -1,10 +1,11 @@
 from bc4py.config import C, V, BlockChainError
+from bc4py.bip32 import is_address
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.tools import get_usedindex
 from bc4py.database.validator import get_validator_object
-from bc4py.chain.checking.signature import get_signed_cks
+from bc4py.chain.signature import get_signed_cks
 from bc4py.user import Balance
-from nem_ed25519.key import is_address
+from hashlib import sha256
 
 
 def inputs_origin_check(tx, include_block):
@@ -83,9 +84,9 @@ def signature_check(tx, include_block):
         address, coin_id, amount = input_tx.outputs[txindex]
         if address in checked_cks:
             continue
-        elif is_address(address, V.BLOCK_PREFIX):
+        elif is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER):
             require_cks.add(address)
-        elif is_address(address, V.BLOCK_VALIDATOR_PREFIX):
+        elif is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_VALIDATOR_VER):
             v_before = get_validator_object(v_address=address, best_block=include_block, stop_txhash=tx.hash)
             if v_before.version == -1:
                 raise BlockChainError('Not init validator {}'.format(address))
@@ -93,9 +94,8 @@ def signature_check(tx, include_block):
                 raise BlockChainError('Don\'t satisfy required signature {}<{}'.format(
                     len(signed_cks & v_before.validators), v_before.require))
             require_cks.update(v_before.validators)
-        elif is_address(address, V.BLOCK_CONTRACT_PREFIX):
-            raise BlockChainError('Not allow ContractAddress include in normal Transfer. {}'.format(
-                address, tx))
+        elif is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_CONTRACT_VER):
+            raise BlockChainError('Not allow ContractAddress include in normal Transfer. {}'.format(address, tx))
         else:
             raise BlockChainError('Not common address {} {}.'.format(address, tx))
         # success check
@@ -107,8 +107,18 @@ def signature_check(tx, include_block):
         raise BlockChainError('Signature verification failed. [{}={}]'.format(require_cks, signed_cks))
 
 
+def stake_coin_check(tx, previous_hash, target_hash):
+    # staked => sha256(txhash + previous_hash) / amount < 256^32 / target
+    assert tx.pos_amount is not None
+    pos_work_hash = sha256(tx.hash + previous_hash).digest()
+    work = int.from_bytes(pos_work_hash, 'little')
+    work //= (tx.pos_amount // 100000000)
+    return work < int.from_bytes(target_hash, 'little')
+
+
 __all__ = [
     "inputs_origin_check",
     "amount_check",
     "signature_check",
+    "stake_coin_check",
 ]

@@ -1,4 +1,5 @@
 from bc4py.config import C, V, P, stream
+from bc4py.bip32 import is_address, addr2bin, bin2addr, ADDR_SIZE
 from bc4py.chain.utils import signature2bin, bin2signature
 from bc4py.chain.tx import TX
 from bc4py.chain.block import Block
@@ -7,66 +8,59 @@ from bc4py.user import Balance, Accounting
 from bc4py.database.account import *
 from bc4py.database.create import closing, create_db
 from msgpack import unpackb, packb
+from hashlib import sha256
 import struct
 import weakref
 import os
 import threading
 from time import time
-from nem_ed25519.key import is_address
 from logging import getLogger, INFO
+import plyvel
 
 log = getLogger('bc4py')
+getLogger('plyvel').setLevel(INFO)
 
-# http://blog.livedoor.jp/wolf200x/archives/53052954.html
-# https://github.com/happynear/py-leveldb-windows
-# https://tangerina.jp/blog/leveldb-1.20-build/
-
-try:
-    import plyvel
-    is_plyvel = True
-    create_level_db = plyvel.DB
-    getLogger('plyvel').setLevel(INFO)
-except ImportError:
-    import leveldb
-    is_plyvel = False
-    create_level_db = leveldb.LevelDB
-    getLogger('leveldb').setLevel(INFO)
-
-struct_block = struct.Struct('>II32s80sBI')
-struct_tx = struct.Struct('>4IB')
-struct_address = struct.Struct('>40s32sB')
+struct_block = struct.Struct('>I32s80sBI')
+struct_tx = struct.Struct('>2IB')
+struct_address = struct.Struct('>{}s32sB'.format(ADDR_SIZE))
 struct_address_idx = struct.Struct('>IQ?')
 struct_coins = struct.Struct('>II')
-struct_construct_key = struct.Struct('>40sQ')
+struct_construct_key = struct.Struct('>{}sQ'.format(ADDR_SIZE))
 struct_construct_value = struct.Struct('>32s32s')
-struct_validator_key = struct.Struct('>40sQ')
-struct_validator_value = struct.Struct('>40sb32sb')
+struct_validator_key = struct.Struct('>{}sQ'.format(ADDR_SIZE))
+struct_validator_value = struct.Struct('>{}sb32sb'.format(ADDR_SIZE))
 
 # constant
 ITER_ORDER = 'big'
-DB_VERSION = 3  # increase if you change database structure
+DB_VERSION = 0  # increase if you change database structure
 ZERO_FILLED_HASH = b'\x00' * 32
-DUMMY_VALIDATOR_ADDRESS = b'\x00' * 40
-database_tuple = ("_block", "_tx", "_used_index", "_block_index", "_address_index", "_coins", "_contract",
-                  "_validator")
-# basic config
-db_config = {
-    'full_address_index': True,  # all address index?
-    'timeout': None,
-    'sync': False
-}
+DUMMY_VALIDATOR_ADDRESS = b'\x00' * ADDR_SIZE
 
 
 class DataBase:
+    db_config = {
+        'txindex': True,
+        'addrindex': True,
+        'timeout': None,
+        'sync': False
+    }
+    database_list = [
+        "_block",  # [blockhash] -> [height, time, work, b_block, flag, tx_len][txhash0]..[txhashN]
+        "_tx_index",  # [txhash] -> [height][offset]
+        "_used_index",  # [txhash] -> [used_bin]
+        "_block_index",  # [height] -> [blockhash]
+        "_address_index",  # [address][txhash][index] -> [coin_id, amount, f_used]
+        "_coins",  # [coin_id][index] -> [txhash][params, setting]
+        "_contract",  # [address][index] -> [start_hash][finish_hash][c_method, c_args, c_storage]
+        "_validator",  # [address][index] -> [new_address][flag][txhash][sig_diff]
+    ]
 
     def __init__(self, f_dummy=False, **kwargs):
         if f_dummy:
             return
         dirs = os.path.join(V.DB_HOME_DIR, 'db-ver{}'.format(DB_VERSION))
         self.dirs = dirs
-        db_config.update(kwargs)  # extra settings
-        self.sync = db_config['sync']
-        self.timeout = db_config['timeout']
+        self.db_config.update(kwargs)  # extra settings
         self.event = threading.Event()
         self.event.set()
         # already used => LevelDBError
@@ -76,53 +70,42 @@ class DataBase:
             log.debug('No database directory found.')
             os.mkdir(dirs)
             f_create = True
-        self._block = create_level_db(os.path.join(dirs, 'block'), create_if_missing=f_create)
-        self._tx = create_level_db(os.path.join(dirs, 'tx'), create_if_missing=f_create)
-        self._used_index = create_level_db(os.path.join(dirs, 'used-index'), create_if_missing=f_create)
-        self._block_index = create_level_db(os.path.join(dirs, 'block-index'), create_if_missing=f_create)
-        self._address_index = create_level_db(os.path.join(dirs, 'address-index'), create_if_missing=f_create)
-        self._coins = create_level_db(os.path.join(dirs, 'coins'), create_if_missing=f_create)
-        self._contract = create_level_db(os.path.join(dirs, 'contract'), create_if_missing=f_create)
-        self._validator = create_level_db(os.path.join(dirs, 'validator'), create_if_missing=f_create)
+        self._block = plyvel.DB(os.path.join(dirs, 'block'), create_if_missing=f_create)
+        if self.db_config['txindex']:
+            self._tx_index = plyvel.DB(os.path.join(dirs, 'tx_index'), create_if_missing=f_create)
+        self._used_index = plyvel.DB(os.path.join(dirs, 'used_index'), create_if_missing=f_create)
+        self._block_index = plyvel.DB(os.path.join(dirs, 'block_index'), create_if_missing=f_create)
+        self._address_index = plyvel.DB(os.path.join(dirs, 'address_index'), create_if_missing=f_create)
+        self._coins = plyvel.DB(os.path.join(dirs, 'coins'), create_if_missing=f_create)
+        self._contract = plyvel.DB(os.path.join(dirs, 'contract'), create_if_missing=f_create)
+        self._validator = plyvel.DB(os.path.join(dirs, 'validator'), create_if_missing=f_create)
         self.batch = None
         self.batch_thread = None
-        log.debug(':create database connect, plyvel={} path={}'.format(is_plyvel, dirs.replace("\\", "/")))
+        log.debug(':create database connect path={}'.format(dirs.replace("\\", "/")))
 
     def close(self):
-        if is_plyvel:
-            for name in database_tuple:
-                getattr(self, name).close()
-        # else:  # TODO: how to close?
-        #    for name in database_tuple:
-        #        print(getattr(self, name).GetStats())
-        #        getattr(self, name).__dell__()
+        for name in self.database_list:
+            getattr(self, name).close()
         log.info("close database connection.")
 
     def batch_create(self):
         assert self.batch is None, 'batch is already start.'
-        if not self.event.wait(timeout=self.timeout):
+        if not self.event.wait(timeout=self.db_config['timeout']):
             raise TimeoutError('batch_create timeout.')
         self.event.clear()
         self.batch = dict()
-        for name in database_tuple:
+        for name in self.database_list:
             self.batch[name] = dict()
         self.batch_thread = threading.current_thread()
         log.debug(":Create database batch.")
 
     def batch_commit(self):
         assert self.batch, 'Not created batch.'
-        if is_plyvel:
-            for name, memory in self.batch.items():
-                batch = getattr(self, name).write_batch(sync=self.sync)
-                for k, v in memory.items():
-                    batch.put(k, v)
-                batch.write()
-        else:
-            for name, memory in self.batch.items():
-                new_data = leveldb.WriteBatch()
-                for k, v in memory.items():
-                    new_data.Put(k, v)
-                getattr(self, name).Write(new_data, sync=self.sync)
+        for name, memory in self.batch.items():
+            batch = getattr(self, name).write_batch(sync=self.db_config['sync'])
+            for k, v in memory.items():
+                batch.put(k, v)
+            batch.write()
         self.batch = None
         self.batch_thread = None
         self.event.set()
@@ -140,32 +123,40 @@ class DataBase:
     def read_block(self, blockhash):
         if self.is_batch_thread() and blockhash in self.batch['_block']:
             b = self.batch['_block'][blockhash]
-        elif is_plyvel:
-            b = self._block.get(blockhash, default=None)
         else:
-            b = self._block.Get(blockhash, default=None)
+            b = self._block.get(blockhash, default=None)
         if b is None:
             return None
         b = bytes(b)
-        height, _time, work, b_block, flag, tx_len = struct_block.unpack_from(b)
-        idx = struct_block.size
-        assert len(b) == idx + tx_len, 'Not correct size. [{}={}]'.format(len(b), idx + tx_len)
+        offset = 0
+        height, work, b_block, flag, tx_len = struct_block.unpack_from(b, offset)
+        offset += struct_block.size
         block = Block.from_binary(binary=b_block)
         block.height = height
         block.work_hash = work
         block.flag = flag
-        # block.txs = [self.read_tx(b[idx+32*i:idx+32*i+32]) for i in range(tx_len//32)]
-        block.txs = [tx_builder.get_tx(b[idx + 32*i:idx + 32*i + 32]) for i in range(tx_len // 32)]
+        for _ in range(tx_len):
+            bin_len, sign_len, r_len = struct_tx.unpack_from(b, offset)
+            offset += struct_tx.size
+            b_tx = b[offset:offset+bin_len]
+            offset += bin_len
+            b_sign = b[offset:offset+sign_len]
+            offset += sign_len
+            R = b[offset:offset+r_len]
+            offset += r_len
+            tx = TX.from_binary(binary=b_tx)
+            tx.height = height
+            tx.signature = bin2signature(b_sign)
+            tx.R = R
+            block.txs.append(tx)
+        assert offset == len(b), "Block size on database is not match {}={}".format(offset, len(b))
         return block
 
     def read_block_hash(self, height):
         b_height = height.to_bytes(4, ITER_ORDER)
         if self.is_batch_thread() and b_height in self.batch['_block_index']:
             return self.batch['_block_index'][b_height]
-        elif is_plyvel:
-            b = self._block_index.get(b_height, default=None)
-        else:
-            b = self._block_index.Get(b_height, default=None)
+        b = self._block_index.get(b_height, default=None)
         if b is None:
             return None
         else:
@@ -175,10 +166,7 @@ class DataBase:
         f_batch = self.is_batch_thread()
         batch_copy = self.batch['_block_index'].copy() if self.batch else dict()
         start = start_height.to_bytes(4, ITER_ORDER)
-        if is_plyvel:
-            block_iter = self._block_index.iterator(start=start)
-        else:
-            block_iter = self._block_index.RangeIter(key_from=start)
+        block_iter = self._block_index.iterator(start=start)
         for b_height, blockhash in block_iter:
             # height, blockhash
             b_height = bytes(b_height)
@@ -192,24 +180,43 @@ class DataBase:
                 yield int.from_bytes(b_height, ITER_ORDER), blockhash
 
     def read_tx(self, txhash):
-        if self.is_batch_thread() and txhash in self.batch['_tx']:
-            b = self.batch['_tx'][txhash]
-        elif is_plyvel:
-            b = self._tx.get(txhash, default=None)
+        if not self.db_config['txindex']:
+            raise BlockBuilderError('"txindex" is false, you cannot find tx by hash')
+        # txhash -> height
+        if self.is_batch_thread() and txhash in self.batch['_tx_index']:
+            b = self.batch['_tx_index'][txhash]
         else:
-            b = self._tx.Get(txhash, default=None)
+            b = self._tx_index.get(txhash, default=None)
         if b is None:
             return None
-        b = bytes(b)
-        height, _time, bin_len, sign_len, r_len = struct_tx.unpack_from(b)
-        assert struct_tx.size == 17
-        b_tx = b[17:17 + bin_len]
-        b_sign = b[17 + bin_len:17 + bin_len + sign_len]
-        R = b[17 + bin_len + sign_len:17 + bin_len + sign_len + r_len]
-        assert len(b) == 17+bin_len+sign_len, 'Wrong len [{}={}]'\
-            .format(len(b), 17+bin_len+sign_len)
+        b_height, offset = struct.unpack('>4sI', b)
+        # height -> blockhash
+        if self.is_batch_thread() and b_height in self.batch['_block_index']:
+            blockhash = self.batch['_block_index'][b_height]
+        else:
+            blockhash = self._block_index.get(b_height, default=None)
+        if blockhash is None:
+            return None
+        # blockhash -> block_bin
+        if self.is_batch_thread() and blockhash in self.batch['_block']:
+            b = self.batch['_block'][blockhash]
+        else:
+            b = self._block.get(blockhash, default=None)
+        if b is None:
+            return None
+        # block_bin -> tx
+        bin_len, sign_len, r_len = struct_tx.unpack_from(b, offset)
+        offset += struct_tx.size
+        b_tx = b[offset:offset + bin_len]
+        offset += bin_len
+        b_sign = b[offset:offset + sign_len]
+        offset += sign_len
+        R = b[offset:offset + r_len]
+        offset += r_len
+        if txhash != sha256(sha256(b_tx).digest()).digest():
+            return None  # will be forked
         tx = TX.from_binary(binary=b_tx)
-        tx.height = height
+        tx.height = int.from_bytes(b_height, ITER_ORDER)
         tx.signature = bin2signature(b_sign)
         tx.R = R
         return tx
@@ -217,23 +224,19 @@ class DataBase:
     def read_usedindex(self, txhash):
         if self.is_batch_thread() and txhash in self.batch['_used_index']:
             b = self.batch['_used_index'][txhash]
-        elif is_plyvel:
-            b = self._used_index.get(txhash, default=None)
         else:
-            b = self._used_index.Get(txhash, default=None)
+            b = self._used_index.get(txhash, default=None)
         if b is None:
             return set()
         else:
             return set(b)
 
     def read_address_idx(self, address, txhash, index):
-        k = address.encode() + txhash + index.to_bytes(1, ITER_ORDER)
+        k = addr2bin(ck=address, hrp=V.BECH32_HRP) + txhash + index.to_bytes(1, ITER_ORDER)
         if self.is_batch_thread() and k in self.batch['_address_index']:
             b = self.batch['_address_index'][k]
-        elif is_plyvel:
-            b = self._address_index.get(k, default=None)
         else:
-            b = self._address_index.Get(k, default=None)
+            b = self._address_index.get(k, default=None)
         if b is None:
             return None
         b = bytes(b)
@@ -243,13 +246,10 @@ class DataBase:
     def read_address_idx_iter(self, address):
         f_batch = self.is_batch_thread()
         batch_copy = self.batch['_address_index'].copy() if self.batch else dict()
-        b_address = address.encode()
+        b_address = addr2bin(ck=address, hrp=V.BECH32_HRP)
         start = b_address + b'\x00' * (32+1)
         stop = b_address + b'\xff' * (32+1)
-        if is_plyvel:
-            address_iter = self._address_index.iterator(start=start, stop=stop)
-        else:
-            address_iter = self._address_index.RangeIter(key_from=start, key_to=stop)
+        address_iter = self._address_index.iterator(start=start, stop=stop)
         for k, v in address_iter:
             k, v = bytes(k), bytes(v)
             # address, txhash, index, coin_id, amount, f_used
@@ -268,10 +268,7 @@ class DataBase:
         b_coin_id = coin_id.to_bytes(4, ITER_ORDER)
         start = b_coin_id + b'\x00'*4
         stop = b_coin_id + b'\xff'*4
-        if is_plyvel:
-            coins_iter = self._coins.iterator(start=start, stop=stop)
-        else:
-            coins_iter = self._coins.RangeIter(key_from=start, key_to=stop)
+        coins_iter = self._coins.iterator(start=start, stop=stop)
         for k, v in coins_iter:
             k, v = bytes(k), bytes(v)
             # coin_id, index, txhash
@@ -285,24 +282,20 @@ class DataBase:
             for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
                 if k.startswith(b_coin_id) and start <= k <= stop:
                     dummy, index = struct_coins.unpack(k)
-                    txhash, (params, setting) = v[:32], unpackb(
-                        v[32:], raw=True, use_list=False, encoding='utf8')
+                    txhash, (params, setting) = v[:32], unpackb(v[32:], raw=True, use_list=False, encoding='utf8')
                     yield index, txhash, params, setting
 
     def read_contract_iter(self, c_address, start_idx=None):
         f_batch = self.is_batch_thread()
         batch_copy = self.batch['_contract'].copy() if self.batch else dict()
-        b_c_address = c_address.encode()
+        b_c_address = addr2bin(ck=c_address, hrp=V.BECH32_HRP)
         # caution: iterator/RangeIter's result include start and stop, need to add 1.
         start = b_c_address + ((start_idx + 1).to_bytes(8, ITER_ORDER) if start_idx else b'\x00' * 8)
         stop = b_c_address + b'\xff'*8
-        if is_plyvel:
-            contract_iter = self._contract.iterator(start=start, stop=stop)
-        else:
-            contract_iter = self._contract.RangeIter(key_from=start, key_to=stop)
+        contract_iter = self._contract.iterator(start=start, stop=stop)
         for k, v in contract_iter:
             k, v = bytes(k), bytes(v)
-            # KEY: [c_address 40s]-[index uint8]
+            # KEY: [c_address 21s]-[index uint8]
             # VALUE: [start_hash 32s]-[finish_hash 32s]-[msgpack(c_method, c_args, c_storage)]
             # c_address, index, start_hash, finish_hash, message
             if f_batch and k in batch_copy and start <= k <= stop:
@@ -323,62 +316,60 @@ class DataBase:
     def read_validator_iter(self, v_address, start_idx=None):
         f_batch = self.is_batch_thread()
         batch_copy = self.batch['_validator'].copy() if self.batch else dict()
-        b_v_address = v_address.encode()
+        b_v_address = addr2bin(ck=v_address, hrp=V.BECH32_HRP)
         # caution: iterator/RangeIter's result include start and stop, need to add 1.
         start = b_v_address + ((start_idx + 1).to_bytes(8, ITER_ORDER) if start_idx else b'\x00' * 8)
         stop = b_v_address + b'\xff'*8
         # from database
-        if is_plyvel:
-            validator_iter = self._validator.iterator(start=start, stop=stop)
-        else:
-            validator_iter = self._validator.RangeIter(key_from=start, key_to=stop)
+        validator_iter = self._validator.iterator(start=start, stop=stop)
         for k, v in validator_iter:
             k, v = bytes(k), bytes(v)
-            # KEY [v_address 40s]-[index unit8]
-            # VALUE [new_address 40s]-[flag int1]-[txhash 32s]-[sig_diff int1]
+            # KEY [v_address 21s]-[index unit8]
+            # VALUE [new_address 21s]-[flag int1]-[txhash 32s]-[sig_diff int1]
             if f_batch and k in batch_copy and start <= k <= stop:
                 v = batch_copy[k]
                 del batch_copy[k]
             dummy, index = struct_validator_key.unpack(k)
-            new_address, flag, txhash, sig_diff = struct_validator_value.unpack(v)
-            if new_address == DUMMY_VALIDATOR_ADDRESS:
+            b_new_address, flag, txhash, sig_diff = struct_validator_value.unpack(v)
+            if b_new_address == DUMMY_VALIDATOR_ADDRESS:
                 yield index, None, flag, txhash, sig_diff
             else:
-                yield index, new_address.decode(), flag, txhash, sig_diff
+                yield index, bin2addr(b=b_new_address, hrp=V.BECH32_HRP), flag, txhash, sig_diff
         # from memory
         if f_batch:
             for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
                 if k.startswith(b_v_address) and start <= k <= stop:
                     dummy, index = struct_validator_key.unpack(k)
-                    new_address, flag, txhash, sig_diff = struct_validator_value.unpack(v)
-                    if new_address == DUMMY_VALIDATOR_ADDRESS:
+                    b_new_address, flag, txhash, sig_diff = struct_validator_value.unpack(v)
+                    if b_new_address == DUMMY_VALIDATOR_ADDRESS:
                         yield index, None, flag, txhash, sig_diff
                     else:
-                        yield index, new_address.decode(), flag, txhash, sig_diff
+                        yield index, bin2addr(b=b_new_address, hrp=V.BECH32_HRP), flag, txhash, sig_diff
 
     def write_block(self, block):
         assert self.is_batch_thread(), 'Not created batch.'
-        b_tx = b''.join(tx.hash for tx in block.txs)
-        tx_len = len(b_tx)
+        tx_len = len(block.txs)
         if block.work_hash is None:
             block.update_pow()
-        b = struct_block.pack(block.height, block.time, block.work_hash, block.b, block.flag, tx_len)
-        b += b_tx
-        self.batch['_block'][block.hash] = b
+        # write static block data
+        b = struct_block.pack(block.height, block.work_hash, block.b, block.flag, tx_len)
+        # write txs data
         b_height = block.height.to_bytes(4, ITER_ORDER)
+        for tx in block.txs:
+            if self.db_config['txindex']:
+                self.batch['_tx_index'][tx.hash] = b_height + len(b).to_bytes(4, ITER_ORDER)
+            bin_len = len(tx.b)
+            b_sign = signature2bin(tx.signature)
+            sign_len = len(b_sign)
+            r_len = len(tx.R)
+            b += struct_tx.pack(bin_len, sign_len, r_len)
+            b += tx.b
+            b += b_sign
+            b += tx.R
+            log.debug("Insert new tx {}".format(tx))
+        self.batch['_block'][block.hash] = b
         self.batch['_block_index'][b_height] = block.hash
         log.debug("Insert new block {}".format(block))
-
-    def write_tx(self, tx):
-        assert self.is_batch_thread(), 'Not created batch.'
-        bin_len = len(tx.b)
-        b_sign = signature2bin(tx.signature)
-        sign_len = len(b_sign)
-        r_len = len(tx.R)
-        b = struct_tx.pack(tx.height, tx.time, bin_len, sign_len, r_len)
-        b += tx.b + b_sign + tx.R
-        self.batch['_tx'][tx.hash] = b
-        log.debug("Insert new tx {}".format(tx))
 
     def write_usedindex(self, txhash, usedindex):
         assert self.is_batch_thread(), 'Not created batch.'
@@ -387,7 +378,7 @@ class DataBase:
 
     def write_address_idx(self, address, txhash, index, coin_id, amount, f_used):
         assert self.is_batch_thread(), 'Not created batch.'
-        k = address.encode() + txhash + index.to_bytes(1, ITER_ORDER)
+        k = addr2bin(ck=address, hrp=V.BECH32_HRP) + txhash + index.to_bytes(1, ITER_ORDER)
         v = struct_address_idx.pack(coin_id, amount, f_used)
         self.batch['_address_index'][k] = v
         log.debug("Insert new address idx {}".format(address))
@@ -412,9 +403,8 @@ class DataBase:
         last_index = None
         for last_index, *dummy in self.read_contract_iter(c_address=c_address, start_idx=index):
             pass
-        assert last_index is None, 'Not allow older ConcludeTX insert. my={} last={}'.format(
-            index, last_index)
-        k = c_address.encode() + index.to_bytes(8, ITER_ORDER)
+        assert last_index is None, 'Not allow older ConcludeTX insert. my={} last={}'.format(index, last_index)
+        k = addr2bin(ck=c_address, hrp=V.BECH32_HRP) + index.to_bytes(8, ITER_ORDER)
         v = start_tx.hash + finish_hash + packb(message, use_bin_type=True)
         self.batch['_contract'][k] = v
         log.debug("Insert new contract {} {}".format(c_address, index))
@@ -429,11 +419,11 @@ class DataBase:
             pass
         assert last_index is None, 'Not allow older ValidatorEditTX insert. last={}'.format(last_index)
         if new_address is None:
-            new_address = DUMMY_VALIDATOR_ADDRESS
+            b_new_address = DUMMY_VALIDATOR_ADDRESS
         else:
-            new_address = new_address.encode()
-        k = v_address.encode() + index.to_bytes(8, ITER_ORDER)
-        v = struct_validator_value.pack(new_address, flag, tx.hash, sign_diff)
+            b_new_address = addr2bin(ck=new_address, hrp=V.BECH32_HRP)
+        k = addr2bin(ck=v_address, hrp=V.BECH32_HRP) + index.to_bytes(8, ITER_ORDER)
+        v = struct_validator_value.pack(b_new_address, flag, tx.hash, sign_diff)
         self.batch['_validator'][k] = v
         log.debug("Insert new validator {} {}".format(v_address, index))
 
@@ -462,7 +452,7 @@ class ChainBuilder:
         try:
             self.db = DataBase(f_dummy=False, **kwargs)
             log.info("connect database.")
-        except leveldb.LevelDBError:
+        except plyvel.Error:
             log.warning("Already connect database.")
         except Exception as e:
             log.debug("Failed connect database, {}.".format(e))
@@ -680,27 +670,25 @@ class ChainBuilder:
                     self.db.write_block(block)  # Block
                     assert len(block.txs) > 0, "found no tx in {}".format(block)
                     for tx in block.txs:
-                        self.db.write_tx(tx)  # TX
                         # inputs
                         for index, (txhash, txindex) in enumerate(tx.inputs):
                             # DataBase内でのみのUsedIndexを取得
                             usedindex = self.db.read_usedindex(txhash)
                             if txindex in usedindex:
-                                raise BlockBuilderError('Already used index? {}:{}'.format(
-                                    txhash.hex(), txindex))
+                                raise BlockBuilderError('Already used index? {}:{}'.format(txhash.hex(), txindex))
                             usedindex.add(txindex)
                             self.db.write_usedindex(txhash, usedindex)  # UsedIndex update
                             input_tx = tx_builder.get_tx(txhash)
                             address, coin_id, amount = input_tx.outputs[txindex]
-                            if db_config['full_address_index'] or \
-                                    is_address(ck=address, prefix=V.BLOCK_CONTRACT_PREFIX) or \
+                            if builder.db.db_config['addrindex'] or \
+                                    is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_CONTRACT_VER) or \
                                     read_address2user(address=address, cur=cur):
                                 # 必要なAddressのみ
                                 self.db.write_address_idx(address, txhash, txindex, coin_id, amount, True)
                         # outputs
                         for index, (address, coin_id, amount) in enumerate(tx.outputs):
-                            if db_config['full_address_index'] or \
-                                    is_address(ck=address, prefix=V.BLOCK_CONTRACT_PREFIX) or \
+                            if builder.db.db_config['addrindex'] or \
+                                    is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_CONTRACT_VER) or \
                                     read_address2user(address=address, cur=cur):
                                 # 必要なAddressのみ
                                 self.db.write_address_idx(address, tx.hash, index, coin_id, amount, False)
@@ -715,17 +703,12 @@ class ChainBuilder:
                             pass
                         elif tx.type == C.TX_MINT_COIN:
                             mint_id, params, setting = tx.encoded_message()
-                            self.db.write_coins(
-                                coin_id=mint_id, txhash=tx.hash, params=params, setting=setting)
+                            self.db.write_coins(coin_id=mint_id, txhash=tx.hash, params=params, setting=setting)
 
                         elif tx.type == C.TX_VALIDATOR_EDIT:
                             v_address, new_address, flag, sig_diff = tx.encoded_message()
                             self.db.write_validator(
-                                v_address=v_address,
-                                new_address=new_address,
-                                flag=flag,
-                                tx=tx,
-                                sign_diff=sig_diff)
+                                v_address=v_address, new_address=new_address, flag=flag, tx=tx, sign_diff=sig_diff)
 
                         elif tx.type == C.TX_CONCLUDE_CONTRACT:
                             v_address, start_hash, c_storage = tx.encoded_message()
@@ -1194,7 +1177,6 @@ tx_builder = TransactionBuilder()
 user_account = UserAccount()
 
 __all__ = [
-    "db_config",
     "builder",
     "tx_builder",
     "user_account",

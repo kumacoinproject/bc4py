@@ -32,6 +32,7 @@ setup(
     author='namuyan',
     description='Simple blockchain library for python3.',
     long_description=readme,
+    long_description_content_type='text/markdown',
     packages=find_packages(),
     install_requires=install_requires,
     include_package_data=True,

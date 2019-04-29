@@ -1,7 +1,7 @@
 from bc4py.config import V, P, stream, BlockChainError
 from bc4py.chain.checking.checkblock import check_block, check_block_time
 from bc4py.chain.checking.checktx import check_tx, check_tx_time
-from bc4py.chain.checking.signature import batch_sign_cashe, delete_signed_cashe
+from bc4py.chain.signature import batch_sign_cashe, delete_signed_cashe
 from bc4py.database.builder import builder, user_account
 import threading
 from time import time
@@ -22,7 +22,7 @@ def new_insert_block(block, time_check=False):
             if time_check:
                 check_block_time(block, fixed_delay)
             check_block(block)
-            batch_sign_cashe(block.txs)
+            batch_sign_cashe(block.txs, block.b)
             for tx in block.txs:
                 check_tx(tx=tx, include_block=block)
                 if time_check:

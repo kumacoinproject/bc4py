@@ -11,8 +11,8 @@ def check_block(block: Block):
     # 挿入前にBlockの正当性チェック
     if len(block.txs) == 0:
         raise BlockChainError('Block don\'t have any txs.')
-    elif block.getsize() > C.SIZE_BLOCK_LIMIT:
-        raise BlockChainError('Block size is too large [{}b>{}b]'.format(block.getsize(), C.SIZE_BLOCK_LIMIT))
+    elif block.size > C.SIZE_BLOCK_LIMIT:
+        raise BlockChainError('Block size is too large [{}b>{}b]'.format(block.size, C.SIZE_BLOCK_LIMIT))
     bits = get_bits_by_hash(previous_hash=block.previous_hash, consensus=block.flag)[0]
     if block.bits != bits:
         raise BlockChainError('Block bits differ from calc. [{}!={}]'.format(block.bits, bits))

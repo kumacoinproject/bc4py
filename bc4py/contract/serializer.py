@@ -18,8 +18,8 @@ class_const_types = (int, str, bytes)
 function_essential_attr = ("__code__", "__name__", "__defaults__", "__closure__")
 function_optional_attr = ("__dict__", "__doc__", "__kwdefaults__")
 code_attr_order = ("co_argcount", "co_kwonlyargcount", "co_nlocals", "co_stacksize", "co_flags", "co_code",
-                   "co_consts", "co_names", "co_varnames", "co_filename", "co_name", "co_firstlineno",
-                   "co_lnotab", "co_freevars", "co_cellvars")
+                   "co_consts", "co_names", "co_varnames", "co_filename", "co_name", "co_firstlineno", "co_lnotab",
+                   "co_freevars", "co_cellvars")
 
 
 def default_hook(obj):
@@ -93,12 +93,11 @@ class Unpacker(msgpack.Unpacker):
                     else:
                         co_consts.append(const)
                 code_dict['co_consts'] = tuple(co_consts)
-                return CodeType(code_dict['co_argcount'], code_dict['co_kwonlyargcount'],
-                                code_dict['co_nlocals'], code_dict['co_stacksize'], code_dict['co_flags'],
-                                code_dict['co_code'], code_dict['co_consts'], code_dict['co_names'],
-                                code_dict['co_varnames'], code_dict['co_filename'], code_dict['co_name'],
-                                code_dict['co_firstlineno'], code_dict['co_lnotab'], code_dict['co_freevars'],
-                                code_dict['co_cellvars'])
+                return CodeType(code_dict['co_argcount'], code_dict['co_kwonlyargcount'], code_dict['co_nlocals'],
+                                code_dict['co_stacksize'], code_dict['co_flags'], code_dict['co_code'],
+                                code_dict['co_consts'], code_dict['co_names'], code_dict['co_varnames'],
+                                code_dict['co_filename'], code_dict['co_name'], code_dict['co_firstlineno'],
+                                code_dict['co_lnotab'], code_dict['co_freevars'], code_dict['co_cellvars'])
 
             if dct['_contract_'] == 'FunctionType':
                 fnc = FunctionType(

@@ -1,12 +1,11 @@
 from bc4py.config import C, V
+from bc4py.bip32 import Bip32, BIP32_HARDEN, get_address
 from bc4py.user.api import web_base
 from bc4py.user.tools import repair_wallet
 from bc4py.database.create import closing, create_db
 from bc4py.database.account import insert_keypair_from_outside, read_name2user
+from multi_party_schnorr import PyKeyPair
 from mnemonic import Mnemonic
-from bip32nem import BIP32Key, BIP32_HARDEN
-from nem_ed25519 import public_key, get_address
-from threading import Thread
 from binascii import a2b_hex
 import asyncio
 from logging import getLogger
@@ -48,8 +47,8 @@ async def unlock_wallet(request):
         passphrase = str(post.get('passphrase', ''))
         timeout = int(post.get('timeout', 60))
         seed = Mnemonic.to_seed(V.BIP44_ENCRYPTED_MNEMONIC, passphrase)
-        bip = BIP32Key.fromEntropy(entropy=seed)
-        if V.BIP44_ROOT_PUB_KEY != bip.ExtendedKey(private=False):
+        bip = Bip32.from_entropy(entropy=seed)
+        if V.BIP44_ROOT_PUB_KEY != bip.extended_key(is_private=False):
             return web_base.error_res(errors='Not correct passphrase or rootPublicKey.')
         if timeout > 0:
             asyncio.run_coroutine_threadsafe(coro=timeout_now(), loop=loop)
@@ -57,9 +56,9 @@ async def unlock_wallet(request):
             log.warning("Unlock wallet until system restart.")
         # m/44' / coin_type' / account' / change / address_index
         V.BIP44_BRANCH_SEC_KEY = bip\
-            .ChildKey(44 + BIP32_HARDEN)\
-            .ChildKey(C.BIP44_COIN_TYPE)\
-            .ExtendedKey(private=True)
+            .child_key(44 + BIP32_HARDEN)\
+            .child_key(C.BIP44_COIN_TYPE)\
+            .extended_key(is_private=True)
         return web_base.json_res({'status': True, 'timeout': timeout})
     except Exception:
         return web_base.error_res()
@@ -74,9 +73,9 @@ async def create_wallet(request):
             return web_base.error_res('not found length in {}'.format(list(words2length.keys())))
         mnemonic = Mnemonic(language).generate(words2length[strength])
         seed = Mnemonic.to_seed(mnemonic, passphrase)
-        bip = BIP32Key.fromEntropy(seed)
-        pri = bip.ExtendedKey(private=True)
-        pub = bip.ExtendedKey(private=False)
+        bip = Bip32.from_entropy(seed)
+        pri = bip.extended_key(is_private=True)
+        pub = bip.extended_key(is_private=False)
         return web_base.json_res({
             'mnemonic': mnemonic,
             'encrypted': bool(passphrase),
@@ -95,7 +94,8 @@ async def import_private_key(request):
         sk = a2b_hex(post['private_key'])
         ck = post['address']
         name = post.get('account', C.account2name[C.ANT_UNKNOWN])
-        check_ck = get_address(pk=public_key(sk=sk), prefix=V.BLOCK_PREFIX)
+        keypair: PyKeyPair = PyKeyPair.from_secret_key(sk)
+        check_ck = get_address(pk=keypair.get_public_key(), hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER)
         if ck != check_ck:
             return web_base.error_res('Don\'t match, {}!={}'.format(ck, check_ck))
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:

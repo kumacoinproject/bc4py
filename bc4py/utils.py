@@ -1,7 +1,5 @@
-#!/user/env python3
-# -*- coding: utf-8 -*-
-
 from bc4py.config import C, V
+from bc4py.gittool import get_current_branch
 from bc4py.chain.utils import GompertzCurve
 from Cryptodome.Cipher import AES
 from Cryptodome import Random
@@ -31,9 +29,7 @@ def set_blockchain_params(genesis_block, params):
     assert 'spawn' in multiprocessing.get_all_start_methods(), 'Not found spawn method.'
     V.GENESIS_BLOCK = genesis_block
     V.GENESIS_PARAMS = params
-    V.BLOCK_PREFIX = params.get('prefix')
-    V.BLOCK_VALIDATOR_PREFIX = params.get('validator_prefix')
-    V.BLOCK_CONTRACT_PREFIX = params.get('contract_prefix')
+    V.BECH32_HRP = params.get('hrp')
     V.BLOCK_GENESIS_TIME = params.get('genesis_time')
     V.BLOCK_MINING_SUPPLY = params.get('mining_supply')
     V.BLOCK_TIME_SPAN = params.get('block_span')
@@ -42,6 +38,7 @@ def set_blockchain_params(genesis_block, params):
     V.COIN_MINIMUM_PRICE = params.get('minimum_price')
     V.BLOCK_CONSENSUSES = params.get('consensus')
     GompertzCurve.k = V.BLOCK_MINING_SUPPLY
+    V.BRANCH_NAME = get_current_branch()
 
 
 def delete_pid_file():

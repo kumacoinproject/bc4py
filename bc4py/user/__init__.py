@@ -1,6 +1,6 @@
 from bc4py.config import V
+from bc4py.bip32 import Bip32, BIP32_HARDEN
 from collections import defaultdict
-from bip32nem import BIP32Key, BIP32_HARDEN
 
 
 class Balance(defaultdict):
@@ -107,11 +107,8 @@ def extract_keypair(user, is_inner, index):
     assert isinstance(user, int)
     if V.BIP44_BRANCH_SEC_KEY is None:
         raise PermissionError('wallet is locked!')
-    bip = BIP32Key.fromExtendedKey(V.BIP44_BRANCH_SEC_KEY)
-    account = bip.ChildKey(user + BIP32_HARDEN).ChildKey(int(is_inner)).ChildKey(index)
-    sk = account.PrivateKey()
-    pk, ck = account.NemKeypair(prefix=V.BLOCK_PREFIX)
-    return sk, pk, ck
+    bip = Bip32.from_extended_key(V.BIP44_BRANCH_SEC_KEY)
+    return bip.child_key(user + BIP32_HARDEN).child_key(int(is_inner)).child_key(index)
 
 
 __all__ = [

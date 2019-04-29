@@ -1,4 +1,5 @@
 from bc4py.config import C, V, BlockChainError
+from bc4py.bip32 import dummy_address
 from bc4py.chain.tx import TX
 from bc4py.database.mintcoin import *
 from bc4py.database.account import create_new_user_keypair, insert_log
@@ -7,7 +8,7 @@ from bc4py.user.txcreation.utils import *
 import random
 import msgpack
 
-MINTCOIN_DUMMY_ADDRESS = '_____MINTCOIN_____DUMMY_____ADDRESS_____'
+MINTCOIN_DUMMY_ADDRESS = dummy_address(b'MINTCOIN_DUMMY_ADDR_')
 
 
 def issue_mintcoin(name,
@@ -54,8 +55,7 @@ def issue_mintcoin(name,
     tx.serialize()
     # fill unspents
     fee_coin_id = 0
-    input_address = fill_inputs_outputs(
-        tx=tx, cur=cur, fee_coin_id=fee_coin_id, additional_gas=additional_gas)
+    input_address = fill_inputs_outputs(tx=tx, cur=cur, fee_coin_id=fee_coin_id, additional_gas=additional_gas)
     # input_address.add(mint_address)
     fee_coins = Balance(coin_id=fee_coin_id, amount=tx.gas_price * tx.gas_amount)
     # check amount
@@ -128,8 +128,7 @@ def change_mintcoin(mint_id,
     tx.serialize()
     # fill unspents
     fee_coin_id = 0
-    input_address = fill_inputs_outputs(
-        tx=tx, cur=cur, fee_coin_id=fee_coin_id, additional_gas=additional_gas)
+    input_address = fill_inputs_outputs(tx=tx, cur=cur, fee_coin_id=fee_coin_id, additional_gas=additional_gas)
     input_address.add(m_before.address)
     fee_coins = Balance(coin_id=fee_coin_id, amount=tx.gas_price * tx.gas_amount)
     # check amount

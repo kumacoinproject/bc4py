@@ -1,9 +1,11 @@
 from bc4py.config import C, V, BlockChainError
+from bc4py.bip32 import is_address
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.chain.workhash import generate_many_hash
 from bc4py.chain.difficulty import get_bits_by_hash
 from bc4py.chain.utils import GompertzCurve
+from bc4py.chain.checking.utils import stake_coin_check
 from bc4py.database.create import create_db, closing
 from bc4py.database.account import message2signature, create_new_user_keypair
 from bc4py.database.tools import get_unspents_iter
@@ -11,7 +13,6 @@ from bc4py_extension import multi_seek
 from threading import Thread, Event
 from time import time, sleep
 from collections import deque
-from nem_ed25519.key import is_address
 from random import random
 from logging import getLogger
 import traceback
@@ -132,8 +133,8 @@ class Generate(Thread):
                 bias = min(2.0, max(0.5, bias))
                 how_many = max(100, int(how_many * bias))
                 if int(time()) % 90 == 0:
-                    log.info("Mining... Next target how_many is {} {}".format(
-                        how_many, "Up" if bias > 1 else "Down"))
+                    log.info("Mining... Next target how_many is {} {}".format(how_many,
+                                                                              "Up" if bias > 1 else "Down"))
             except ZeroDivisionError:
                 pass
             sleep(sleep_span + random() - 0.5)
@@ -184,19 +185,20 @@ class Generate(Thread):
                     log.debug("Reset by \"Don't match previous_hash\"")
                     sleep(1)
                     break
-                elif not proof_tx.pos_check(
-                        previous_hash=previous_block.hash, pos_target_hash=staking_block.target_hash):
+                elif not stake_coin_check(
+                        tx=proof_tx, previous_hash=previous_block.hash, target_hash=staking_block.target_hash):
                     continue
                 else:
                     # Staked yay!!
                     proof_tx.height = staking_block.height
-                    proof_tx.signature = [message2signature(proof_tx.b, proof_tx.outputs[0][0])]
                     staking_block.txs[0] = proof_tx
                     # Fit block size
-                    while staking_block.getsize() > C.SIZE_BLOCK_LIMIT:
+                    while staking_block.size > C.SIZE_BLOCK_LIMIT:
                         staking_block.txs.pop()
                     staking_block.update_time(proof_tx.time)
                     staking_block.update_merkleroot()
+                    signature = message2signature(raw=staking_block.b, address=address)
+                    proof_tx.signature.append(signature)
                     confirmed_generating_block(staking_block)
                     break
             else:
@@ -233,7 +235,7 @@ class Generate(Thread):
             # start staking by capacity
             count = 0
             for file_name in os.listdir(dir_path):
-                m = re.match("^optimized\\.([A-Z0-9]{40})\\-([0-9]+)\\-([0-9]+)\\.dat$", file_name)
+                m = re.match("^optimized\\.([a-z0-9]+)\\-([0-9]+)\\-([0-9]+)\\.dat$", file_name)
                 if m is None:
                     continue
                 count += int(m.group(3)) - int(m.group(2))
@@ -282,7 +284,7 @@ class Generate(Thread):
                     })
                 staked_block.txs.append(staked_proof_tx)
                 staked_block.txs.extend(unconfirmed_txs)
-                while staked_block.getsize() > C.SIZE_BLOCK_LIMIT:
+                while staked_block.size > C.SIZE_BLOCK_LIMIT:
                     staked_block.txs.pop()
                 staked_block.update_time(staked_proof_tx.time)
                 staked_block.update_merkleroot()
@@ -377,7 +379,7 @@ def update_unspents_txs(time_limit=0.2):
             continue
         if not (previous_height + 1 > height + C.MATURE_HEIGHT):
             continue
-        if not is_address(address, prefix=V.BLOCK_PREFIX):
+        if not is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER):
             continue
         if amount < 100000000:
             continue

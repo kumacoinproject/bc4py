@@ -21,7 +21,6 @@ async def get_block_by_height(request):
         block = pickle.dumps(block)
         return web_base.json_res(b64encode(block).decode())
     data = block.getinfo()
-    data['size'] = block.getsize()
     data['hex'] = block.b.hex()
     return web_base.json_res(data)
 
@@ -40,7 +39,7 @@ async def get_block_by_hash(request):
             block = pickle.dumps(block)
             return web_base.json_res(b64encode(block).decode())
         data = block.getinfo()
-        data['size'] = block.getsize()
+        data['size'] = block.size
         data['hex'] = block.b.hex()
         return web_base.json_res(data)
     except Exception as e:
@@ -59,10 +58,7 @@ async def get_tx_by_hash(request):
             tx = pickle.dumps(tx)
             return web_base.json_res(b64encode(tx).decode())
         data = tx.getinfo()
-        data['size'] = tx.size
-        data['total_size'] = tx.size + len(tx.signature) * 96
         data['hex'] = tx.b.hex()
-        data['signature'] = [(pubkey, sign.hex()) for pubkey, sign in tx.signature]
         return web_base.json_res(data)
     except Exception as e:
         return web_base.error_res()

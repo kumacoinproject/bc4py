@@ -1,16 +1,16 @@
 Install levelDB
 ====
-two libraries
-* [plyvel](https://github.com/wbolster/plyvel) for linux and ARM
-* [python-leveldb](https://github.com/happynear/py-leveldb-windows) for linux and windows
+You can use [plyvel](https://github.com/wbolster/plyvel for Linux, Winodws and arm.
 
 For windows
 ----
-please look [py-leveldb-windows](https://github.com/happynear/py-leveldb-windows)
+* Do yourself (recommend) [How to install plyvel on wondows](https://gist.github.com/namuyan/1a8aef3482fa17c6b206ff028efc9807)
+* Use binary [plyvel-1.0.5-cp36-cp36m-win_amd64.whl](https://mega.nz/#!q1tziQoK!ehA-iCtkQukh1-AEgk0yLb4CJAfqRYr8VeE0UtdOFus)
+* Use binary [plyvel-1.0.5-cp37-cp37m-win_amd64.whl](https://mega.nz/#!uldTCCYK!ctwUgfggBVskKvm5ePS_Q6lFK9RyGiqLKA473dQo2vY)
 
 For linux
 ----
-`pip install plyvel` or `pip install leveldb`
+`pip3 install --user plyvel`
 
 For ARMs
 ----

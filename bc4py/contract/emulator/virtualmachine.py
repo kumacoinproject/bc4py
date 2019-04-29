@@ -27,8 +27,7 @@ EMU_UNTIL = 'until'
 EMU_RETURN = 'return'
 
 
-def _vm(genesis_block, genesis_params, new_config, start_tx, que, c, c_address, c_method, redeem_address,
-        c_args):
+def _vm(genesis_block, genesis_params, new_config, start_tx, que, c, c_address, c_method, redeem_address, c_args):
     if new_config:
         config.update(new_config)
     set_blockchain_params(genesis_block, genesis_params)
@@ -61,8 +60,7 @@ def _vm(genesis_block, genesis_params, new_config, start_tx, que, c, c_address, 
         pass
 
 
-def emulate(start_tx, c_address, c_method, redeem_address, c_args, new_config=None, gas_limit=None,
-            file=None):
+def emulate(start_tx, c_address, c_method, redeem_address, c_args, new_config=None, gas_limit=None, file=None):
     """
     emulate Contract code
     :param start_tx: emulate StartTX

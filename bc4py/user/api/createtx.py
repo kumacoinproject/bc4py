@@ -1,5 +1,6 @@
 from bc4py import __chain_version__
 from bc4py.config import C, V, P, BlockChainError
+from bc4py.bip32 import get_address
 from bc4py.user import Balance
 from bc4py.user.txcreation import *
 from bc4py.database.builder import tx_builder
@@ -8,9 +9,9 @@ from bc4py.database.create import closing, create_db
 from bc4py.user.network.sendnew import send_newtx
 from bc4py.user.api import web_base
 from bc4py.chain.tx import TX
+from multi_party_schnorr import PyKeyPair
 from aiohttp import web
 from binascii import a2b_hex
-from nem_ed25519 import public_key, get_address, sign
 from time import time
 import msgpack
 
@@ -76,9 +77,12 @@ async def sign_raw_tx(request):
         binary = a2b_hex(post['hex'])
         other_pairs = dict()
         for sk in post.get('pairs', list()):
-            pk = public_key(sk=sk, encode=str)
-            ck = get_address(pk=pk, prefix=V.BLOCK_PREFIX)
-            other_pairs[ck] = (pk, sign(msg=binary, sk=sk, pk=pk))
+            sk = a2b_hex(sk)
+            keypair: PyKeyPair = PyKeyPair.from_secret_key(sk)
+            r, s = keypair.get_single_sign(binary)
+            pk = keypair.get_public_key()
+            ck = get_address(pk=pk, hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER)
+            other_pairs[ck] = (pk, r, s)
         tx = TX.from_binary(binary=binary)
         for txhash, txindex in tx.inputs:
             input_tx = tx_builder.get_tx(txhash)
@@ -101,7 +105,7 @@ async def broadcast_tx(request):
     try:
         binary = a2b_hex(post['hex'])
         new_tx = TX.from_binary(binary=binary)
-        new_tx.signature = [(pk, a2b_hex(_sign)) for pk, _sign in post['signature']]
+        new_tx.signature = [(a2b_hex(pk), a2b_hex(sig)) for pk, sig in post['signature']]
         if 'R' in post:
             new_tx.R = a2b_hex(post['R'])
         if not send_newtx(new_tx=new_tx):

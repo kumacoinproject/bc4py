@@ -1,20 +1,21 @@
+from bc4py import __chain_version__
 from bc4py.config import C, V
 from bc4py.chain import msgpack
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
-from bc4py.utils import AESCipher, ProgressBar
+from bc4py.bip32 import Bip32, BIP32_HARDEN
+from bc4py.utils import AESCipher
 from bc4py.database.create import closing, create_db
-from bc4py.database.builder import builder, tx_builder
+from bc4py.database.builder import tx_builder
 from bc4py.chain.checking import new_insert_block
 from random import randint
 from binascii import a2b_hex
 from mnemonic import Mnemonic
-from bip32nem import BIP32Key, BIP32_HARDEN
 from threading import Thread
 from time import time, sleep
 from logging import getLogger
 import requests
-import msgpack
+import msgpack as original_mpk
 import json
 import os
 
@@ -33,7 +34,7 @@ def create_boot_file(genesis_block, params, network_ver=None, connections=()):
         } for tx in genesis_block.txs],
         'connections': connections,
         'network_ver': network_ver,
-        'params': msgpack.packb(params, use_bin_type=True).hex(),
+        'params': original_mpk.packb(params, use_bin_type=True).hex(),
     }
     boot_path = os.path.join(V.DB_HOME_DIR, 'boot.json')
     with open(boot_path, mode='w') as fp:
@@ -66,32 +67,12 @@ def load_boot_file(url=None):
         genesis_block.txs.append(tx)
     connections = data['connections']
     network_ver = data['network_ver']
-    params = msgpack.unpackb(a2b_hex(data['params']), raw=True, encoding='utf8')
+    params = original_mpk.unpackb(a2b_hex(data['params']), raw=True, encoding='utf8')
     return genesis_block, params, network_ver, connections
 
 
-def create_bootstrap_file():
-    boot_path = os.path.join(V.DB_HOME_DIR, 'bootstrap.dat')
-    if os.path.exists(boot_path):
-        log.warning("old file exists, skip create bootstrap.dat.")
-        return
-    s = time()
-    with ProgressBar('create bootstrap', total=builder.best_block.height) as pb:
-        with open(boot_path, mode='ba') as fp:
-            block = None
-            fp.seek(0)
-            fp.truncate(0)
-            for height, blockhash in builder.db.read_block_hash_iter(start_height=1):
-                block = builder.get_block(blockhash=blockhash)
-                msgpack.dump((block, block.work_hash, block.bias), fp)
-                if block.height % 500 == 0:
-                    pb.print_progress_bar(block.height, "now {} {}Sec".format(
-                        block.height, round(time() - s)))
-    log.info("create new bootstrap.dat finished, last={} {}Minutes".format(block, (time() - s) // 60))
-
-
 def load_bootstrap_file(boot_path=None):
-    boot_path = boot_path or os.path.join(V.DB_HOME_DIR, 'bootstrap.dat')
+    boot_path = boot_path or os.path.join(V.DB_HOME_DIR, 'bootstrap-ver{}.dat'.format(__chain_version__))
     if not os.path.exists(boot_path):
         log.warning("Not found, skip import bootstrap.dat.")
         return
@@ -154,9 +135,9 @@ def import_keystone(passphrase='', auto_create=True, language='english'):
     if bip:
         # m/44' / coin_type' / account' / change / address_index
         V.BIP44_BRANCH_SEC_KEY = bip \
-            .ChildKey(44 + BIP32_HARDEN) \
-            .ChildKey(C.BIP44_COIN_TYPE) \
-            .ExtendedKey(private=True)
+            .child_key(44 + BIP32_HARDEN) \
+            .child_key(C.BIP44_COIN_TYPE) \
+            .extended_key(is_private=True)
     if timeout > 0:
         Thread(target=timeout_now, args=(timeout,), name='timer{}Sec'.format(timeout)).start()
     log.info("import wallet, unlock={} timeout={}".format(bool(bip), timeout))
@@ -164,9 +145,9 @@ def import_keystone(passphrase='', auto_create=True, language='english'):
 
 def swap_old_format(old_cur, new_cur, bip):
     secret_key = bip \
-        .ChildKey(44 + BIP32_HARDEN) \
-        .ChildKey(C.BIP44_COIN_TYPE) \
-        .ExtendedKey(private=True)
+        .child_key(44 + BIP32_HARDEN) \
+        .child_key(C.BIP44_COIN_TYPE) \
+        .extended_key(is_private=True)
     secret_key = secret_key.encode()
     for uuid, sk, pk, ck, user, time in old_cur.execute("SELECT * FROM `pool`"):
         sk = AESCipher.encrypt(key=secret_key, raw=sk)
@@ -187,8 +168,8 @@ def load_keystone(keystone_path):
         passphrase = str(wallet['passphrase'])
         timeout = int(wallet.get('timeout', -1))
         seed = Mnemonic.to_seed(mnemonic, passphrase)
-        bip = BIP32Key.fromEntropy(entropy=seed)
-        if pub != bip.ExtendedKey(private=False):
+        bip = Bip32.from_entropy(seed)
+        if pub != bip.extended_key(is_private=False):
             raise Exception('Don\'t match with public key.')
     else:
         bip = None
@@ -199,24 +180,18 @@ def load_keystone(keystone_path):
 def create_keystone(passphrase, keystone_path, language='english'):
     mnemonic = Mnemonic(language).generate()
     seed = Mnemonic.to_seed(mnemonic, passphrase)
-    bip = BIP32Key.fromEntropy(seed)
-    pub = bip.ExtendedKey(private=False)
+    bip = Bip32.from_entropy(seed)
+    pub = bip.extended_key(is_private=False)
     timeout = -1
     wallet = {
-        'private_key':
-        bip.ExtendedKey(private=True),
-        'public_key':
-        pub,
-        'mnemonic':
-        mnemonic,
-        'passphrase':
-        passphrase,
-        'timeout':
-        timeout,
-        'comments':
-        'You should remove "private_key" and "passphrase" for security.'
-        'Please don\'t forget the two key\'s value or lost your coins.'
-        'timeout\'s value "-1" make system auto deletion disable.'
+        'private_key': bip.extended_key(is_private=True),
+        'public_key': pub,
+        'mnemonic': mnemonic,
+        'passphrase': passphrase,
+        'timeout': timeout,
+        'comments': 'You should remove "private_key" and "passphrase" for security.'
+                    'Please don\'t forget the two key\'s value or lost your coins.'
+                    'timeout\'s value "-1" make system auto deletion disable.',
     }
     with open(keystone_path, mode='w') as fp:
         json.dump(wallet, fp, indent=4)
@@ -226,7 +201,6 @@ def create_keystone(passphrase, keystone_path, language='english'):
 __all__ = [
     "create_boot_file",
     "load_boot_file",
-    "create_bootstrap_file",
     "load_bootstrap_file",
     "import_keystone",
 ]

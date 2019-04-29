@@ -137,8 +137,7 @@ def create_conclude_tx(c_address, start_tx, redeem_address, send_pairs=None, c_s
             else:
                 pass
         if not (f_finish_add and f_finish_sub):
-            raise BlockChainError('Cannot move conclude fee, add={} sub={}'.format(
-                f_finish_add, f_finish_sub))
+            raise BlockChainError('Cannot move conclude fee, add={} sub={}'.format(f_finish_add, f_finish_sub))
         log.debug("Move conclude fee {}:{}".format(fee_coin_id, conclude_fee))
     tx.serialize()
     if v.version == -1:

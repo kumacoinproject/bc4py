@@ -3,15 +3,14 @@ from bc4py.user import Accounting, extract_keypair
 from bc4py.database.create import closing, create_db
 from time import time
 from bc4py.utils import AESCipher
-from nem_ed25519.key import public_key
-from nem_ed25519.signature import sign
+from multi_party_schnorr import PyKeyPair
 from weakref import ref
+from binascii import a2b_hex
 import os
 
 
 def read_txhash2log(txhash, cur):
-    d = cur.execute(
-        """
+    d = cur.execute("""
         SELECT `type`,`user`,`coin_id`,`amount`,`time` FROM `log` WHERE `hash`=?
     """, (txhash,)).fetchall()
     if len(d) == 0:
@@ -64,11 +63,14 @@ def read_address2keypair(address, cur):
     if V.BIP44_BRANCH_SEC_KEY is None:
         raise PermissionError('Cannot extract keypair!')
     if sk is None:
-        sk, pk, _ck = extract_keypair(user=user, is_inner=is_inner, index=index)
+        bip = extract_keypair(user=user, is_inner=is_inner, index=index)
+        sk = bip.get_private_key()
+        pk = bip.get_public_key()
     else:
         sk = AESCipher.decrypt(key=V.BIP44_BRANCH_SEC_KEY.encode(), enc=sk)
-        pk = public_key(sk=sk, encode=bytes)
-    return uuid, sk.hex(), pk.hex()
+        keypair: PyKeyPair = PyKeyPair.from_secret_key(sk)
+        pk = keypair.get_public_key()
+    return uuid, sk, pk
 
 
 def read_address2user(address, cur):
@@ -172,7 +174,8 @@ def create_new_user_keypair(user, cur, is_inner=False):
     read_user2name(user, cur)
     # get last_index
     last_index = get_keypair_last_index(user=user, is_inner=is_inner, cur=cur)
-    sk, pk, ck = extract_keypair(user=user, is_inner=is_inner, index=last_index)
+    bip = extract_keypair(user=user, is_inner=is_inner, index=last_index)
+    ck = bip.get_address(hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER)
     insert_keypair_from_bip(ck=ck, user=user, is_inner=is_inner, index=last_index, cur=cur)
     return ck
 
@@ -182,7 +185,9 @@ def message2signature(raw, address):
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         cur = db.cursor()
         uuid, sk, pk = read_address2keypair(address, cur)
-    return pk, sign(msg=raw, sk=sk, pk=pk)
+    keypair = PyKeyPair.from_secret_key(sk)
+    r, s = keypair.get_single_sign(raw)
+    return pk, r, s
 
 
 class MoveLog:

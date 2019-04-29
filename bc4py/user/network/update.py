@@ -4,7 +4,7 @@ from bc4py.database.tools import is_usedindex
 from bc4py.database.validator import *
 from bc4py.database.contract import *
 from bc4py.chain.checking.checktx import check_unconfirmed_order
-from bc4py.chain.checking.signature import get_signed_cks
+from bc4py.chain.signature import get_signed_cks
 from bc4py.user.generate import *
 from threading import Lock, Thread
 from time import time, sleep
@@ -179,8 +179,8 @@ def _update_unconfirmed_info():
         update_unconfirmed_txs(unconfirmed_txs)
 
     return ',  unconfirmed={}/{}/{} {}mS'.format(
-        len(unconfirmed_txs), len(tx_builder.unconfirmed), len(tx_builder.pre_unconfirmed),
-        int((time() - s) * 1000))
+        len(unconfirmed_txs), len(tx_builder.unconfirmed), len(tx_builder.pre_unconfirmed), int(
+            (time() - s) * 1000))
 
 
 """ remove after
@@ -374,14 +374,14 @@ class DefaultValidator:
     def get(self, address, tx):
         if address in self._data:
             return self._data[address]
-        elif is_address(address, V.BLOCK_VALIDATOR_PREFIX):
+        elif is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_VALIDATOR_VER):
             ret = self._data[address] = get_validator_object(
                 v_address=address, best_block=self.best_block, best_chain=self.best_chain)
-        elif is_address(address, V.BLOCK_CONTRACT_PREFIX):
+        elif is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_CONTRACT_VER):
             v = get_validator_by_contract_info(
                 c_address=address, start_tx=tx, best_block=self.best_block, best_chain=self.best_chain)
             ret = self._data[v.v_address] = v
         else:
-            raise Exception('Not found address prefix {}'.format(address))
+            raise Exception('Not found address format {}'.format(address))
         return ret
 """

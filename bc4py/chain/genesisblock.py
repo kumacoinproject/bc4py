@@ -1,7 +1,3 @@
-#!/user/env python3
-# -*- coding: utf-8 -*-
-
-from bc4py import __chain_version__
 from bc4py.chain.difficulty import MAX_BITS
 from bc4py.config import C, V, BlockChainError
 from bc4py.chain.block import Block
@@ -13,9 +9,7 @@ from more_itertools import chunked
 
 def create_genesis_block(mining_supply,
                          block_span,
-                         prefix=b'\x68',
-                         validator_prefix=b'\xac',
-                         contract_prefix=b'\x12',
+                         hrp='pycon',
                          digit_number=8,
                          minimum_price=100,
                          consensus=None,
@@ -25,9 +19,7 @@ def create_genesis_block(mining_supply,
     Height0のGenesisBlockを作成する
     :param mining_supply: PoW/POS合わせた全採掘量、プリマインを除く
     :param block_span: Blockの採掘間隔(Sec)
-    :param prefix: Address prefix (N)
-    :param validator_prefix: ValidatorAddress (V)
-    :param contract_prefix: ContractAddress (C)
+    :param hrp: human readable part
     :param digit_number: コインの分解能
     :param minimum_price: 最小gas_price
     :param consensus: 採掘アルゴ {consensus: ratio(0~100), ..}
@@ -46,23 +38,24 @@ def create_genesis_block(mining_supply,
     elif not (0 < max(consensus.values()) <= 100):
         raise BlockChainError('out of range {}'.format(min(consensus.values())))
     all_consensus = {
-        C.BLOCK_COIN_POS, C.BLOCK_CAP_POS, C.BLOCK_FLK_POS,
-        C.BLOCK_YES_POW, C.BLOCK_X11_POW, C.BLOCK_HMQ_POW, C.BLOCK_LTC_POW, C.BLOCK_X16R_POW
+        C.BLOCK_COIN_POS, C.BLOCK_CAP_POS, C.BLOCK_FLK_POS, C.BLOCK_YES_POW, C.BLOCK_X11_POW, C.BLOCK_HMQ_POW,
+        C.BLOCK_LTC_POW, C.BLOCK_X16R_POW
     }
     if len(set(consensus.keys()) - all_consensus) > 0:
-        raise BlockChainError(
-            'Not found all_consensus number {}'.format(set(consensus.keys()) - all_consensus))
+        raise BlockChainError('Not found all_consensus number {}'.format(set(consensus.keys()) - all_consensus))
     elif len(set(consensus.keys()) & all_consensus) == 0:
         raise BlockChainError('No usable consensus found {}'.format(set(consensus.keys()) & all_consensus))
+    elif not (0 < len(hrp) < 5):
+        raise BlockChainError('hrp is too long hrp={}'.format(hrp))
+    elif 'dummy' in hrp or '1' in hrp:
+        raise BlockChainError('Not allowed  include "dummy" and "1" str {}'.format(hrp))
 
     # params
     assert isinstance(minimum_price, int), 'minimum_price is INT'
     genesis_time = int(time())
     # BLockChainの設定TX
     params = {
-        'prefix': prefix,
-        'validator_prefix': validator_prefix,
-        'contract_prefix': contract_prefix,
+        'hrp': hrp,
         'genesis_time': genesis_time,  # GenesisBlockの採掘時間
         'mining_supply': mining_supply,  # 全採掘量
         'block_span': block_span,  # ブロックの採掘間隔
@@ -87,26 +80,24 @@ def create_genesis_block(mining_supply,
     # premine
     premine_txs = list()
     for index, chunk in enumerate(chunked(premine or list(), 255)):
-        tx = TX.from_dict(
-            tx={
-                'type': C.TX_TRANSFER,
-                'time': 0,
-                'deadline': 10800,
-                'outputs': chunk,
-                'gas_price': 0,
-                'gas_amount': 0
-            })
+        tx = TX.from_dict(tx={
+            'type': C.TX_TRANSFER,
+            'time': 0,
+            'deadline': 10800,
+            'outputs': chunk,
+            'gas_price': 0,
+            'gas_amount': 0
+        })
         tx.height = 0
         premine_txs.append(tx)
     # height0のBlock生成
-    genesis_block = Block.from_dict(
-        block={
-            'merkleroot': b'\x00' * 32,
-            'time': 0,
-            'previous_hash': b'\xff' * 32,
-            'bits': MAX_BITS,
-            'nonce': b'\xff' * 4
-        })
+    genesis_block = Block.from_dict(block={
+        'merkleroot': b'\x00' * 32,
+        'time': 0,
+        'previous_hash': b'\xff' * 32,
+        'bits': MAX_BITS,
+        'nonce': b'\xff' * 4
+    })
     # block params
     genesis_block.height = 0
     genesis_block.flag = C.BLOCK_GENESIS
