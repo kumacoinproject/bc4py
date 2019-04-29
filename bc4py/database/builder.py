@@ -32,7 +32,7 @@ struct_validator_value = struct.Struct('>{}sb32sb'.format(ADDR_SIZE))
 
 # constant
 ITER_ORDER = 'big'
-DB_VERSION = 5  # increase if you change database structure
+DB_VERSION = 0  # increase if you change database structure
 ZERO_FILLED_HASH = b'\x00' * 32
 DUMMY_VALIDATOR_ADDRESS = b'\x00' * ADDR_SIZE
 
