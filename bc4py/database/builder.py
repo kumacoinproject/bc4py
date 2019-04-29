@@ -8,6 +8,7 @@ from bc4py.user import Balance, Accounting
 from bc4py.database.account import *
 from bc4py.database.create import closing, create_db
 from msgpack import unpackb, packb
+from hashlib import sha256
 import struct
 import weakref
 import os
@@ -212,6 +213,8 @@ class DataBase:
         offset += sign_len
         R = b[offset:offset + r_len]
         offset += r_len
+        if txhash != sha256(sha256(b_tx).digest()).digest():
+            return None  # will be forked
         tx = TX.from_binary(binary=b_tx)
         tx.height = int.from_bytes(b_height, ITER_ORDER)
         tx.signature = bin2signature(b_sign)
