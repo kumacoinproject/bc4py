@@ -76,8 +76,6 @@ def work(port, sub_dir=None):
 
     try:
         create_rest_server(f_local=False, user='user', pwd='password', port=port+1000)
-        if P.F_NOW_BOOTING is False:
-            create_bootstrap_file()
         P.F_STOP = True
         builder.close()
         pc.close()

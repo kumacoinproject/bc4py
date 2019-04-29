@@ -366,6 +366,18 @@ get network info
 }
 ```
 
+create bootstrap
+----
+* Request example
+    * `curl --basic -u user:password -H "accept: application/json" 127.0.0.1:3000/private/createbootstrap`
+* Response
+```text
+{
+    "height": 10203,
+    "time": 234
+}
+```
+
 resync
 ----
 * Request example

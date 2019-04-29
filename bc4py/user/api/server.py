@@ -8,6 +8,7 @@ import aiohttp_cors
 from .baseinfo import *
 from .accountinfo import *
 from .editaccount import *
+from .usertool import *
 from .chaininfo import *
 from .websocket import *
 from .createtx import *
@@ -87,6 +88,7 @@ def create_rest_server(f_local, user, pwd, port=3000, f_blocking=True, ssl_conte
     app.router.add_get('/public/getchaininfo', chain_info)
     app.router.add_get('/private/getchaininfo', chain_private_info)
     app.router.add_get('/public/getnetworkinfo', network_info)
+    app.router.add_get('/private/createbootstrap', create_bootstrap)
     app.router.add_get('/private/resync', resync)
     app.router.add_get('/private/stop', close_server)
     # Account

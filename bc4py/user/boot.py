@@ -1,11 +1,12 @@
+from bc4py import __chain_version__
 from bc4py.config import C, V
 from bc4py.chain import msgpack
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.bip32 import Bip32, BIP32_HARDEN
-from bc4py.utils import AESCipher, ProgressBar
+from bc4py.utils import AESCipher
 from bc4py.database.create import closing, create_db
-from bc4py.database.builder import builder, tx_builder
+from bc4py.database.builder import tx_builder
 from bc4py.chain.checking import new_insert_block
 from random import randint
 from binascii import a2b_hex
@@ -70,28 +71,8 @@ def load_boot_file(url=None):
     return genesis_block, params, network_ver, connections
 
 
-def create_bootstrap_file():
-    boot_path = os.path.join(V.DB_HOME_DIR, 'bootstrap.dat')
-    if os.path.exists(boot_path):
-        log.warning("old file exists, skip create bootstrap.dat.")
-        return
-    s = time()
-    with ProgressBar('create bootstrap', total=builder.best_block.height) as pb:
-        with open(boot_path, mode='ba') as fp:
-            block = None
-            fp.seek(0)
-            fp.truncate(0)
-            for height, blockhash in builder.db.read_block_hash_iter(start_height=1):
-                block = builder.get_block(blockhash=blockhash)
-                msgpack.dump((block, block.work_hash, block.bias), fp)
-                if block.height % 500 == 0:
-                    pb.print_progress_bar(block.height, "now {} {}Sec".format(
-                        block.height, round(time() - s)))
-    log.info("create new bootstrap.dat finished, last={} {}Minutes".format(block, (time() - s) // 60))
-
-
 def load_bootstrap_file(boot_path=None):
-    boot_path = boot_path or os.path.join(V.DB_HOME_DIR, 'bootstrap.dat')
+    boot_path = boot_path or os.path.join(V.DB_HOME_DIR, 'bootstrap-ver{}.dat'.format(__chain_version__))
     if not os.path.exists(boot_path):
         log.warning("Not found, skip import bootstrap.dat.")
         return
@@ -220,7 +201,6 @@ def create_keystone(passphrase, keystone_path, language='english'):
 __all__ = [
     "create_boot_file",
     "load_boot_file",
-    "create_bootstrap_file",
     "load_bootstrap_file",
     "import_keystone",
 ]
