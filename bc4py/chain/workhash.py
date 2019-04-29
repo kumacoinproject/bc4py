@@ -9,6 +9,7 @@ from hmq_hash import getPoWHash as hmq_hash  # for GPU
 from litecoin_scrypt import getPoWHash as ltc_hash  # for ASIC
 from shield_x16s_hash import getPoWHash as x16s_hash  # for GPU
 from logging import getLogger
+from hashlib import sha256
 
 log = getLogger('bc4py')
 semaphore = BoundedSemaphore(value=max(1, max_workers - 1))
@@ -31,6 +32,15 @@ def get_workhash_fnc(flag):
         raise Exception('Not found block flag {}?'.format(flag))
 
 
+def get_stake_coin_hash(tx, previous_hash):
+    # stake_hash => sha256(txhash + previous_hash) / amount
+    assert tx.pos_amount is not None
+    pos_work_hash = sha256(tx.hash + previous_hash).digest()
+    work = int.from_bytes(pos_work_hash, 'little')
+    work //= (tx.pos_amount // 100000000)
+    return work.to_bytes(32, 'little')
+
+
 def update_work_hash(block):
     if block.flag == C.BLOCK_GENESIS:
         block.work_hash = b'\xff' * 32
@@ -44,7 +54,7 @@ def update_work_hash(block):
                 raise BlockChainError('Not found output {} of {}'.format(proof_tx, block))
             address, coin_id, amount = output_tx.outputs[txindex]
             proof_tx.pos_amount = amount
-        block.work_hash = proof_tx.get_pos_hash(block.previous_hash)
+        block.work_hash = get_stake_coin_hash(tx=proof_tx, previous_hash=block.previous_hash)
     elif block.flag == C.BLOCK_CAP_POS:
         proof_tx = block.txs[0]
         address, coin_id, amount = proof_tx.outputs[0]

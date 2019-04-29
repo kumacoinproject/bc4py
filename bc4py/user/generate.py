@@ -5,6 +5,7 @@ from bc4py.chain.tx import TX
 from bc4py.chain.workhash import generate_many_hash
 from bc4py.chain.difficulty import get_bits_by_hash
 from bc4py.chain.utils import GompertzCurve
+from bc4py.chain.checking.utils import stake_coin_check
 from bc4py.database.create import create_db, closing
 from bc4py.database.account import message2signature, create_new_user_keypair
 from bc4py.database.tools import get_unspents_iter
@@ -184,8 +185,8 @@ class Generate(Thread):
                     log.debug("Reset by \"Don't match previous_hash\"")
                     sleep(1)
                     break
-                elif not proof_tx.pos_check(
-                        previous_hash=previous_block.hash, pos_target_hash=staking_block.target_hash):
+                elif not stake_coin_check(
+                        tx=proof_tx, previous_hash=previous_block.hash, target_hash=staking_block.target_hash):
                     continue
                 else:
                     # Staked yay!!

@@ -5,6 +5,7 @@ from bc4py.database.tools import get_usedindex
 from bc4py.database.validator import get_validator_object
 from bc4py.chain.signature import get_signed_cks
 from bc4py.user import Balance
+from hashlib import sha256
 
 
 def inputs_origin_check(tx, include_block):
@@ -106,8 +107,18 @@ def signature_check(tx, include_block):
         raise BlockChainError('Signature verification failed. [{}={}]'.format(require_cks, signed_cks))
 
 
+def stake_coin_check(tx, previous_hash, target_hash):
+    # staked => sha256(txhash + previous_hash) / amount < 256^32 / target
+    assert tx.pos_amount is not None
+    pos_work_hash = sha256(tx.hash + previous_hash).digest()
+    work = int.from_bytes(pos_work_hash, 'little')
+    work //= (tx.pos_amount // 100000000)
+    return work < int.from_bytes(target_hash, 'little')
+
+
 __all__ = [
     "inputs_origin_check",
     "amount_check",
     "signature_check",
+    "stake_coin_check",
 ]

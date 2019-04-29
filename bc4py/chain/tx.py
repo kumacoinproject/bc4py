@@ -144,7 +144,7 @@ class TX:
         r['recode_flag'] = self.recode_flag
         r['create_time'] = self.create_time
         r['size'] = self.size
-        r['total_size'] = self.total_size()
+        r['total_size'] = self.total_size
         return r
 
     def encoded_message(self):
@@ -166,25 +166,12 @@ class TX:
         # Do not include signature size
         return len(self.b)
 
+    @property
     def total_size(self):
         signature_size = 0
         for s in self.signature:
             signature_size = sum(len(x) for x in s)
         return self.size + len(self.R) + signature_size
-
-    def get_pos_hash(self, previous_hash):
-        # staked => sha256(txhash + previous_hash) / amount < 256^32 / diff
-        pos_work_hash = sha256(self.hash + previous_hash).digest()
-        work = int.from_bytes(pos_work_hash, 'little')
-        work //= (self.pos_amount // 100000000)
-        return work.to_bytes(32, 'little')
-
-    def pos_check(self, previous_hash, pos_target_hash):
-        # staked => sha256(txhash + previous_hash) / amount < 256^32 / diff
-        pos_work_hash = sha256(self.hash + previous_hash).digest()
-        work = int.from_bytes(pos_work_hash, 'little')
-        work //= (self.pos_amount // 100000000)
-        return work < int.from_bytes(pos_target_hash, 'little')
 
     def update_time(self, retention=10800):
         if retention < 10800:
