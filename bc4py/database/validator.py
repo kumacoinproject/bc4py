@@ -19,7 +19,7 @@ class Validator:
     __slots__ = ("v_address", "validators", "require", "db_index", "version", "txhash")
 
     def __init__(self, v_address):
-        assert is_address(v_address, V.BLOCK_VALIDATOR_PREFIX)
+        assert is_address(ck=v_address, hrp=V.BECH32_HRP, ver=C.ADDR_VALIDATOR_VER)
         self.v_address = v_address
         self.validators = list()
         self.require = 0

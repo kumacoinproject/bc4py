@@ -6,5 +6,5 @@ x11_hash
 litecoin_scrypt
 git+https://github.com/namuyan/shield-x16s-hash
 plyvel  # leveldb wrapper
-bc4py_extension
+bc4py_extension>=0.1.2
 fastecdsa  # BIP32 Wallet

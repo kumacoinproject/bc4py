@@ -1,4 +1,4 @@
-from bc4py.config import executor, executor_lock, V
+from bc4py.config import executor, executor_lock, C, V
 from bc4py.bip32 import get_address
 from multi_party_schnorr import verify_auto
 from threading import Lock
@@ -14,18 +14,20 @@ limit_delete_set = set()
 lock = Lock()
 
 
-def _verify(task_list, prefix):
+def _verify(task_list, hrp, ver):
     signed_list = list()
-    for pk, r, s, txhash, tx_b in task_list:
+    for pk, r, s, txhash, binary in task_list:
         try:
-            if verify_auto(s, r, pk, tx_b):
-                address = get_address(pk=pk, prefix=prefix)
+            if verify_auto(s, r, pk, binary):
+                address = get_address(pk=pk, hrp=hrp, ver=ver)
                 signed_list.append((pk, r, s, txhash, address))
+                # log.warning('verification success\n pk={}\n r={}\n s={}\n hash={}\n binary={}'
+                #            .format(pk.hex(), r.hex(), s.hex(), txhash.hex(), binary.hex()))
             else:
-                log.warning('verification failed tx={}'.format(txhash.hex()))
+                log.warning('verification failed\n pk={}\n r={}\n s={}\n hash={}\n binary={}'
+                            .format(pk.hex(), r.hex(), s.hex(), txhash.hex(), binary.hex()))
         except Exception as e:
-            error = 'Signature verification error. "{}"'.format(e)
-            log.error(error)
+            log.error('Signature verification error. "{}"'.format(e))
     return signed_list
 
 
@@ -37,7 +39,7 @@ def _callback(future):
                 verify_cashe[(pk, r, s, txhash)] = address
     except Exception as e:
         log.error("{}: {}".format(e, signed_list))
-    log.debug("Callback finish {}sign".format(len(signed_list)))
+    log.debug("finish verify signature num={}".format(len(signed_list)))
 
 
 def _delete_cashe():
@@ -54,8 +56,7 @@ def _delete_cashe():
         limit_time = time()
 
 
-def batch_sign_cashe(txs):
-    log.debug("Verify signature {}tx".format(len(txs)))
+def batch_sign_cashe(txs, b_block=None):
     for tx in txs:
         for sign in tx.signature:
             assert isinstance(sign, tuple), tx.getinfo()
@@ -63,18 +64,23 @@ def batch_sign_cashe(txs):
     # list need to verify
     with lock:
         for tx in txs:
+            if tx.type == C.TX_POS_REWARD:
+                assert b_block is not None, 'PoS TX but no block binary input'
+                binary = b_block
+            else:
+                binary = tx.b
             for pk, r, s in tx.signature:
                 if (pk, r, s, tx.hash) not in verify_cashe:
-                    task_list.append((pk, r, s, tx.hash, tx.b))
+                    task_list.append((pk, r, s, tx.hash, binary))
                     verify_cashe[(pk, r, s, tx.hash)] = None
     # throw verify
     if len(task_list) == 0:
         return
     else:
+        log.debug("try to verify signature num={}".format(len(task_list)))
         with executor_lock:
             for task in chunked(task_list, 25):
-                executor.submit(_verify, task, prefix=V.BLOCK_PREFIX).add_done_callback(_callback)
-        log.debug("Put task {}sign to pool.".format(len(task_list)))
+                executor.submit(_verify, task, hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER).add_done_callback(_callback)
 
 
 def get_signed_cks(tx):

@@ -95,7 +95,7 @@ async def import_private_key(request):
         ck = post['address']
         name = post.get('account', C.account2name[C.ANT_UNKNOWN])
         keypair: PyKeyPair = PyKeyPair.from_secret_key(sk)
-        check_ck = get_address(pk=keypair.get_public_key(), prefix=V.BLOCK_PREFIX)
+        check_ck = get_address(pk=keypair.get_public_key(), hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER)
         if ck != check_ck:
             return web_base.error_res('Don\'t match, {}!={}'.format(ck, check_ck))
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:

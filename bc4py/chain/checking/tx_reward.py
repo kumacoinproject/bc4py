@@ -2,6 +2,7 @@ from bc4py import __chain_version__
 from bc4py.config import C, BlockChainError
 from bc4py_extension import poc_hash, poc_work, scope_index
 from bc4py.chain.utils import GompertzCurve
+from bc4py.chain.signature import get_signed_cks
 from bc4py.database.builder import tx_builder
 from multi_party_schnorr import verify_auto
 
@@ -118,9 +119,12 @@ def check_tx_poc_reward(tx, include_block):
                                                                               include_block.target_hash.hex()))
 
     # signature check
-    pk, r, s = tx.signature[0]
-    if not verify_auto(s, r, pk, include_block.b):
-        raise BlockChainError('verification failed on PoC signature')
+    signed_cks = get_signed_cks(tx)
+    if len(signed_cks) != 1:
+        raise BlockChainError('PoC signature num is wrong num={}'.format(len(signed_cks)))
+    ck = signed_cks.pop()
+    if ck != o_address:
+        raise BlockChainError('PoC signature ck is miss math {}!={}'.format(ck, o_address))
 
 
 __all__ = [

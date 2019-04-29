@@ -9,9 +9,7 @@ from more_itertools import chunked
 
 def create_genesis_block(mining_supply,
                          block_span,
-                         prefix=b'\x2d',
-                         validator_prefix=b'\x46',
-                         contract_prefix=b'\x1c',
+                         hrp='pycon',
                          digit_number=8,
                          minimum_price=100,
                          consensus=None,
@@ -21,9 +19,7 @@ def create_genesis_block(mining_supply,
     Height0のGenesisBlockを作成する
     :param mining_supply: PoW/POS合わせた全採掘量、プリマインを除く
     :param block_span: Blockの採掘間隔(Sec)
-    :param prefix: Address prefix (K)
-    :param validator_prefix: ValidatorAddress (V)
-    :param contract_prefix: ContractAddress (C)
+    :param hrp: human readable part
     :param digit_number: コインの分解能
     :param minimum_price: 最小gas_price
     :param consensus: 採掘アルゴ {consensus: ratio(0~100), ..}
@@ -49,15 +45,17 @@ def create_genesis_block(mining_supply,
         raise BlockChainError('Not found all_consensus number {}'.format(set(consensus.keys()) - all_consensus))
     elif len(set(consensus.keys()) & all_consensus) == 0:
         raise BlockChainError('No usable consensus found {}'.format(set(consensus.keys()) & all_consensus))
+    elif not (0 < len(hrp) < 5):
+        raise BlockChainError('hrp is too long hrp={}'.format(hrp))
+    elif 'dummy' in hrp or '1' in hrp:
+        raise BlockChainError('Not allowed  include "dummy" and "1" str {}'.format(hrp))
 
     # params
     assert isinstance(minimum_price, int), 'minimum_price is INT'
     genesis_time = int(time())
     # BLockChainの設定TX
     params = {
-        'prefix': prefix,
-        'validator_prefix': validator_prefix,
-        'contract_prefix': contract_prefix,
+        'hrp': hrp,
         'genesis_time': genesis_time,  # GenesisBlockの採掘時間
         'mining_supply': mining_supply,  # 全採掘量
         'block_span': block_span,  # ブロックの採掘間隔

@@ -175,7 +175,7 @@ def create_new_user_keypair(user, cur, is_inner=False):
     # get last_index
     last_index = get_keypair_last_index(user=user, is_inner=is_inner, cur=cur)
     bip = extract_keypair(user=user, is_inner=is_inner, index=last_index)
-    ck = bip.get_address(V.BLOCK_PREFIX)
+    ck = bip.get_address(hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER)
     insert_keypair_from_bip(ck=ck, user=user, is_inner=is_inner, index=last_index, cur=cur)
     return ck
 

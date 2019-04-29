@@ -5,6 +5,7 @@
 #
 
 from bc4py.bip32.base58 import check_decode, check_encode
+from bc4py.bip32.bech32 import encode
 from fastecdsa.curve import secp256k1
 from fastecdsa.util import mod_sqrt
 from fastecdsa.point import Point
@@ -216,10 +217,9 @@ class Bip32(object):
         else:
             return b'\2' + x
 
-    def get_address(self, prefix):
-        """Return compressed public key address"""
-        vh160 = prefix + self.identifier()
-        return check_encode(vh160)
+    def get_address(self, hrp, ver):
+        """Return bech32 compressed address"""
+        return encode(hrp, ver, self.identifier())
 
     def identifier(self):
         """Return key identifier as string"""
@@ -264,7 +264,7 @@ class Bip32(object):
         print("   * Identifier")
         print("     * (hex):      ", self.identifier().hex())
         print("     * (fpr):      ", self.fingerprint().hex())
-        print("     * (main addr):", self.get_address(b'\x00'))
+        print("     * (main addr):", self.get_address('bc', 0))
         if self.secret:
             print("   * Secret key")
             print("     * (hex):      ", self.get_private_key().hex())

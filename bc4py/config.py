@@ -92,7 +92,10 @@ class C:  # Constant
     # difficulty
     DIFF_RETARGET = 20  # difficultyの計算Block数
 
-    # BIP32
+    # address params
+    ADDR_NORMAL_VER = 0
+    ADDR_VALIDATOR_VER = 1
+    ADDR_CONTRACT_VER = 2
     BIP44_COIN_TYPE = 0x800002aa
 
     # block params
@@ -130,9 +133,6 @@ class V:
     # Blockchain basic params
     GENESIS_BLOCK = None
     GENESIS_PARAMS = None
-    BLOCK_PREFIX = None
-    BLOCK_VALIDATOR_PREFIX = None
-    BLOCK_CONTRACT_PREFIX = None
     BLOCK_GENESIS_TIME = None
     BLOCK_TIME_SPAN = None
     BLOCK_MINING_SUPPLY = None
@@ -150,6 +150,7 @@ class V:
 
     # Wallet
     # mnemonic =(decrypt)=> seed ==> 44' => coinType' => secret key
+    BECH32_HRP = None  # human readable part
     BIP44_ENCRYPTED_MNEMONIC = None
     BIP44_ROOT_PUB_KEY = None  # path: m
     BIP44_BRANCH_SEC_KEY = None  # path: m/44'/coin_type'

@@ -62,18 +62,16 @@ def batch_workhash(blocks):
 def put_to_block_stack(r, before_future):
     """ Get next blocks """
     block_tmp = dict()
-    batch_txs = list()
     for block in r:
         for index, tx in enumerate(block.txs):
             tx_from_database = tx_builder.get_tx(txhash=tx.hash)
             if tx_from_database:
                 block.txs[index] = tx_from_database
         block_tmp[block.height] = block
-        batch_txs.extend(block.txs)
+        batch_sign_cashe(block.txs, block.b)
     # check
     if len(block_tmp) == 0:
         return None
-    batch_sign_cashe(batch_txs)
     if before_future:
         before_future.result(timeout=60)
     with write_protect_lock:

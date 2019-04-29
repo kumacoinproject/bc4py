@@ -1,38 +1,52 @@
-from bc4py.bip32.base58 import check_decode, check_encode
+from bc4py.bip32.bech32 import decode, encode
 import hashlib
 
 
-def is_address(ck, prefix):
-    """check base58 decode and prefix"""
+def is_address(ck, hrp, ver):
+    """check bech32 format and version"""
     try:
-        raw = check_decode(ck)
+        addr_ver, addr_identifier = decode(hrp, ck)
+        if addr_ver is None:
+            return False
+        if ver != addr_ver:
+            return False
     except ValueError:
         return False
-    if prefix == raw[:1]:
-        return True
-    else:
-        return False
+    return True
 
 
-def get_address(pk, prefix):
+def get_address(pk, hrp, ver):
     """get address from public key"""
     identifier = hashlib.new('ripemd160', hashlib.sha256(pk).digest()).digest()
-    return check_encode(prefix + identifier)
+    return encode(hrp, ver, identifier)
 
 
-def convert_address(ck, prefix):
-    """convert address's prefix"""
-    raw = check_decode(ck)
-    return check_encode(prefix + raw[1:])
+def convert_address(ck, hrp, ver):
+    """convert address's version"""
+    _, identifier = decode(hrp, ck)
+    if identifier is None:
+        raise ValueError('Not correct format address hrp={} ck={}'.format(hrp, ck))
+    return encode(hrp, ver, identifier)
 
 
-def dummy_address(seed):
-    assert len(seed) == 20
-    return check_encode(b'\xff' + seed)
+def dummy_address(dummy_identifier):
+    assert len(dummy_identifier) == 20
+    return encode('dummy', 0, dummy_identifier)
 
 
-addr2bin = check_decode
-bin2addr = check_encode
+def addr2bin(ck, hrp):
+    if ck.startswith('dummy'):
+        ver, identifier = decode('dummy', ck)
+    else:
+        ver, identifier = decode(hrp, ck)
+    if ver is None:
+        raise ValueError('Not correct format')
+    return ver.to_bytes(1, 'big') + identifier
+
+
+def bin2addr(b, hrp):
+    ver, identifier = b[0], b[1:]
+    return encode(hrp, ver, identifier)
 
 
 __all__ = [

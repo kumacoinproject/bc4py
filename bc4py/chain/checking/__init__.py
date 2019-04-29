@@ -22,7 +22,7 @@ def new_insert_block(block, time_check=False):
             if time_check:
                 check_block_time(block, fixed_delay)
             check_block(block)
-            batch_sign_cashe(block.txs)
+            batch_sign_cashe(block.txs, block.b)
             for tx in block.txs:
                 check_tx(tx=tx, include_block=block)
                 if time_check:

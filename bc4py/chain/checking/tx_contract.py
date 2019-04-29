@@ -1,5 +1,5 @@
 from bc4py.config import C, V, BlockChainError
-from bc4py.bip32 import is_address, ADDR_STR_SIZE
+from bc4py.bip32 import is_address
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.chain.signature import *
@@ -17,16 +17,14 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
         raise BlockChainError('No inputs or outputs.')
     elif tx.message_type != C.MSG_MSGPACK:
         raise BlockChainError('validator_edit_tx is MSG_MSGPACK.')
-    elif V.BLOCK_CONTRACT_PREFIX is None:
-        raise BlockChainError('Not set contract prefix ?')
-    elif V.BLOCK_CONTRACT_PREFIX == V.BLOCK_PREFIX:
-        raise BlockChainError('normal prefix same with contract prefix.')
     try:
         c_address, start_hash, c_storage = tx.encoded_message()
     except Exception as e:
         raise BlockChainError('EncodeMessageError: {}'.format(e))
-    if not (isinstance(c_address, str) and len(c_address) == ADDR_STR_SIZE):
+    if not isinstance(c_address, str):
         raise BlockChainError('1. Not correct format. {}'.format(c_address))
+    if not is_address(ck=c_address, hrp=V.BECH32_HRP, ver=C.ADDR_CONTRACT_VER):
+        raise BlockChainError('2 ValidatorAddress format is not correct {}'.format(c_address))
     if not (isinstance(start_hash, bytes) and len(start_hash) == 32):
         raise BlockChainError('2. Not correct format. {}'.format(start_hash))
     if not (c_storage is None or isinstance(c_storage, dict)):
@@ -85,9 +83,9 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
         c_bin, v_address, c_extra_imports, c_settings = c_args
         if not isinstance(c_bin, bytes):
             raise BlockChainError('5. Not correct format. {}'.format(c_args))
-        if not (isinstance(v_address, str) and len(v_address) == ADDR_STR_SIZE):
+        if not isinstance(v_address, str):
             raise BlockChainError('1 ValidatorAddress format is not correct {}'.format(v_address))
-        if not is_address(v_address, V.BLOCK_VALIDATOR_PREFIX):
+        if not is_address(ck=v_address, hrp=V.BECH32_HRP, ver=C.ADDR_VALIDATOR_VER):
             raise BlockChainError('2 ValidatorAddress format is not correct {}'.format(v_address))
         if not (c_extra_imports is None or isinstance(c_extra_imports, tuple) or
                 isinstance(c_extra_imports, list)):
@@ -125,10 +123,6 @@ def check_tx_validator_edit(tx: TX, include_block: Block):
         raise BlockChainError('No inputs or outputs.')
     elif tx.message_type != C.MSG_MSGPACK:
         raise BlockChainError('validator_edit_tx is MSG_MSGPACK.')
-    elif V.BLOCK_CONTRACT_PREFIX is None:
-        raise BlockChainError('Not set contract prefix ?')
-    elif V.BLOCK_CONTRACT_PREFIX == V.BLOCK_PREFIX:
-        raise BlockChainError('normal prefix same with contract prefix.')
     # message
     try:
         v_address, new_address, flag, sig_diff = tx.encoded_message()
@@ -137,8 +131,8 @@ def check_tx_validator_edit(tx: TX, include_block: Block):
     # check new_address
     v_before = get_validator_object(v_address=v_address, best_block=include_block, stop_txhash=tx.hash)
     if new_address:
-        if not is_address(ck=new_address, prefix=V.BLOCK_PREFIX):
-            raise BlockChainError('new_address is normal prefix.')
+        if not is_address(ck=new_address, hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER):
+            raise BlockChainError('new_address is not normal')
         elif flag == F_NOP:
             raise BlockChainError('input new_address, but NOP.')
     if v_before.version == -1:
@@ -195,16 +189,16 @@ def objective_tx_signature_check(target_address, extra_tx: TX, v: Validator, inc
             continue
         elif address == target_address:
             continue
-        elif is_address(address, V.BLOCK_PREFIX):
+        elif is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER):
             if address not in necessary_cks:
                 necessary_num += 1
                 necessary_cks.add(address)
-        elif is_address(address, V.BLOCK_VALIDATOR_PREFIX):
+        elif is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_VALIDATOR_VER):
             raise BlockChainError('Not allowed {}'.format(address))
-        elif is_address(address, V.BLOCK_CONTRACT_PREFIX):
+        elif is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_CONTRACT_VER):
             raise BlockChainError('Not allowed {}'.format(address))
         else:
-            raise BlockChainError('Not found address prefix {}'.format(address))
+            raise BlockChainError('Not found address format {}'.format(address))
         checked_cks.add(address)
 
     signed_cks = get_signed_cks(extra_tx)

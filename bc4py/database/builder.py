@@ -229,7 +229,7 @@ class DataBase:
             return set(b)
 
     def read_address_idx(self, address, txhash, index):
-        k = addr2bin(address) + txhash + index.to_bytes(1, ITER_ORDER)
+        k = addr2bin(ck=address, hrp=V.BECH32_HRP) + txhash + index.to_bytes(1, ITER_ORDER)
         if self.is_batch_thread() and k in self.batch['_address_index']:
             b = self.batch['_address_index'][k]
         else:
@@ -243,7 +243,7 @@ class DataBase:
     def read_address_idx_iter(self, address):
         f_batch = self.is_batch_thread()
         batch_copy = self.batch['_address_index'].copy() if self.batch else dict()
-        b_address = addr2bin(address)
+        b_address = addr2bin(ck=address, hrp=V.BECH32_HRP)
         start = b_address + b'\x00' * (32+1)
         stop = b_address + b'\xff' * (32+1)
         address_iter = self._address_index.iterator(start=start, stop=stop)
@@ -285,7 +285,7 @@ class DataBase:
     def read_contract_iter(self, c_address, start_idx=None):
         f_batch = self.is_batch_thread()
         batch_copy = self.batch['_contract'].copy() if self.batch else dict()
-        b_c_address = addr2bin(c_address)
+        b_c_address = addr2bin(ck=c_address, hrp=V.BECH32_HRP)
         # caution: iterator/RangeIter's result include start and stop, need to add 1.
         start = b_c_address + ((start_idx + 1).to_bytes(8, ITER_ORDER) if start_idx else b'\x00' * 8)
         stop = b_c_address + b'\xff'*8
@@ -313,7 +313,7 @@ class DataBase:
     def read_validator_iter(self, v_address, start_idx=None):
         f_batch = self.is_batch_thread()
         batch_copy = self.batch['_validator'].copy() if self.batch else dict()
-        b_v_address = addr2bin(v_address)
+        b_v_address = addr2bin(ck=v_address, hrp=V.BECH32_HRP)
         # caution: iterator/RangeIter's result include start and stop, need to add 1.
         start = b_v_address + ((start_idx + 1).to_bytes(8, ITER_ORDER) if start_idx else b'\x00' * 8)
         stop = b_v_address + b'\xff'*8
@@ -331,7 +331,7 @@ class DataBase:
             if b_new_address == DUMMY_VALIDATOR_ADDRESS:
                 yield index, None, flag, txhash, sig_diff
             else:
-                yield index, bin2addr(b_new_address), flag, txhash, sig_diff
+                yield index, bin2addr(b=b_new_address, hrp=V.BECH32_HRP), flag, txhash, sig_diff
         # from memory
         if f_batch:
             for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
@@ -341,7 +341,7 @@ class DataBase:
                     if b_new_address == DUMMY_VALIDATOR_ADDRESS:
                         yield index, None, flag, txhash, sig_diff
                     else:
-                        yield index, bin2addr(b_new_address), flag, txhash, sig_diff
+                        yield index, bin2addr(b=b_new_address, hrp=V.BECH32_HRP), flag, txhash, sig_diff
 
     def write_block(self, block):
         assert self.is_batch_thread(), 'Not created batch.'
@@ -375,7 +375,7 @@ class DataBase:
 
     def write_address_idx(self, address, txhash, index, coin_id, amount, f_used):
         assert self.is_batch_thread(), 'Not created batch.'
-        k = addr2bin(address) + txhash + index.to_bytes(1, ITER_ORDER)
+        k = addr2bin(ck=address, hrp=V.BECH32_HRP) + txhash + index.to_bytes(1, ITER_ORDER)
         v = struct_address_idx.pack(coin_id, amount, f_used)
         self.batch['_address_index'][k] = v
         log.debug("Insert new address idx {}".format(address))
@@ -401,7 +401,7 @@ class DataBase:
         for last_index, *dummy in self.read_contract_iter(c_address=c_address, start_idx=index):
             pass
         assert last_index is None, 'Not allow older ConcludeTX insert. my={} last={}'.format(index, last_index)
-        k = addr2bin(c_address) + index.to_bytes(8, ITER_ORDER)
+        k = addr2bin(ck=c_address, hrp=V.BECH32_HRP) + index.to_bytes(8, ITER_ORDER)
         v = start_tx.hash + finish_hash + packb(message, use_bin_type=True)
         self.batch['_contract'][k] = v
         log.debug("Insert new contract {} {}".format(c_address, index))
@@ -418,8 +418,8 @@ class DataBase:
         if new_address is None:
             b_new_address = DUMMY_VALIDATOR_ADDRESS
         else:
-            b_new_address = addr2bin(new_address)
-        k = addr2bin(v_address) + index.to_bytes(8, ITER_ORDER)
+            b_new_address = addr2bin(ck=new_address, hrp=V.BECH32_HRP)
+        k = addr2bin(ck=v_address, hrp=V.BECH32_HRP) + index.to_bytes(8, ITER_ORDER)
         v = struct_validator_value.pack(b_new_address, flag, tx.hash, sign_diff)
         self.batch['_validator'][k] = v
         log.debug("Insert new validator {} {}".format(v_address, index))
@@ -678,14 +678,14 @@ class ChainBuilder:
                             input_tx = tx_builder.get_tx(txhash)
                             address, coin_id, amount = input_tx.outputs[txindex]
                             if builder.db.db_config['addrindex'] or \
-                                    is_address(ck=address, prefix=V.BLOCK_CONTRACT_PREFIX) or \
+                                    is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_CONTRACT_VER) or \
                                     read_address2user(address=address, cur=cur):
                                 # 必要なAddressのみ
                                 self.db.write_address_idx(address, txhash, txindex, coin_id, amount, True)
                         # outputs
                         for index, (address, coin_id, amount) in enumerate(tx.outputs):
                             if builder.db.db_config['addrindex'] or \
-                                    is_address(ck=address, prefix=V.BLOCK_CONTRACT_PREFIX) or \
+                                    is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_CONTRACT_VER) or \
                                     read_address2user(address=address, cur=cur):
                                 # 必要なAddressのみ
                                 self.db.write_address_idx(address, tx.hash, index, coin_id, amount, False)

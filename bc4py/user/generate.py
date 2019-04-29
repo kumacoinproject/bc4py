@@ -1,5 +1,5 @@
 from bc4py.config import C, V, BlockChainError
-from bc4py.bip32 import is_address, ADDR_STR_SIZE
+from bc4py.bip32 import is_address
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.chain.workhash import generate_many_hash
@@ -190,13 +190,14 @@ class Generate(Thread):
                 else:
                     # Staked yay!!
                     proof_tx.height = staking_block.height
-                    proof_tx.signature = [message2signature(proof_tx.b, proof_tx.outputs[0][0])]
                     staking_block.txs[0] = proof_tx
                     # Fit block size
                     while staking_block.size > C.SIZE_BLOCK_LIMIT:
                         staking_block.txs.pop()
                     staking_block.update_time(proof_tx.time)
                     staking_block.update_merkleroot()
+                    signature = message2signature(raw=staking_block.b, address=address)
+                    proof_tx.signature.append(signature)
                     confirmed_generating_block(staking_block)
                     break
             else:
@@ -233,8 +234,7 @@ class Generate(Thread):
             # start staking by capacity
             count = 0
             for file_name in os.listdir(dir_path):
-                m = re.match("^optimized\\.([A-Z0-9]{ADDR_STR_SIZE})\\-([0-9]+)\\-([0-9]+)\\.dat$"
-                             .replace('ADDR_STR_SIZE', str(ADDR_STR_SIZE)), file_name)
+                m = re.match("^optimized\\.([a-z0-9]+)\\-([0-9]+)\\-([0-9]+)\\.dat$", file_name)
                 if m is None:
                     continue
                 count += int(m.group(3)) - int(m.group(2))
@@ -378,7 +378,7 @@ def update_unspents_txs(time_limit=0.2):
             continue
         if not (previous_height + 1 > height + C.MATURE_HEIGHT):
             continue
-        if not is_address(address, prefix=V.BLOCK_PREFIX):
+        if not is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER):
             continue
         if amount < 100000000:
             continue

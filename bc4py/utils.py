@@ -29,9 +29,7 @@ def set_blockchain_params(genesis_block, params):
     assert 'spawn' in multiprocessing.get_all_start_methods(), 'Not found spawn method.'
     V.GENESIS_BLOCK = genesis_block
     V.GENESIS_PARAMS = params
-    V.BLOCK_PREFIX = params.get('prefix')
-    V.BLOCK_VALIDATOR_PREFIX = params.get('validator_prefix')
-    V.BLOCK_CONTRACT_PREFIX = params.get('contract_prefix')
+    V.BECH32_HRP = params.get('hrp')
     V.BLOCK_GENESIS_TIME = params.get('genesis_time')
     V.BLOCK_MINING_SUPPLY = params.get('mining_supply')
     V.BLOCK_TIME_SPAN = params.get('block_span')

@@ -1,5 +1,4 @@
 from bc4py.config import V, BlockChainError
-from bc4py.bip32 import ADDR_STR_SIZE
 from io import BytesIO
 import msgpack
 import math
@@ -82,8 +81,8 @@ def check_output_format(outputs):
         elif len(o) != 3:
             raise BlockChainError('Output is three element.')
         address, coin_id, amount = o
-        if not isinstance(address, str) or len(address) != ADDR_STR_SIZE:
-            raise BlockChainError('output address is {} string. {}'.format(ADDR_STR_SIZE, address))
+        if not isinstance(address, str):
+            raise BlockChainError('output address is string {}'.format(address))
         elif not isinstance(coin_id, int) or coin_id < 0:
             raise BlockChainError('output coin_id is 0< int. {}'.format(coin_id))
         elif not isinstance(amount, int) or not (amount > 0):

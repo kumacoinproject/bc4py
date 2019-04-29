@@ -81,7 +81,7 @@ async def sign_raw_tx(request):
             keypair: PyKeyPair = PyKeyPair.from_secret_key(sk)
             r, s = keypair.get_single_sign(binary)
             pk = keypair.get_public_key()
-            ck = get_address(pk=pk, prefix=V.BLOCK_PREFIX)
+            ck = get_address(pk=pk, hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER)
             other_pairs[ck] = (pk, r, s)
         tx = TX.from_binary(binary=binary)
         for txhash, txindex in tx.inputs:

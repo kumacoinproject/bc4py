@@ -86,7 +86,7 @@ class Contract:
                  "start_hash", "finish_hash")
 
     def __init__(self, c_address):
-        assert is_address(c_address, V.BLOCK_CONTRACT_PREFIX)
+        assert is_address(ck=c_address, hrp=V.BECH32_HRP, ver=C.ADDR_CONTRACT_VER)
         self.c_address = c_address
         self.v_address = None
         self.version = -1

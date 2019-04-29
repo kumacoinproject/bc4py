@@ -25,8 +25,9 @@ consensus = {
  
 # create first block
 genesis_block, genesis_params = create_genesis_block(
-    mining_supply=10000000000 * 100000000,  # 10 billion total supply
-    block_span=20,  # block time
+    hrp='test',
+    mining_supply=100000000 * 100000000,  # one hundred million mining supply
+    block_span=60,  # block time
     digit_number=8,  # base currency digit
     minimum_price=100,  # minimum gas price
     consensus=consensus,  # mining consensus, key is algo value is ratio

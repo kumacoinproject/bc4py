@@ -1,5 +1,5 @@
 from bc4py.config import C, V, BlockChainError
-from bc4py.bip32 import convert_address
+from bc4py.bip32 import convert_address, addr2bin
 from bc4py.user import Balance
 from bc4py.user.api import web_base
 from bc4py.database.builder import builder, user_account
@@ -95,9 +95,9 @@ async def list_account_address(request):
         for uuid, address, user in read_pooled_address_iter(cur):
             if user_id == user:
                 if user == C.ANT_VALIDATOR:
-                    address_list.append(convert_address(ck=address, prefix=V.BLOCK_VALIDATOR_PREFIX))
+                    address_list.append(convert_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_VALIDATOR_VER))
                 elif user == C.ANT_CONTRACT:
-                    address_list.append(convert_address(ck=address, prefix=V.BLOCK_CONTRACT_PREFIX))
+                    address_list.append(convert_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_CONTRACT_VER))
                 else:
                     address_list.append(address)
     return web_base.json_res({'account': user_name, 'user_id': user_id, 'address': address_list})
@@ -149,11 +149,16 @@ async def new_address(request):
         address = create_new_user_keypair(user_id, cur)
         db.commit()
         if user_id == C.ANT_VALIDATOR:
-            print(V.BLOCK_VALIDATOR_PREFIX)
-            address = convert_address(address, V.BLOCK_VALIDATOR_PREFIX)
+            address = convert_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_VALIDATOR_VER)
         if user_id == C.ANT_CONTRACT:
-            address = convert_address(address, V.BLOCK_CONTRACT_PREFIX)
-    return web_base.json_res({'account': user_name, 'user_id': user_id, 'address': address})
+            address = convert_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_CONTRACT_VER)
+        ver_identifier = addr2bin(hrp=V.BECH32_HRP, ck=address)
+    return web_base.json_res({
+        'account': user_name,
+        'user_id': user_id,
+        'address': address,
+        'ver_identifier': ver_identifier.hex(),
+    })
 
 
 async def get_keypair(request):

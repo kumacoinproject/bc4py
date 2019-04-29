@@ -93,7 +93,7 @@ class TX:
             self.b += struct_inputs.pack(txhash, txindex)
         # outputs
         for address, coin_id, amount in self.outputs:
-            self.b += struct_outputs.pack(addr2bin(address), coin_id, amount)
+            self.b += struct_outputs.pack(addr2bin(ck=address, hrp=V.BECH32_HRP), coin_id, amount)
         # message
         self.b += self.message
         # txhash
@@ -112,7 +112,7 @@ class TX:
         self.outputs = list()
         for i in range(outputs_len):
             b_address, coin_id, amount = struct_outputs.unpack_from(self.b, pos)
-            self.outputs.append((bin2addr(b_address), coin_id, amount))
+            self.outputs.append((bin2addr(b=b_address, hrp=V.BECH32_HRP), coin_id, amount))
             pos += struct_outputs.size
         # msg
         self.message = self.b[pos:pos + msg_len]
@@ -167,8 +167,10 @@ class TX:
         return len(self.b)
 
     def total_size(self):
-        signature_size = sum(len(x) for x in self.signature)
-        return len(self.b) + len(self.R) + signature_size
+        signature_size = 0
+        for s in self.signature:
+            signature_size = sum(len(x) for x in s)
+        return self.size + len(self.R) + signature_size
 
     def get_pos_hash(self, previous_hash):
         # staked => sha256(txhash + previous_hash) / amount < 256^32 / diff
