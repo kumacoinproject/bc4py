@@ -460,7 +460,7 @@ class ChainBuilder:
     def init(self, genesis_block: Block, batch_size=None):
         assert self.db, 'Why database connection failed?'
         # return status
-        # True  = Only genesisBlock, recommend to import bootstrap.dat first
+        # True  = Only genesisBlock, recommend to import bootstrap.dat.gz first
         # False = Many blocks in LevelDB, sync by network
         if batch_size is None:
             batch_size = self.cashe_limit

@@ -17,6 +17,7 @@ from logging import getLogger
 import requests
 import msgpack as original_mpk
 import json
+import gzip
 import os
 
 log = getLogger('bc4py')
@@ -72,13 +73,13 @@ def load_boot_file(url=None):
 
 
 def load_bootstrap_file(boot_path=None):
-    boot_path = boot_path or os.path.join(V.DB_HOME_DIR, 'bootstrap-ver{}.dat'.format(__chain_version__))
+    boot_path = boot_path or os.path.join(V.DB_HOME_DIR, 'bootstrap-ver{}.dat.gz'.format(__chain_version__))
     if not os.path.exists(boot_path):
-        log.warning("Not found, skip import bootstrap.dat.")
+        log.warning("Not found, skip import bootstrap.dat.gz")
         return
-    log.info("Start to load blocks from bootstrap.dat.")
+    log.info("Start to load blocks from bootstrap.dat.gz")
     s = time()
-    with open(boot_path, mode='br') as fp:
+    with gzip.open(boot_path, mode='rb') as fp:
         block = None
         for block, work_hash, _bias in msgpack.stream_unpacker(fp):
             block.work_hash = work_hash
@@ -93,7 +94,7 @@ def load_bootstrap_file(boot_path=None):
             new_insert_block(block=block, time_check=False)
             if block.height % 1000 == 0:
                 print("Load block now {} height {}Sec".format(block.height, round(time() - s)))
-    log.info("load bootstrap.dat finished, last={} {}Minutes".format(block, (time() - s) // 60))
+    log.info("load bootstrap.dat.gz finished, last={} {}Minutes".format(block, (time() - s) // 60))
 
 
 def import_keystone(passphrase='', auto_create=True, language='english'):

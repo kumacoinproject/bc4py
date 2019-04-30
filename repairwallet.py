@@ -53,12 +53,8 @@ def work(port, sub_dir=None):
     # Update to newest blockchain
     builder.db.sync = False
     if builder.init(genesis_block, batch_size=500):
-        # only genesisBlock yoy have, try to import bootstrap.dat
-        log = logging.getLogger('bc4py')
-        old_level = log.level
-        log.setLevel(logging.WARNING)
+        # only genesisBlock yoy have, try to import bootstrap.dat.gz
         load_bootstrap_file()
-        log.setLevel(old_level)
     sync_chain_loop()
     logging.info("Finished all initialize.")
 
