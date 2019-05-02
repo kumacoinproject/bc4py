@@ -151,17 +151,18 @@ class V:
     # Wallet
     # mnemonic =(decrypt)=> seed ==> 44' => coinType' => secret key
     BECH32_HRP = None  # human readable part
+    BIP32_SECRET_OBJ = None  # <Bip32 m/44'/coinType'> object
     BIP44_ENCRYPTED_MNEMONIC = None
     BIP44_ROOT_PUB_KEY = None  # path: m
     BIP44_BRANCH_SEC_KEY = None  # path: m/44'/coin_type'
 
     # mining
     MINING_ADDRESS = None
-    PC_OBJ = None
-    API_OBJ = None
+    PC_OBJ = None  # P2P peer client object
+    API_OBJ = None  # REST API object
 
     # developer
-    BRANCH_NAME = None
+    BRANCH_NAME = None  # Github branch name
 
 
 class P:  # 起動中もダイナミックに変化
