@@ -32,19 +32,20 @@ WALLET_VERSION = b'\x80'
 
 
 class Bip32(object):
-    __slots__ = ("secret", "public", "chain", "depth", "index", "parent_fpr")
+    __slots__ = ("secret", "public", "chain", "depth", "index", "parent_fpr", "path")
 
-    def __init__(self, secret, public, chain, depth, index, fpr):
+    def __init__(self, secret, public, chain, depth, index, fpr, path):
         self.secret: int = secret
         self.public: Point = public
         self.chain: bytes = chain
         self.depth: int = depth
         self.index: int = index
         self.parent_fpr: bytes = fpr
+        self.path: str = path
 
     def __repr__(self):
-        key_type = "public" if self.secret is None else "secret"
-        return "<BIP32-{} depth={} index={} fpr={}>".format(key_type, self.depth, self.index, self.parent_fpr.hex())
+        key_type = "PUB" if self.secret is None else "SEC"
+        return "<BIP32-{} depth={} path={}>".format(key_type, self.depth, self.path)
 
     @classmethod
     def from_entropy(cls, entropy, is_public=False):
@@ -59,9 +60,9 @@ class Bip32(object):
         secret = int.from_bytes(il, 'big')
         public = get_public_key(secret, secp256k1)
         if is_public:
-            return cls(secret=None, public=public, chain=ir, depth=0, index=0, fpr=b'\0\0\0\0')
+            return cls(secret=None, public=public, chain=ir, depth=0, index=0, fpr=b'\0\0\0\0', path='m')
         else:
-            return cls(secret=secret, public=public, chain=ir, depth=0, index=0, fpr=b'\0\0\0\0')
+            return cls(secret=secret, public=public, chain=ir, depth=0, index=0, fpr=b'\0\0\0\0', path='m')
 
     @classmethod
     def from_extended_key(cls, key, is_public=False):
@@ -115,9 +116,9 @@ class Bip32(object):
             public = Point(x, y, secp256k1)
 
         if not is_pubkey and is_public:
-            return cls(secret=None, public=public, chain=chain, depth=depth, index=child, fpr=fpr)
+            return cls(secret=None, public=public, chain=chain, depth=depth, index=child, fpr=fpr, path='m')
         else:
-            return cls(secret=secret, public=public, chain=chain, depth=depth, index=child, fpr=fpr)
+            return cls(secret=secret, public=public, chain=chain, depth=depth, index=child, fpr=fpr, path='m')
 
     # Internal methods not intended to be called externally
     def _hmac(self, data):
@@ -138,14 +139,17 @@ class Bip32(object):
         Returns a BIP32Key constructed with the child key parameters,
         or None if i index would result in an invalid key.
         """
+
         # Index as bytes, BE
         i_str = struct.pack(">L", i)
 
         # Data to HMAC
         if i & BIP32_HARDEN:
             data = b'\0' + self.get_private_key() + i_str
+            path = self.path + '/' + str(i % BIP32_HARDEN) + '\''
         else:
             data = self.get_public_key() + i_str
+            path = self.path + '/' + str(i)
         # Get HMAC of data
         (Il, Ir) = self._hmac(data)
 
@@ -159,7 +163,7 @@ class Bip32(object):
 
         # Construct and return a new BIP32Key
         public = get_public_key(k_int, secp256k1)
-        return Bip32(secret=k_int, public=public, chain=Ir, depth=self.depth + 1, index=i, fpr=self.fingerprint())
+        return Bip32(secret=k_int, public=public, chain=Ir, depth=self.depth + 1, index=i, fpr=self.fingerprint(), path=path)
 
     def CKDpub(self, i):
         """
@@ -190,7 +194,8 @@ class Bip32(object):
             return None
 
         # Construct and return a new BIP32Key
-        return Bip32(secret=None, public=point, chain=Ir, depth=self.depth + 1, index=i, fpr=self.fingerprint())
+        path = self.path + '/' + str(i)
+        return Bip32(secret=None, public=point, chain=Ir, depth=self.depth + 1, index=i, fpr=self.fingerprint(), path=path)
 
     def child_key(self, i):
         """
@@ -265,6 +270,7 @@ class Bip32(object):
         print("     * (hex):      ", self.identifier().hex())
         print("     * (fpr):      ", self.fingerprint().hex())
         print("     * (main addr):", self.get_address('bc', 0))
+        print("     * (path):     ", self.path)
         if self.secret:
             print("   * Secret key")
             print("     * (hex):      ", self.get_private_key().hex())
@@ -282,10 +288,10 @@ class Bip32(object):
             print("     * (prv b58):  ", self.extended_key(is_private=True, encoded=True))
 
 
-def parse_bip32_path(nstr):
+def parse_bip32_path(path):
     """parse BIP32 format"""
     r = list()
-    for s in nstr.split('/'):
+    for s in path.split('/'):
         if s == 'm':
             continue
         elif s.endswith("'") or s.endswith('h'):
