@@ -149,12 +149,8 @@ class V:
     DB_ACCOUNT_PATH = None
 
     # Wallet
-    # mnemonic =(decrypt)=> seed ==> 44' => coinType' => secret key
     BECH32_HRP = None  # human readable part
-    BIP32_SECRET_OBJ = None  # <Bip32 m/44'/coinType'> object
-    BIP44_ENCRYPTED_MNEMONIC = None
-    BIP44_ROOT_PUB_KEY = None  # path: m
-    BIP44_BRANCH_SEC_KEY = None  # path: m/44'/coin_type'
+    EXTENDED_KEY_OBJ = None  # <Bip32 m/44'/coinType'> object
 
     # mining
     MINING_ADDRESS = None

@@ -166,12 +166,14 @@ async def get_keypair(request):
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             cur = db.cursor()
             address = request.query['address']
-            uuid, sk, pk = read_address2keypair(address, cur)
+            uuid, keypair, path = read_address2keypair(address, cur)
             return web_base.json_res({
                 'uuid': uuid,
                 'address': address,
-                'private_key': sk.hex(),
-                'public_key': pk.hex()})
+                'private_key': keypair.get_secret_key().hex(),
+                'public_key': keypair.get_public_key().hex(),
+                'path': path
+            })
     except Exception:
         return web_base.error_res()
 

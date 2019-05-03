@@ -1,12 +1,16 @@
 from bc4py.config import C, V, BlockChainError
-from bc4py.user import Accounting, extract_keypair
+from bc4py.bip32 import Bip32, BIP32_HARDEN
+from bc4py.user import Accounting
 from bc4py.database.create import closing, create_db
 from time import time
 from bc4py.utils import AESCipher
 from multi_party_schnorr import PyKeyPair
 from weakref import ref
-from binascii import a2b_hex
+from logging import getLogger
 import os
+
+
+log = getLogger('bc4py')
 
 
 def read_txhash2log(txhash, cur):
@@ -54,23 +58,23 @@ def delete_log(txhash, cur):
 
 
 def read_address2keypair(address, cur):
+    if V.EXTENDED_KEY_OBJ is None or V.EXTENDED_KEY_OBJ.secret is None:
+        raise BlockChainError('You try to get keypair but secret extended key not found')
     d = cur.execute("""
         SELECT `id`,`sk`,`user`,`is_inner`,`index` FROM `pool` WHERE `ck`=?
     """, (address,)).fetchone()
     if d is None:
         raise BlockChainError('Not found address {}'.format(address))
     uuid, sk, user, is_inner, index = d
-    if V.BIP44_BRANCH_SEC_KEY is None:
-        raise PermissionError('Cannot extract keypair!')
     if sk is None:
-        bip = extract_keypair(user=user, is_inner=is_inner, index=index)
+        bip = extract_keypair(user=user, is_inner=is_inner, index=index, cur=cur)
         sk = bip.get_private_key()
-        pk = bip.get_public_key()
+        path = bip.path
     else:
-        sk = AESCipher.decrypt(key=V.BIP44_BRANCH_SEC_KEY.encode(), enc=sk)
-        keypair: PyKeyPair = PyKeyPair.from_secret_key(sk)
-        pk = keypair.get_public_key()
-    return uuid, sk, pk
+        sk = AESCipher.decrypt(key=V.EXTENDED_KEY_OBJ.get_secret_key(), enc=sk)
+        path = None
+    keypair: PyKeyPair = PyKeyPair.from_secret_key(sk)
+    return uuid, keypair, path
 
 
 def read_address2user(address, cur):
@@ -93,9 +97,9 @@ def insert_keypair_from_bip(ck, user, is_inner, index, cur):
 
 def insert_keypair_from_outside(sk, ck, user, cur):
     assert isinstance(sk, bytes) and isinstance(ck, str) and isinstance(user, int)
-    if V.BIP44_BRANCH_SEC_KEY is None:
-        raise PermissionError('Cannot encrypt keypair!')
-    sk = AESCipher.encrypt(key=V.BIP44_BRANCH_SEC_KEY.encode(), raw=sk)
+    if V.EXTENDED_KEY_OBJ is None or V.EXTENDED_KEY_OBJ.secret is None:
+        raise BlockChainError('You try to insert keypair but secret extended key not found')
+    sk = AESCipher.encrypt(key=V.EXTENDED_KEY_OBJ.get_secret_key(), raw=sk)
     cur.execute("""
     INSERT OR IGNORE INTO `pool` (`sk`,`ck`,`user`,`time`) VALUES (?,?,?,?)
     """, (sk, ck, user, int(time())))
@@ -160,11 +164,17 @@ def create_account(name, cur, description="", _time=None, is_root=False):
     if not (name.startswith('@') == is_root):
         raise BlockChainError('prefix"@" is root user, is_root={} name={}'.format(is_root, name))
     _time = _time or int(time() - V.BLOCK_GENESIS_TIME)
+    # get extend public key
+    if V.EXTENDED_KEY_OBJ is None or V.EXTENDED_KEY_OBJ.secret is None:
+        raise BlockChainError('you try to create account but not found secretKey')
+    last_id = cur.execute("SELECT MAX(`id`) FROM `account`").fetchone()[0]
+    extended_key = V.EXTENDED_KEY_OBJ.child_key(BIP32_HARDEN + last_id + 1).extended_key(False)
     cur.execute("""
-        INSERT INTO `account` (`name`,`description`,`time`) VALUES (?,?,?)
-    """, (name, description, _time))
-    d = cur.execute("SELECT last_insert_rowid()").fetchone()
-    return d[0]
+        INSERT INTO `account` (`name`,`extended_key`,`description`,`time`) VALUES (?,?,?,?)
+    """, (name, extended_key, description, _time))
+    insert_id = cur.execute("SELECT last_insert_rowid()").fetchone()[0]
+    assert insert_id == last_id + 1
+    return insert_id
 
 
 def create_new_user_keypair(user, cur, is_inner=False):
@@ -174,9 +184,10 @@ def create_new_user_keypair(user, cur, is_inner=False):
     read_user2name(user, cur)
     # get last_index
     last_index = get_keypair_last_index(user=user, is_inner=is_inner, cur=cur)
-    bip = extract_keypair(user=user, is_inner=is_inner, index=last_index)
+    bip = extract_keypair(user=user, is_inner=is_inner, index=last_index, cur=cur)
     ck = bip.get_address(hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER)
     insert_keypair_from_bip(ck=ck, user=user, is_inner=is_inner, index=last_index, cur=cur)
+    log.debug("generate new address {} path={}".format(ck, bip.path))
     return ck
 
 
@@ -184,10 +195,24 @@ def message2signature(raw, address):
     # sign by address
     with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
         cur = db.cursor()
-        uuid, sk, pk = read_address2keypair(address, cur)
-    keypair = PyKeyPair.from_secret_key(sk)
+        uuid, keypair, _ = read_address2keypair(address, cur)
     r, s = keypair.get_single_sign(raw)
+    pk = keypair.get_public_key()
     return pk, r, s
+
+
+def extract_keypair(user, is_inner, index, cur):
+    # change: 0=outer、1=inner
+    assert isinstance(user, int)
+    if V.EXTENDED_KEY_OBJ is None or V.EXTENDED_KEY_OBJ.secret is None:
+        # cannot get child key from public extracted key
+        d = cur.execute("SELECT `extended_key` FROM `account` WHERE `id`=?", user).fetchone()
+        if d is None:
+            raise BlockChainError('Not found user id={}'.format(user))
+        bip = Bip32.from_extended_key(key=d[0], is_public=True)
+    else:
+        bip = V.EXTENDED_KEY_OBJ
+    return bip.child_key(user + BIP32_HARDEN).child_key(int(is_inner)).child_key(index)
 
 
 class MoveLog:
@@ -250,5 +275,6 @@ __all__ = [
     "create_account",
     "create_new_user_keypair",
     "message2signature",
+    "extract_keypair",
     "MoveLog",
 ]

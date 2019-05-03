@@ -37,7 +37,21 @@ def sql_info(data):
 
 def check_account_db():
     if os.path.exists(V.DB_ACCOUNT_PATH):
-        log.debug("already exist wallet path=\"{}\"".format(V.DB_ACCOUNT_PATH))
+        if V.EXTENDED_KEY_OBJ is None or V.EXTENDED_KEY_OBJ.secret is None:
+            log.debug("already exist wallet without check")
+        else:
+            with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+                cur = db.cursor()
+                d = cur.execute("SELECT `extended_key` FROM `account` WHERE `id`=0").fetchone()
+                if d is None:
+                    raise Exception('wallet is exist but not initialized')
+            db_extended_key = d[0]
+            stone_extended_key = V.EXTENDED_KEY_OBJ.child_key(0 + BIP32_HARDEN).extended_key(False)
+            if db_extended_key == stone_extended_key:
+                log.debug("already exist wallet, check success!")
+            else:
+                raise Exception('already exist wallet, check failed db={} stone={}'
+                                .format(db_extended_key, stone_extended_key))
     else:
         with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
             generate_wallet_db(db)
@@ -85,11 +99,11 @@ def generate_wallet_db(db):
     for s in sql:
         db.execute(s)
     # default account
-    if V.BIP32_SECRET_OBJ is None or V.BIP32_SECRET_OBJ.secret is None:
+    if V.EXTENDED_KEY_OBJ is None or V.EXTENDED_KEY_OBJ.secret is None:
         raise Exception('Need to create root accounts first, do "import_keystone" before')
     accounts = [(
         account_id,
-        V.BIP32_SECRET_OBJ.child_key(account_id + BIP32_HARDEN).extended_key(False),
+        V.EXTENDED_KEY_OBJ.child_key(account_id + BIP32_HARDEN).extended_key(False),
         C.account2name[account_id],
         "",
         0,

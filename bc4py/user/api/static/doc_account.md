@@ -289,27 +289,6 @@ list account address
 }
 ```
 
-lock wallet
-----
-* Request example
-    * `curl --basic -u user:password -H "accept: application/json" "127.0.0.1:3000/private/lockwallet"`
-* Response
-```json
-{"status":  true}
-```
-
-unlock wallet
-----
-* Arguments
-    1. passphrase      (string, optional, default="")  Encrypt root private key.
-    2. timeout         (numeric, optional, default=60) Auto delete inner private key, disabled by -1.
-* Request example
-    * `curl --basic -u user:password -H "accept: application/json" "127.0.0.1:3000/private/unlockwallet"`
-* Response
-```json
-{"status": true, "timeout": 60}
-```
-
 create wallet
 ----
 * Arguments
