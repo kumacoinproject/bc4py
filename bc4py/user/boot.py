@@ -33,7 +33,7 @@ def create_boot_file(genesis_block, params, network_ver=None, connections=()):
         } for tx in genesis_block.txs],
         'connections': connections,
         'network_ver': network_ver,
-        'params': original_mpk.packb(params, use_bin_type=True).hex(),
+        'params': params,
     }
     boot_path = os.path.join(V.DB_HOME_DIR, 'boot.json')
     with open(boot_path, mode='w') as fp:
@@ -66,7 +66,15 @@ def load_boot_file(url=None):
         genesis_block.txs.append(tx)
     connections = data['connections']
     network_ver = data['network_ver']
-    params = original_mpk.unpackb(a2b_hex(data['params']), raw=True, encoding='utf8')
+    if isinstance(data['params'], dict):
+        # new type boot.json
+        params = data['params']
+        params['consensus'] = {int(k): v for k, v in params['consensus'].items()}
+    elif isinstance(data['params'], str):
+        # old type boot.json
+        params = original_mpk.unpackb(a2b_hex(data['params']), raw=True, encoding='utf8')
+    else:
+        raise Exception('Unknown type params')
     return genesis_block, params, network_ver, connections
 
 
