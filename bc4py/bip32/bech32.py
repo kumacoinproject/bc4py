@@ -101,7 +101,7 @@ def convertbits(data, frombits, tobits, pad=True):
     return ret
 
 
-def decode(hrp, addr):
+def decode_with_check(hrp, addr):
     """Decode a segwit address."""
     hrpgot, data = bech32_decode(addr)
     if hrpgot != hrp:
@@ -116,16 +116,16 @@ def decode(hrp, addr):
     return data[0], bytes(decoded)
 
 
-def encode(hrp, ver, identifier):
+def encode_with_check(hrp, ver, identifier):
     """Encode a segwit address."""
     ret = bech32_encode(hrp, [ver] + convertbits(identifier, 8, 5))
-    if decode(hrp, ret) == (None, None):
+    if decode_with_check(hrp, ret) == (None, None):
         return None
     return ret
 
 
 __all__ = [
     "bech32_decode",
-    "decode",
-    "encode",
+    "decode_with_check",
+    "encode_with_check",
 ]
