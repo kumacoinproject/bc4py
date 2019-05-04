@@ -4,22 +4,21 @@ from bc4py.chain import msgpack
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.bip32 import Bip32, BIP32_HARDEN
-from bc4py.utils import AESCipher
-from bc4py.database.create import closing, create_db
 from bc4py.database.builder import tx_builder
 from bc4py.chain.checking import new_insert_block
 from random import randint
 from binascii import a2b_hex
 from mnemonic import Mnemonic
-from threading import Thread
-from time import time, sleep
+from time import time
 from logging import getLogger
 import requests
 import msgpack as original_mpk
 import json
+import gzip
 import os
 
 log = getLogger('bc4py')
+language = 'english'
 
 
 def create_boot_file(genesis_block, params, network_ver=None, connections=()):
@@ -34,7 +33,7 @@ def create_boot_file(genesis_block, params, network_ver=None, connections=()):
         } for tx in genesis_block.txs],
         'connections': connections,
         'network_ver': network_ver,
-        'params': original_mpk.packb(params, use_bin_type=True).hex(),
+        'params': params,
     }
     boot_path = os.path.join(V.DB_HOME_DIR, 'boot.json')
     with open(boot_path, mode='w') as fp:
@@ -67,18 +66,26 @@ def load_boot_file(url=None):
         genesis_block.txs.append(tx)
     connections = data['connections']
     network_ver = data['network_ver']
-    params = original_mpk.unpackb(a2b_hex(data['params']), raw=True, encoding='utf8')
+    if isinstance(data['params'], dict):
+        # new type boot.json
+        params = data['params']
+        params['consensus'] = {int(k): v for k, v in params['consensus'].items()}
+    elif isinstance(data['params'], str):
+        # old type boot.json
+        params = original_mpk.unpackb(a2b_hex(data['params']), raw=True, encoding='utf8')
+    else:
+        raise Exception('Unknown type params')
     return genesis_block, params, network_ver, connections
 
 
 def load_bootstrap_file(boot_path=None):
-    boot_path = boot_path or os.path.join(V.DB_HOME_DIR, 'bootstrap-ver{}.dat'.format(__chain_version__))
+    boot_path = boot_path or os.path.join(V.DB_HOME_DIR, 'bootstrap-ver{}.dat.gz'.format(__chain_version__))
     if not os.path.exists(boot_path):
-        log.warning("Not found, skip import bootstrap.dat.")
+        log.warning("Not found, skip import bootstrap.dat.gz")
         return
-    log.info("Start to load blocks from bootstrap.dat.")
+    log.info("Start to load blocks from bootstrap.dat.gz")
     s = time()
-    with open(boot_path, mode='br') as fp:
+    with gzip.open(boot_path, mode='rb') as fp:
         block = None
         for block, work_hash, _bias in msgpack.stream_unpacker(fp):
             block.work_hash = work_hash
@@ -90,112 +97,65 @@ def load_bootstrap_file(boot_path=None):
                 tx_builder.put_unconfirmed(tx)
             for tx in block.txs:
                 tx.height = block.height
-            new_insert_block(block=block, time_check=False)
+            new_insert_block(block=block, f_time=False, f_sign=True)
             if block.height % 1000 == 0:
                 print("Load block now {} height {}Sec".format(block.height, round(time() - s)))
-    log.info("load bootstrap.dat finished, last={} {}Minutes".format(block, (time() - s) // 60))
+    log.info("load bootstrap.dat.gz finished, last={} {}Minutes".format(block, (time() - s) // 60))
 
 
-def import_keystone(passphrase='', auto_create=True, language='english'):
-
-    def timeout_now(count):
-        while count > 0:
-            count -= 1
-            sleep(1)
-        V.BIP44_BRANCH_SEC_KEY = None
-        log.info("deleted wallet secret key now.")
-
-    if V.BIP44_ENCRYPTED_MNEMONIC:
-        raise Exception('Already imported, BIP32_ENCRYPTED_MNEMONIC.')
-    if V.BIP44_ROOT_PUB_KEY:
-        raise Exception('Already imported, BIP32_ROOT_PUBLIC_KEY.')
+def import_keystone(passphrase='', auto_create=True):
+    if V.EXTENDED_KEY_OBJ is not None:
+        raise Exception('keystone is already imported')
     keystone_path = os.path.join(V.DB_HOME_DIR, 'keystone.json')
-    old_account_path = os.path.join(V.DB_HOME_DIR, 'account.dat')
     if os.path.exists(keystone_path):
         # import from keystone file
-        mnemonic, bip, pub, timeout = load_keystone(keystone_path)
-    elif os.path.exists(old_account_path):
-        # create keystone and swap old account format
-        if not os.path.exists(V.DB_ACCOUNT_PATH):
-            raise Exception('wallet.dat is not created yet.')
-        mnemonic, bip, pub, timeout = create_keystone(passphrase, keystone_path, language)
-        with closing(create_db(old_account_path)) as old_db:
-            old_cur = old_db.cursor()
-            with closing(create_db(V.DB_ACCOUNT_PATH)) as new_db:
-                new_cur = new_db.cursor()
-                swap_old_format(old_cur=old_cur, new_cur=new_cur, bip=bip)
-                new_db.commit()
-        os.rename(src=old_account_path, dst=old_account_path + '.old')
+        bip = load_keystone(keystone_path)
+        log.info("load keystone file {}".format(bip))
+    elif auto_create:
+        # create keystone file
+        bip = create_keystone(passphrase, keystone_path, None)
+        log.warning("create keystone file {}".format(bip))
     else:
-        if not auto_create:
-            raise Exception('Cannot load wallet info from {}'.format(keystone_path))
-        mnemonic, bip, pub, timeout = create_keystone(passphrase, keystone_path, language)
-    V.BIP44_ENCRYPTED_MNEMONIC = mnemonic
-    V.BIP44_ROOT_PUB_KEY = pub
-    if bip:
-        # m/44' / coin_type' / account' / change / address_index
-        V.BIP44_BRANCH_SEC_KEY = bip \
-            .child_key(44 + BIP32_HARDEN) \
-            .child_key(C.BIP44_COIN_TYPE) \
-            .extended_key(is_private=True)
-    if timeout > 0:
-        Thread(target=timeout_now, args=(timeout,), name='timer{}Sec'.format(timeout)).start()
-    log.info("import wallet, unlock={} timeout={}".format(bool(bip), timeout))
-
-
-def swap_old_format(old_cur, new_cur, bip):
-    secret_key = bip \
-        .child_key(44 + BIP32_HARDEN) \
-        .child_key(C.BIP44_COIN_TYPE) \
-        .extended_key(is_private=True)
-    secret_key = secret_key.encode()
-    for uuid, sk, pk, ck, user, time in old_cur.execute("SELECT * FROM `pool`"):
-        sk = AESCipher.encrypt(key=secret_key, raw=sk)
-        new_cur.execute("INSERT OR IGNORE INTO `pool` (`id`,`sk`,`ck`,`user`,`time`) VALUES (?,?,?,?,?)",
-                        (uuid, sk, ck, user, time))
-    for args in old_cur.execute("SELECT * FROM `log`"):
-        new_cur.execute("INSERT OR IGNORE INTO `log` VALUES (?,?,?,?,?,?,?,?)", args)
-    for args in old_cur.execute("SELECT * FROM `account`"):
-        new_cur.execute("INSERT OR IGNORE INTO `account` VALUES (?,?,?,?)", args)
+        raise Exception('Not found keystone file!')
+    bip.path = "m/44'/{}'".format(C.BIP44_COIN_TYPE % BIP32_HARDEN)
+    V.EXTENDED_KEY_OBJ = bip
 
 
 def load_keystone(keystone_path):
     with open(keystone_path, mode='r') as fp:
         wallet = json.load(fp)
-    pub = str(wallet['public_key'])
-    mnemonic = str(wallet['mnemonic'])
-    if 'passphrase' in wallet:
-        passphrase = str(wallet['passphrase'])
-        timeout = int(wallet.get('timeout', -1))
-        seed = Mnemonic.to_seed(mnemonic, passphrase)
-        bip = Bip32.from_entropy(seed)
-        if pub != bip.extended_key(is_private=False):
-            raise Exception('Don\'t match with public key.')
+    sec = wallet.get('account_secret_key')
+    pub = wallet.get('account_public_key')
+    if sec:
+        bip = Bip32.from_extended_key(key=sec, is_public=False)
+    elif pub:
+        bip = Bip32.from_extended_key(key=pub, is_public=True)
+    elif 'mnemonic' in wallet and 'passphrase' in wallet:
+        # recover from mnemonic
+        bip = create_keystone(wallet['passphrase'], keystone_path, wallet['mnemonic'])
     else:
-        bip = None
-        timeout = -1
-    return mnemonic, bip, pub, timeout
+        raise Exception('Cannot find "account_secret_key" and "account_public_key" in keystone')
+    return bip
 
 
-def create_keystone(passphrase, keystone_path, language='english'):
-    mnemonic = Mnemonic(language).generate()
+def create_keystone(passphrase, keystone_path, mnemonic):
+    if mnemonic is None:
+        mnemonic = Mnemonic(language).generate(256)
     seed = Mnemonic.to_seed(mnemonic, passphrase)
-    bip = Bip32.from_entropy(seed)
-    pub = bip.extended_key(is_private=False)
-    timeout = -1
+    root = Bip32.from_entropy(seed)
+    bip = root.child_key(44+BIP32_HARDEN).child_key(C.BIP44_COIN_TYPE)
     wallet = {
-        'private_key': bip.extended_key(is_private=True),
-        'public_key': pub,
         'mnemonic': mnemonic,
         'passphrase': passphrase,
-        'timeout': timeout,
-        'comments': 'You should remove "private_key" and "passphrase" for security.'
-                    'Please don\'t forget the two key\'s value or lost your coins.'
-                    'timeout\'s value "-1" make system auto deletion disable.',
+        'account_secret_key': bip.extended_key(True),
+        'account_public_key': bip.extended_key(False),
+        'path': bip.path,
+        'comment': 'You must recode "mnemonic" and "passphrase" and remove after. '
+                   'You can remove "account_secret_key" but you cannot sign and create new account.',
     }
     with open(keystone_path, mode='w') as fp:
         json.dump(wallet, fp, indent=4)
-    return mnemonic, bip, pub, timeout
+    return bip
 
 
 __all__ = [

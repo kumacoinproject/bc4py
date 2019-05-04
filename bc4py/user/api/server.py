@@ -97,8 +97,6 @@ def create_rest_server(f_local, user, pwd, port=3000, f_blocking=True, ssl_conte
     app.router.add_get('/public/listunspents', list_unspents)
     app.router.add_get('/private/listunspents', list_private_unspents)
     app.router.add_get('/private/listaccountaddress', list_account_address)
-    app.router.add_post('/private/lockwallet', lock_wallet)
-    app.router.add_post('/private/unlockwallet', unlock_wallet)
     app.router.add_post('/private/createwallet', create_wallet)
     app.router.add_post('/private/importprivatekey', import_private_key)
     app.router.add_post('/private/move', move_one)

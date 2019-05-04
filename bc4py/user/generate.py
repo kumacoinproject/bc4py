@@ -29,6 +29,7 @@ previous_block = None
 unconfirmed_txs = None
 unspents_txs = None
 staking_limit = 500
+optimize_file_name_re = re.compile("^optimized\\.([a-z0-9]+)\\-([0-9]+)\\-([0-9]+)\\.dat$")
 
 
 def new_key(user=C.ANT_MINING):
@@ -235,7 +236,7 @@ class Generate(Thread):
             # start staking by capacity
             count = 0
             for file_name in os.listdir(dir_path):
-                m = re.match("^optimized\\.([a-z0-9]+)\\-([0-9]+)\\-([0-9]+)\\.dat$", file_name)
+                m = optimize_file_name_re.match(file_name)
                 if m is None:
                     continue
                 count += int(m.group(3)) - int(m.group(2))
@@ -253,8 +254,8 @@ class Generate(Thread):
                 worker=os.cpu_count())
             if work_hash is None:
                 # return failed => (None, None, err-msg)
-                if int(s) % 60 == 0:
-                    log.debug("failed PoC mining by \"{}\"".format(address))
+                if int(s) % 300 == 0:
+                    log.debug("PoC mining info by \"{}\"".format(address))
             else:
                 # return success => (nonce, workhash, address)
                 if previous_block is None or unconfirmed_txs is None:

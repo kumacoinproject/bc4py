@@ -374,7 +374,8 @@ create bootstrap
 ```text
 {
     "height": 10203,
-    "time": 234
+    "start_time": 1556588063,
+    "finish_time": 15565883020,
 }
 ```
 

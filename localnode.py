@@ -10,7 +10,7 @@ from bc4py.user.boot import *
 from bc4py.user.network import *
 from bc4py.user.api import create_rest_server
 from bc4py.contract.emulator import start_emulators, Emulate
-from bc4py.database.create import make_account_db
+from bc4py.database.create import check_account_db
 from bc4py.database.builder import builder
 from bc4py.chain.msgpack import default_hook, object_hook
 from p2p_python.utils import setup_p2p_params
@@ -39,8 +39,8 @@ def work(port, sub_dir):
     set_database_path(sub_dir=sub_dir)
     builder.set_database_path()
     copy_boot(port)
-    make_account_db()
     import_keystone(passphrase='hello python')
+    check_account_db()
     genesis_block, genesis_params, network_ver, connections = load_boot_file()
     logging.info("Start p2p network-ver{} .".format(network_ver))
 
@@ -72,12 +72,8 @@ def work(port, sub_dir):
     # Update to newest blockchain
     builder.db.sync = False
     if builder.init(genesis_block, batch_size=500):
-        # only genesisBlock yoy have, try to import bootstrap.dat
-        log = logging.getLogger('bc4py')
-        old_level = log.level
-        log.setLevel(logging.WARNING)
+        # only genesisBlock yoy have, try to import bootstrap.dat.gz
         load_bootstrap_file()
-        log.setLevel(old_level)
     sync_chain_loop()
 
     # Mining/Staking setup
