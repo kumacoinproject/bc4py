@@ -126,7 +126,7 @@ class C:  # Constant
 
     # network params
     ACCEPT_MARGIN_TIME = 120  # 新規データ受け入れ時間マージンSec
-    MAX_RECURSIVE_BLOCK_DEPTH = 10  # recursive accept block limit
+    MAX_RECURSIVE_BLOCK_DEPTH = 30  # recursive accept block limit
 
 
 class V:

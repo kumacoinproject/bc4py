@@ -5,6 +5,7 @@ from bc4py.chain.signature import batch_sign_cashe
 from bc4py.chain.workhash import get_workhash_fnc
 from bc4py.chain.checking import new_insert_block, check_tx, check_tx_time
 from bc4py.user.network.connection import *
+from bc4py.user.network.update import update_info_for_generate
 from bc4py.user.network.directcmd import DirectCmd
 from bc4py.database.create import closing, create_db
 from bc4py.database.builder import builder, tx_builder
@@ -58,10 +59,16 @@ def get_block_from_stack(height):
                 stack_event.clear()
             return block
         elif stack_event.wait(10):
-            continue  # event set!
+            # event set!
+            continue
         else:
-            back_que.put(height)
-            continue  # timeout
+            # timeout?
+            best_height_on_network, best_hash_on_network = get_best_conn_info()
+            if height < best_height_on_network:
+                back_que.put(height)
+            else:
+                return None
+            continue
 
 
 def _back_loop():
@@ -112,6 +119,10 @@ def _main_loop():
         while True:
             new_block: Block = get_block_from_stack(my_best_block.height + 1)
             # check blockchain continuity
+            if new_block is None:
+                log.debug("request height is higher than network height! sync will not need?")
+                stack_dict.clear()
+                break
             if my_best_block.hash != new_block.previous_hash:
                 log.debug("not chained my_best_block with new_block, rollback to {}".format(my_best_block.height-1))
                 my_best_block = builder.get_block(blockhash=my_best_block.previous_hash)
@@ -168,6 +179,7 @@ def _main_loop():
         log.info("fast sync finished start={} finish={} {}mSec".format(
             start_height, builder.best_block.height, int((time()-start_time)/60)))
         P.F_NOW_BOOTING = False
+        update_info_for_generate()
     log.info("close by F_STOP flag")
 
 
