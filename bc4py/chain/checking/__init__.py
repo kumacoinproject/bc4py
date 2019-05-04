@@ -6,26 +6,26 @@ from bc4py.database.builder import builder, user_account
 import threading
 from time import time
 from logging import getLogger
-from collections import deque
 
-global_lock = threading.Lock()
-failed_deque = deque([], maxlen=10)
+
+new_block_lock = threading.Lock()
 log = getLogger('bc4py')
 
 
-def new_insert_block(block, time_check=False):
+def new_insert_block(block, f_time=True, f_sign=True):
     t = time()
-    with global_lock:
+    with new_block_lock:
         fixed_delay = time() - t
         try:
             # Check
-            if time_check:
+            if f_time:
                 check_block_time(block, fixed_delay)
             check_block(block)
-            batch_sign_cashe(block.txs, block.b)
+            if f_sign:
+                batch_sign_cashe(block.txs, block.b)
             for tx in block.txs:
                 check_tx(tx=tx, include_block=block)
-                if time_check:
+                if f_time:
                     check_tx_time(tx)
             # Recode
             builder.new_block(block)

@@ -25,7 +25,7 @@ def mined_newblock(que, pc):
                 continue
             else:
                 log.debug("Mined block check success")
-                if new_insert_block(new_block, time_check=True):
+                if new_insert_block(new_block):
                     log.info("Mined new block {}".format(new_block.getinfo()))
                 else:
                     log.debug("self reject, cannot new insert")

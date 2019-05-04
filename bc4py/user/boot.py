@@ -97,7 +97,7 @@ def load_bootstrap_file(boot_path=None):
                 tx_builder.put_unconfirmed(tx)
             for tx in block.txs:
                 tx.height = block.height
-            new_insert_block(block=block, time_check=False)
+            new_insert_block(block=block, f_time=False, f_sign=True)
             if block.height % 1000 == 0:
                 print("Load block now {} height {}Sec".format(block.height, round(time() - s)))
     log.info("load bootstrap.dat.gz finished, last={} {}Minutes".format(block, (time() - s) // 60))

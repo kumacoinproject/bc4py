@@ -29,7 +29,7 @@ class BroadcastCmd:
             log.error(error, exc_info=True)
             return False
         try:
-            if new_insert_block(new_block, time_check=True):
+            if new_insert_block(new_block):
                 update_info_for_generate()
                 log.info("Accept new block {}".format(new_block))
                 return True
@@ -145,6 +145,6 @@ def make_block_by_node(blockhash, depth):
     block.inner_score *= 0.70
     for tx in block.txs:
         tx.height = height
-    if not new_insert_block(block):
+    if not new_insert_block(block=block, f_time=False, f_sign=True):
         raise BlockChainError('Failed insert beforeBlock {}'.format(before_block))
     return block
