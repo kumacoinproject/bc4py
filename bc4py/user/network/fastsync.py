@@ -141,7 +141,10 @@ def _main_loop():
                 continue
             # request next chunk
             if len(stack_dict) < STACK_CHUNK_SIZE:
-                back_que.put(max(stack_dict) + 1)
+                if 0 < len(stack_dict):
+                    back_que.put(max(stack_dict) + 1)
+                else:
+                    back_que.put(new_block.height + 1)
             # check reached top height
             best_height_on_network, best_hash_on_network = get_best_conn_info()
             if new_block.height < best_height_on_network:
