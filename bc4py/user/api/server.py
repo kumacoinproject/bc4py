@@ -86,7 +86,7 @@ def create_rest_server(f_local, user, pwd, port=3000, f_blocking=True, ssl_conte
     app.router.add_get('/public/getsysteminfo', system_info)
     app.router.add_get('/private/getsysteminfo', system_private_info)
     app.router.add_get('/public/getchaininfo', chain_info)
-    app.router.add_get('/private/getchaininfo', chain_private_info)
+    app.router.add_get('/private/chainforkinfo', chain_fork_info)
     app.router.add_get('/public/getnetworkinfo', network_info)
     app.router.add_get('/private/createbootstrap', create_bootstrap)
     app.router.add_get('/private/resync', resync)

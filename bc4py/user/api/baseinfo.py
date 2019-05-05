@@ -52,7 +52,7 @@ async def chain_info(request):
         return web_base.error_res()
 
 
-async def chain_private_info(request):
+async def chain_fork_info(request):
     try:
         main_chain = [block.getinfo() for block in builder.best_chain]
         orphan_chain = [block.getinfo() for block in builder.chain.values() if block not in builder.best_chain]
@@ -128,7 +128,7 @@ async def network_info(request):
 
 __all__ = [
     "chain_info",
-    "chain_private_info",
+    "chain_fork_info",
     "system_info",
     "system_private_info",
     "network_info",

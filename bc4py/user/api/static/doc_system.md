@@ -125,10 +125,10 @@ get chain info (public)
 }
 ```
 
-get chain info (private)
+get chain fork info
 ----
 * Request example
-    * `curl --basic -u user:password -H "accept: application/json" 127.0.0.1:3000/private/getchaininfo`
+    * `curl --basic -u user:password -H "accept: application/json" 127.0.0.1:3000/private/chainforkinfo`
 * Response
 ```json
 {

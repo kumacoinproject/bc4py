@@ -92,7 +92,7 @@ class Block:
             self.nonce = struct_block.unpack(self.b)
         self.hash = sha256(sha256(self.b).digest()).digest()
 
-    def getinfo(self):
+    def getinfo(self, f_with_tx_info=False):
         r = dict()
         r['hash'] = self.hash.hex() if self.hash else None
         try:
@@ -118,7 +118,10 @@ class Block:
         r['bits'] = self.bits
         r['bias'] = round(self.bias, 8)
         r['nonce'] = self.nonce.hex() if self.nonce else None
-        r['txs'] = [tx.hash.hex() for tx in self.txs]
+        if f_with_tx_info:
+            r['txs'] = [tx.getinfo() for tx in self.txs]
+        else:
+            r['txs'] = [tx.hash.hex() for tx in self.txs]
         r['create_time'] = self.create_time
         r['size'] = self.size
         return r
