@@ -17,10 +17,11 @@ class Block:
                  "previous_hash", "merkleroot", "time", "bits", "nonce", "txs", "__weakref__")
 
     def __eq__(self, other):
-        if isinstance(other, Block):
+        try:
             return self.hash == other.hash
-        log.warning("compare with {} by {}".format(self, other), exc_info=True)
-        return False
+        except Exception:
+            log.warning("compare with {} by {}".format(self, other), exc_info=True)
+            return False
 
     def __hash__(self):
         return hash(self.hash)
