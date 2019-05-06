@@ -1,5 +1,5 @@
 from bc4py.config import V, stream
-from bc4py.database.create import closing, create_db, sql_info
+from bc4py.database.create import create_db, sql_info
 import socket
 import os
 from logging import getLogger, Formatter, FileHandler, StreamHandler, DEBUG, INFO
@@ -55,7 +55,7 @@ def stream_printer():
 
 
 def _debug(sql, path, explain=True):
-    with closing(create_db(path)) as db:
+    with create_db(path) as db:
         db.set_trace_callback(sql_info)
         cur = db.cursor()
         f = cur.execute(('explain query plan ' if explain else '') + sql)

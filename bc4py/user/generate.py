@@ -6,7 +6,7 @@ from bc4py.chain.workhash import generate_many_hash
 from bc4py.chain.difficulty import get_bits_by_hash
 from bc4py.chain.utils import GompertzCurve
 from bc4py.chain.checking.utils import stake_coin_check
-from bc4py.database.create import create_db, closing
+from bc4py.database.create import create_db
 from bc4py.database.account import message2signature, create_new_user_keypair
 from bc4py.database.tools import get_unspents_iter
 from bc4py_extension import multi_seek
@@ -33,7 +33,7 @@ optimize_file_name_re = re.compile("^optimized\\.([a-z0-9]+)\\-([0-9]+)\\-([0-9]
 
 
 def new_key(user=C.ANT_MINING):
-    with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+    with create_db(V.DB_ACCOUNT_PATH) as db:
         ck = create_new_user_keypair(user, db.cursor())
         db.commit()
     return ck

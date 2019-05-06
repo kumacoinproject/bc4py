@@ -1,5 +1,5 @@
 from bc4py.config import C, V
-from bc4py.database.create import closing, create_db
+from bc4py.database.create import create_db
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.account import *
 from bc4py.user import *
@@ -56,7 +56,7 @@ class Search(dict):
 
 def repair_wallet(gap_user=10, gap_limit=20):
     log.info("Wallet fix tool start now...")
-    with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+    with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = db.cursor()
         search = Search(gap_user=gap_user, gap_limit=gap_limit, cur=cur)
         for height, blockhash in builder.db.read_block_hash_iter(start_height=0):

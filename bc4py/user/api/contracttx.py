@@ -1,7 +1,7 @@
 from bc4py.config import C, V
 from bc4py.contract.serializer import *
 from bc4py.user.txcreation.contract import *
-from bc4py.database.create import closing, create_db
+from bc4py.database.create import create_db
 from bc4py.database.account import *
 from bc4py.database.builder import tx_builder
 from bc4py.user.network.sendnew import send_newtx
@@ -24,7 +24,7 @@ async def contract_init(request):
         args = ("start_tx", "c_address", "c_storage", "redeem_address")  # dummy data
         binary2contract(b=c_bin, extra_imports=c_extra_imports, args=args)  # can compile?
         sender_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+        with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = db.cursor()
             sender = read_name2user(sender_name, cur)
             tx = create_contract_init_tx(
@@ -65,7 +65,7 @@ async def contract_update(request):
         c_settings = post.get('settings', None)
         send_pairs = post.get('send_pairs', None)
         sender_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+        with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = db.cursor()
             sender = read_name2user(sender_name, cur)
             tx = create_contract_update_tx(
@@ -99,7 +99,7 @@ async def contract_transfer(request):
         c_args = post['c_args']
         send_pairs = post.get('send_pairs', None)
         sender_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+        with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = db.cursor()
             sender = read_name2user(sender_name, cur)
             tx = create_contract_transfer_tx(
@@ -161,7 +161,7 @@ async def validator_edit(request):
     flag = int(post.get('flag', F_NOP))
     sig_diff = int(post.get('sig_diff', 0))
     try:
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+        with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = db.cursor()
             if v_address is None:
                 v_address = create_new_user_keypair(user=C.ANT_VALIDATOR, cur=cur)
@@ -189,7 +189,7 @@ async def validate_unconfirmed(request):
         tx = tx_builder.get_tx(txhash=txhash)
         if tx is None or tx.height is not None:
             return web_base.error_res('You cannot validate tx. {}'.format(tx))
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+        with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = db.cursor()
             new_tx = create_signed_tx_as_validator(tx=tx)
             assert tx is not new_tx, 'tx={}, new_tx={}'.format(id(tx), id(new_tx))

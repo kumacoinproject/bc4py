@@ -1,7 +1,7 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.bip32 import Bip32, BIP32_HARDEN
 from bc4py.user import Accounting
-from bc4py.database.create import closing, create_db
+from bc4py.database.create import create_db
 from time import time
 from bc4py.utils import AESCipher
 from multi_party_schnorr import PyKeyPair
@@ -193,7 +193,7 @@ def create_new_user_keypair(user, cur, is_inner=False):
 
 def message2signature(raw, address):
     # sign by address
-    with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+    with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = db.cursor()
         uuid, keypair, _ = read_address2keypair(address, cur)
     r, s = keypair.get_single_sign(raw)
@@ -232,7 +232,7 @@ class MoveLog:
         return hash(self.txhash)
 
     def get_dict_data(self, recode_flag, outer_cur=None):
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+        with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = outer_cur or db.cursor()
             movement = {read_user2name(user, cur): dict(balance) for user, balance in self.movement.items()}
         return {

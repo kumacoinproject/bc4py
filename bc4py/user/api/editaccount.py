@@ -2,7 +2,7 @@ from bc4py.config import C, V
 from bc4py.bip32 import Bip32, BIP32_HARDEN, get_address
 from bc4py.user.api import web_base
 from bc4py.user.tools import repair_wallet
-from bc4py.database.create import closing, create_db
+from bc4py.database.create import create_db
 from bc4py.database.account import insert_keypair_from_outside, read_name2user
 from multi_party_schnorr import PyKeyPair
 from mnemonic import Mnemonic
@@ -52,7 +52,7 @@ async def import_private_key(request):
         check_ck = get_address(pk=keypair.get_public_key(), hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER)
         if ck != check_ck:
             return web_base.error_res('Don\'t match, {}!={}'.format(ck, check_ck))
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+        with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = db.cursor()
             user = read_name2user(name=name, cur=cur)
             insert_keypair_from_outside(sk=sk, ck=ck, user=user, cur=cur)

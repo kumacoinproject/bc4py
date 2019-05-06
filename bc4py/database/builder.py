@@ -6,7 +6,7 @@ from bc4py.chain.block import Block
 import bc4py.chain.msgpack as bc4py_msgpack
 from bc4py.user import Balance, Accounting
 from bc4py.database.account import *
-from bc4py.database.create import closing, create_db
+from bc4py.database.create import create_db
 from msgpack import unpackb, packb
 from hashlib import sha256
 import struct
@@ -486,7 +486,7 @@ class ChainBuilder:
             user_account.init()
             return True
 
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+        with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = db.cursor()
             # 0HeightよりBlockを取得して確認
             before_block = genesis_block
@@ -659,7 +659,7 @@ class ChainBuilder:
         best_chain = self.best_chain.copy()
         batch_count = self.batch_size
         batched_blocks = list()
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+        with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = db.cursor()
             try:
                 block = None
@@ -974,7 +974,7 @@ class UserAccount:
         if outer_cur:
             _wrapper(outer_cur)
         else:
-            with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+            with create_db(V.DB_ACCOUNT_PATH) as db:
                 _wrapper(db.cursor())
                 if f_delete:
                     log.warning("Delete user's old unconfirmed tx.")
@@ -1020,7 +1020,7 @@ class UserAccount:
         if outer_cur:
             return _wrapper(outer_cur)
         else:
-            with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+            with create_db(V.DB_ACCOUNT_PATH) as db:
                 return _wrapper(db.cursor())
 
     def move_balance(self, _from, _to, coins, outer_cur=None):
@@ -1038,7 +1038,7 @@ class UserAccount:
         if outer_cur:
             return _wrapper(outer_cur)
         else:
-            with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+            with create_db(V.DB_ACCOUNT_PATH) as db:
                 r = _wrapper(db.cursor())
                 db.commit()
                 return r
@@ -1093,7 +1093,7 @@ class UserAccount:
         if outer_cur:
             yield from _wrapper(outer_cur)
         else:
-            with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+            with create_db(V.DB_ACCOUNT_PATH) as db:
                 yield from _wrapper(db.cursor())
 
     def new_batch_apply(self, batched_blocks, outer_cur=None):
@@ -1120,7 +1120,7 @@ class UserAccount:
         if outer_cur:
             _wrapper(outer_cur)
         else:
-            with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+            with create_db(V.DB_ACCOUNT_PATH) as db:
                 _wrapper(db.cursor())
                 db.commit()
 
@@ -1161,7 +1161,7 @@ class UserAccount:
         if outer_cur:
             _wrapper(outer_cur)
         else:
-            with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+            with create_db(V.DB_ACCOUNT_PATH) as db:
                 _wrapper(db.cursor())
 
 

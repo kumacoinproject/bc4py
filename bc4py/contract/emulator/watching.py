@@ -1,6 +1,5 @@
-from bc4py.config import C, V, P, stream, BlockChainError
-from bc4py.database.create import closing, create_db
-from bc4py.database.builder import tx_builder
+from bc4py.config import C, V, stream
+from bc4py.database.create import create_db
 from bc4py.database.account import read_address2user, read_user2name
 from bc4py.database.validator import *
 from bc4py.database.contract import get_validator_by_contract_info
@@ -90,7 +89,7 @@ def check_new_block(block: Block):
 
 def check_related_address(address_list):
     r = list()
-    with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+    with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = db.cursor()
         for address in address_list:
             user = read_address2user(address=address, cur=cur)

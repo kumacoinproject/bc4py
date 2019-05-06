@@ -7,7 +7,7 @@ from bc4py.chain.checking import new_insert_block, check_tx, check_tx_time
 from bc4py.user.network.connection import *
 from bc4py.user.network.update import update_info_for_generate
 from bc4py.user.network.directcmd import DirectCmd
-from bc4py.database.create import closing, create_db
+from bc4py.database.create import create_db
 from bc4py.database.builder import builder, tx_builder
 from threading import Thread, Event, Lock
 from queue import Queue, Empty
@@ -177,7 +177,7 @@ def _main_loop():
                 unconfirmed_txs.append(tx)
             except BlockChainError as e:
                 log.debug("1: Failed get unconfirmed {} '{}'".format(txhash.hex(), e))
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+        with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = db.cursor()
             for tx in sorted(unconfirmed_txs, key=lambda x: x.time):
                 try:
