@@ -53,7 +53,7 @@ def check_already_started():
     new_pid = os.getpid()
     with open(pid_path, mode='w') as fp:
         fp.write(str(new_pid))
-    log.info("create new process lock file pid={}".format(pid))
+    log.info("create new process lock file pid={}".format(new_pid))
 
 
 class AESCipher:
