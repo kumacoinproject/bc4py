@@ -1,6 +1,6 @@
 from bc4py.config import executor, executor_lock, C, V
 from bc4py.bip32 import get_address
-from multi_party_schnorr import verify_auto
+from multi_party_schnorr import verify_auto_multi
 from threading import Lock
 from time import time, sleep
 from logging import getLogger
@@ -16,9 +16,11 @@ lock = Lock()
 
 def _verify(task_list, hrp, ver):
     signed_list = list()
-    for pk, r, s, txhash, binary in task_list:
-        try:
-            if verify_auto(s, r, pk, binary):
+    try:
+        tasks = [(s, r, pk, binary) for pk, r, s, _, binary in task_list]
+        result = verify_auto_multi(tasks, 4, False)
+        for is_verify, (pk, r, s, txhash, binary) in zip(result, task_list):
+            if is_verify:
                 address = get_address(pk=pk, hrp=hrp, ver=ver)
                 signed_list.append((pk, r, s, txhash, address))
                 # log.warning('verification success\n pk={}\n r={}\n s={}\n hash={}\n binary={}'
@@ -26,8 +28,8 @@ def _verify(task_list, hrp, ver):
             else:
                 log.warning('verification failed\n pk={}\n r={}\n s={}\n hash={}\n binary={}'
                             .format(pk.hex(), r.hex(), s.hex(), txhash.hex(), binary.hex()))
-        except Exception as e:
-            log.error('Signature verification error. "{}"'.format(e))
+    except Exception as e:
+        log.error('Signature verification error. "{}"'.format(e))
     return signed_list
 
 
@@ -123,6 +125,7 @@ def get_signed_cks(tx):
 
 
 def delete_signed_cashe(txhash_set):
+    # TODO: delete when expired tx
     want_delete_num = 0
     with lock:
         for pair in verify_cashe.copy():
