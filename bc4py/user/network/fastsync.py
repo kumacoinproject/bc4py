@@ -123,21 +123,29 @@ def _main_loop():
                 log.debug("request height is higher than network height! sync will not need?")
                 stack_dict.clear()
                 break
+            if builder.root_block is not None and new_block.height <= builder.root_block.height:
+                log.error("cannot rollback block depth height={}".format(new_block.height))
+                P.F_STOP = True
+                return
+            if new_block.hash in builder.chain:
+                log.debug("new block is already known {}".format(new_block))
+                my_best_block = builder.get_block(blockhash=new_block.hash)
+                continue
             if my_best_block.hash != new_block.previous_hash:
                 log.debug("not chained my_best_block with new_block, rollback to {}".format(my_best_block.height-1))
                 my_best_block = builder.get_block(blockhash=my_best_block.previous_hash)
-                stack_dict.clear()
+                back_que.put(my_best_block.height + 1)
                 continue
             if len(new_block.txs) <= 0:
                 log.debug("something wrong?, rollback to {}".format(my_best_block.height-1))
                 my_best_block = builder.get_block(blockhash=my_best_block.previous_hash)
-                stack_dict.clear()
+                back_que.put(my_best_block.height + 1)
                 continue
             # insert
             if not new_insert_block(block=new_block, f_time=False, f_sign=False):
                 log.debug("failed to insert new block, rollback to {}".format(my_best_block.height-1))
                 my_best_block = builder.get_block(blockhash=my_best_block.previous_hash)
-                stack_dict.clear()
+                back_que.put(my_best_block.height + 1)
                 continue
             # request next chunk
             if len(stack_dict) < STACK_CHUNK_SIZE:
