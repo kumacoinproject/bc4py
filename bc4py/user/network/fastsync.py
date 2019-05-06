@@ -123,7 +123,9 @@ def _main_loop():
                 log.debug("request height is higher than network height! sync will not need?")
                 stack_dict.clear()
                 break
-            if builder.root_block is not None and new_block.height <= builder.root_block.height:
+            if builder.root_block is not None\
+                    and builder.root_block.height is not None\
+                    and new_block.height <= builder.root_block.height:
                 log.error("cannot rollback block depth height={}".format(new_block.height))
                 P.F_STOP = True
                 return
