@@ -20,12 +20,11 @@ def f_already_bind(port):
     return r
 
 
-def set_logger(level=INFO, prefix='main', f_file=False, f_remove=False):
+def set_logger(level=INFO, path=None, f_remove=False):
     """
     Setup logger
     :param level: logging level.
-    :param prefix: output filename. debug.{prefix}.log
-    :param f_file: write down to log file
+    :param path: output log file path
     :param f_remove: remove log file when restart.
     """
     logger = getLogger()
@@ -34,11 +33,11 @@ def set_logger(level=INFO, prefix='main', f_file=False, f_remove=False):
     logger.propagate = False
     logger.setLevel(DEBUG)
     formatter = Formatter('[%(levelname)-6s] [%(threadName)-10s] [%(asctime)-24s] %(message)s')
-    if f_file:
-        filepath = 'debug.{}.log'.format(prefix)
-        if f_remove and os.path.exists(filepath):
-            os.remove(filepath)
-        sh = FileHandler(filepath)
+    if path:
+        # recode if user sets path
+        if f_remove and os.path.exists(path):
+            os.remove(path)
+        sh = FileHandler(path)
         sh.setLevel(level)
         sh.setFormatter(formatter)
         logger.addHandler(sh)

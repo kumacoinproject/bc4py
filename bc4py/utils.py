@@ -4,7 +4,8 @@ from bc4py.chain.utils import GompertzCurve
 from Cryptodome.Cipher import AES
 from Cryptodome import Random
 from Cryptodome.Hash import SHA256
-from logging import getLogger
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+from logging import getLogger, DEBUG, INFO, WARNING, ERROR
 import multiprocessing
 import os
 import psutil
@@ -12,6 +13,12 @@ import sys
 
 WALLET_VERSION = 0
 log = getLogger('bc4py')
+NAME2LEVEL = {
+    'DEBUG': DEBUG,
+    'INFO': INFO,
+    'WARNING': WARNING,
+    'ERROR': ERROR,
+}
 
 
 def set_database_path(sub_dir=None):
@@ -54,6 +61,72 @@ def check_already_started():
     with open(pid_path, mode='w') as fp:
         fp.write(str(new_pid))
     log.info("create new process lock file pid={}".format(new_pid))
+
+
+def console_args_parser():
+    """get help by `python publicnode.py -h`"""
+    p = ArgumentParser(
+        description="Please run with `python3 publicnode.py --local --daemon`. "
+                    "Close by `curl --basic -u user:password -H \"accept: application/json\" "
+                    "127.0.0.1:3000/private/stop` or access the url by browser.",
+        formatter_class=ArgumentDefaultsHelpFormatter)
+    p.add_argument('--p2p',
+                   help='p2p server bind port',
+                   default=2000,
+                   type=int)
+    p.add_argument('--rest',
+                   help='REST API bind port',
+                   default=3000,
+                   type=int)
+    p.add_argument('--user', '-u',
+                   help='API user name',
+                   default='user',
+                   type=str)
+    p.add_argument('--password', '-p',
+                   help='API password',
+                   default='password',
+                   type=str)
+    p.add_argument('--sub-dir',
+                   help='setup blockchain folder path',
+                   default=None)
+    p.add_argument('--local',
+                   help='REST server bind local env',
+                   action='store_true')
+    p.add_argument('--log-level',
+                   help='logging level',
+                   choices=list(NAME2LEVEL),
+                   default='INFO')
+    p.add_argument('--log-path',
+                   help='recode log file path',
+                   default=None,
+                   type=str)
+    p.add_argument('--remove-log',
+                   help='remove old log file when start program',
+                   action='store_true')
+    p.add_argument('--daemon',
+                   help='make process daemon',
+                   action='store_true')
+    return p.parse_args()
+
+
+def make_daemon_process():
+    if os.name == 'nt':
+        # windows
+        # TODO: implement by https://masahito.hatenablog.com/entry/20110511/1305107553
+        print("cannot make daemon process")
+    else:
+        # other os?
+        pid = os.fork()
+        if pid > 0:
+            # main process
+            print("# make daemon process pid={}".format(pid))
+            print("# close by `curl --basic -u user:password -H \"accept: application/json\" "
+                  "127.0.0.1:3000/private/stop` or access the url by browser.")
+            print("# do not kill process or break database file.")
+            sys.exit()
+        if pid == 0:
+            # child process (daemon)
+            return
 
 
 class AESCipher:
@@ -141,6 +214,8 @@ __all__ = [
     "set_database_path",
     "set_blockchain_params",
     "check_already_started",
+    "console_args_parser",
+    "make_daemon_process",
     "AESCipher",
     "ProgressBar",
 ]

@@ -73,7 +73,7 @@ def work(port, sub_dir=None):
 
 
 if __name__ == '__main__':
-    set_logger(level=logging.DEBUG, f_file=True, f_remove=True)
+    set_logger(level=logging.DEBUG, path='debug.repair.log', f_remove=True)
     logging.info("\n{}\n====\n{}, chain-ver={}\n{}\n"
                  .format(__logo__, __version__, __chain_version__, __message__))
     work(port=2000)
