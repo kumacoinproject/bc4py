@@ -3,7 +3,7 @@
 
 from bc4py import __version__, __chain_version__, __message__, __logo__
 from bc4py.config import C, V, P
-from bc4py.utils import set_database_path, set_blockchain_params
+from bc4py.utils import set_database_path, set_blockchain_params, check_already_started
 from bc4py.user.tools import repair_wallet
 from bc4py.user.boot import *
 from bc4py.user.network import *
@@ -20,6 +20,7 @@ import logging
 def work(port, sub_dir=None):
     # BlockChain setup
     set_database_path(sub_dir=sub_dir)
+    check_already_started()
     builder.set_database_path()
     import_keystone(passphrase='hello python')
     check_account_db()

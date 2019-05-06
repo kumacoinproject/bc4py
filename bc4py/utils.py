@@ -41,24 +41,19 @@ def set_blockchain_params(genesis_block, params):
     V.BRANCH_NAME = get_current_branch()
 
 
-def delete_pid_file():
-    # PIDファイルを削除
-    pid_path = os.path.join(V.DB_HOME_DIR, 'pid.lock')
-    if os.path.exists(pid_path):
-        os.remove(pid_path)
-
-
-def make_pid_file():
-    # 既に起動していないかPIDをチェック
+def check_already_started():
+    assert V.DB_HOME_DIR is not None
+    # check already started
     pid_path = os.path.join(V.DB_HOME_DIR, 'pid.lock')
     if os.path.exists(pid_path):
         with open(pid_path, mode='r') as fp:
             pid = int(fp.read())
         if psutil.pid_exists(pid):
-            raise RuntimeError('Already running blockchain-py.')
-        os.remove(pid_path)
+            raise RuntimeError('Already running blockchain-py pid={}'.format(pid))
+    new_pid = os.getpid()
     with open(pid_path, mode='w') as fp:
-        fp.write(str(os.getpid()))
+        fp.write(str(new_pid))
+    log.info("create new process lock file pid={}".format(pid))
 
 
 class AESCipher:
@@ -145,8 +140,7 @@ class ProgressBar:
 __all__ = [
     "set_database_path",
     "set_blockchain_params",
-    "delete_pid_file",
-    "make_pid_file",
+    "check_already_started",
     "AESCipher",
     "ProgressBar",
 ]

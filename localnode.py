@@ -3,7 +3,7 @@
 
 from bc4py import __version__, __chain_version__, __message__, __logo__
 from bc4py.config import C, V, P
-from bc4py.utils import set_database_path, set_blockchain_params
+from bc4py.utils import set_database_path, set_blockchain_params, check_already_started
 # from bc4py.user.stratum import Stratum, start_stratum, close_stratum
 from bc4py.user.generate import *
 from bc4py.user.boot import *
@@ -37,6 +37,7 @@ def copy_boot(port):
 def work(port, sub_dir):
     # BlockChain setup
     set_database_path(sub_dir=sub_dir)
+    check_already_started()
     builder.set_database_path()
     copy_boot(port)
     import_keystone(passphrase='hello python')
