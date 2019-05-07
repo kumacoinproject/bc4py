@@ -8,14 +8,14 @@ You can mine by cpuminer, ccminer, sgminer, cgminer with no modification.
 
 important
 ----
-* Miner notify server hashing algorithm by `password` integer, please select by [config.py](/bc4py/config.py).
+* Miner notify server hash algorithm by `password` integer, please select by [config.py](/bc4py/config.py).
 * We mimic block header structure of Bitcoin, so you can use general mining tools with no modification.
 But it depends on program, because coinbase transaction is differ from Bitcoin's.
 * Please at your own risk about using a mining tool.
 
 yespower
 ----
-Yespower1.0 is anti GPU/ASIC hashing algorithm and next generation of yescrypt.
+Yespower1.0 is anti GPU/ASIC hash algorithm and next generation of yescrypt.
 * [cpuminer-opt](https://github.com/bellflower2015/cpuminer-opt)
 * [Binary](https://github.com/bellflower2015/cpuminer-opt/releases)
 
@@ -50,9 +50,10 @@ I hear hmq1725 is suitable for AMD GPU.
 cpuminer -a hmq1725 -o http://127.0.0.1:3000/json-rpc -u user -p 7
 ```
 
-X16R
+X16S
 ----
 * [avermore-miner](https://github.com/brian112358/avermore-miner)
+* [sgminer-kl](https://github.com/KL0nLutiy/sgminer-kl)
 ```commandline
-sgminer -k x16r -o http://127.0.0.1:3000/json-rpc -u user -p 9
+sgminer -k x16s -o http://127.0.0.1:3000/json-rpc -u user -p 9
 ```

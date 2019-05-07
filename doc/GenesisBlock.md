@@ -21,7 +21,7 @@ consensus = {
     C.BLOCK_FLK_POS: 7,  # fund-lock staking
     C.BLOCK_YES_POW: 27,  # Yespower mining
     C.BLOCK_X11_POW: 27,  # X11 mining
-    C.BLOCK_X16R_POW: 27}  # X16R mining
+    C.BLOCK_X16S_POW: 27}  # X16S mining
  
 # create first block
 genesis_block, genesis_params = create_genesis_block(

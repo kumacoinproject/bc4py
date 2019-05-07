@@ -42,7 +42,7 @@ class C:  # Constant
     BLOCK_X11_POW = 6
     BLOCK_HMQ_POW = 7
     BLOCK_LTC_POW = 8
-    BLOCK_X16R_POW = 9
+    BLOCK_X16S_POW = 9
     consensus2name = {
         BLOCK_GENESIS: 'GENESIS',
         BLOCK_COIN_POS: 'POS_COIN',
@@ -52,7 +52,7 @@ class C:  # Constant
         BLOCK_X11_POW: 'POW_X11',
         BLOCK_HMQ_POW: 'POW_HMQ',
         BLOCK_LTC_POW: 'POW_LTC',
-        BLOCK_X16R_POW: 'POW_X16R',
+        BLOCK_X16S_POW: 'POW_X16S',
     }
 
     # tx type
