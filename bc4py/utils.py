@@ -110,19 +110,20 @@ def console_args_parser():
 
 
 def make_daemon_process():
-    if os.name == 'nt':
+    if sys.platform == 'win32':
         # windows
-        # TODO: implement by https://masahito.hatenablog.com/entry/20110511/1305107553
-        print("cannot make daemon process")
+        if sys.executable.endswith("pythonw.exe"):
+            sys.stdout = open(os.devnull, "w")
+            sys.stderr = open(os.devnull, "w")
+        else:
+            print("ERROR: Please execute  by `pythonw.exe` not `python.exe` if you enable daemon flag")
+            sys.exit()
     else:
         # other os?
         pid = os.fork()
         if pid > 0:
             # main process
-            print("# make daemon process pid={}".format(pid))
-            print("# close by `curl --basic -u user:password -H \"accept: application/json\" "
-                  "127.0.0.1:3000/private/stop` or access the url by browser.")
-            print("# do not kill process or break database file.")
+            print("INFO: Make daemon process pid={}".format(pid))
             sys.exit()
         if pid == 0:
             # child process (daemon)

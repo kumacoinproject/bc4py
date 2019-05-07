@@ -5,6 +5,11 @@ Index page
 * [WebSocket response test](./test-response-ws.html)
 * [bootstrap3 components](https://getbootstrap.com/docs/3.3/components/)
 
+How to close client?
+----
+Do not kill process or break database file.
+* type `curl --basic -u user:password -H "accept: application/json" 127.0.0.1:3000/private/stop`
+* access the **[API](./private/stop)** on browser
 
 System
 ----
