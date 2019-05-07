@@ -63,9 +63,9 @@ def stand_client(p2p_port, sub_dir=None):
     # Debug.F_CONSTANT_DIFF = True
     # Debug.F_SHOW_DIFFICULTY = True
     # Debug.F_STICKY_TX_REJECTION = False  # for debug
-    Generate(consensus=C.BLOCK_YES_POW, power_limit=0.1).start()
-    Generate(consensus=C.BLOCK_X16R_POW, power_limit=0.1).start()
-    Generate(consensus=C.BLOCK_X11_POW, power_limit=0.1).start()
+    Generate(consensus=C.BLOCK_YES_POW, power_limit=0.05).start()
+    Generate(consensus=C.BLOCK_X16R_POW, power_limit=0.05).start()
+    Generate(consensus=C.BLOCK_X11_POW, power_limit=0.05).start()
     Generate(consensus=C.BLOCK_COIN_POS, power_limit=0.3).start()
     Generate(consensus=C.BLOCK_CAP_POS, power_limit=0.3).start()
     Thread(target=mined_newblock, name='GeneBlock', args=(output_que, pc)).start()
