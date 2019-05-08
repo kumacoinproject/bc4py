@@ -4,6 +4,7 @@ Index page
 * [REST response test](./test-response-rest.html)
 * [WebSocket response test](./test-response-ws.html)
 * [bootstrap3 components](https://getbootstrap.com/docs/3.3/components/)
+* [pyContract 8bit wallet](./8bitwallet.html)
 
 How to close client?
 ----

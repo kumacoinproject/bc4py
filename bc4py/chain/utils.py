@@ -1,5 +1,5 @@
 from bc4py.config import V, BlockChainError
-from io import BytesIO
+# from io import BytesIO
 import msgpack
 import math
 
@@ -41,16 +41,18 @@ class GompertzCurve:
 
 def bin2signature(b):
     # pk:33, r:32or33 s: 32
-    b = BytesIO(b)
-    d = list(msgpack.Unpacker(b, raw=True, use_list=False, encoding='utf8'))
-    return d
+    # b = BytesIO(b)
+    # d = list(msgpack.Unpacker(b, raw=True, use_list=False, encoding='utf8'))
+    # return d
+    return list(msgpack.unpackb(b, raw=True, use_list=False, encoding='utf8'))
 
 
 def signature2bin(s):
-    b = BytesIO()
-    for pk, r, s in s:
-        b.write(msgpack.packb((pk, r, s), use_bin_type=True))
-    return b.getvalue()
+    # b = BytesIO()
+    # for pk, r, s in s:
+    #    b.write(msgpack.packb((pk, r, s), use_bin_type=True))
+    # return b.getvalue()
+    return msgpack.packb(s, use_bin_type=True)
 
 
 def bits2target(bits):
