@@ -3,7 +3,6 @@ from bc4py.config import C, BlockChainError
 from bc4py_extension import poc_hash, poc_work, scope_index
 from bc4py.chain.utils import GompertzCurve
 from bc4py.chain.checking.utils import stake_coin_check
-from bc4py.chain.signature import get_signed_cks
 from bc4py.database.builder import tx_builder
 
 
@@ -120,7 +119,7 @@ def check_tx_poc_reward(tx, include_block):
                                                                               include_block.target_hash.hex()))
 
     # signature check
-    signed_cks = get_signed_cks(tx)
+    signed_cks = set(tx.verified_list)
     if len(signed_cks) != 1:
         raise BlockChainError('PoC signature num is wrong num={}'.format(len(signed_cks)))
     ck = signed_cks.pop()

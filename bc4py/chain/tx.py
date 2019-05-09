@@ -31,6 +31,7 @@ class TX(object):
         "message",  # 0~256**4 bytes bin
         # for verify
         "signature",  # [(pk, r, s),.. ]
+        "verified_list",  # [address: str, ..]
         "R",
         # meta info
         "height",
@@ -68,6 +69,7 @@ class TX(object):
         self.message = None
         # verify
         self.signature = list()
+        self.verified_list = list()
         self.R = b''
         # meta
         self.hash = None

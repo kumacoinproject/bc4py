@@ -4,7 +4,6 @@ from bc4py.database.tools import is_usedindex
 from bc4py.database.validator import *
 from bc4py.database.contract import *
 from bc4py.chain.checking.checktx import check_unconfirmed_order
-from bc4py.chain.signature import get_signed_cks
 from bc4py.user.generate import *
 from threading import Lock, Thread
 from time import time, sleep
@@ -97,7 +96,7 @@ def _update_unconfirmed_info():
                     log.error("Why include pre-unconfirmed? {}".format(tx))
                     continue
                 # check upgradable
-                signed_cks = get_signed_cks(tx)
+                signed_cks = set(tx.verified_list)
                 if v.require <= len(signed_cks & set(v.validators)):
                     del tx_builder.pre_unconfirmed[tx.hash]
                     if tx.hash in tx_builder.unconfirmed:

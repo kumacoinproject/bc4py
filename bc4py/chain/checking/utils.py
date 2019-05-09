@@ -3,7 +3,6 @@ from bc4py.bip32 import is_address
 from bc4py.database.builder import builder, tx_builder
 from bc4py.database.tools import get_usedindex
 from bc4py.database.validator import get_validator_object
-from bc4py.chain.signature import get_signed_cks
 from bc4py.user import Balance
 from hashlib import sha256
 
@@ -74,7 +73,7 @@ def amount_check(tx, payfee_coin_id):
 def signature_check(tx, include_block):
     require_cks = set()
     checked_cks = set()
-    signed_cks = get_signed_cks(tx)
+    signed_cks = set(tx.verified_list)
     for txhash, txindex in tx.inputs:
         input_tx = tx_builder.get_tx(txhash)
         if input_tx is None:

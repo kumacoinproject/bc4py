@@ -1,7 +1,7 @@
 from bc4py.config import C, V, P, executor, executor_lock, BlockChainError
 from bc4py.chain.tx import TX
 from bc4py.chain.block import Block
-from bc4py.chain.signature import batch_sign_cashe
+from bc4py.chain.signature import fill_verified_addr_many
 from bc4py.chain.workhash import get_workhash_fnc
 from bc4py.chain.checking import new_insert_block, check_tx, check_tx_time
 from bc4py.user.network.connection import *
@@ -81,11 +81,11 @@ def _back_loop():
             block_tmp = dict()
             task_list = list()
             for block in block_list:
-                batch_sign_cashe(txs=block.txs, b_block=block.b)
                 block_tmp[block.height] = block
                 if block.flag not in (C.BLOCK_GENESIS, C.BLOCK_CAP_POS, C.BLOCK_COIN_POS, C.BLOCK_FLK_POS):
                     task_list.append((block.height, block.flag, block.b))
             throw_hash_generate_task(task_list, block_list)
+            fill_verified_addr_many(block_list)
             # check
             if len(block_tmp) == 0:
                 log.debug("new block is empty, finished? height={}".format(request_height))
