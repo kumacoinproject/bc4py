@@ -42,7 +42,7 @@ class DataBase:
         'txindex': True,
         'addrindex': True,
         'timeout': None,
-        'sync': False
+        'sync': False,
     }
     database_list = [
         "_block",  # [blockhash] -> [height, time, work, b_block, flag, tx_len][txhash0]..[txhashN]

@@ -163,7 +163,8 @@ class Bip32(object):
 
         # Construct and return a new BIP32Key
         public = get_public_key(k_int, secp256k1)
-        return Bip32(secret=k_int, public=public, chain=Ir, depth=self.depth + 1, index=i, fpr=self.fingerprint(), path=path)
+        return Bip32(
+            secret=k_int, public=public, chain=Ir, depth=self.depth + 1, index=i, fpr=self.fingerprint(), path=path)
 
     def CKDpub(self, i):
         """
@@ -195,7 +196,8 @@ class Bip32(object):
 
         # Construct and return a new BIP32Key
         path = self.path + '/' + str(i)
-        return Bip32(secret=None, public=point, chain=Ir, depth=self.depth + 1, index=i, fpr=self.fingerprint(), path=path)
+        return Bip32(
+            secret=None, public=point, chain=Ir, depth=self.depth + 1, index=i, fpr=self.fingerprint(), path=path)
 
     def child_key(self, i):
         """

@@ -76,16 +76,11 @@ def target2bits(target):
     return bitsN << 24 | bitsBase
 
 
-def check_output_format(outputs):
-    for o in outputs:
-        if not isinstance(o, tuple):
-            raise BlockChainError('Outputs is tuple.')
-        elif len(o) != 3:
-            raise BlockChainError('Output is three element.')
-        address, coin_id, amount = o
-        if not isinstance(address, str):
-            raise BlockChainError('output address is string {}'.format(address))
-        elif not isinstance(coin_id, int) or coin_id < 0:
-            raise BlockChainError('output coin_id is 0< int. {}'.format(coin_id))
-        elif not isinstance(amount, int) or not (amount > 0):
-            raise BlockChainError('output amount is 0<= int. {}'.format(amount))
+__all__ = [
+    "MAX_256_INT",
+    "GompertzCurve",
+    "bin2signature",
+    "signature2bin",
+    "bits2target",
+    "target2bits",
+]
