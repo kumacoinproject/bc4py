@@ -149,6 +149,9 @@ def seek_nodes(cmd, data=None):
 
 
 def get_best_conn_info():
+    while best_height_on_network is None:
+        set_good_node()
+        sleep(0.1)
     return best_height_on_network, best_hash_on_network
 
 

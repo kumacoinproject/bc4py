@@ -127,6 +127,8 @@ def make_daemon_process():
             sys.exit()
         if pid == 0:
             # child process (daemon)
+            sys.stdout = open(os.devnull, "w")
+            sys.stderr = open(os.devnull, "w")
             return
 
 

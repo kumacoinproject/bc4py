@@ -39,6 +39,21 @@ def fill_verified_addr_many(blocks):
     log.debug("verify {} signs by {}sec".format(len(tasks), round(time() - s, 3)))
 
 
+def fill_verified_addr_tx(tx):
+    assert tx.type != C.TX_POS_REWARD
+    # format check
+    for sign in tx.signature:
+        assert isinstance(sign, tuple), tx.getinfo()
+    # get data to verify
+    tasks = dict()
+    for pk, r, s in tx.signature:
+        tasks[(s, r, pk, tx.b)] = tx
+    # throw task
+    if len(tasks) == 0:
+        return
+    throw_tasks(tasks, V.BECH32_HRP, C.ADDR_NORMAL_VER)
+
+
 def get_verify_tasks(block):
     tasks = dict()
     for tx in block.txs:
@@ -64,10 +79,13 @@ def throw_tasks(tasks, hrp, ver):
             continue
         s, r, pk, binary = key
         address = get_address(pk=pk, hrp=hrp, ver=ver)
-        tasks[key].verified_list.append(address)
+        verified_list = tasks[key].verified_list
+        if address not in verified_list:
+            verified_list.append(address)
 
 
 __all__ = [
     "fill_verified_addr_single",
     "fill_verified_addr_many",
+    "fill_verified_addr_tx",
 ]

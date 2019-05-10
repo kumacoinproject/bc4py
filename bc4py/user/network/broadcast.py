@@ -2,6 +2,7 @@ from bc4py.config import C, V, P, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.chain.checking import new_insert_block, check_tx, check_tx_time
+from bc4py.chain.signature import fill_verified_addr_tx
 from bc4py.database.builder import builder, tx_builder
 from bc4py.user.network.update import update_info_for_generate
 from bc4py.user.network.directcmd import DirectCmd
@@ -49,6 +50,7 @@ class BroadcastCmd:
         try:
             new_tx: TX = data['tx']
             check_tx_time(new_tx)
+            fill_verified_addr_tx(new_tx)
             check_tx(tx=new_tx, include_block=None)
             if new_tx.type in (C.TX_VALIDATOR_EDIT, C.TX_CONCLUDE_CONTRACT):
                 tx_builder.marge_signature(tx=new_tx)

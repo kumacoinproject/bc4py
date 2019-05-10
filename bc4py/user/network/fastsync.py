@@ -189,7 +189,7 @@ def _main_loop():
                 except BlockChainError as e:
                     log.debug("2: Failed get unconfirmed '{}'".format(e))
         # fast sync finish
-        log.info("fast sync finished start={} finish={} {}mSec".format(
+        log.info("fast sync finished start={} finish={} {}m".format(
             start_height, builder.best_block.height, int((time()-start_time)/60)))
         P.F_NOW_BOOTING = False
         update_info_for_generate()

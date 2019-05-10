@@ -4,7 +4,6 @@ from bc4py.chain import msgpack
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.bip32 import Bip32, BIP32_HARDEN
-from bc4py.database.builder import tx_builder
 from bc4py.chain.checking import new_insert_block
 from random import randint
 from binascii import a2b_hex
@@ -91,11 +90,6 @@ def load_bootstrap_file(boot_path=None):
             block.work_hash = work_hash
             block._bias = _bias
             for tx in block.txs:
-                tx.height = None
-                if tx.type in (C.TX_POW_REWARD, C.TX_POS_REWARD):
-                    continue
-                tx_builder.put_unconfirmed(tx)
-            for tx in block.txs:
                 tx.height = block.height
             new_insert_block(block=block, f_time=False, f_sign=True)
             if block.height % 1000 == 0:
@@ -110,6 +104,7 @@ def import_keystone(passphrase='', auto_create=True):
     if os.path.exists(keystone_path):
         # import from keystone file
         bip = load_keystone(keystone_path)
+        bip.path = "m/44'/{}'".format(C.BIP44_COIN_TYPE % BIP32_HARDEN)
         log.info("load keystone file {}".format(bip))
     elif auto_create:
         # create keystone file
@@ -117,7 +112,6 @@ def import_keystone(passphrase='', auto_create=True):
         log.warning("create keystone file {}".format(bip))
     else:
         raise Exception('Not found keystone file!')
-    bip.path = "m/44'/{}'".format(C.BIP44_COIN_TYPE % BIP32_HARDEN)
     V.EXTENDED_KEY_OBJ = bip
 
 

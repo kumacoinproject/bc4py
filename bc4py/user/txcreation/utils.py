@@ -136,6 +136,7 @@ def setup_signature(tx, input_address):
         sign_pairs = message2signature(raw=tx.b, address=address)
         if sign_pairs not in tx.signature:
             tx.signature.append(sign_pairs)
+            tx.verified_list.append(address)
             count += 1
     return count
 
