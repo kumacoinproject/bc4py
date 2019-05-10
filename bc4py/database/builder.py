@@ -609,7 +609,7 @@ class ChainBuilder:
     def get_best_chain(self, best_block=None):
         assert self.root_block, 'Do not init.'
         if best_block:
-            best_chain = [best_block]
+            best_sets = {best_block}
             previous_hash = best_block.previous_hash
             while self.root_block.hash != previous_hash:
                 if previous_hash not in self.chain:
@@ -617,22 +617,24 @@ class ChainBuilder:
                         previous_hash.hex()))
                 block = self.chain[previous_hash]
                 previous_hash = block.previous_hash
-                best_chain.append(block)
+                best_sets.add(block)
+            # best_chain = [<height=n>, <height=n-1>, ...]
+            best_chain = sorted(best_sets, key=lambda x: x.height, reverse=True)
             return best_block, best_chain
         # BestBlockがchainにおける
         best_score = 0.0
         best_block = None
-        best_chain = list()
-        for block in list(self.chain.values()):
-            if block in best_chain:
+        best_sets = set()
+        for block in sorted(self.chain.values(), key=lambda x: x.create_time, reverse=True):
+            if block in best_sets:
                 continue
             tmp_best_score = block.score
             tmp_best_block = block
-            tmp_best_chain = [block]
+            tmp_best_sets = {block}
             while block.previous_hash in self.chain:
                 block = self.chain[block.previous_hash]
                 tmp_best_score += block.score
-                tmp_best_chain.append(block)
+                tmp_best_sets.add(block)
             else:
                 if self.root_block.hash != block.previous_hash:
                     continue
@@ -640,13 +642,14 @@ class ChainBuilder:
                 continue
             best_score = tmp_best_score
             best_block = tmp_best_block
-            best_chain = tmp_best_chain
+            best_sets = tmp_best_sets
         # txのheightを揃える
-        for block in best_chain:
+        for block in best_sets:
             for tx in block.txs:
                 tx.height = block.height
         assert best_block, 'Cannot find best_block on get_best_chain? chain={}'.format(list(self.chain))
         # best_chain = [<height=n>, <height=n-1>, ...]
+        best_chain = sorted(best_sets, key=lambda x: x.height, reverse=True)
         return best_block, best_chain
 
     def batch_apply(self):
@@ -748,29 +751,27 @@ class ChainBuilder:
             return  # 操作を加える必要は無い
         # tx heightを合わせる
         old_best_chain = self.best_chain.copy()
-        commons = set(new_best_chain) & set(old_best_chain)
-        for index, block in enumerate(old_best_chain):
-            if block not in commons:
-                try:
-                    old_best_chain[index + 1].next_hash = None
-                except IndexError:
-                    pass
-                for tx in block.txs:
-                    tx.height = None
-                block.f_orphan = True
-        for index, block in enumerate(new_best_chain):
-            if block not in commons:
-                try:
-                    new_best_chain[index + 1].next_hash = block.hash
-                except IndexError:
-                    pass
-                for tx in block.txs:
-                    tx.height = block.height
-                block.f_orphan = False
+        new_best_sets = set(new_best_chain) - set(old_best_chain)
+        old_best_sets = set(old_best_chain) - set(new_best_chain)
+        for index, block in enumerate(old_best_sets):
+            try:
+                old_best_chain[index + 1].next_hash = None
+            except IndexError:
+                pass
+            for tx in block.txs:
+                tx.height = None
+            block.f_orphan = True
+        for index, block in enumerate(new_best_sets):
+            try:
+                new_best_chain[index + 1].next_hash = block.hash
+            except IndexError:
+                pass
+            for tx in block.txs:
+                tx.height = block.height
+            block.f_orphan = False
         # 変化しているので反映する
         self.best_block, self.best_chain = new_best_block, new_best_chain
-        tx_builder.affect_new_chain(
-            new_best_chain=set(new_best_chain) - commons, old_best_chain=set(old_best_chain) - commons)
+        tx_builder.affect_new_chain(new_best_sets=new_best_sets, old_best_sets=old_best_sets)
 
     def get_block(self, blockhash=None, height=None):
         if height is not None:
@@ -901,7 +902,7 @@ class TransactionBuilder:
     def __contains__(self, item):
         return bool(self.get_tx(item.hash))
 
-    def affect_new_chain(self, old_best_chain, new_best_chain):
+    def affect_new_chain(self, old_best_sets, new_best_sets):
 
         def input_check(_tx):
             for input_hash, input_index in _tx.inputs:
@@ -910,14 +911,14 @@ class TransactionBuilder:
             return False
 
         # 状態を戻す
-        for block in old_best_chain:
+        for block in old_best_sets:
             for tx in block.txs:
                 if tx.hash not in self.unconfirmed and tx.type not in (C.TX_POW_REWARD, C.TX_POS_REWARD):
                     self.unconfirmed[tx.hash] = tx
                 if tx.hash in self.chained_tx:
                     del self.chained_tx[tx.hash]
         # 新規に反映する
-        for block in new_best_chain:
+        for block in new_best_sets:
             for tx in block.txs:
                 if tx.hash not in self.chained_tx:
                     self.chained_tx[tx.hash] = tx

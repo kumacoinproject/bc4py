@@ -31,6 +31,9 @@ def new_insert_block(block, f_time=True, f_sign=True):
             builder.new_block(block)
             for tx in block.txs:
                 user_account.affect_new_tx(tx)
+            # insert database
+            builder.batch_apply()
+            # inner streaming
             if not stream.is_disposed:
                 stream.on_next(block)
             log.info("check success {}Sec {}.".format(round(time() - t, 3), block))
