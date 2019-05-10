@@ -32,8 +32,11 @@ def fill_verified_addr_many(blocks):
                 assert isinstance(sign, tuple), tx.getinfo()
         # get data to verify
         tasks.update(get_verify_tasks(block))
+    # throw task
+    if len(tasks) == 0:
+        return
     throw_tasks(tasks, V.BECH32_HRP, C.ADDR_NORMAL_VER)
-    log.info("verify {} signs by {}sec".format(len(tasks), round(time() - s, 3)))
+    log.debug("verify {} signs by {}sec".format(len(tasks), round(time() - s, 3)))
 
 
 def get_verify_tasks(block):
