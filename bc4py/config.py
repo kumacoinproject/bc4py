@@ -1,24 +1,11 @@
 from rx.subjects import Subject
-from concurrent.futures import ProcessPoolExecutor
-from threading import Lock
 import atexit
-import psutil
+
 
 # internal stream by ReactiveX
 # doc: https://github.com/ReactiveX/RxPY/blob/develop/notebooks/Getting%20Started.ipynb
 stream = Subject()
 atexit.register(stream.dispose)
-
-# multiprocessing executor
-max_process_num = 4
-logical_cpu_num = psutil.cpu_count(logical=True) or max_process_num
-physical_cpu_nam = psutil.cpu_count(logical=False) or max_process_num
-max_workers = min(logical_cpu_num, physical_cpu_nam)
-executor = ProcessPoolExecutor(max_workers=max_workers)
-atexit.register(executor.shutdown, wait=True)
-
-# executor "submit+add_callback_done" lock
-executor_lock = Lock()
 
 
 class C:  # Constant
@@ -178,9 +165,6 @@ class BlockChainError(Exception):
 
 __all__ = [
     'stream',
-    'max_workers',
-    'executor',
-    'executor_lock',
     'C',
     'V',
     'P',

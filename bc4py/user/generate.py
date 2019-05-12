@@ -101,7 +101,7 @@ class Generate(Thread):
     def proof_of_work(self):
         global mining_address
         spans_deque = deque(maxlen=8)
-        how_many = 100
+        request_num = 100
         base_span = 10
         work_span = base_span * self.power_limit
         sleep_span = base_span * (1.0 - self.power_limit)
@@ -113,7 +113,7 @@ class Generate(Thread):
                 continue
             mining_block = create_mining_block(self.consensus)
             # throw task
-            new_span = generate_many_hash(mining_block, how_many)
+            new_span = generate_many_hash(mining_block, request_num)
             spans_deque.append(new_span)
             # check block
             if previous_block is None or unconfirmed_txs is None:
@@ -126,15 +126,15 @@ class Generate(Thread):
             else:
                 # Mined yay!!!
                 confirmed_generating_block(mining_block)
-            # generate next mining how_many
+            # generate next mining request_num
             try:
-                self.hashrate = (how_many * len(spans_deque) // sum(spans_deque), time())
+                self.hashrate = (request_num * len(spans_deque) // sum(spans_deque), time())
                 bias = sum(work_span * i for i, span in enumerate(spans_deque))
                 bias /= sum(span * i for i, span in enumerate(spans_deque))
                 bias = min(2.0, max(0.5, bias))
-                how_many = max(100, int(how_many * bias))
+                request_num = max(100, int(request_num * bias))
                 if int(time()) % 90 == 0:
-                    log.info("Mining... Next target how_many is {} {}".format(how_many,
+                    log.info("Mining... Next target request_num is {} {}".format(request_num,
                                                                               "Up" if bias > 1 else "Down"))
             except ZeroDivisionError:
                 pass
