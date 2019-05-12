@@ -109,27 +109,38 @@ def console_args_parser():
     return p.parse_args()
 
 
-def make_daemon_process():
+def check_process_status(f_daemon):
     if sys.platform == 'win32':
         # windows
-        if sys.executable.endswith("pythonw.exe"):
-            sys.stdout = open(os.devnull, "w")
-            sys.stderr = open(os.devnull, "w")
+        if f_daemon:
+            if sys.executable.endswith("pythonw.exe"):
+                sys.stdout = open(os.devnull, "w")
+                sys.stderr = open(os.devnull, "w")
+            else:
+                print("ERROR: Please execute  by `pythonw.exe` not `python.exe` if you enable daemon flag")
+                sys.exit()
         else:
-            print("ERROR: Please execute  by `pythonw.exe` not `python.exe` if you enable daemon flag")
-            sys.exit()
+            if sys.executable.endswith("pythonw.exe"):
+                print("ERROR: Please execute  by `python.exe`")
+                sys.exit()
+            else:
+                # stdin close to prevent lock on console
+                sys.stdin.close()
     else:
-        # other os?
-        pid = os.fork()
-        if pid > 0:
-            # main process
-            print("INFO: Make daemon process pid={}".format(pid))
-            sys.exit()
-        if pid == 0:
-            # child process (daemon)
-            sys.stdout = open(os.devnull, "w")
-            sys.stderr = open(os.devnull, "w")
-            return
+        # other
+        if f_daemon:
+            pid = os.fork()
+            if pid == 0:
+                # child process (daemon)
+                sys.stdout = open(os.devnull, "w")
+                sys.stderr = open(os.devnull, "w")
+            else:
+                # main process
+                print("INFO: Make daemon process pid={}".format(pid))
+                sys.exit()
+        else:
+            # stdin close to prevent lock on console
+            sys.stdin.close()
 
 
 class AESCipher:
@@ -218,7 +229,7 @@ __all__ = [
     "set_blockchain_params",
     "check_already_started",
     "console_args_parser",
-    "make_daemon_process",
+    "check_process_status",
     "AESCipher",
     "ProgressBar",
 ]
