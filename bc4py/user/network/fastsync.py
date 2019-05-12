@@ -1,4 +1,4 @@
-from bc4py.config import C, V, P, executor, executor_lock, BlockChainError
+from bc4py.config import C, V, P, BlockChainError
 from bc4py.chain.tx import TX
 from bc4py.chain.block import Block
 from bc4py.chain.signature import fill_verified_addr_many
@@ -9,6 +9,7 @@ from bc4py.user.network.update import update_info_for_generate
 from bc4py.user.network.directcmd import DirectCmd
 from bc4py.database.create import create_db
 from bc4py.database.builder import builder, tx_builder
+from concurrent.futures import ThreadPoolExecutor
 from threading import Thread, Event, Lock
 from queue import Queue, Empty
 from logging import getLogger
@@ -21,33 +22,18 @@ stack_lock = Lock()
 stack_dict = dict()
 stack_event = Event()
 STACK_CHUNK_SIZE = 100
+PROOF_OF_WORK_FLAGS = (
+    C.BLOCK_YES_POW, C.BLOCK_X11_POW, C.BLOCK_HMQ_POW, C.BLOCK_LTC_POW, C.BLOCK_X16S_POW)
 
 
-def _work(task_list):
-    result = list()
-    for height, flag, binary in task_list:
-        try:
-            hashed = get_workhash_fnc(flag)(binary)
-            result.append((height, hashed))
-        except Exception as e:
-            result.append((height, str(e)))
-    return result
+def _target(blocks):
+    for block in blocks:
+        block.work_hash = get_workhash_fnc(block.flag)(block.b)
 
 
-def throw_hash_generate_task(task_list, block_list):
-    with executor_lock:
-        future = executor.submit(_work, task_list)
-    block_dict = {block.height: block for block in block_list}
-    data_list = future.result()
-    if len(data_list) == 0:
-        return
-    for height, hashed in data_list:
-        if isinstance(hashed, str):
-            log.error('error on generate hash: "{}"'.format(hashed))
-        elif height in block_dict:
-            block_dict[height].work_hash = hashed
-        else:
-            log.warning("not found height on stack_dict? height={}".format(height))
+def get_work_generate_future(blocks):
+    with ThreadPoolExecutor(max_workers=1) as e:
+        return e.submit(_target, blocks)
 
 
 def get_block_from_stack(height):
@@ -82,10 +68,11 @@ def _back_loop():
             task_list = list()
             for block in block_list:
                 block_tmp[block.height] = block
-                if block.flag not in (C.BLOCK_GENESIS, C.BLOCK_CAP_POS, C.BLOCK_COIN_POS, C.BLOCK_FLK_POS):
-                    task_list.append((block.height, block.flag, block.b))
-            throw_hash_generate_task(task_list, block_list)
+                if block.flag in PROOF_OF_WORK_FLAGS:
+                    task_list.append(block)
+            future = get_work_generate_future(task_list)
             fill_verified_addr_many(block_list)
+            future.done()
             # check
             if len(block_tmp) == 0:
                 log.debug("new block is empty, finished? height={}".format(request_height))
