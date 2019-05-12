@@ -2,7 +2,7 @@ from bc4py.config import C, V, P, BlockChainError
 from bc4py.bip32 import is_address
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
-from bc4py.chain.workhash import generate_many_hash
+from bc4py.chain.workhash import generate_many_hash, get_executor_object
 from bc4py.chain.difficulty import get_bits_by_hash
 from bc4py.chain.utils import GompertzCurve
 from bc4py.chain.checking.utils import stake_coin_check
@@ -10,6 +10,7 @@ from bc4py.database.create import create_db
 from bc4py.database.account import message2signature, create_new_user_keypair
 from bc4py.database.tools import get_unspents_iter
 from bc4py_extension import multi_seek
+from concurrent.futures import ProcessPoolExecutor
 from threading import Thread
 from time import time, sleep
 from collections import deque
@@ -32,13 +33,13 @@ unconfirmed_txs: Optional[List] = None
 unspents_txs: Optional[List] = None
 staking_limit = 500
 optimize_file_name_re = re.compile("^optimized\\.([a-z0-9]+)\\-([0-9]+)\\-([0-9]+)\\.dat$")
+executor: Optional['ProcessPoolExecutor'] = None
 
 
 class Generate(Thread):
 
     def __init__(self, consensus, power_limit=1.0, **kwargs):
-        assert consensus in V.BLOCK_CONSENSUSES, \
-            "{} is not used by blockchain.".format(C.consensus2name[consensus])
+        assert consensus in V.BLOCK_CONSENSUSES
         assert 0.0 < power_limit <= 1.0
         super(Generate, self).__init__(name="Gene-{}".format(C.consensus2name[consensus]), daemon=True)
         self.consensus = consensus
@@ -47,6 +48,10 @@ class Generate(Thread):
         self.f_enable = True
         self.config = kwargs
         generating_threads.append(self)
+        # generate worker process (common)
+        if executor is None:
+            global executor
+            executor = get_executor_object()
 
     def __repr__(self):
         hashrate, _time = self.hashrate
@@ -111,7 +116,7 @@ class Generate(Thread):
                 continue
             mining_block = create_mining_block(self.consensus)
             # throw task
-            new_span = generate_many_hash(mining_block, request_num)
+            new_span = generate_many_hash(executor, mining_block, request_num)
             spans_deque.append(new_span)
             # check block
             if previous_block is None or unconfirmed_txs is None:

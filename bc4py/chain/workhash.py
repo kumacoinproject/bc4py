@@ -14,15 +14,6 @@ import psutil
 import atexit
 
 
-# multiprocessing executor
-max_process_num = 4
-logical_cpu_num = psutil.cpu_count(logical=True) or max_process_num
-physical_cpu_nam = psutil.cpu_count(logical=False) or max_process_num
-max_workers = min(logical_cpu_num, physical_cpu_nam)
-
-executor = ProcessPoolExecutor(max_workers)
-atexit.register(executor.shutdown, wait=True)
-
 log = getLogger('bc4py')
 
 
@@ -81,7 +72,7 @@ def update_work_hash(block):
         block.work_hash = hash_fnc(block.b)
 
 
-def generate_many_hash(block, request_num):
+def generate_many_hash(executor: ProcessPoolExecutor, block, request_num):
     assert request_num > 0
     # hash generating with multi-core
     future = executor.submit(_pow_generator, block.b, block.flag, request_num)
@@ -115,9 +106,21 @@ def _pow_generator(binary, block_flag, request_num):
         return None, error, start
 
 
+def get_executor_object(max_workers=None):
+    """PoW mining process generator"""
+    if max_workers is None:
+        max_process_num = 4
+        logical_cpu_num = psutil.cpu_count(logical=True) or max_process_num
+        physical_cpu_nam = psutil.cpu_count(logical=False) or max_process_num
+        max_workers = min(logical_cpu_num, physical_cpu_nam)
+    executor = ProcessPoolExecutor(max_workers)
+    atexit.register(executor.shutdown, wait=True)
+    return executor
+
+
 __all__ = [
-    "max_workers",
     "get_workhash_fnc",
     "update_work_hash",
     "generate_many_hash",
+    "get_executor_object",
 ]
