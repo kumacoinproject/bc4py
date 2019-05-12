@@ -49,8 +49,8 @@ class Generate(Thread):
         self.config = kwargs
         generating_threads.append(self)
         # generate worker process (common)
+        global executor
         if executor is None:
-            global executor
             executor = get_executor_object()
 
     def __repr__(self):
