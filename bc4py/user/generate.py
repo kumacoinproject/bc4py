@@ -1,4 +1,4 @@
-from bc4py.config import C, V, BlockChainError
+from bc4py.config import C, V, P, BlockChainError
 from bc4py.bip32 import is_address
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
@@ -10,11 +10,12 @@ from bc4py.database.create import create_db
 from bc4py.database.account import message2signature, create_new_user_keypair
 from bc4py.database.tools import get_unspents_iter
 from bc4py_extension import multi_seek
-from threading import Thread, Event
+from threading import Thread
 from time import time, sleep
 from collections import deque
 from random import random
 from logging import getLogger
+from typing import Optional, List, AnyStr
 import traceback
 import atexit
 import queue
@@ -25,19 +26,12 @@ log = getLogger('bc4py')
 generating_threads = list()
 output_que = queue.Queue()
 # mining share info
-mining_address = None
-previous_block = None
-unconfirmed_txs = None
-unspents_txs = None
+mining_address: Optional[AnyStr] = None
+previous_block: Optional[Block] = None
+unconfirmed_txs: Optional[List] = None
+unspents_txs: Optional[List] = None
 staking_limit = 500
 optimize_file_name_re = re.compile("^optimized\\.([a-z0-9]+)\\-([0-9]+)\\-([0-9]+)\\.dat$")
-
-
-def new_key(user=C.ANT_MINING):
-    with create_db(V.DB_ACCOUNT_PATH) as db:
-        ck = create_new_user_keypair(user, db.cursor())
-        db.commit()
-    return ck
 
 
 class Generate(Thread):
@@ -50,7 +44,7 @@ class Generate(Thread):
         self.consensus = consensus
         self.power_limit = min(1.0, max(0.01, power_limit))
         self.hashrate = (0, 0.0)  # [hash/s, update_time]
-        self.event_close = Event()
+        self.f_enable = True
         self.config = kwargs
         generating_threads.append(self)
 
@@ -67,11 +61,13 @@ class Generate(Thread):
         return "<Generate {} {} limit={}>".format(C.consensus2name[self.consensus], data, self.power_limit)
 
     def close(self):
-        self.event_close.clear()
+        self.f_enable = False
 
     def run(self):
-        self.event_close.set()
-        while self.event_close.is_set():
+        while self.f_enable:
+            while P.F_NOW_BOOTING:
+                # wait for booting finish
+                sleep(1)
             log.info("Start {} generating!".format(C.consensus2name[self.consensus]))
             try:
                 if self.consensus == C.BLOCK_COIN_POS:
@@ -82,10 +78,12 @@ class Generate(Thread):
                     raise BlockChainError("unimplemented")
                 else:
                     self.proof_of_work()
+            except FailedGenerateWarning as e:
+                log.debug("skip by \"{}\"".format(e))
             except BlockChainError as e:
                 log.warning(e)
                 sleep(5)
-            except AttributeError as e:
+            except AttributeError:
                 if 'previous_block.' in str(traceback.format_exc()):
                     log.debug("attribute error of previous_block, passed.")
                     sleep(1)
@@ -93,7 +91,7 @@ class Generate(Thread):
                     log.error("Unknown error wait60s...", exc_info=True)
                     sleep(60)
             except KeyError as e:
-                log.debug("Key error by lru_cache bug wait 5s...")
+                log.debug("Key error by lru_cache bug wait 5s... \"{}\"".format(e))
                 sleep(5)
             except Exception:
                 log.error("GeneratingError wait60s...", exc_info=True)
@@ -106,8 +104,7 @@ class Generate(Thread):
         base_span = 10
         work_span = base_span * self.power_limit
         sleep_span = base_span * (1.0 - self.power_limit)
-        self.event_close.set()
-        while self.event_close.is_set():
+        while self.f_enable:
             # check start mining
             if previous_block is None or unconfirmed_txs is None:
                 sleep(0.1)
@@ -145,8 +142,7 @@ class Generate(Thread):
     def proof_of_stake(self):
         global staking_limit
         limit_deque = deque(maxlen=10)
-        self.event_close.set()
-        while self.event_close.is_set():
+        while self.f_enable:
             # check start mining
             if previous_block is None or unconfirmed_txs is None or unspents_txs is None:
                 sleep(0.1)
@@ -218,8 +214,7 @@ class Generate(Thread):
 
     def proof_of_capacity(self):
         dir_path: str = self.config.get('path', os.path.join(V.DB_HOME_DIR, 'plots'))
-        self.event_close.set()
-        while self.event_close.is_set():
+        while self.f_enable:
             # check start mining
             if previous_block is None or unconfirmed_txs is None:
                 sleep(0.1)
@@ -304,8 +299,20 @@ class Generate(Thread):
 
 def create_mining_block(consensus):
     global mining_address
+    # setup mining address for PoW
+    if mining_address is None:
+        if V.MINING_ADDRESS is None:
+            with create_db(V.DB_ACCOUNT_PATH) as db:
+                cur = db.cursor()
+                mining_address = create_new_user_keypair(C.ANT_MINING, cur)
+                db.commit()
+        else:
+            mining_address = V.MINING_ADDRESS
+    if unconfirmed_txs is None:
+        raise FailedGenerateWarning('unconfirmed_txs is None')
+    if previous_block is None:
+        raise FailedGenerateWarning('previous_block is None')
     # create proof_tx
-    mining_address = mining_address or V.MINING_ADDRESS or new_key()
     reward = GompertzCurve.calc_block_reward(previous_block.height + 1)
     fees = sum(tx.gas_amount * tx.gas_price for tx in unconfirmed_txs)
     proof_tx = TX.from_dict(
@@ -404,6 +411,10 @@ def update_unspents_txs(time_limit=0.2):
         proof_txs.append(proof_tx)
     unspents_txs = proof_txs
     return all_num, len(proof_txs)
+
+
+class FailedGenerateWarning(Exception):
+    pass  # skip this exception
 
 
 def close_generate():
