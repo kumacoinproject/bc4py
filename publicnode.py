@@ -85,8 +85,7 @@ def rest_server(f_local, user, password, rest_port):
 
 if __name__ == '__main__':
     p = console_args_parser()
-    if p.daemon:
-        make_daemon_process()
+    check_process_status(f_daemon=p.daemon)
     set_logger(level=logging.getLevelName(p.log_level), path=p.log_path, f_remove=p.remove_log)
     logging.info("\n{}\n====\n{}, chain-ver={}\n{}\n"
                  .format(__logo__, __version__, __chain_version__, __message__))
