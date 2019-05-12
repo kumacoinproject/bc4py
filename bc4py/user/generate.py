@@ -16,6 +16,7 @@ from collections import deque
 from random import random
 from logging import getLogger
 import traceback
+import atexit
 import queue
 import os
 import re
@@ -65,7 +66,7 @@ class Generate(Thread):
             data = "{}Mh/s".format(round(hashrate / 1000000, 3))
         return "<Generate {} {} limit={}>".format(C.consensus2name[self.consensus], data, self.power_limit)
 
-    def close(self, timeout=120):
+    def close(self):
         self.event_close.clear()
 
     def run(self):
@@ -408,6 +409,11 @@ def update_unspents_txs(time_limit=0.2):
 def close_generate():
     for t in generating_threads:
         t.close()
+    if 0 < len(generating_threads):
+        log.info("close generate thread")
+
+
+atexit.register(close_generate)
 
 
 __all__ = [
@@ -419,5 +425,4 @@ __all__ = [
     "update_previous_block",
     "update_unconfirmed_txs",
     "update_unspents_txs",
-    "close_generate",
 ]

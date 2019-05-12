@@ -80,7 +80,6 @@ def rest_server(f_local, user, password, rest_port):
     P.F_STOP = True
     builder.close()
     V.PC_OBJ.close()
-    close_generate()
 
 
 if __name__ == '__main__':

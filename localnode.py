@@ -106,7 +106,6 @@ def work(port, sub_dir):
         builder.close()
         # close_stratum()
         pc.close()
-        close_generate()
     except KeyboardInterrupt:
         logging.debug("KeyboardInterrupt.")
 

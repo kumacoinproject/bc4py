@@ -444,6 +444,7 @@ class ChainBuilder:
         self.db = DataBase(f_dummy=True)
 
     def close(self):
+        # require manual close
         self.db.batch_create()
         self.save_memory_file()
         self.db.close()
