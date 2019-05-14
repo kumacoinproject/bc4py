@@ -71,13 +71,19 @@ class Bip32(object):
         If public is True, return a public-only key regardless of input type.
         """
         # Sanity checks
-        raw = check_decode(key)
+        if isinstance(key, str):
+            raw = check_decode(key)
+        else:
+            raw = b'\x00\x00\x00\x00' + key
         if len(raw) != 78:
             raise ValueError("extended key format wrong length")
 
         # Verify address version/type
         version = raw[:4]
-        if version in EX_MAIN_PRIVATE:
+        if version == b'\x00\x00\x00\x00':
+            is_testnet = None
+            is_pubkey = None
+        elif version in EX_MAIN_PRIVATE:
             is_testnet = False
             is_pubkey = False
         elif version in EX_TEST_PRIVATE:
@@ -97,17 +103,20 @@ class Bip32(object):
         fpr = raw[5:9]
         child = struct.unpack(">L", raw[9:13])[0]
         chain = raw[13:45]
-        secret = raw[45:78]
+        data = raw[45:78]
+
+        # check prefix of key
+        is_pubkey = (data[0] == 2 or data[0] == 3)
 
         # Extract private key or public key point
         if not is_pubkey:
-            secret = int.from_bytes(secret[1:], 'big')
+            secret = int.from_bytes(data[1:], 'big')
             public = get_public_key(secret, secp256k1)
         else:
             # Recover public curve point from compressed key
             # Python3 FIX
-            lsb = secret[0] & 1 if type(secret[0]) == int else ord(secret[0]) & 1
-            x = int.from_bytes(secret[1:], 'big')
+            lsb = data[0] & 1 if type(data[0]) == int else ord(data[0]) & 1
+            x = int.from_bytes(data[1:], 'big')
             ys = (x**3 + 7) % FIELD_ORDER  # y^2 = x^3 + 7 mod p
             y, _ = mod_sqrt(ys, FIELD_ORDER)
             if y & 1 != lsb:
@@ -245,19 +254,20 @@ class Bip32(object):
             version = EX_TEST_PRIVATE[0] if is_private else EX_TEST_PUBLIC[0]
         else:
             version = EX_MAIN_PRIVATE[0] if is_private else EX_MAIN_PUBLIC[0]
-        depth = bytes(bytearray([self.depth]))
+        depth = self.depth.to_bytes(1, 'big')
         fpr = self.parent_fpr
         child = struct.pack('>L', self.index)
         chain = self.chain
         if self.secret is None or is_private is False:
+            # startswith b'\x02' or b'\x03'
             data = self.get_public_key()
         else:
+            # startswith b'\x00'
             data = b'\x00' + self.get_private_key()
-        raw = version + depth + fpr + child + chain + data
-        if not encoded:
-            return raw
+        if encoded:
+            return check_encode(version + depth + fpr + child + chain + data)
         else:
-            return check_encode(raw)
+            return depth + fpr + child + chain + data
 
     def wallet_import_format(self, prefix=WALLET_VERSION):
         """Returns private key encoded for wallet import"""
@@ -303,8 +313,20 @@ def parse_bip32_path(path):
     return r
 
 
+def struct_bip32_path(path):
+    """struct BIP32 string path"""
+    s = 'm'
+    for p in path:
+        if p & BIP32_HARDEN:
+            s += "/{}'".format(p % BIP32_HARDEN)
+        else:
+            s += "/{}".format(p)
+    return s
+
+
 __all__ = [
     "BIP32_HARDEN",
     "Bip32",
     "parse_bip32_path",
+    "struct_bip32_path",
 ]
