@@ -15,7 +15,7 @@ emulators = list()
 lock = Lock()
 
 
-class Emulate:
+class Emulate(object):
 
     def __init__(self, c_address, f_claim_gas=True):
         self.c_address = c_address

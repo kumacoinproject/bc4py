@@ -34,7 +34,7 @@ ERROR_CODES = [
 F_DEEP_DEBUG = True
 
 
-class Stratum:
+class Stratum(object):
 
     def __init__(self, port, consensus, first_difficulty=128, f_local=True):
         warnings.warn("not work", ResourceWarning)

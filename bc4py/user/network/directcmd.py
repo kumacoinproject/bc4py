@@ -46,7 +46,7 @@ def _big_blocks(index_height):
     return data
 
 
-class DirectCmd:
+class DirectCmd(object):
     BEST_INFO = 'cmd/v1/best-info'
     BLOCK_BY_HEIGHT = 'cmd/v1/block-by-height'
     BLOCK_BY_HASH = 'cmd/v1/block-by-hash'

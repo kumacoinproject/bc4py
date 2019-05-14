@@ -215,7 +215,7 @@ def extract_keypair(user, is_inner, index, cur):
     return bip.child_key(user + BIP32_HARDEN).child_key(int(is_inner)).child_key(index)
 
 
-class MoveLog:
+class MoveLog(object):
     __slots__ = ("txhash", "type", "movement", "time", "tx_ref")
 
     def __init__(self, txhash, _type, movement, _time, tx=None):

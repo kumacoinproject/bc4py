@@ -59,7 +59,7 @@ async def websocket_protocol_check(request, is_public):
     return WsConnection(ws=ws, request=request, is_public=is_public)
 
 
-class WsConnection:
+class WsConnection(object):
 
     def __init__(self, ws, request, is_public):
         global number

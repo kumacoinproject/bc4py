@@ -1,12 +1,10 @@
-from bc4py.config import V, BlockChainError
-# from io import BytesIO
 import msgpack
 import math
 
 MAX_256_INT = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 
 
-class GompertzCurve:
+class GompertzCurve(object):
     k = None  # total block reward supply
     b = 0.4
     c = 2.0

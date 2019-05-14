@@ -37,7 +37,7 @@ ZERO_FILLED_HASH = b'\x00' * 32
 DUMMY_VALIDATOR_ADDRESS = b'\x00' * ADDR_SIZE
 
 
-class DataBase:
+class DataBase(object):
     db_config = {
         'txindex': True,
         'addrindex': True,
@@ -428,7 +428,7 @@ class DataBase:
         log.debug("Insert new validator {} {}".format(v_address, index))
 
 
-class ChainBuilder:
+class ChainBuilder(object):
 
     def __init__(self, cashe_limit=C.CASHE_LIMIT, batch_size=C.BATCH_SIZE):
         assert cashe_limit > batch_size, 'cashe_limit > batch_size.'
@@ -808,7 +808,7 @@ class ChainBuilder:
         return self.db.read_block_hash(height)
 
 
-class TransactionBuilder:
+class TransactionBuilder(object):
 
     def __init__(self):
         # TXs that Blocks don't contain
@@ -951,7 +951,7 @@ class TransactionBuilder:
             log.warning("Removed {} unconfirmed txs".format(len(self.unconfirmed) - before_num))
 
 
-class UserAccount:
+class UserAccount(object):
 
     def __init__(self):
         self.db_balance = Accounting()
