@@ -324,15 +324,15 @@
 
   function actionCookie(action){
     if (action==='update'){
-        window.$cookies.set('mywallet-username', app.username);
-        window.$cookies.set('mywallet-password', app.password);
+        window.$cookies.set('8bit-wallet-username', app.username);
+        window.$cookies.set('8bit-wallet-password', app.password);
     } else if (action==='remove'){
-        window.$cookies.remove('mywallet-username');
-        window.$cookies.remove('mywallet-password');
+        window.$cookies.remove('8bit-wallet-username');
+        window.$cookies.remove('8bit-wallet-password');
     } else if (action==='init'){
-        if(!window.$cookies.isKey('mywallet-username')){ return; }
-        app.username = window.$cookies.get('mywallet-username');
-        app.password = window.$cookies.get('mywallet-password');
+        if(!window.$cookies.isKey('8bit-wallet-username')){ return; }
+        app.username = window.$cookies.get('8bit-wallet-username');
+        app.password = window.$cookies.get('8bit-wallet-password');
         loginCheck();
     }
   }

@@ -9,6 +9,7 @@ from base64 import b64encode
 
 async def get_block_by_height(request):
     f_pickled = request.query.get('pickle', False)
+    with_tx_info = request.query.get('txinfo', 'false')
     try:
         height = int(request.query['height'])
     except Exception as e:
@@ -20,7 +21,7 @@ async def get_block_by_height(request):
     if f_pickled:
         block = pickle.dumps(block)
         return web_base.json_res(b64encode(block).decode())
-    data = block.getinfo()
+    data = block.getinfo(with_tx_info == 'true')
     data['hex'] = block.b.hex()
     return web_base.json_res(data)
 
@@ -28,6 +29,7 @@ async def get_block_by_height(request):
 async def get_block_by_hash(request):
     try:
         f_pickled = request.query.get('pickle', False)
+        with_tx_info = request.query.get('txinfo', 'false')
         blockhash = request.query.get('hash')
         if blockhash is None:
             return web.Response(text="Not found height.", status=400)
@@ -38,7 +40,7 @@ async def get_block_by_hash(request):
         if f_pickled:
             block = pickle.dumps(block)
             return web_base.json_res(b64encode(block).decode())
-        data = block.getinfo()
+        data = block.getinfo(with_tx_info == 'true')
         data['size'] = block.size
         data['hex'] = block.b.hex()
         return web_base.json_res(data)

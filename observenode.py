@@ -3,7 +3,7 @@
 
 from bc4py import __version__, __chain_version__, __message__, __logo__
 from bc4py.config import V, P
-from bc4py.utils import set_database_path, set_blockchain_params
+from bc4py.utils import set_database_path, set_blockchain_params, check_already_started
 from bc4py.user.boot import *
 from bc4py.user.network import *
 from bc4py.user.api import create_rest_server
@@ -19,6 +19,7 @@ import logging
 def work(port, sub_dir=None):
     # BlockChain setup
     set_database_path(sub_dir=sub_dir)
+    check_already_started()
     builder.set_database_path()
     import_keystone(passphrase='hello python')
     check_account_db()
@@ -71,7 +72,7 @@ def work(port, sub_dir=None):
 
 
 if __name__ == '__main__':
-    set_logger(level=logging.DEBUG, f_file=True, f_remove=True)
+    set_logger(level=logging.DEBUG, path='debug.observe.log', f_remove=True)
     logging.info("\n{}\n====\n{}, chain-ver={}\n{}\n"
                  .format(__logo__, __version__, __chain_version__, __message__))
     work(port=2000)

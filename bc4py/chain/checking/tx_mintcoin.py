@@ -30,7 +30,7 @@ def check_tx_mint_coin(tx, include_block):
     owner_address = m_before.address
     if owner_address:
         require_cks.add(owner_address)
-    signed_cks = get_signed_cks(tx)
+    signed_cks = set(tx.verified_list)
     if signed_cks != require_cks:
         raise BlockChainError('Signature check failed. signed={} require={} lack={}'.format(
             signed_cks, require_cks, require_cks - signed_cks))

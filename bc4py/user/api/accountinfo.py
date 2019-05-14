@@ -3,7 +3,7 @@ from bc4py.bip32 import convert_address, addr2bin
 from bc4py.user import Balance
 from bc4py.user.api import web_base
 from bc4py.database.builder import builder, user_account
-from bc4py.database.create import closing, create_db
+from bc4py.database.create import create_db
 from bc4py.database.account import *
 from bc4py.database.tools import get_utxo_iter, get_unspents_iter
 from aiohttp import web
@@ -12,7 +12,7 @@ from aiohttp import web
 async def list_balance(request):
     confirm = int(request.query.get('confirm', 6))
     data = dict()
-    with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+    with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = db.cursor()
         users = user_account.get_balance(confirm=confirm, outer_cur=cur)
         for user, balance in users.items():
@@ -87,7 +87,7 @@ async def list_private_unspents(request):
 
 
 async def list_account_address(request):
-    with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+    with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = db.cursor()
         user_name = request.query.get('account', C.account2name[C.ANT_UNKNOWN])
         user_id = read_name2user(user_name, cur)
@@ -111,7 +111,7 @@ async def move_one(request):
         coin_id = int(post.get('coin_id', 0))
         amount = int(post['amount'])
         coins = Balance(coin_id, amount)
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+        with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = db.cursor()
             _from = read_name2user(ant_from, cur)
             _to = read_name2user(ant_to, cur)
@@ -130,7 +130,7 @@ async def move_many(request):
         coins = Balance()
         for k, v in post['coins'].items():
             coins[int(k)] += int(v)
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+        with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = db.cursor()
             _from = read_name2user(ant_from, cur)
             _to = read_name2user(ant_to, cur)
@@ -142,7 +142,7 @@ async def move_many(request):
 
 
 async def new_address(request):
-    with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+    with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = db.cursor()
         user_name = request.query.get('account', C.account2name[C.ANT_UNKNOWN])
         user_id = read_name2user(user_name, cur)
@@ -163,7 +163,7 @@ async def new_address(request):
 
 async def get_keypair(request):
     try:
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+        with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = db.cursor()
             address = request.query['address']
             uuid, keypair, path = read_address2keypair(address, cur)

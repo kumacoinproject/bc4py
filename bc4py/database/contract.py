@@ -81,7 +81,7 @@ class Storage(dict):
         return self
 
 
-class Contract:
+class Contract(object):
     __slots__ = ("c_address", "v_address", "version", "db_index", "binary", "extra_imports", "storage", "settings",
                  "start_hash", "finish_hash")
 

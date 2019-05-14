@@ -201,7 +201,7 @@ def objective_tx_signature_check(target_address, extra_tx: TX, v: Validator, inc
             raise BlockChainError('Not found address format {}'.format(address))
         checked_cks.add(address)
 
-    signed_cks = get_signed_cks(extra_tx)
+    signed_cks = set(extra_tx.verified_list)
     accept_cks = signed_cks & necessary_cks
     reject_cks = signed_cks - necessary_cks
     if len(reject_cks) > 0:
@@ -227,7 +227,7 @@ def objective_tx_signature_check(target_address, extra_tx: TX, v: Validator, inc
                 raise BlockChainError('Already included tx. height={}'.format(original_tx.height))
             if necessary_num == 0:
                 raise BlockChainError('Don\t need to marge signature.')
-            original_cks = get_signed_cks(original_tx)
+            original_cks = set(original_tx.verified_list)
             accept_new_cks = (signed_cks - original_cks) & necessary_cks
             if len(accept_new_cks) == 0:
                 raise BlockChainError('No new acceptable cks. ({} - {}) & {}'.format(

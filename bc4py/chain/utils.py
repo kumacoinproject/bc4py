@@ -1,12 +1,10 @@
-from bc4py.config import V, BlockChainError
-from io import BytesIO
 import msgpack
 import math
 
 MAX_256_INT = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 
 
-class GompertzCurve:
+class GompertzCurve(object):
     k = None  # total block reward supply
     b = 0.4
     c = 2.0
@@ -41,16 +39,18 @@ class GompertzCurve:
 
 def bin2signature(b):
     # pk:33, r:32or33 s: 32
-    b = BytesIO(b)
-    d = list(msgpack.Unpacker(b, raw=True, use_list=False, encoding='utf8'))
-    return d
+    # b = BytesIO(b)
+    # d = list(msgpack.Unpacker(b, raw=True, use_list=False, encoding='utf8'))
+    # return d
+    return list(msgpack.unpackb(b, raw=True, use_list=False, encoding='utf8'))
 
 
 def signature2bin(s):
-    b = BytesIO()
-    for pk, r, s in s:
-        b.write(msgpack.packb((pk, r, s), use_bin_type=True))
-    return b.getvalue()
+    # b = BytesIO()
+    # for pk, r, s in s:
+    #    b.write(msgpack.packb((pk, r, s), use_bin_type=True))
+    # return b.getvalue()
+    return msgpack.packb(s, use_bin_type=True)
 
 
 def bits2target(bits):
@@ -74,16 +74,11 @@ def target2bits(target):
     return bitsN << 24 | bitsBase
 
 
-def check_output_format(outputs):
-    for o in outputs:
-        if not isinstance(o, tuple):
-            raise BlockChainError('Outputs is tuple.')
-        elif len(o) != 3:
-            raise BlockChainError('Output is three element.')
-        address, coin_id, amount = o
-        if not isinstance(address, str):
-            raise BlockChainError('output address is string {}'.format(address))
-        elif not isinstance(coin_id, int) or coin_id < 0:
-            raise BlockChainError('output coin_id is 0< int. {}'.format(coin_id))
-        elif not isinstance(amount, int) or not (amount > 0):
-            raise BlockChainError('output amount is 0<= int. {}'.format(amount))
+__all__ = [
+    "MAX_256_INT",
+    "GompertzCurve",
+    "bin2signature",
+    "signature2bin",
+    "bits2target",
+    "target2bits",
+]

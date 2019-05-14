@@ -3,24 +3,50 @@ from bc4py.chain.utils import MAX_256_INT, bits2target
 from bc4py.chain.workhash import update_work_hash
 from hashlib import sha256
 from logging import getLogger
-import struct
+from struct import Struct
 from time import time
 from math import log2
 
 log = getLogger('bc4py')
-struct_block = struct.Struct('<I32s32sII4s')
+struct_block = Struct('<I32s32sII4s')
 
 
-class Block:
-    __slots__ = ("b", "hash", "next_hash", "target_hash", "work_hash", "height", "_difficulty", "_work_difficulty",
-                 "create_time", "flag", "f_orphan", "recode_flag", "_bias", "inner_score", "version",
-                 "previous_hash", "merkleroot", "time", "bits", "nonce", "txs", "__weakref__")
+class Block(object):
+    __slots__ = (
+        # data
+        "b",
+        # meta
+        "hash",
+        "next_hash",
+        "target_hash",
+        "work_hash",
+        "height",
+        "_difficulty",
+        "_work_difficulty",
+        "create_time",
+        "flag",
+        "f_orphan",
+        "recode_flag",
+        "_bias",
+        "inner_score",
+        # block header
+        "version",  # 4bytes int
+        "previous_hash",  # 32bytes bin
+        "merkleroot",  # 32bytes bin
+        "time",  # 4bytes int
+        "bits",  # 4bytes int
+        "nonce",  # 4bytes bin
+        # block body
+        "txs",
+        "__weakref__",
+    )
 
     def __eq__(self, other):
-        if isinstance(other, Block):
+        try:
             return self.hash == other.hash
-        log.warning("compare with {} by {}".format(self, other), exc_info=True)
-        return False
+        except Exception:
+            log.warning("compare with {} by {}".format(self, other), exc_info=True)
+            return False
 
     def __hash__(self):
         return hash(self.hash)
@@ -31,29 +57,29 @@ class Block:
                                                             round(self.score, 4), len(self.txs))
 
     def __init__(self):
+        # data
         self.b = None
-        # block id
-        self.hash = None  # header sha256 hash
-        self.next_hash = None  # next header sha256 hash
-        self.target_hash = None  # target hash
-        self.work_hash = None  # proof of work hash
-        # block params
+        # meta
+        self.hash = None
+        self.next_hash = None
+        self.target_hash = None
+        self.work_hash = None
         self.height = None
         self._difficulty = None
         self._work_difficulty = None
-        self.create_time = int(time())  # Objectの生成日時
+        self.create_time = time()  # Objectの生成日時
         self.flag = None  # mined consensus number
         self.f_orphan = None
         self.recode_flag = None
         self._bias = None  # bias 4bytes float
         self.inner_score = 1.0
         # block header
-        self.version = None  # ver 4bytes int
-        self.previous_hash = None  # previous header sha256 hash
-        self.merkleroot = None  # txs root hash 32bytes bin
-        self.time = None  # time 4bytes int
-        self.bits = None  # diff 4bytes int
-        self.nonce = None  # nonce 4bytes bin
+        self.version = None
+        self.previous_hash = None
+        self.merkleroot = None
+        self.time = None
+        self.bits = None
+        self.nonce = None
         # block body
         self.txs = list()  # tx object list
 
@@ -92,7 +118,7 @@ class Block:
             self.nonce = struct_block.unpack(self.b)
         self.hash = sha256(sha256(self.b).digest()).digest()
 
-    def getinfo(self):
+    def getinfo(self, f_with_tx_info=False):
         r = dict()
         r['hash'] = self.hash.hex() if self.hash else None
         try:
@@ -118,7 +144,10 @@ class Block:
         r['bits'] = self.bits
         r['bias'] = round(self.bias, 8)
         r['nonce'] = self.nonce.hex() if self.nonce else None
-        r['txs'] = [tx.hash.hex() for tx in self.txs]
+        if f_with_tx_info:
+            r['txs'] = [tx.getinfo() for tx in self.txs]
+        else:
+            r['txs'] = [tx.hash.hex() for tx in self.txs]
         r['create_time'] = self.create_time
         r['size'] = self.size
         return r

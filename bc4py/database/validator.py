@@ -15,7 +15,7 @@ F_REMOVE = -1
 F_NOP = 0
 
 
-class Validator:
+class Validator(object):
     __slots__ = ("v_address", "validators", "require", "db_index", "version", "txhash")
 
     def __init__(self, v_address):

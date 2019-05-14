@@ -1,13 +1,15 @@
-from bc4py.config import C, V, P, executor, executor_lock, BlockChainError
+from bc4py.config import C, V, P, BlockChainError
 from bc4py.chain.tx import TX
 from bc4py.chain.block import Block
-from bc4py.chain.signature import batch_sign_cashe
+from bc4py.chain.signature import fill_verified_addr_many
 from bc4py.chain.workhash import get_workhash_fnc
 from bc4py.chain.checking import new_insert_block, check_tx, check_tx_time
 from bc4py.user.network.connection import *
+from bc4py.user.network.update import update_info_for_generate
 from bc4py.user.network.directcmd import DirectCmd
-from bc4py.database.create import closing, create_db
+from bc4py.database.create import create_db
 from bc4py.database.builder import builder, tx_builder
+from concurrent.futures import ThreadPoolExecutor
 from threading import Thread, Event, Lock
 from queue import Queue, Empty
 from logging import getLogger
@@ -20,33 +22,18 @@ stack_lock = Lock()
 stack_dict = dict()
 stack_event = Event()
 STACK_CHUNK_SIZE = 100
+PROOF_OF_WORK_FLAGS = (
+    C.BLOCK_YES_POW, C.BLOCK_X11_POW, C.BLOCK_HMQ_POW, C.BLOCK_LTC_POW, C.BLOCK_X16S_POW)
 
 
-def _work(task_list):
-    result = list()
-    for height, flag, binary in task_list:
-        try:
-            hashed = get_workhash_fnc(flag)(binary)
-            result.append((height, hashed))
-        except Exception as e:
-            result.append((height, str(e)))
-    return result
+def _target(blocks):
+    for block in blocks:
+        block.work_hash = get_workhash_fnc(block.flag)(block.b)
 
 
-def throw_hash_generate_task(task_list, block_list):
-    with executor_lock:
-        future = executor.submit(_work, task_list)
-    block_dict = {block.height: block for block in block_list}
-    data_list = future.result()
-    if len(data_list) == 0:
-        return
-    for height, hashed in data_list:
-        if isinstance(hashed, str):
-            log.error('error on generate hash: "{}"'.format(hashed))
-        elif height in block_dict:
-            block_dict[height].work_hash = hashed
-        else:
-            log.warning("not found height on stack_dict? height={}".format(height))
+def get_work_generate_future(blocks):
+    with ThreadPoolExecutor(max_workers=1) as e:
+        return e.submit(_target, blocks)
 
 
 def get_block_from_stack(height):
@@ -58,10 +45,16 @@ def get_block_from_stack(height):
                 stack_event.clear()
             return block
         elif stack_event.wait(10):
-            continue  # event set!
+            # event set!
+            continue
         else:
-            back_que.put(height)
-            continue  # timeout
+            # timeout?
+            best_height_on_network, best_hash_on_network = get_best_conn_info()
+            if height < best_height_on_network:
+                back_que.put(height)
+            else:
+                return None
+            continue
 
 
 def _back_loop():
@@ -74,11 +67,12 @@ def _back_loop():
             block_tmp = dict()
             task_list = list()
             for block in block_list:
-                batch_sign_cashe(txs=block.txs, b_block=block.b)
                 block_tmp[block.height] = block
-                if block.flag not in (C.BLOCK_GENESIS, C.BLOCK_CAP_POS, C.BLOCK_COIN_POS, C.BLOCK_FLK_POS):
-                    task_list.append((block.height, block.flag, block.b))
-            throw_hash_generate_task(task_list, block_list)
+                if block.flag in PROOF_OF_WORK_FLAGS:
+                    task_list.append(block)
+            future = get_work_generate_future(task_list)
+            fill_verified_addr_many(block_list)
+            future.done()
             # check
             if len(block_tmp) == 0:
                 log.debug("new block is empty, finished? height={}".format(request_height))
@@ -112,25 +106,42 @@ def _main_loop():
         while True:
             new_block: Block = get_block_from_stack(my_best_block.height + 1)
             # check blockchain continuity
+            if new_block is None:
+                log.debug("request height is higher than network height! sync will not need?")
+                stack_dict.clear()
+                break
+            if builder.root_block is not None\
+                    and builder.root_block.height is not None\
+                    and new_block.height <= builder.root_block.height:
+                log.error("cannot rollback block depth height={}".format(new_block.height))
+                P.F_STOP = True
+                return
+            if new_block.hash in builder.chain:
+                log.debug("new block is already known {}".format(new_block))
+                my_best_block = builder.get_block(blockhash=new_block.hash)
+                continue
             if my_best_block.hash != new_block.previous_hash:
                 log.debug("not chained my_best_block with new_block, rollback to {}".format(my_best_block.height-1))
                 my_best_block = builder.get_block(blockhash=my_best_block.previous_hash)
-                stack_dict.clear()
+                back_que.put(my_best_block.height + 1)
                 continue
             if len(new_block.txs) <= 0:
                 log.debug("something wrong?, rollback to {}".format(my_best_block.height-1))
                 my_best_block = builder.get_block(blockhash=my_best_block.previous_hash)
-                stack_dict.clear()
+                back_que.put(my_best_block.height + 1)
                 continue
             # insert
             if not new_insert_block(block=new_block, f_time=False, f_sign=False):
                 log.debug("failed to insert new block, rollback to {}".format(my_best_block.height-1))
                 my_best_block = builder.get_block(blockhash=my_best_block.previous_hash)
-                stack_dict.clear()
+                back_que.put(my_best_block.height + 1)
                 continue
             # request next chunk
             if len(stack_dict) < STACK_CHUNK_SIZE:
-                back_que.put(max(stack_dict) + 1)
+                if 0 < len(stack_dict):
+                    back_que.put(max(stack_dict) + 1)
+                else:
+                    back_que.put(new_block.height + 1)
             # check reached top height
             best_height_on_network, best_hash_on_network = get_best_conn_info()
             if new_block.height < best_height_on_network:
@@ -155,7 +166,7 @@ def _main_loop():
                 unconfirmed_txs.append(tx)
             except BlockChainError as e:
                 log.debug("1: Failed get unconfirmed {} '{}'".format(txhash.hex(), e))
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+        with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = db.cursor()
             for tx in sorted(unconfirmed_txs, key=lambda x: x.time):
                 try:
@@ -165,9 +176,10 @@ def _main_loop():
                 except BlockChainError as e:
                     log.debug("2: Failed get unconfirmed '{}'".format(e))
         # fast sync finish
-        log.info("fast sync finished start={} finish={} {}mSec".format(
+        log.info("fast sync finished start={} finish={} {}m".format(
             start_height, builder.best_block.height, int((time()-start_time)/60)))
         P.F_NOW_BOOTING = False
+        update_info_for_generate()
     log.info("close by F_STOP flag")
 
 

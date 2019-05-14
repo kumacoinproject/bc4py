@@ -3,7 +3,7 @@
 
 from bc4py import __version__, __chain_version__, __message__, __logo__
 from bc4py.config import C, V, P
-from bc4py.utils import set_database_path, set_blockchain_params
+from bc4py.utils import set_database_path, set_blockchain_params, check_already_started
 # from bc4py.user.stratum import Stratum, start_stratum, close_stratum
 from bc4py.user.generate import *
 from bc4py.user.boot import *
@@ -37,6 +37,7 @@ def copy_boot(port):
 def work(port, sub_dir):
     # BlockChain setup
     set_database_path(sub_dir=sub_dir)
+    check_already_started()
     builder.set_database_path()
     copy_boot(port)
     import_keystone(passphrase='hello python')
@@ -85,7 +86,7 @@ def work(port, sub_dir):
     elif port % 3 == 0:
         Generate(consensus=C.BLOCK_YES_POW, power_limit=0.03).start()
     elif port % 3 == 1:
-        Generate(consensus=C.BLOCK_X16R_POW, power_limit=0.03).start()
+        Generate(consensus=C.BLOCK_X16S_POW, power_limit=0.03).start()
     elif port % 3 == 2:
         Generate(consensus=C.BLOCK_X11_POW, power_limit=0.03).start()
     Generate(consensus=C.BLOCK_COIN_POS, power_limit=0.3).start()
@@ -105,7 +106,6 @@ def work(port, sub_dir):
         builder.close()
         # close_stratum()
         pc.close()
-        close_generate()
     except KeyboardInterrupt:
         logging.debug("KeyboardInterrupt.")
 
@@ -116,7 +116,8 @@ def connection():
         if f_already_bind(port):
             port += 1
             continue
-        set_logger(level=logging.DEBUG, prefix=port, f_file=bool(port == 2000), f_remove=True)
+        path = 'debug.2000.log' if port == 2000 else None
+        set_logger(level=logging.DEBUG, path=path, f_remove=True)
         logging.info("\n{}\n=====\n{}, chain-ver={}\n{}\n"
                      .format(__logo__, __version__, __chain_version__, __message__))
         work(port=port, sub_dir=str(port))

@@ -12,7 +12,7 @@ setting_template = {
 cashe = ExpiringDict(max_len=100, max_age_seconds=1800)
 
 
-class MintCoin:
+class MintCoin(object):
 
     def __init__(self, coin_id):
         self.coin_id = coin_id

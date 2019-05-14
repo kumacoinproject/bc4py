@@ -28,7 +28,7 @@ def create_genesis_block(mining_supply,
     """
 
     # default: Yescript9割, Stake1割の分配
-    consensus = consensus or {C.BLOCK_X16R_POW: 100}
+    consensus = consensus or {C.BLOCK_X16S_POW: 100}
     if sum(consensus.values()) != 100:
         raise BlockChainError('sum of consensus values is 100 [!={}]'.format(sum(consensus.values())))
     elif not isinstance(sum(consensus.values()), int):
@@ -39,7 +39,7 @@ def create_genesis_block(mining_supply,
         raise BlockChainError('out of range {}'.format(min(consensus.values())))
     all_consensus = {
         C.BLOCK_COIN_POS, C.BLOCK_CAP_POS, C.BLOCK_FLK_POS, C.BLOCK_YES_POW, C.BLOCK_X11_POW, C.BLOCK_HMQ_POW,
-        C.BLOCK_LTC_POW, C.BLOCK_X16R_POW
+        C.BLOCK_LTC_POW, C.BLOCK_X16S_POW
     }
     if len(set(consensus.keys()) - all_consensus) > 0:
         raise BlockChainError('Not found all_consensus number {}'.format(set(consensus.keys()) - all_consensus))

@@ -5,7 +5,8 @@ get block by height
 ----
 * Arguments
     1. height   (numeric, required)
-    2. pickle   (bool, optional, default=false)
+    2. txinfo   (string, optional, default=false)
+    3. pickle   (bool, optional, default=false)
 * Request example
     * `curl -H "accept: application/json" -H "Content-Type: application/json" "127.0.0.1:3000/public/getblockbyheight?height=10"`
 * Response
@@ -40,7 +41,8 @@ get block by hash
 ----
 * Arguments
     1. hash     (hex string, required)
-    2. pickle   (bool, optional, default=false)
+    2. txinfo   (string, optional, default=false)
+    3. pickle   (bool, optional, default=false)
 * Request example
     * `curl -H "accept: application/json" -H "Content-Type: application/json" "127.0.0.1:3000/public/getblockbyhash?hash=347e856bd7f0f74011d0ae796367cc54f5a061676c21fc4457bddcdc8e501cfc&pickle=true"`
 * Response

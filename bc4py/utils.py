@@ -4,7 +4,8 @@ from bc4py.chain.utils import GompertzCurve
 from Cryptodome.Cipher import AES
 from Cryptodome import Random
 from Cryptodome.Hash import SHA256
-from logging import getLogger
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+from logging import getLogger, DEBUG, INFO, WARNING, ERROR
 import multiprocessing
 import os
 import psutil
@@ -12,6 +13,12 @@ import sys
 
 WALLET_VERSION = 0
 log = getLogger('bc4py')
+NAME2LEVEL = {
+    'DEBUG': DEBUG,
+    'INFO': INFO,
+    'WARNING': WARNING,
+    'ERROR': ERROR,
+}
 
 
 def set_database_path(sub_dir=None):
@@ -41,24 +48,99 @@ def set_blockchain_params(genesis_block, params):
     V.BRANCH_NAME = get_current_branch()
 
 
-def delete_pid_file():
-    # PIDファイルを削除
-    pid_path = os.path.join(V.DB_HOME_DIR, 'pid.lock')
-    if os.path.exists(pid_path):
-        os.remove(pid_path)
-
-
-def make_pid_file():
-    # 既に起動していないかPIDをチェック
+def check_already_started():
+    assert V.DB_HOME_DIR is not None
+    # check already started
     pid_path = os.path.join(V.DB_HOME_DIR, 'pid.lock')
     if os.path.exists(pid_path):
         with open(pid_path, mode='r') as fp:
             pid = int(fp.read())
         if psutil.pid_exists(pid):
-            raise RuntimeError('Already running blockchain-py.')
-        os.remove(pid_path)
+            raise RuntimeError('Already running blockchain-py pid={}'.format(pid))
+    new_pid = os.getpid()
     with open(pid_path, mode='w') as fp:
-        fp.write(str(os.getpid()))
+        fp.write(str(new_pid))
+    log.info("create new process lock file pid={}".format(new_pid))
+
+
+def console_args_parser():
+    """get help by `python publicnode.py -h`"""
+    p = ArgumentParser(
+        description="Please run with `python3 publicnode.py --local --daemon`. "
+                    "Close by `curl --basic -u user:password -H \"accept: application/json\" "
+                    "127.0.0.1:3000/private/stop` or access the url by browser.",
+        formatter_class=ArgumentDefaultsHelpFormatter)
+    p.add_argument('--p2p',
+                   help='p2p server bind port',
+                   default=2000,
+                   type=int)
+    p.add_argument('--rest',
+                   help='REST API bind port',
+                   default=3000,
+                   type=int)
+    p.add_argument('--user', '-u',
+                   help='API user name',
+                   default='user',
+                   type=str)
+    p.add_argument('--password', '-p',
+                   help='API password',
+                   default='password',
+                   type=str)
+    p.add_argument('--sub-dir',
+                   help='setup blockchain folder path',
+                   default=None)
+    p.add_argument('--local',
+                   help='REST server bind local env',
+                   action='store_true')
+    p.add_argument('--log-level',
+                   help='logging level',
+                   choices=list(NAME2LEVEL),
+                   default='INFO')
+    p.add_argument('--log-path',
+                   help='recode log file path',
+                   default=None,
+                   type=str)
+    p.add_argument('--remove-log',
+                   help='remove old log file when start program',
+                   action='store_true')
+    p.add_argument('--daemon',
+                   help='make process daemon',
+                   action='store_true')
+    return p.parse_args()
+
+
+def check_process_status(f_daemon):
+    if sys.platform == 'win32':
+        # windows
+        if f_daemon:
+            if sys.executable.endswith("pythonw.exe"):
+                sys.stdout = open(os.devnull, "w")
+                sys.stderr = open(os.devnull, "w")
+            else:
+                print("ERROR: Please execute  by `pythonw.exe` not `python.exe` if you enable daemon flag")
+                sys.exit()
+        else:
+            if sys.executable.endswith("pythonw.exe"):
+                print("ERROR: Please execute  by `python.exe`")
+                sys.exit()
+            else:
+                # stdin close to prevent lock on console
+                sys.stdin.close()
+    else:
+        # other
+        if f_daemon:
+            pid = os.fork()
+            if pid == 0:
+                # child process (daemon)
+                sys.stdout = open(os.devnull, "w")
+                sys.stderr = open(os.devnull, "w")
+            else:
+                # main process
+                print("INFO: Make daemon process pid={}".format(pid))
+                sys.exit()
+        else:
+            # stdin close to prevent lock on console
+            sys.stdin.close()
 
 
 class AESCipher:
@@ -145,8 +227,9 @@ class ProgressBar:
 __all__ = [
     "set_database_path",
     "set_blockchain_params",
-    "delete_pid_file",
-    "make_pid_file",
+    "check_already_started",
+    "console_args_parser",
+    "check_process_status",
     "AESCipher",
     "ProgressBar",
 ]

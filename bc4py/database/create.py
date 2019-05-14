@@ -1,6 +1,6 @@
 from bc4py.config import C, V
 from bc4py.bip32 import BIP32_HARDEN
-from contextlib import closing
+from contextlib import contextmanager
 from time import time
 from logging import getLogger
 import sqlite3
@@ -10,6 +10,7 @@ import os
 log = getLogger('bc4py')
 
 
+@contextmanager
 def create_db(path, f_debug=False, f_on_memory=False, f_wal_mode=False):
     assert isinstance(path, str), 'You need initialize by set_database_path() before.'
     conn = sqlite3.connect(path, timeout=120)
@@ -27,7 +28,12 @@ def create_db(path, f_debug=False, f_on_memory=False, f_wal_mode=False):
 
     if f_debug:
         conn.set_trace_callback(sql_info)
-    return conn
+
+    # manage close process with contextmanager
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 def sql_info(data):
@@ -40,7 +46,7 @@ def check_account_db():
         if V.EXTENDED_KEY_OBJ is None or V.EXTENDED_KEY_OBJ.secret is None:
             log.debug("already exist wallet without check")
         else:
-            with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+            with create_db(V.DB_ACCOUNT_PATH) as db:
                 cur = db.cursor()
                 d = cur.execute("SELECT `extended_key` FROM `account` WHERE `id`=0").fetchone()
                 if d is None:
@@ -53,7 +59,7 @@ def check_account_db():
                 raise Exception('already exist wallet, check failed db={} stone={}'
                                 .format(db_extended_key, stone_extended_key))
     else:
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+        with create_db(V.DB_ACCOUNT_PATH) as db:
             generate_wallet_db(db)
             db.commit()
         log.info("generate wallet success")
@@ -112,12 +118,12 @@ def generate_wallet_db(db):
 
 
 def recreate_wallet_db(db):
-    pass
+    raise Exception('unimplemented')
 
 
 __all__ = [
-    "closing",
     "create_db",
     "sql_info",
     "check_account_db",
+    "recreate_wallet_db",
 ]

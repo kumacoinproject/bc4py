@@ -1,24 +1,11 @@
 from rx.subjects import Subject
-from concurrent.futures import ProcessPoolExecutor
-from threading import Lock
 import atexit
-import psutil
+
 
 # internal stream by ReactiveX
 # doc: https://github.com/ReactiveX/RxPY/blob/develop/notebooks/Getting%20Started.ipynb
 stream = Subject()
 atexit.register(stream.dispose)
-
-# multiprocessing executor
-max_process_num = 4
-logical_cpu_num = psutil.cpu_count(logical=True) or max_process_num
-physical_cpu_nam = psutil.cpu_count(logical=False) or max_process_num
-max_workers = min(logical_cpu_num, physical_cpu_nam)
-executor = ProcessPoolExecutor(max_workers=max_workers)
-atexit.register(executor.shutdown, wait=True)
-
-# executor "submit+add_callback_done" lock
-executor_lock = Lock()
 
 
 class C:  # Constant
@@ -42,7 +29,7 @@ class C:  # Constant
     BLOCK_X11_POW = 6
     BLOCK_HMQ_POW = 7
     BLOCK_LTC_POW = 8
-    BLOCK_X16R_POW = 9
+    BLOCK_X16S_POW = 9
     consensus2name = {
         BLOCK_GENESIS: 'GENESIS',
         BLOCK_COIN_POS: 'POS_COIN',
@@ -52,7 +39,7 @@ class C:  # Constant
         BLOCK_X11_POW: 'POW_X11',
         BLOCK_HMQ_POW: 'POW_HMQ',
         BLOCK_LTC_POW: 'POW_LTC',
-        BLOCK_X16R_POW: 'POW_X16R',
+        BLOCK_X16S_POW: 'POW_X16S',
     }
 
     # tx type
@@ -126,7 +113,7 @@ class C:  # Constant
 
     # network params
     ACCEPT_MARGIN_TIME = 120  # 新規データ受け入れ時間マージンSec
-    MAX_RECURSIVE_BLOCK_DEPTH = 10  # recursive accept block limit
+    MAX_RECURSIVE_BLOCK_DEPTH = 30  # recursive accept block limit
 
 
 class V:
@@ -178,9 +165,6 @@ class BlockChainError(Exception):
 
 __all__ = [
     'stream',
-    'max_workers',
-    'executor',
-    'executor_lock',
     'C',
     'V',
     'P',

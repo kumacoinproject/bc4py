@@ -9,6 +9,7 @@ from logging import getLogger
 log = getLogger('bc4py')
 
 DUMMY_REDEEM_ADDRESS = dummy_address(b'_DUMMY_REDEEM_ADDR__')
+MAX_RECURSIVE_DEPTH = 20
 
 
 def fill_inputs_outputs(tx,
@@ -18,7 +19,10 @@ def fill_inputs_outputs(tx,
                         fee_coin_id=0,
                         additional_gas=0,
                         dust_percent=0.8,
-                        utxo_cashe=None):
+                        utxo_cashe=None,
+                        depth=0):
+    if MAX_RECURSIVE_DEPTH < depth:
+        raise BlockChainError('over max recursive depth on filling inputs_outputs!')
     # outputsの合計を取得
     output_coins = Balance()
     for address, coin_id, amount in tx.outputs.copy():
@@ -73,7 +77,8 @@ def fill_inputs_outputs(tx,
                 fee_coin_id=fee_coin_id,
                 additional_gas=additional_gas,
                 dust_percent=new_dust_percent,
-                utxo_cashe=utxo_cashe)
+                utxo_cashe=utxo_cashe,
+                depth=depth+1)
         elif len(tx.inputs) > 255:
             raise BlockChainError('Too many inputs, unspent tx\'s amount is too small.')
         else:
@@ -104,7 +109,8 @@ def fill_inputs_outputs(tx,
             fee_coin_id=fee_coin_id,
             additional_gas=additional_gas,
             dust_percent=dust_percent,
-            utxo_cashe=utxo_cashe)
+            utxo_cashe=utxo_cashe,
+            depth=depth+1)
 
 
 def replace_redeem_dummy_address(tx, cur=None, replace_by=None):
@@ -130,6 +136,7 @@ def setup_signature(tx, input_address):
         sign_pairs = message2signature(raw=tx.b, address=address)
         if sign_pairs not in tx.signature:
             tx.signature.append(sign_pairs)
+            tx.verified_list.append(address)
             count += 1
     return count
 

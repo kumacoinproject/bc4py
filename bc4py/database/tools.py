@@ -1,6 +1,6 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.database.builder import builder, tx_builder
-from bc4py.database.create import closing, create_db
+from bc4py.database.create import create_db
 from bc4py.database.account import read_pooled_address_iter
 from time import sleep
 
@@ -78,7 +78,7 @@ def get_utxo_iter(target_address, best_block=None, best_chain=None):
 
 def get_unspents_iter(outer_cur=None, best_chain=None):
     target_address = set()
-    with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+    with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = outer_cur or db.cursor()
         for (uuid, address, user) in read_pooled_address_iter(cur):
             target_address.add(address)
