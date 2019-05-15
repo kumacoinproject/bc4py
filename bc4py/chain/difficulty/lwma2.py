@@ -84,14 +84,13 @@ def get_bits_by_hash(previous_hash, consensus):
             return MAX_BITS, MAX_TARGET
     else:
         # search too many block
-        if len(target) == 0:
+        if len(target) < 2:
             # not found any mined blocks
             return MAX_BITS, MAX_TARGET
         else:
             # May have been a sudden difficulty raise
-            most_low_diff_target = max(target)
-            most_low_diff_bits = target2bits(most_low_diff_target)
-            return most_low_diff_bits, most_low_diff_target
+            # overwrite N param
+            N = len(timestamp) - 1
 
     sum_target = t = j = 0
     for i in range(N):
@@ -140,7 +139,10 @@ def get_bias_by_hash(previous_hash, consensus):
             break
     else:
         # search too many block
-        return 1.0
+        if len(target_diffs) == 0:
+            return 1.0
+        else:
+            return MAX_TARGET * len(target_diffs) / sum(target_diffs)
 
     bias = base_difficulty_sum / sum(target_diffs)
     if Debug.F_SHOW_DIFFICULTY:

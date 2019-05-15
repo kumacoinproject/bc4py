@@ -7,9 +7,9 @@ MAX_256_INT = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 class GompertzCurve(object):
     k = None  # total block reward supply
     b = 0.4
-    c = 2.0
+    c = 3.6
     ybnum = float(365 * 24 * 60)
-    x0 = -0.6
+    x0 = -0.4
 
     @staticmethod
     def calc_block_reward(height):

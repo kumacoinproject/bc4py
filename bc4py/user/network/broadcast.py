@@ -124,10 +124,6 @@ def broadcast_check(data):
         BroadcastCmd.fail = 0
     else:
         BroadcastCmd.fail += 1
-        if BroadcastCmd.fail > 100:
-            P.F_NOW_BOOTING = True
-            BroadcastCmd.fail = 0
-            log.warning("Set booting mode, too many fail on broadcast_check().")
     return result
 
 
