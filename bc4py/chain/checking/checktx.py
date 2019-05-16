@@ -25,15 +25,15 @@ def check_tx(tx, include_block):
     if include_block:
         # tx is included block
         if tx not in include_block.txs:
-            raise BlockChainError('Block not include the tx.')
+            raise BlockChainError('Block not include the tx')
         elif not (tx.time <= include_block.time <= tx.deadline):
             raise BlockChainError('block time isn\'t include in TX time-deadline. [{}<={}<={}]'.format(
                 tx.time, include_block.time, tx.deadline))
         if 0 == include_block.txs.index(tx):
             if tx.type not in (C.TX_POS_REWARD, C.TX_POW_REWARD):
-                raise BlockChainError('tx index is zero, but not proof tx.')
+                raise BlockChainError('tx index is zero, but not proof tx')
         elif tx.type in (C.TX_POS_REWARD, C.TX_POW_REWARD):
-            raise BlockChainError('{} index is not 0 idx:{}.'.format(tx, include_block.txs.index(tx)))
+            raise BlockChainError('{} index is not 0 idx:{}'.format(tx, include_block.txs.index(tx)))
 
     # 各々のタイプで検査
     if tx.type == C.TX_GENESIS:
@@ -62,7 +62,7 @@ def check_tx(tx, include_block):
 
     elif tx.type == C.TX_TRANSFER:
         if not (0 < len(tx.inputs) < 256 and 0 < len(tx.outputs) < 256):
-            raise BlockChainError('Input and output is 1～256.')
+            raise BlockChainError('Input and output is 1～256')
         # payCoinFeeID is default 0, not only 0
         _address, payfee_coin_id, _amount = tx.outputs[0]
 
@@ -147,16 +147,16 @@ def check_tx_time(tx):
 
 def check_hash_locked(tx):
     if len(tx.R) == 0:
-        raise BlockChainError('R of Hash-locked is None type.')
+        raise BlockChainError('R of Hash-locked is None type')
     if len(tx.R) > 64:
         raise BlockChainError('R is too large {}bytes'.format(len(tx.R)))
     size = len(tx.message)
     if size == 20:
         if RIPEMD160.new(tx.R).digest() != tx.message:
-            raise BlockChainError('Hash-locked check RIPEMD160 failed.')
+            raise BlockChainError('Hash-locked check RIPEMD160 failed')
     elif size == 32:
         if SHA256.new(tx.R).digest() != tx.message:
-            raise BlockChainError('Hash-locked check SHA256 failed.')
+            raise BlockChainError('Hash-locked check SHA256 failed')
     else:
         raise BlockChainError('H of Hash-locked is not correct size {}'.format(size))
 

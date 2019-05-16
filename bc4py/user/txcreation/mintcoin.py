@@ -99,7 +99,7 @@ def change_mintcoin(mint_id,
     if len(params) == 0:
         params = None
     if not params and not setting and not amount:
-        raise BlockChainError('No update found.')
+        raise BlockChainError('No update found')
     m_before = get_mintcoin_object(coin_id=mint_id)
     if m_before.version == -1:
         raise BlockChainError('Not init mintcoin. {}'.format(m_before))
@@ -164,7 +164,7 @@ def replace_mint_dummy_address(tx, mint_address, mint_id, f_raise):
             break
     else:
         if f_raise:
-            raise BlockChainError('Cannot replace Mintcoin dummy address.')
+            raise BlockChainError('Cannot replace Mintcoin dummy address')
 
 
 __all__ = [

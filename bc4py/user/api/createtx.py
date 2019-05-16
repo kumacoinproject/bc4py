@@ -109,7 +109,7 @@ async def broadcast_tx(request):
         if 'R' in post:
             new_tx.R = a2b_hex(post['R'])
         if not send_newtx(new_tx=new_tx):
-            raise BlockChainError('Failed to send new tx.')
+            raise BlockChainError('Failed to send new tx')
         return web_base.json_res({
             'hash': new_tx.hash.hex(),
             'gas_amount': new_tx.gas_amount,
@@ -124,7 +124,7 @@ async def broadcast_tx(request):
 async def send_from_user(request):
     start = time()
     if P.F_NOW_BOOTING:
-        return web.Response(text='Now booting...', status=403)
+        return web.Response(text='Now booting', status=403)
     post = await web_base.content_type_json_check(request)
     with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = db.cursor()
@@ -148,7 +148,7 @@ async def send_from_user(request):
             if 'R' in post:
                 new_tx.R = a2b_hex(post['R'])
             if not send_newtx(new_tx=new_tx, outer_cur=cur):
-                raise BlockChainError('Failed to send new tx.')
+                raise BlockChainError('Failed to send new tx')
             db.commit()
             return web_base.json_res({
                 'hash': new_tx.hash.hex(),
@@ -165,7 +165,7 @@ async def send_from_user(request):
 async def send_many_user(request):
     start = time()
     if P.F_NOW_BOOTING:
-        return web.Response(text='Now booting...', status=403)
+        return web.Response(text='Now booting', status=403)
     post = await web_base.content_type_json_check(request)
     with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = db.cursor()
@@ -186,7 +186,7 @@ async def send_many_user(request):
                 msg_body = b''
             new_tx = send_many(user_id, send_pairs, cur, msg_type=msg_type, msg_body=msg_body)
             if not send_newtx(new_tx=new_tx, outer_cur=cur):
-                raise BlockChainError('Failed to send new tx.')
+                raise BlockChainError('Failed to send new tx')
             db.commit()
             return web_base.json_res({
                 'hash': new_tx.hash.hex(),
@@ -219,7 +219,7 @@ async def issue_mint_tx(request):
                 additional_issue=post.get('additional_issue', True),
                 sender=sender)
             if not send_newtx(new_tx=tx, outer_cur=cur):
-                raise BlockChainError('Failed to send new tx.')
+                raise BlockChainError('Failed to send new tx')
             db.commit()
             return web_base.json_res({
                 'hash': tx.hash.hex(),
@@ -251,7 +251,7 @@ async def change_mint_tx(request):
                 new_address=post.get('new_address'),
                 sender=sender)
             if not send_newtx(new_tx=tx, outer_cur=cur):
-                raise BlockChainError('Failed to send new tx.')
+                raise BlockChainError('Failed to send new tx')
             db.commit()
             return web_base.json_res({
                 'hash': tx.hash.hex(),

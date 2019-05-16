@@ -189,7 +189,7 @@ back_sync_thread = Thread(target=_back_loop, name='BackSync')
 
 def sync_chain_loop():
     assert V.PC_OBJ is not None, "Need PeerClient start before"
-    log.info("Start sync now {} connections.".format(len(V.PC_OBJ.p2p.user)))
+    log.info("Start sync now {} connections".format(len(V.PC_OBJ.p2p.user)))
     check_network_connection()
     fast_sync_thread.start()
     back_sync_thread.start()

@@ -36,7 +36,7 @@ def read_log_iter(cur, start=0):
 
 
 def insert_log(movements, cur, _type=None, _time=None, txhash=None):
-    assert isinstance(movements, Accounting), 'movements is Accounting.'
+    assert isinstance(movements, Accounting), 'movements is Accounting'
     _type = _type or C.TX_INNER
     _time = _time or int(time() - V.BLOCK_GENESIS_TIME)
     txhash = txhash or (b'\x00'*24 + _time.to_bytes(4, 'big') + os.urandom(4))

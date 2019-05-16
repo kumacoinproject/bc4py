@@ -16,15 +16,15 @@ def send_many(sender,
               msg_body=b'',
               f_balance_check=True,
               retention=10800):
-    assert isinstance(sender, int), 'Sender is user id.'
-    assert 0 < len(send_pairs), 'Empty send_pairs.'
+    assert isinstance(sender, int), 'Sender is user id'
+    assert 0 < len(send_pairs), 'Empty send_pairs'
     # send_pairs check
     movements = Accounting()
     outputs = list()
     coins = Balance()
     for address, coin_id, amount in send_pairs:
         assert isinstance(address, str)
-        assert isinstance(coin_id, int) and isinstance(amount, int), 'CoinID, amount is int.'
+        assert isinstance(coin_id, int) and isinstance(amount, int), 'CoinID, amount is int'
         coins[coin_id] += amount
         outputs.append((address, coin_id, amount))
         user = read_address2user(address=address, cur=cur)

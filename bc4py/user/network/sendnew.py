@@ -13,15 +13,15 @@ log = getLogger('bc4py')
 
 def mined_newblock(que, pc):
     # 新規採掘BlockをP2Pに公開
-    while True:
+    while not P.F_STOP:
         try:
             new_block = que.get(timeout=1)
             new_block.create_time = int(time())
             if P.F_NOW_BOOTING:
-                log.debug("self reject, mined but now booting..")
+                log.debug("self reject, mined but now booting")
                 continue
             elif new_block.height != builder.best_block.height + 1:
-                log.debug("self reject, mined but its old block...")
+                log.debug("self reject, mined but its old block")
                 continue
             else:
                 log.debug("Mined block check success")
@@ -49,11 +49,9 @@ def mined_newblock(que, pc):
                 update_info_for_generate()
             except TimeoutError:
                 log.warning("Failed broadcast new block, other nodes don\'t accept {}".format(new_block.getinfo()))
-                # log.warning("47 Set booting mode.")
-                # P.F_NOW_BOOTING = True
         except queue.Empty:
             if pc.f_stop:
-                log.debug("Mined new block closed.")
+                log.debug("Mined new block closed")
                 break
         except BlockChainError as e:
             log.error('Failed mined new block "{}"'.format(e))
@@ -62,7 +60,7 @@ def mined_newblock(que, pc):
 
 
 def send_newtx(new_tx, outer_cur=None, exc_info=True):
-    assert V.PC_OBJ, "PeerClient is None."
+    assert V.PC_OBJ, "PeerClient is None"
     try:
         check_tx_time(new_tx)
         check_tx(new_tx, include_block=None)

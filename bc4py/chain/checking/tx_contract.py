@@ -14,9 +14,9 @@ log = getLogger('bc4py')
 def check_tx_contract_conclude(tx: TX, include_block: Block):
     # common check
     if not (len(tx.inputs) > 0 and len(tx.inputs) > 0):
-        raise BlockChainError('No inputs or outputs.')
+        raise BlockChainError('No inputs or outputs')
     elif tx.message_type != C.MSG_MSGPACK:
-        raise BlockChainError('validator_edit_tx is MSG_MSGPACK.')
+        raise BlockChainError('validator_edit_tx is MSG_MSGPACK')
     try:
         c_address, start_hash, c_storage = tx.encoded_message()
     except Exception as e:
@@ -41,12 +41,12 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
     if start_tx.height is None:
         raise BlockChainError('Start tx is unconfirmed. {}'.format(start_tx))
     if start_tx.type != C.TX_TRANSFER:
-        raise BlockChainError('Start tx is TRANSFER, not {}.'.format(C.txtype2name.get(start_tx.type, None)))
+        raise BlockChainError('Start tx is TRANSFER, not {}'.format(C.txtype2name.get(start_tx.type, None)))
     if start_tx.message_type != C.MSG_MSGPACK:
-        raise BlockChainError('Start tx is MSG_MSGPACK, not {}.'.format(
+        raise BlockChainError('Start tx is MSG_MSGPACK, not {}'.format(
             C.msg_type2name.get(start_tx.message_type, None)))
     if start_tx.time != tx.time or start_tx.deadline != tx.deadline:
-        raise BlockChainError('time of conclude_tx and start_tx is same, {}!={}.'.format(start_tx.time, tx.time))
+        raise BlockChainError('time of conclude_tx and start_tx is same, {}!={}'.format(start_tx.time, tx.time))
     try:
         c_start_address, c_method, redeem_address, c_args = start_tx.encoded_message()
     except Exception as e:
@@ -77,7 +77,7 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
     # c_method check, init, update and others..
     if c_method == M_INIT:
         if len(c_args) != 4:
-            raise BlockChainError('c_args is 4 items.')
+            raise BlockChainError('c_args is 4 items')
         if c_before.version != -1:
             raise BlockChainError('Already created contract. {}'.format(c_before.version))
         c_bin, v_address, c_extra_imports, c_settings = c_args
@@ -94,9 +94,9 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
             raise BlockChainError('7. Not correct format. {}'.format(c_settings))
     elif c_method == M_UPDATE:
         if len(c_args) != 3:
-            raise BlockChainError('c_args is 3 items.')
+            raise BlockChainError('c_args is 3 items')
         if c_before.version == -1:
-            raise BlockChainError('Not created contract.')
+            raise BlockChainError('Not created contract')
         c_bin, c_extra_imports, c_settings = c_args
         v_address = c_before.v_address
         if not (c_bin is None or isinstance(c_bin, bytes)):
@@ -120,9 +120,9 @@ def check_tx_contract_conclude(tx: TX, include_block: Block):
 def check_tx_validator_edit(tx: TX, include_block: Block):
     # common check
     if not (len(tx.inputs) > 0 and len(tx.inputs) > 0):
-        raise BlockChainError('No inputs or outputs.')
+        raise BlockChainError('No inputs or outputs')
     elif tx.message_type != C.MSG_MSGPACK:
-        raise BlockChainError('validator_edit_tx is MSG_MSGPACK.')
+        raise BlockChainError('validator_edit_tx is MSG_MSGPACK')
     # message
     try:
         v_address, new_address, flag, sig_diff = tx.encoded_message()
@@ -134,41 +134,41 @@ def check_tx_validator_edit(tx: TX, include_block: Block):
         if not is_address(ck=new_address, hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER):
             raise BlockChainError('new_address is not normal')
         elif flag == F_NOP:
-            raise BlockChainError('input new_address, but NOP.')
+            raise BlockChainError('input new_address, but NOP')
     if v_before.version == -1:
         # create validator for the first time
         if new_address is None:
-            raise BlockChainError('Not setup new_address.')
+            raise BlockChainError('Not setup new_address')
         elif flag != F_ADD:
-            raise BlockChainError('Need to add new_address flag.')
+            raise BlockChainError('Need to add new_address flag')
         elif sig_diff != 1:
-            raise BlockChainError('sig_diff is 1.')
+            raise BlockChainError('sig_diff is 1')
     else:
         # edit already created validator
         next_validator_num = len(v_before.validators)  # Note: Add/Remove after
         next_require_num = v_before.require + sig_diff
         if flag == F_ADD:
             if new_address is None:
-                raise BlockChainError('Not setup new_address.')
+                raise BlockChainError('Not setup new_address')
             elif new_address in v_before.validators:
-                raise BlockChainError('Already included new_address.')
+                raise BlockChainError('Already included new_address')
             next_validator_num += 1
         elif flag == F_REMOVE:
             if new_address is None:
-                raise BlockChainError('Not setup new_address.')
+                raise BlockChainError('Not setup new_address')
             elif new_address not in v_before.validators:
-                raise BlockChainError('Not include new_address.')
+                raise BlockChainError('Not include new_address')
             elif len(v_before.validators) < 2:
-                raise BlockChainError('validator is now only {}.'.format(len(v_before.validators)))
+                raise BlockChainError('validator is now only {}'.format(len(v_before.validators)))
             next_validator_num -= 1
         elif flag == F_NOP:
             if new_address is not None:
                 raise BlockChainError('Input new_address?')
         else:
-            raise BlockChainError('unknown flag {}.'.format(flag))
+            raise BlockChainError('unknown flag {}'.format(flag))
         # sig_diff check
         if not (0 < next_require_num <= next_validator_num):
-            raise BlockChainError('sig_diff check failed, 0 < {} <= {}.'.format(next_require_num,
+            raise BlockChainError('sig_diff check failed, 0 < {} <= {}'.format(next_require_num,
                                                                                 next_validator_num))
     required_gas_check(tx=tx, v=v_before, extra_gas=C.VALIDATOR_EDIT_GAS)
     objective_tx_signature_check(target_address=v_address, extra_tx=tx, v=v_before, include_block=include_block)
@@ -226,7 +226,7 @@ def objective_tx_signature_check(target_address, extra_tx: TX, v: Validator, inc
             if original_tx.height is not None:
                 raise BlockChainError('Already included tx. height={}'.format(original_tx.height))
             if necessary_num == 0:
-                raise BlockChainError('Don\t need to marge signature.')
+                raise BlockChainError('Don\t need to marge signature')
             original_cks = set(original_tx.verified_list)
             accept_new_cks = (signed_cks - original_cks) & necessary_cks
             if len(accept_new_cks) == 0:

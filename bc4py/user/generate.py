@@ -90,16 +90,16 @@ class Generate(Thread):
                 sleep(5)
             except AttributeError:
                 if 'previous_block.' in str(traceback.format_exc()):
-                    log.debug("attribute error of previous_block, passed.")
+                    log.debug("attribute error of previous_block, passed")
                     sleep(1)
                 else:
-                    log.error("Unknown error wait60s...", exc_info=True)
+                    log.error("Unknown error, wait 60s", exc_info=True)
                     sleep(60)
             except KeyError as e:
                 log.debug("Key error by lru_cache bug wait 5s... \"{}\"".format(e))
                 sleep(5)
             except Exception:
-                log.error("GeneratingError wait60s...", exc_info=True)
+                log.error("GeneratingError, wait60s", exc_info=True)
                 sleep(60)
 
     def proof_of_work(self):
@@ -153,7 +153,7 @@ class Generate(Thread):
                 sleep(0.1)
                 continue
             if len(unspents_txs) == 0:
-                log.info("No unspents for staking, wait 180s..")
+                log.info("No unspents for staking, wait 180s")
                 sleep(180)
                 continue
             start = time()
@@ -242,7 +242,7 @@ class Generate(Thread):
                     continue
                 count += int(m.group(3)) - int(m.group(2))
             if count < 1:
-                log.debug("not found plot file, wait for 60 sec...")
+                log.debug("not found plot file, wait 60 sec")
                 sleep(60)
                 continue
 
@@ -377,7 +377,7 @@ def update_unspents_txs(time_limit=0.2):
     c = 100
     while previous_block is None:
         if c < 0:
-            raise Exception('Timeout on update unspents.')
+            raise Exception('Timeout on update unspents')
         sleep(0.1)
         c -= 1
     s = time()
@@ -398,7 +398,7 @@ def update_unspents_txs(time_limit=0.2):
         if amount < 100000000:
             continue
         if staking_limit < all_num:
-            log.debug("Unspents limit reached, skip by {} limits.".format(staking_limit))
+            log.debug("Unspents limit reached, skip by {} limits".format(staking_limit))
             break
         all_num += 1
         proof_tx = TX.from_dict(

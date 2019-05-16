@@ -131,7 +131,7 @@ class ContractTemplate(object):
         self.redeem_address = args[3]
 
     def update(self, *args):
-        raise Exception('Manually update required.')
+        raise Exception('Manually update required')
 
 
 def get_limited_globals(extra_imports=None):
@@ -193,11 +193,11 @@ def path2contract(path):
         elif obj.__module__ != 'Contract':
             continue
         elif len(obj.__init__.__closure__) != 1:
-            log.warning("Find class but don't hesitate ContractTemplate.")
+            log.warning("Find class but don't hesitate ContractTemplate")
             continue
         else:
             return obj
-    raise Exception('Not found contract object.')
+    raise Exception('Not found contract object')
 
 
 def contract2dis(obj):

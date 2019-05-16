@@ -55,7 +55,7 @@ class Search(dict):
 
 
 def repair_wallet(gap_user=10, gap_limit=20):
-    log.info("Wallet fix tool start now...")
+    log.info("Wallet fix tool start now")
     with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = db.cursor()
         search = Search(gap_user=gap_user, gap_limit=gap_limit, cur=cur)
@@ -108,9 +108,9 @@ def repair_wallet(gap_user=10, gap_limit=20):
                     insert_log(movements=movement, cur=cur, _type=tx.type, _time=tx.time, txhash=tx.hash)
                     log.info("Find not recoded transaction {}".format(tx))
             if height % 5000 == 0:
-                log.info("Now height {} ...".format(height))
+                log.info("Now height {}".format(height))
         db.commit()
-    log.info("Finish wallet repair.")
+    log.info("Finish wallet repair")
 
 
 __all__ = [

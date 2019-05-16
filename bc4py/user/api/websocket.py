@@ -17,7 +17,7 @@ CMD_NEW_TX = 'TX'
 CMD_ERROR = 'Error'
 
 
-# TODO: fix error: "socket.send() raised exception." => https://github.com/aio-libs/aiohttp/issues/3448
+# TODO: fix error: "socket.send() raised exception" => https://github.com/aio-libs/aiohttp/issues/3448
 async def websocket_route(request):
     if request.rel_url.path.startswith('/public/'):
         is_public = True
@@ -53,7 +53,7 @@ async def websocket_protocol_check(request, is_public):
     ws = web.WebSocketResponse()
     available = ws.can_prepare(request)
     if not available:
-        raise TypeError('Cannot prepare websocket.')
+        raise TypeError('Cannot prepare websocket')
     await ws.prepare(request)
     log.debug("protocol upgrade to websocket. {}".format(request.remote))
     return WsConnection(ws=ws, request=request, is_public=is_public)

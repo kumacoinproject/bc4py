@@ -154,17 +154,18 @@ def create_rest_server(f_local, user, pwd, port=3000, f_blocking=True, ssl_conte
     # web.run_app(app=app, host=host, port=port)
     runner = web.AppRunner(app)
     loop.run_until_complete(non_blocking_start(runner, host, port, ssl_context))
-    log.info("REST work on port={} mode={}.".format(port, 'Local' if f_local else 'Global'))
+    log.info("REST work on port={} mode={}".format(port, 'Local' if f_local else 'Global'))
 
     if f_blocking:
         try:
+            log.info("Create REST server with blocking")
             loop.run_forever()
         except KeyboardInterrupt:
             pass
         loop.close()
-        log.info("REST Server closed now.")
+        log.info("REST server close")
     else:
-        log.info("Create REST Server.")
+        log.info("Create REST server with no blocking")
 
 
 async def non_blocking_start(runner, host, port, ssl_context):
@@ -200,20 +201,21 @@ async def web_page(request):
 
 async def resync(request):
     from bc4py.config import P
-    log.warning("222 Set booting mode.")
+    log.warning("Manual set booting flag to go into resync mode")
     P.F_NOW_BOOTING = True
-    return web.Response(text='Resync')
+    return web.Response(text='set booting mode now')
 
 
 async def close_server(request):
 
     def close():
+        log.debug("close server now")
         loop.call_soon_threadsafe(loop.stop)
 
-    log.info("Closing server...")
+    log.info("Closing server after 5 seconds")
     import threading
     threading.Timer(interval=5.0, function=close).start()
-    return web.Response(text='Close after 5 seconds.')
+    return web.Response(text='close server after 5 seconds')
 
 
 __all__ = [

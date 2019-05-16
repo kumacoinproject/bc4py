@@ -55,7 +55,7 @@ class Storage(dict):
         # check value is not None
         for v in self.values():
             if v is None:
-                raise Exception('Not allowed None value...')
+                raise Exception('Not allowed None value')
         diff = dict()
         for key in original_storage.keys() | self.keys():
             if key in original_storage and key in self:
@@ -124,7 +124,7 @@ class Contract(object):
 
     def update(self, db_index, start_hash, finish_hash, c_method, c_args, c_storage):
         # DO NOT RAISE ERROR
-        assert self.db_index is None or self.db_index < db_index, 'Tyr to put old index data.'
+        assert self.db_index is None or self.db_index < db_index, 'Tyr to put old index data'
         if c_method == M_INIT:
             assert self.version == -1
             c_bin, v_address, c_extra_imports, c_settings = c_args

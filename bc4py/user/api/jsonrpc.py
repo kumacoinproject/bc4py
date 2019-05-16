@@ -28,11 +28,11 @@ extra_target = None  # 0x00000000ffff0000000000000000000000000000000000000000000
 
 async def json_rpc(request):
     if 'Authorization' not in request.headers:
-        return res_failed("Not found Authorization.", None)
+        return res_failed("Not found Authorization", None)
     authorization = request.headers['Authorization']
     auth_type, auth_data = authorization.split()
     if auth_type != 'Basic':
-        return res_failed("Not Basic Authorization.", None)
+        return res_failed("Not Basic Authorization", None)
     user, password = b64decode(auth_data.encode()).decode().split(':')
     # user_agent = request.headers['User-Agent']
     post = await web_base.content_type_json_check(request)
@@ -40,7 +40,7 @@ async def json_rpc(request):
         if F_HEAVY_DEBUG: log.debug("PostRequest: {}".format(post))
         method, params = post['method'], post.get('params', list())
         if P.F_NOW_BOOTING:
-            return res_failed("Busy status.", post.get('id'))
+            return res_failed("Busy status", post.get('id'))
         if F_HEAVY_DEBUG: log.debug("RpcRequest: {}".format(params))
         if not isinstance(params, list):
             return res_failed("Params is list. not {}".format(type(params)), post.get('id'))
@@ -116,7 +116,7 @@ async def getwork(*args, **kwargs):
             new_data += data[i:i + 4][::-1]
         block = Block.from_binary(binary=new_data[:80])
         if block.previous_hash != builder.best_block.hash:
-            return 'PreviousHash don\'t match.'
+            return 'PreviousHash don\'t match'
         if block.merkleroot in getwork_cashe:
             block.txs.extend(getwork_cashe[block.merkleroot].txs)
             result = await submitblock(block, **kwargs)
@@ -129,7 +129,7 @@ async def getwork(*args, **kwargs):
                 return result
         else:
             log.debug("GetWorkReject by \"Not found merkleroot.\"")
-            return 'Not found merkleroot.'
+            return 'Not found merkleroot'
 
 
 async def getblocktemplate(*args, **kwargs):
@@ -171,7 +171,7 @@ async def submitblock(block_hex_or_obj, **kwargs):
         # Block
         mined_block = Block.from_binary(binary=block_bin[:80])
         if mined_block.previous_hash != builder.best_block.hash:
-            return 'PreviousHash don\'t match.'
+            return 'PreviousHash don\'t match'
         previous_block = builder.get_block(mined_block.previous_hash)
         mined_block.height = previous_block.height + 1
         mined_block.flag = int(kwargs['password'])
@@ -216,7 +216,7 @@ async def submitblock(block_hex_or_obj, **kwargs):
         confirmed_generating_block(mined_block)
         return None  # accepted
     else:
-        return 'not satisfied work.'
+        return 'not satisfied work'
 
 
 async def getmininginfo(*args, **kwargs):

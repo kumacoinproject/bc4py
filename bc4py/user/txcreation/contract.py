@@ -143,7 +143,7 @@ def create_conclude_tx(c_address, start_tx, redeem_address, send_pairs=None, c_s
     if v.version == -1:
         raise BlockChainError('Not init validator address. {}'.format(c_address))
     if setup_contract_signature(tx, v.validators) == 0:
-        raise BlockChainError('Cannot sign, you are not validator.')
+        raise BlockChainError('Cannot sign, you are not validator')
     return tx
 
 
@@ -154,14 +154,14 @@ def create_validator_edit_tx(v_address,
                              sig_diff=0,
                              gas_price=None,
                              retention=10800):
-    assert not (flag == F_NOP and sig_diff == 0), 'No edit info.'
+    assert not (flag == F_NOP and sig_diff == 0), 'No edit info'
     if new_address is None and flag != F_NOP:
-        raise BlockChainError('No cosigner edit, but flag is not NOP.')
+        raise BlockChainError('No cosigner edit, but flag is not NOP')
     # validator object
     v = get_validator_object(v_address=v_address)
     if v.version == -1:
         if new_address is None or flag != F_ADD or sig_diff != 1:
-            raise BlockChainError('Not correct info.')
+            raise BlockChainError('Not correct info')
     else:
         next_require = v.require + sig_diff
         next_validator_num = len(v.validators)
@@ -191,7 +191,7 @@ def create_validator_edit_tx(v_address,
     replace_redeem_dummy_address(tx=tx, cur=cur)
     setup_signature(tx, input_address)
     if v.version > -1 and setup_contract_signature(tx, v.validators) == 0:
-        raise BlockChainError('Cannot sign, you are not validator.')
+        raise BlockChainError('Cannot sign, you are not validator')
     return tx
 
 
@@ -207,7 +207,7 @@ def create_signed_tx_as_validator(tx: TX):
         raise BlockChainError('Not found tx type {}'.format(tx))
     # sign and check how many add signs
     if setup_contract_signature(tx, v.validators) == 0:
-        raise BlockChainError('Cannot sign, you are not validator or already signed.')
+        raise BlockChainError('Cannot sign, you are not validator or already signed')
     return tx
 
 

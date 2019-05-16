@@ -20,7 +20,7 @@ def _get_best_chain_all(best_block):
         dummy, best_chain = builder.get_best_chain(best_block)
         # best_chain = [<height=n>, <height=n-1>,.. <height=n-m>]
         if len(best_chain) == 0:
-            raise BlockChainError('Ignore, New block inserted on "_get_best_chain_all".')
+            raise BlockChainError('Ignore, New block inserted on "_get_best_chain_all"')
         best_block_cashe = best_block
         best_chain_cashe = best_chain
         return best_chain
@@ -86,7 +86,7 @@ def get_unspents_iter(outer_cur=None, best_chain=None):
 
 
 def get_usedindex(txhash, best_block=None, best_chain=None):
-    assert builder.best_block, 'Not DataBase init.'
+    assert builder.best_block, 'Not DataBase init'
     best_chain = best_chain or _get_best_chain_all(best_block)
     # Memoryより
     usedindex = set()
@@ -109,7 +109,7 @@ def get_usedindex(txhash, best_block=None, best_chain=None):
 
 
 def is_usedindex(txhash, txindex, except_txhash, best_block=None, best_chain=None):
-    assert builder.best_block, 'Not DataBase init.'
+    assert builder.best_block, 'Not DataBase init'
     best_chain = best_chain or _get_best_chain_all(best_block)
     # Memoryより
     for block in best_chain:

@@ -90,7 +90,7 @@ def ask_node(cmd, data=None, f_continue_asking=False):
         except TimeoutError:
             pass
         except UnstableNetworkError as e:
-            log.warning("{}, wait 30sec..".format(e))
+            log.warning("{}, wait 30sec".format(e))
             sleep(30)
     raise BlockChainError('Too many retry ask_node. good={} bad={} failed={} cmd={}'.format(
         len(good_node), len(bad_node), failed, cmd))
@@ -116,7 +116,7 @@ def ask_all_nodes(cmd, data=None):
         except TimeoutError:
             pass
         except UnstableNetworkError as e:
-            log.warning("{}, wait 30sec..".format(e))
+            log.warning("{}, wait 30sec".format(e))
             sleep(30)
     if len(result) > 0:
         return result
@@ -142,7 +142,7 @@ def seek_nodes(cmd, data=None):
         except TimeoutError:
             pass
         except UnstableNetworkError as e:
-            log.warning("{}, wait 30sec..".format(e))
+            log.warning("{}, wait 30sec".format(e))
             sleep(30)
     raise BlockChainError('Full seeked but cannot get any data. good={} bad={} cmd={}'
                           .format(len(good_node), len(bad_node), cmd))

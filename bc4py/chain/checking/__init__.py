@@ -36,7 +36,7 @@ def new_insert_block(block, f_time=True, f_sign=True):
             # inner streaming
             if not stream.is_disposed:
                 stream.on_next(block)
-            log.info("check success {}Sec {}.".format(round(time() - t, 3), block))
+            log.info("check success {}Sec {}".format(round(time() - t, 3), block))
             return True
         except BlockChainError as e:
             log.warning("Reject new block by \"{}\"".format(e), exc_info=True)

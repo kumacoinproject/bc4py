@@ -36,7 +36,7 @@ async def create_wallet(request):
             'account_public_key': bip.extended_key(False),
             'path': bip.path,
             'comment': 'You must recode "mnemonic" and "passphrase" and remove after. '
-                       'You can remove "account_secret_key" but you cannot sign and create new account.',
+                       'You can remove "account_secret_key" but you cannot sign and create new account',
         })
     except Exception:
         return web_base.error_res()

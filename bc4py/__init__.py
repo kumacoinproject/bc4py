@@ -1,6 +1,6 @@
 __version__ = '0.0.26-alpha'
 __chain_version__ = 0
-__message__ = 'This is alpha version - use at your own risk, do not use for merchant applications.'
+__message__ = 'This is alpha version - use at your own risk, do not use for merchant applications'
 __logo__ = """\
  _____          _____            _                  _   
 |  __ \        / ____|          | |                | |  

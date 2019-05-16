@@ -80,7 +80,7 @@ def fill_inputs_outputs(tx,
                 utxo_cashe=utxo_cashe,
                 depth=depth+1)
         elif len(tx.inputs) > 255:
-            raise BlockChainError('Too many inputs, unspent tx\'s amount is too small.')
+            raise BlockChainError('Too many inputs, unspent tx\'s amount is too small')
         else:
             raise BlockChainError('Insufficient balance. inputs={} needs={}'.format(input_coins, need_coins))
     # redeemを計算
@@ -161,7 +161,7 @@ def check_enough_amount(sender, send_coins, fee_coins, cur):
     from_coins = user_account.get_balance(outer_cur=cur)[sender]
     remain_coins = from_coins - send_coins - fee_coins
     if not remain_coins.is_all_plus_amount():
-        raise BlockChainError('Not enough balance in id={} balance={} remains={}.'.format(
+        raise BlockChainError('Not enough balance in id={} balance={} remains={}request_num'.format(
             sender, from_coins, remain_coins))
 
 

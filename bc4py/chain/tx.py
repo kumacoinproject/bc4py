@@ -198,7 +198,7 @@ class TX(object):
 
     def update_time(self, retention=10800):
         if retention < 10800:
-            raise BlockChainError('Retention time is too short.')
+            raise BlockChainError('Retention time is too short')
         now = int(time())
         self.time = now - V.BLOCK_GENESIS_TIME
         self.deadline = now - V.BLOCK_GENESIS_TIME + retention

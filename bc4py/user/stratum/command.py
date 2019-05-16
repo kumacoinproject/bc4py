@@ -61,7 +61,7 @@ async def mining_submit(*args, **kwargs):
     mined_block.update_pow()
     int.from_bytes(mined_block.work_hash, 'little')
     if base_target // user['diff'] > int.from_bytes(mined_block.work_hash, 'little'):
-        return 'not satisfied request work.'
+        return 'not satisfied request work'
     log.info("Accept work by \"{}\"".format(user['user']))
     user['deque'].append(time())  # accept!
     if mined_block.pow_check():

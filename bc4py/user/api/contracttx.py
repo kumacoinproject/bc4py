@@ -37,7 +37,7 @@ async def contract_init(request):
                 send_pairs=send_pairs,
                 sender=sender)
             if not send_newtx(new_tx=tx, outer_cur=cur):
-                raise Exception('Failed to send new tx.')
+                raise Exception('Failed to send new tx')
             db.commit()
             return web_base.json_res({
                 'hash': tx.hash.hex(),
@@ -77,7 +77,7 @@ async def contract_update(request):
                 send_pairs=send_pairs,
                 sender=sender)
             if not send_newtx(new_tx=tx, outer_cur=cur):
-                raise Exception('Failed to send new tx.')
+                raise Exception('Failed to send new tx')
             db.commit()
         return web_base.json_res({
             'hash': tx.hash.hex(),
@@ -110,7 +110,7 @@ async def contract_transfer(request):
                 send_pairs=send_pairs,
                 sender=sender)
             if not send_newtx(new_tx=tx, outer_cur=cur):
-                raise Exception('Failed to send new tx.')
+                raise Exception('Failed to send new tx')
             db.commit()
         return web_base.json_res({
             'hash': tx.hash.hex(),
@@ -141,7 +141,7 @@ async def conclude_contract(request):
             send_pairs=send_pairs,
             c_storage=c_storage)
         if not send_newtx(new_tx=tx):
-            raise Exception('Failed to send new tx.')
+            raise Exception('Failed to send new tx')
         return web_base.json_res({
             'hash': tx.hash.hex(),
             'gas_amount': tx.gas_amount,
@@ -168,7 +168,7 @@ async def validator_edit(request):
             tx = create_validator_edit_tx(
                 v_address=v_address, cur=cur, new_address=new_address, flag=flag, sig_diff=sig_diff)
             if not send_newtx(new_tx=tx, outer_cur=cur):
-                raise Exception('Failed to send new tx.')
+                raise Exception('Failed to send new tx')
             db.commit()
             return web_base.json_res({
                 'hash': tx.hash.hex(),
@@ -194,7 +194,7 @@ async def validate_unconfirmed(request):
             new_tx = create_signed_tx_as_validator(tx=tx)
             assert tx is not new_tx, 'tx={}, new_tx={}'.format(id(tx), id(new_tx))
             if not send_newtx(new_tx=new_tx, outer_cur=cur):
-                raise Exception('Failed to send new tx.')
+                raise Exception('Failed to send new tx')
             db.commit()
             return web_base.json_res({
                 'hash': new_tx.hash.hex(),

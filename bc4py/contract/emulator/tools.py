@@ -32,7 +32,7 @@ def execute(c_address, start_tx, c_method, redeem_address, c_args, gas_limit, f_
         log.error('Failed gas={} line={} result=\n{}\nlog=\n{}'.format(emulate_gas, work_line, result,
                                                                        file.getvalue()))
     file.close()
-    log.debug("Close file obj {}.".format(id(file)))
+    log.debug("Close file obj obj={}".format(file))
     return result, emulate_gas
 
 
@@ -64,9 +64,9 @@ def broadcast(c_address, start_tx, redeem_address, emulate_gas, result, f_not_se
     another_conclude_hash = get_conclude_hash_from_start(c_address=c_address, start_hash=start_tx.hash)
     if another_conclude_hash is not None:
         if another_conclude_hash == conclude_tx.hash:
-            log.debug("Already confirmed same concludeTX.")
+            log.debug("Already confirmed same concludeTX")
         else:
-            log.warning("Already confirmed different concludeTX.")
+            log.warning("Already confirmed different concludeTX")
         return None  # Already put confirmed or unconfirmed, don't need wait
     elif f_not_send:
         log.debug("Not broadcast, send_pairs={} c_storage={} tx={}".format(send_pairs, c_storage,
@@ -85,7 +85,7 @@ def broadcast(c_address, start_tx, redeem_address, emulate_gas, result, f_not_se
         # get another ConcludeTX again
         another_hash_again = get_conclude_hash_from_start(c_address=c_address, start_hash=start_tx.hash)
         if another_hash_again is None:
-            log.warning("Maybe Contract execution expired.")
+            log.warning("Maybe Contract execution expired")
             return None
         another_tx = tx_builder.get_tx(txhash=another_hash_again)
         a_another = calc_tx_movement(

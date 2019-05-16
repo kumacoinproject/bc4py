@@ -25,7 +25,7 @@ def get_block_obj(height=None, blockhash=None):
     elif blockhash is not None:
         p_block = api_get('getblockbyhash', hash=blockhash.hex(), pickle='true')
     else:
-        raise Exception('Both params are None.')
+        raise Exception('Both params are None')
     return pickle.loads(b64decode(p_block.encode()))
 
 

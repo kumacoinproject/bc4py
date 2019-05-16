@@ -37,7 +37,7 @@ class FileObjectWrapper(object):
 class Rpdb(pdb.Pdb):
 
     def __init__(self, addr=DEFAULT_ADDR, port=DEFAULT_PORT):
-        """Initialize the socket and initialize pdb."""
+        """Initialize the socket and initialize pdb"""
 
         # Backup stdin and stdout before replacing them by the socket handle
         self.old_stdout = sys.stdout
@@ -67,14 +67,14 @@ class Rpdb(pdb.Pdb):
         OCCUPIED.claim(self.port, sys.stdout)
 
     def shutdown(self):
-        """Revert stdin and stdout, close the socket."""
+        """Revert stdin and stdout, close the socket"""
         sys.stdout = self.old_stdout
         sys.stdin = self.old_stdin
         OCCUPIED.unclaim(self.port)
         self.skt.close()
 
     def do_continue(self, arg):
-        """Clean-up and do underlying continue."""
+        """Clean-up and do underlying continue"""
         try:
             return pdb.Pdb.do_continue(self, arg)
         finally:
@@ -83,7 +83,7 @@ class Rpdb(pdb.Pdb):
     do_c = do_cont = do_continue
 
     def do_quit(self, arg):
-        """Clean-up and do underlying quit."""
+        """Clean-up and do underlying quit"""
         try:
             return pdb.Pdb.do_quit(self, arg)
         finally:
@@ -92,7 +92,7 @@ class Rpdb(pdb.Pdb):
     do_q = do_exit = do_quit
 
     def do_EOF(self, arg):
-        """Clean-up and do underlying EOF."""
+        """Clean-up and do underlying EOF"""
         try:
             return pdb.Pdb.do_EOF(self, arg)
         finally:

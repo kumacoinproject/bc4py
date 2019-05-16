@@ -92,7 +92,7 @@ class Stratum(object):
                 log.debug("StratumError: {}".format(e))
             except Exception:
                 log.error("Stratum", exc_info=True)
-        log.info("ConnectionClosed.")
+        log.info("Connection closed")
         del self.users[(reader, writer)]
         writer.close()
 
@@ -102,7 +102,7 @@ class Stratum(object):
         method_name = '_'.join(data['method'].split('.'))
         async_method = globals().get(method_name, None)
         if not isinstance(args, list):
-            raise StratumError('args is list.')
+            raise StratumError('args is list')
         if async_method is None:
             raise StratumError('Not found method "{}" by params is "{}"'.format(method_name, args))
         kwords = dict(self=self, job_queue=job_queue, user=user, writer=writer)
@@ -131,7 +131,7 @@ async def reset_difficulty():
                 }).encode() + b'\n')
             await writer.drain()
             count += 1
-    log.debug("Update diff {} users.".format(count))
+    log.debug("Update diff {} users".format(count))
 
 
 async def backend_process():
@@ -179,9 +179,9 @@ def start_stratum(f_blocking=True):
         except KeyboardInterrupt:
             pass
         loop.close()
-        log.info("Stratum server closed now.")
+        log.info("Stratum server closed now")
     else:
-        log.info("Create Stratum server.")
+        log.info("Create Stratum server")
 
 
 def close_stratum():

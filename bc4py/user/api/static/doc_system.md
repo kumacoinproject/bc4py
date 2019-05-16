@@ -32,7 +32,7 @@ get system info (private)
     "api_ver": "0.0.2",
     "chain_ver": 2,
     "branch": "develop",
-    "message": "This is alpha version - use at your own risk, do not use for merchant applications.",
+    "message": "This is alpha version - use at your own risk, do not use for merchant applications",
     "booting": false,
     "connections": 3,
     "unconfirmed": [],

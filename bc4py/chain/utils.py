@@ -56,7 +56,7 @@ def signature2bin(s):
 def bits2target(bits):
     """ Convert bits to target """
     exponent = ((bits >> 24) & 0xff)
-    assert 3 <= exponent, "[exponent>=3] but {}.".format(exponent)
+    assert 3 <= exponent, "[exponent>=3] but {}".format(exponent)
     mantissa = bits & 0x7fffff
     if (bits & 0x800000) > 0:
         mantissa *= -1

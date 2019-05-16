@@ -8,9 +8,9 @@ from bc4py.database.builder import tx_builder
 
 def check_tx_pow_reward(tx, include_block):
     if not (len(tx.inputs) == 0 and len(tx.outputs) == 1):
-        raise BlockChainError('Inout is 0, output is 1 len.')
+        raise BlockChainError('Inout is 0, output is 1 len')
     elif include_block.txs.index(tx) != 0:
-        raise BlockChainError('Proof tx is index 0.')
+        raise BlockChainError('Proof tx is index 0')
     elif not (tx.gas_price == 0 and tx.gas_amount == 0):
         raise BlockChainError('Pow gas info is wrong. [{}, {}]'.format(tx.gas_price, tx.gas_amount))
     elif len(tx.message) > 96:
@@ -39,9 +39,9 @@ def check_tx_pow_reward(tx, include_block):
 def check_tx_pos_reward(tx, include_block):
     # POS報酬TXの検査
     if not (len(tx.inputs) == len(tx.outputs) == 1):
-        raise BlockChainError('Inputs and outputs is only 1 len.')
+        raise BlockChainError('Inputs and outputs is only 1 len')
     elif include_block.txs.index(tx) != 0:
-        raise BlockChainError('Proof tx is index 0.')
+        raise BlockChainError('Proof tx is index 0')
     elif not (tx.gas_price == 0 and tx.gas_amount == 0):
         raise BlockChainError('Pos gas info is wrong. [{}, {}]'.format(tx.gas_price, tx.gas_amount))
     elif not (tx.message_type == C.MSG_NONE and tx.message == b''):
@@ -51,7 +51,7 @@ def check_tx_pos_reward(tx, include_block):
     base_tx = tx_builder.get_tx(txhash)
     if base_tx is None:
         print(list(tx_builder.chained_tx.values()))
-        raise BlockChainError('Not found PosBaseTX:{} of {}.'.format(txhash.hex(), tx))
+        raise BlockChainError('Not found PosBaseTX:{} of {}'.format(txhash.hex(), tx))
     input_address, input_coin_id, input_amount = base_tx.outputs[txindex]
     tx.pos_amount = input_amount
     output_address, output_coin_id, output_amount = tx.outputs[0]
@@ -62,11 +62,11 @@ def check_tx_pos_reward(tx, include_block):
         raise BlockChainError('Input address differ from output address. [{}!={}]'.format(
             input_address, output_address))
     elif not (input_coin_id == output_coin_id == 0):
-        raise BlockChainError('Input and output coinID is zero.')
+        raise BlockChainError('Input and output coinID is zero')
     elif input_amount + reward != output_amount:
         raise BlockChainError('Inout amount wrong [{}+{}!={}]'.format(input_amount, reward, output_amount))
     elif tx.version != __chain_version__ or tx.message_type != C.MSG_NONE:
-        raise BlockChainError('Not correct tx version or msg_type.')
+        raise BlockChainError('Not correct tx version or msg_type')
     elif base_tx.height is None:
         raise BlockChainError('Source TX is unconfirmed. {}'.format(base_tx))
     elif not (include_block.height > base_tx.height + C.MATURE_HEIGHT):
@@ -77,14 +77,14 @@ def check_tx_pos_reward(tx, include_block):
                                                                             tx.deadline))
     elif not stake_coin_check(
             tx=tx, previous_hash=include_block.previous_hash, target_hash=include_block.target_hash):
-        raise BlockChainError('Proof of stake check is failed.')
+        raise BlockChainError('Proof of stake check is failed')
 
 
 def check_tx_poc_reward(tx, include_block):
     if not (len(tx.inputs) == 0 and len(tx.outputs) == 1):
         raise BlockChainError('inputs is 0 and outputs is 1')
     elif include_block.txs.index(tx) != 0:
-        raise BlockChainError('Proof tx is index 0.')
+        raise BlockChainError('Proof tx is index 0')
     elif not (tx.gas_price == 0 and tx.gas_amount == 0):
         raise BlockChainError('PoC gas info is wrong. [{}, {}]'.format(tx.gas_price, tx.gas_amount))
     elif not (tx.message_type == C.MSG_NONE and tx.message == b''):
@@ -98,7 +98,7 @@ def check_tx_poc_reward(tx, include_block):
     include_block.bits2target()
 
     if o_coin_id != 0:
-        raise BlockChainError('output coinID is 0.')
+        raise BlockChainError('output coinID is 0')
     if reward + total_fee != o_amount:
         raise BlockChainError('Inout amount wrong [{}+{}!={}]'.format(reward, total_fee, o_amount))
     if tx.version != __chain_version__:

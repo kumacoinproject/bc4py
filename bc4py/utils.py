@@ -33,7 +33,7 @@ def set_database_path(sub_dir=None):
 
 
 def set_blockchain_params(genesis_block, params):
-    assert 'spawn' in multiprocessing.get_all_start_methods(), 'Not found spawn method.'
+    assert 'spawn' in multiprocessing.get_all_start_methods(), 'Not found spawn method'
     V.GENESIS_BLOCK = genesis_block
     V.GENESIS_PARAMS = params
     V.BECH32_HRP = params.get('hrp')
@@ -65,11 +65,7 @@ def check_already_started():
 
 def console_args_parser():
     """get help by `python publicnode.py -h`"""
-    p = ArgumentParser(
-        description="Please run with `python3 publicnode.py --local --daemon`. "
-                    "Close by `curl --basic -u user:password -H \"accept: application/json\" "
-                    "127.0.0.1:3000/private/stop` or access the url by browser.",
-        formatter_class=ArgumentDefaultsHelpFormatter)
+    p = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
     p.add_argument('--p2p',
                    help='p2p server bind port',
                    default=2000,
@@ -168,7 +164,7 @@ class AESCipher:
         cipher = AES.new(key, AES.MODE_CBC, iv)
         raw = AESCipher._unpad(cipher.decrypt(enc[AES.block_size:]))
         if len(raw) == 0:
-            raise ValueError("AES decryption error, not correct key.")
+            raise ValueError("AES decryption error, not correct key")
         else:
             return raw
 

@@ -67,7 +67,7 @@ class DataBase(object):
         if os.path.exists(dirs):
             f_create = False
         else:
-            log.debug('No database directory found.')
+            log.debug('No database directory found')
             os.mkdir(dirs)
             f_create = True
         self._block = plyvel.DB(os.path.join(dirs, 'block'), create_if_missing=f_create)
@@ -86,21 +86,21 @@ class DataBase(object):
     def close(self):
         for name in self.database_list:
             getattr(self, name).close()
-        log.info("close database connection.")
+        log.info("close database connection")
 
     def batch_create(self):
-        assert self.batch is None, 'batch is already start.'
+        assert self.batch is None, 'batch is already start'
         if not self.event.wait(timeout=self.db_config['timeout']):
-            raise TimeoutError('batch_create timeout.')
+            raise TimeoutError('batch_create timeout')
         self.event.clear()
         self.batch = dict()
         for name in self.database_list:
             self.batch[name] = dict()
         self.batch_thread = threading.current_thread()
-        log.debug(":Create database batch.")
+        log.debug(":Create database batch")
 
     def batch_commit(self):
-        assert self.batch, 'Not created batch.'
+        assert self.batch, 'Not created batch'
         for name, memory in self.batch.items():
             batch = getattr(self, name).write_batch(sync=self.db_config['sync'])
             for k, v in memory.items():
@@ -109,13 +109,13 @@ class DataBase(object):
         self.batch = None
         self.batch_thread = None
         self.event.set()
-        log.debug("Commit database.")
+        log.debug("Commit database")
 
     def batch_rollback(self):
         self.batch = None
         self.batch_thread = None
         self.event.set()
-        log.debug("Rollback database.")
+        log.debug("Rollback database")
 
     def is_batch_thread(self):
         return self.batch and self.batch_thread is threading.current_thread()
@@ -347,7 +347,7 @@ class DataBase(object):
                         yield index, bin2addr(b=b_new_address, hrp=V.BECH32_HRP), flag, txhash, sig_diff
 
     def write_block(self, block):
-        assert self.is_batch_thread(), 'Not created batch.'
+        assert self.is_batch_thread(), 'Not created batch'
         tx_len = len(block.txs)
         if block.work_hash is None:
             block.update_pow()
@@ -372,19 +372,19 @@ class DataBase(object):
         log.debug("Insert new block {}".format(block))
 
     def write_usedindex(self, txhash, usedindex):
-        assert self.is_batch_thread(), 'Not created batch.'
-        assert isinstance(usedindex, set), 'Unsedindex is set.'
+        assert self.is_batch_thread(), 'Not created batch'
+        assert isinstance(usedindex, set), 'Unsedindex is set'
         self.batch['_used_index'][txhash] = bytes(sorted(usedindex))
 
     def write_address_idx(self, address, txhash, index, coin_id, amount, f_used):
-        assert self.is_batch_thread(), 'Not created batch.'
+        assert self.is_batch_thread(), 'Not created batch'
         k = addr2bin(ck=address, hrp=V.BECH32_HRP) + txhash + index.to_bytes(1, ITER_ORDER)
         v = struct_address_idx.pack(coin_id, amount, f_used)
         self.batch['_address_index'][k] = v
         log.debug("Insert new address idx {}".format(address))
 
     def write_coins(self, coin_id, txhash, params, setting):
-        assert self.is_batch_thread(), 'Not created batch.'
+        assert self.is_batch_thread(), 'Not created batch'
         index = -1
         for index, *dummy in self.read_coins_iter(coin_id=coin_id):
             pass
@@ -395,7 +395,7 @@ class DataBase(object):
         log.debug("Insert new coins id={}".format(coin_id))
 
     def write_contract(self, c_address, start_tx, finish_hash, message):
-        assert self.is_batch_thread(), 'Not created batch.'
+        assert self.is_batch_thread(), 'Not created batch'
         assert len(message) == 3
         include_block = self.read_block(blockhash=self.read_block_hash(height=start_tx.height))
         index = start_tx.height * 0xffffffff + include_block.txs.index(start_tx)
@@ -410,7 +410,7 @@ class DataBase(object):
         log.debug("Insert new contract {} {}".format(c_address, index))
 
     def write_validator(self, v_address, new_address, flag, tx, sign_diff):
-        assert self.is_batch_thread(), 'Not created batch.'
+        assert self.is_batch_thread(), 'Not created batch'
         include_block = self.read_block(blockhash=self.read_block_hash(height=tx.height))
         index = tx.height * 0xffffffff + include_block.txs.index(tx)
         # check newer index already inserted
@@ -431,7 +431,7 @@ class DataBase(object):
 class ChainBuilder(object):
 
     def __init__(self, cashe_limit=C.CASHE_LIMIT, batch_size=C.BATCH_SIZE):
-        assert cashe_limit > batch_size, 'cashe_limit > batch_size.'
+        assert cashe_limit > batch_size, 'cashe_limit > batch_size'
         self.cashe_limit = cashe_limit
         self.batch_size = batch_size
         self.chain = dict()
@@ -452,11 +452,11 @@ class ChainBuilder(object):
     def set_database_path(self, **kwargs):
         try:
             self.db = DataBase(f_dummy=False, **kwargs)
-            log.info("connect database.")
+            log.info("Connect database")
         except plyvel.Error:
-            log.warning("Already connect database.")
+            log.warning("Already connect database")
         except Exception as e:
-            log.debug("Failed connect database, {}.".format(e))
+            log.debug("Failed connect database, {}".format(e))
 
     def init(self, genesis_block: Block, batch_size=None):
         assert self.db, 'Why database connection failed?'
@@ -533,7 +533,7 @@ class ChainBuilder(object):
                 if len(batch_blocks) >= batch_size:
                     user_account.new_batch_apply(batched_blocks=batch_blocks, outer_cur=cur)
                     batch_blocks.clear()
-                    log.debug("UserAccount batched at {} height.".format(block.height))
+                    log.debug("UserAccount batched at {} height".format(block.height))
             # load and rebuild memory section
             self.root_block = before_block
             memorized_blocks, self.best_block = self.load_memory_file(before_block)
@@ -590,7 +590,7 @@ class ChainBuilder(object):
         elif os.path.exists(even_path):
             check_order.append(even_path)
         else:
-            raise Exception('Not found memory files.')
+            raise Exception('Not found memory files')
         # load by check_order
         for path in check_order:
             try:
@@ -605,10 +605,10 @@ class ChainBuilder(object):
             log.debug("Load {} blocks, best={}".format(len(memorized_blocks), root_block))
             return memorized_blocks, root_block
         else:
-            raise BlockBuilderError("Failed load memory files.")
+            raise BlockBuilderError("Failed load memory files")
 
     def get_best_chain(self, best_block=None):
-        assert self.root_block, 'Do not init.'
+        assert self.root_block, 'Do not init'
         if best_block:
             best_sets = {best_block}
             previous_hash = best_block.previous_hash
@@ -733,7 +733,7 @@ class ChainBuilder(object):
                 for blockhash, block in self.chain.copy().items():
                     if self.root_block.height >= block.height:
                         del self.chain[blockhash]
-                log.debug("Success batch {} blocks, root={}.".format(len(batched_blocks), self.root_block))
+                log.debug("Success batch {} blocks, root={}".format(len(batched_blocks), self.root_block))
                 # アカウントへ反映↓
                 user_account.new_batch_apply(batched_blocks=batched_blocks, outer_cur=cur)
                 db.commit()
@@ -979,7 +979,7 @@ class UserAccount(object):
             with create_db(V.DB_ACCOUNT_PATH) as db:
                 _wrapper(db.cursor())
                 if f_delete:
-                    log.warning("Delete user's old unconfirmed tx.")
+                    log.warning("Delete user's old unconfirmed tx")
                     db.commit()
 
     def get_balance(self, confirm=6, outer_cur=None):
@@ -1017,8 +1017,8 @@ class UserAccount(object):
                                 account[user][coin_id] += amount
             return account
 
-        assert confirm < builder.cashe_limit - builder.batch_size, 'Too few cashe size.'
-        assert builder.best_block, 'Not DataBase init.'
+        assert confirm < builder.cashe_limit - builder.batch_size, 'Too few cashe size'
+        assert builder.best_block, 'Not DataBase init'
         if outer_cur:
             return _wrapper(outer_cur)
         else:
@@ -1036,7 +1036,7 @@ class UserAccount(object):
             self.db_balance += movements
             return txhash
 
-        assert isinstance(coins, Balance), 'coins is Balance.'
+        assert isinstance(coins, Balance), 'coins is Balance'
         if outer_cur:
             return _wrapper(outer_cur)
         else:

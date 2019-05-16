@@ -145,7 +145,7 @@ def create_keystone(passphrase, keystone_path, mnemonic):
         'account_public_key': bip.extended_key(False),
         'path': bip.path,
         'comment': 'You must recode "mnemonic" and "passphrase" and remove after. '
-                   'You can remove "account_secret_key" but you cannot sign and create new account.',
+                   'You can remove "account_secret_key" but you cannot sign and create new account',
     }
     with open(keystone_path, mode='w') as fp:
         json.dump(wallet, fp, indent=4)

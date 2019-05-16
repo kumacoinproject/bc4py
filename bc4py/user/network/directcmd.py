@@ -14,20 +14,20 @@ def _block_by_height(height):
     if block:
         return block
     else:
-        return 'Not found block height {}.'.format(height)
+        return 'Not found block height {}'.format(height)
 
 
 def _block_by_hash(blockhash):
     block = builder.get_block(blockhash=blockhash)
     if block is None:
-        return 'Not found blockhash {}.'.format(blockhash.hex())
+        return 'Not found blockhash {}'.format(blockhash.hex())
     return block
 
 
 def _tx_by_hash(txhash):
     tx = tx_builder.get_tx(txhash=txhash)
     if tx is None:
-        return 'Not found tx {}.'.format(txhash.hex())
+        return 'Not found tx {}'.format(txhash.hex())
     return tx
 
 

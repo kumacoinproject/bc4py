@@ -20,7 +20,7 @@ def inputs_origin_check(tx, include_block):
             # InputのOriginはUnconfirmed
             if include_block:
                 raise BlockChainError('TX {} is include'
-                                      ', but input origin {} is unconfirmed.'.format(tx, input_tx))
+                                      ', but input origin {} is unconfirmed'.format(tx, input_tx))
             else:
                 # UnconfirmedTXの受け入れなので、txもinput_txもUnconfirmed
                 pass  # OK
@@ -96,7 +96,7 @@ def signature_check(tx, include_block):
         elif is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_CONTRACT_VER):
             raise BlockChainError('Not allow ContractAddress include in normal Transfer. {}'.format(address, tx))
         else:
-            raise BlockChainError('Not common address {} {}.'.format(address, tx))
+            raise BlockChainError('Not common address {} {}'.format(address, tx))
         # success check
         checked_cks.add(address)
 

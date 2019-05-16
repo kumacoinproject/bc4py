@@ -12,7 +12,7 @@ log = getLogger('bc4py')
 
 @contextmanager
 def create_db(path, f_debug=False, f_on_memory=False, f_wal_mode=False):
-    assert isinstance(path, str), 'You need initialize by set_database_path() before.'
+    assert isinstance(path, str), 'You need initialize by set_database_path() before'
     conn = sqlite3.connect(path, timeout=120)
     conn.execute("PRAGMA cache_size=5000")
     if f_on_memory:

@@ -104,7 +104,7 @@ get mintcoin info
     "name": "FriendCoin",
     "unit": "FC",
     "digit": 8,
-    "description": "example for api.",
+    "description": "example for api",
     "image": "https://i.imgur.com/fRJV4ps.png",
     "txhash": "2a8e3d48b7ee5287a80884c041805113d99f7663d227772da242325b357231ff",
     "address": "NAC65KCG5B5J55T7TV6PZ2BHPHBQKMUJOXXT4PDV",
@@ -131,7 +131,7 @@ get mintcoin history
         "txhash": "d30e93d347da3c8eaa23fad7b1b3cbf0ce2e9eaf2b4f9e7a47a7df153932ddf2",
         "params": {
             "address": "NAC65KCG5B5J55T7TV6PZ2BHPHBQKMUJOXXT4PDV",
-            "description": "example for api.",
+            "description": "example for api",
             "digit": 8,
             "image": null,
             "name": "FriendCoin",

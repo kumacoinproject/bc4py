@@ -15,7 +15,7 @@ class C:  # Constant
         'unit': 'PC',
         'digit': 8,
         'address': 'NDUMMYADDRESSAAAAAAAAAAAACRSTTMF',
-        'description': 'Base currency.',
+        'description': 'Base currency',
         'image': None
     }
 
