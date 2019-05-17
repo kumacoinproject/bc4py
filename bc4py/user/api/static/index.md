@@ -99,9 +99,10 @@ Others
 
 |URL    |Method    |Type    |About   |
 |----   |----   |----   |----   |
-|[/public/ws](./public/ws)          |GET   |public      | Realtime information stream.                       |
-|[/private/ws](./private/ws)        |GET   |private     | Realtime private information stream.               |
-|[/json-rpc](./json-rpc)            |POST   |JSON-RPC   | Mining interface, `getwork` and `getblocktemplete` |
+|[/](./)                         |GET   |public      | main page                                          |
+|[/](./)                         |POST  |JSON-RPC    | Mining interface, `getwork` and `getblocktemplete` |
+|[/public/ws](./public/ws)      |GET   |public      | Realtime information stream.                       |
+|[/private/ws](./private/ws)    |GET   |private     | Realtime private information stream.               |
 
 
 API version 0.0.2 2018/11/23

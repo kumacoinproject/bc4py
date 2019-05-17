@@ -134,12 +134,10 @@ def create_rest_server(f_local, user, pwd, port=3000, f_blocking=True, ssl_conte
     # Others
     app.router.add_get('/public/ws', websocket_route)
     app.router.add_get('/private/ws', websocket_route)
-    app.router.add_post('/json-rpc', json_rpc)  # Json-RPC
-    # html/markdown pages
+    # JSON-RPC html/markdown pages
     app.router.add_get('/', web_page)
+    app.router.add_post('/', json_rpc)
     app.router.add_get('/{page_path:[^{}]+.}', web_page)
-
-    # route2markdown(app)
 
     # Cross-Origin Resource Sharing
     escape_cross_origin_block(app)
