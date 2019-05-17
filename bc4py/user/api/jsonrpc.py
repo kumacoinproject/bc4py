@@ -3,7 +3,6 @@ from bc4py.config import C, V, P
 from bc4py.user.api import web_base
 from bc4py.database.builder import builder, tx_builder
 from bc4py.user.generate import create_mining_block, confirmed_generating_block
-from bc4py.chain.difficulty import MAX_TARGET
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from binascii import a2b_hex
@@ -13,6 +12,7 @@ import json
 from time import time
 from expiringdict import ExpiringDict
 import asyncio
+import traceback
 from logging import getLogger
 
 log = getLogger('bc4py')
@@ -21,59 +21,68 @@ log = getLogger('bc4py')
 # https://bitcoin.stackexchange.com/questions/13438/difference-between-coinbaseaux-flags-vs-coinbasetxn-data
 # https://github.com/bitcoin/bips/blob/master/bip-0022.mediawiki
 
-F_HEAVY_DEBUG = False
+
 getwork_cashe = ExpiringDict(max_len=100, max_age_seconds=300)
 extra_target = None  # 0x00000000ffff0000000000000000000000000000000000000000000000000000
 
 
 async def json_rpc(request):
+    # JSON-RPC require BasicAuth
     if 'Authorization' not in request.headers:
         return res_failed("Not found Authorization", None)
     authorization = request.headers['Authorization']
     auth_type, auth_data = authorization.split()
     if auth_type != 'Basic':
         return res_failed("Not Basic Authorization", None)
+
+    # user     => no meaning
+    # password => mining consensus number by confing.py
     user, password = b64decode(auth_data.encode()).decode().split(':')
-    # user_agent = request.headers['User-Agent']
     post = await web_base.content_type_json_check(request)
+    if P.F_NOW_BOOTING:
+        return res_failed("Busy status", post.get('id'))
+
     try:
-        if F_HEAVY_DEBUG: log.debug("PostRequest: {}".format(post))
-        method, params = post['method'], post.get('params', list())
-        if P.F_NOW_BOOTING:
-            return res_failed("Busy status", post.get('id'))
-        if F_HEAVY_DEBUG: log.debug("RpcRequest: {}".format(params))
+        # post format => {"id": id, "method": method, "params": [params]}
+        method = post['method']
+        params = post.get('params', list())  # sgminer don't have
+        log.debug("RpcRequest: method={} params={}".format(method, params))
         if not isinstance(params, list):
             return res_failed("Params is list. not {}".format(type(params)), post.get('id'))
-        kwords = dict(user=user, password=password)
-        result = await globals().get(method)(*params, **kwords)
-        if F_HEAVY_DEBUG: log.debug("RpcResponse: {}".format(result))
+
+        # find method function and throw task
+        fnc = globals().get(method)
+        if fnc is None:
+            return res_failed("not found method {}".format(method), post.get('id'))
+        result = await fnc(*params, user=user, password=password)
+        log.debug("RpcResponse: {}".format(result))
         return res_success(result, post.get('id'))
     except Exception as e:
-        import traceback
         tb = traceback.format_exc()
         log.debug("JsonRpcError: {}".format(e))
         return res_failed(str(tb), post.get('id'))
 
 
-def res_failed(error, id):
+def res_failed(error, uuid):
     return web.Response(
         text=json.dumps({
-            'id': id,
+            'id': uuid,
             'result': None,
             'error': error
         }), content_type='application/json')
 
 
-def res_success(result, id):
+def res_success(result, uuid):
     return web.Response(
         text=json.dumps({
-            'id': id,
+            'id': uuid,
             'result': result,
             'error': None
         }), content_type='application/json')
 
 
 async def get_mining_block(**kwargs):
+    """create raw mining block"""
     s = time()
     while True:
         try:
@@ -85,7 +94,10 @@ async def get_mining_block(**kwargs):
 
 
 async def getwork(*args, **kwargs):
-    # https://en.bitcoin.it/wiki/Getwork
+    """
+    duplicated method "getwork"
+    https://en.bitcoin.it/wiki/Getwork
+    """
     if len(args) == 0:
         now = int(time() - V.BLOCK_GENESIS_TIME)
         for block in getwork_cashe.values():
@@ -133,6 +145,15 @@ async def getwork(*args, **kwargs):
 
 
 async def getblocktemplate(*args, **kwargs):
+    """
+    default method "getblocktemplate"
+    https://en.bitcoin.it/wiki/Getblocktemplate
+    For full specification, see BIPs 22, 23, 9, and 145:
+        https://github.com/bitcoin/bips/blob/master/bip-0022.mediawiki
+        https://github.com/bitcoin/bips/blob/master/bip-0023.mediawiki
+        https://github.com/bitcoin/bips/blob/master/bip-0009.mediawiki#getblocktemplate_changes
+        https://github.com/bitcoin/bips/blob/master/bip-0145.mediawiki
+    """
     # capabilities = {"capabilities": ["coinbasetxn", "workid", "coinbase/append"]}
     mining_block = await get_mining_block(**kwargs)
     mining_block.bits2target()
@@ -165,7 +186,14 @@ async def getblocktemplate(*args, **kwargs):
     return template
 
 
-async def submitblock(block_hex_or_obj, **kwargs):
+async def submitblock(*args, **kwargs):
+    """
+    method "submitblock"
+    Attempts to submit new block to network
+    """
+    if len(args) == 0:
+        return 'no argument found'
+    block_hex_or_obj = args[0]
     if isinstance(block_hex_or_obj, str):
         block_bin = a2b_hex(block_hex_or_obj)
         # Block
@@ -189,7 +217,7 @@ async def submitblock(block_hex_or_obj, **kwargs):
         else:  # == 0xff
             tx_len = int.from_bytes(block_bin[81:89], 'little')
             pos = 89
-        if F_HEAVY_DEBUG: log.debug("RpcSubmit block: pos={}, tx_len={}".format(pos, tx_len))
+        log.debug("RpcSubmit block: pos={}, tx_len={}".format(pos, tx_len))
         # correct txs
         while len(block_bin) > pos:
             tx = TX()
@@ -225,3 +253,8 @@ async def getmininginfo(*args, **kwargs):
 
 def bin2hex(b):
     return b[::-1].hex()
+
+
+__all__ = [
+    "json_rpc",
+]
