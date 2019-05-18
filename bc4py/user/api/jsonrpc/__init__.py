@@ -29,6 +29,8 @@ async def json_rpc(request):
     # password => mining consensus number by confing.py
     user, password = b64decode(auth_data.encode()).decode().split(':')
     post = await web_base.content_type_json_check(request)
+    if not isinstance(post, dict):
+        return res_failed("post data is not correct? post={}".format(post), None)
     if P.F_NOW_BOOTING:
         return res_failed("Busy status", post.get('id'))
 
@@ -49,8 +51,8 @@ async def json_rpc(request):
         return res_success(result, post.get('id'))
     except Exception as e:
         tb = traceback.format_exc()
-        log.debug("JsonRpcError: {}".format(e))
-        return res_failed(str(tb), post.get('id'))
+        log.debug("JsonRpcError:", exc_info=True)
+        return res_failed(str(e), post.get('id'))
 
 
 def res_failed(error, uuid):

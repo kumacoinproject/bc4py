@@ -5,6 +5,10 @@ from bc4py.database.account import read_name2user, create_new_user_keypair
 from bc4py.user import Balance
 from bc4py.user.txcreation.transfer import send_from, send_many
 from bc4py.user.network.sendnew import send_newtx
+from logging import getLogger
+
+
+log = getLogger('bc4py')
 
 
 async def sendtoaddress(*args, **kwargs):
@@ -33,18 +37,18 @@ async def sendtoaddress(*args, **kwargs):
     amount = int(amount * pow(10, V.COIN_DIGIT))
     _comment = str(options[0]) if 0 < len(options) else None  # do not use by Yiimp
     _comment_to = str(options[1]) if 1 < len(options) else None  # do not use by Yiimp
-    # TODO: subtract_fee_from_amount
-    subtract_fee_from_amount = bool(options[2]) if 2 < len(options) else False
+    subtract_fee_amount = bool(options[2]) if 2 < len(options) else False
 
     # execute send
     error = None
-    from_id = C.ANT_UNKNOWN
+    from_id = C.ANT_MINING
     coin_id = 0
     coins = Balance(coin_id, amount)
     with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = db.cursor()
         try:
-            new_tx = send_from(from_id, address, coins, cur)
+            new_tx = send_from(from_id, address, coins, cur,
+                               subtract_fee_amount=subtract_fee_amount)
             if send_newtx(new_tx=new_tx, outer_cur=cur):
                 db.commit()
             else:
@@ -52,11 +56,12 @@ async def sendtoaddress(*args, **kwargs):
                 db.rollback()
         except Exception as e:
             error = str(e)
+            log.debug("sendtoaddress", exc_info=True)
             db.rollback()
 
     # submit result
     if error:
-        raise ValueError("error={} tx={}".format(error, new_tx.getinfo()))
+        raise ValueError(error)
     return new_tx.hash.hex()
 
 
@@ -102,11 +107,12 @@ async def sendmany(*args, **kwargs):
                 db.rollback()
         except Exception as e:
             error = str(e)
+            log.debug("sendmany", exc_info=True)
             db.rollback()
 
     # submit result
     if error:
-        raise ValueError("error={} tx={}".format(error, new_tx.getinfo()))
+        raise ValueError(error)
     return new_tx.hash.hex()
 
 
