@@ -1,7 +1,7 @@
 from bc4py import __chain_version__
 from bc4py.config import C, V, BlockChainError
 from bc4py.bip32 import ADDR_SIZE, addr2bin, bin2addr
-from hashlib import sha256
+from bc4py_extension import sha256d_hash
 from time import time
 from logging import getLogger
 from struct import Struct
@@ -120,7 +120,7 @@ class TX(object):
         # message
         self.b += self.message
         # txhash
-        self.hash = sha256(sha256(self.b).digest()).digest()
+        self.hash = sha256d_hash(self.b)
 
     def deserialize(self, first_pos=0, f_raise=True):
         self.version, self.type, self.time, self.deadline, self.gas_price, self.gas_amount,\
@@ -145,7 +145,7 @@ class TX(object):
                 raise BlockChainError('Do not match len [{}!={}'.format(len(self.b), pos))
             else:
                 self.b = self.b[first_pos:pos]
-        self.hash = sha256(sha256(self.b).digest()).digest()
+        self.hash = sha256d_hash(self.b)
 
     def getinfo(self):
         r = dict()

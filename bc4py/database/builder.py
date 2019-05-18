@@ -7,8 +7,8 @@ import bc4py.chain.msgpack as bc4py_msgpack
 from bc4py.user import Balance, Accounting
 from bc4py.database.account import *
 from bc4py.database.create import create_db
+from bc4py_extension import sha256d_hash
 from msgpack import unpackb, packb
-from hashlib import sha256
 import struct
 import weakref
 import os
@@ -213,7 +213,7 @@ class DataBase(object):
         offset += sign_len
         R = b[offset:offset + r_len]
         offset += r_len
-        if txhash != sha256(sha256(b_tx).digest()).digest():
+        if txhash != sha256d_hash(b_tx):
             return None  # will be forked
         tx = TX.from_binary(binary=b_tx)
         tx.height = int.from_bytes(b_height, ITER_ORDER)

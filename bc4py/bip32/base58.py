@@ -4,7 +4,7 @@
 # See LICENSE.txt for distribution terms
 #
 
-from hashlib import sha256
+from bc4py_extension import sha256d_hash
 
 __base58_alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 __base58_alphabet_bytes = b'123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
@@ -41,7 +41,7 @@ def encode(data):
 
 def check_encode(raw):
     """Encode raw bytes into Bitcoin base58 string with checksum"""
-    chk = sha256(sha256(raw).digest()).digest()[:4]
+    chk = sha256d_hash(raw)[:4]
     return encode(raw + chk)
 
 
@@ -69,7 +69,7 @@ def check_decode(enc):
     """Decode bytes from Bitcoin base58 string and test checksum"""
     dec = decode(enc)
     raw, chk = dec[:-4], dec[-4:]
-    if chk != sha256(sha256(raw).digest()).digest()[:4]:
+    if chk != sha256d_hash(raw)[:4]:
         raise ValueError("base58 decoding checksum error dec={}".format(dec))
     else:
         return raw

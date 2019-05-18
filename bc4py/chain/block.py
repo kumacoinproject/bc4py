@@ -1,7 +1,7 @@
 from bc4py.config import C, V
 from bc4py.chain.utils import MAX_256_INT, bits2target
 from bc4py.chain.workhash import update_work_hash
-from hashlib import sha256
+from bc4py_extension import sha256d_hash, merkleroot_hash
 from logging import getLogger
 from struct import Struct
 from time import time
@@ -109,14 +109,14 @@ class Block(object):
     def serialize(self):
         self.b = struct_block.pack(self.version, self.previous_hash, self.merkleroot, self.time, self.bits,
                                    self.nonce)
-        self.hash = sha256(sha256(self.b).digest()).digest()
+        self.hash = sha256d_hash(self.b)
         assert len(self.b) == 80, 'Not correct header size [{}!={}]'.format(len(self.b), 80)
 
     def deserialize(self):
         assert len(self.b) == 80, 'Not correct header size [{}!={}]'.format(len(self.b), 80)
         self.version, self.previous_hash, self.merkleroot, self.time, self.bits, \
             self.nonce = struct_block.unpack(self.b)
-        self.hash = sha256(sha256(self.b).digest()).digest()
+        self.hash = sha256d_hash(self.b)
 
     def getinfo(self, f_with_tx_info=False):
         r = dict()
@@ -219,12 +219,5 @@ class Block(object):
 
     def update_merkleroot(self):
         hash_list = [tx.hash for tx in self.txs]
-        while len(hash_list) > 1:
-            if len(hash_list) % 2:
-                hash_list.append(hash_list[-1])
-            hash_list = [
-                sha256(sha256(hash_list[i] + hash_list[i + 1]).digest()).digest()
-                for i in range(0, len(hash_list), 2)
-            ]
-        self.merkleroot = hash_list[0]
+        self.merkleroot = merkleroot_hash(hash_list)
         self.serialize()
