@@ -11,8 +11,9 @@ from logging import getLogger
 log = getLogger('bc4py')
 
 
-def mined_newblock(que, pc):
-    # 新規採掘BlockをP2Pに公開
+def mined_newblock(que):
+    """new thread, broadcast mined block to network"""
+    assert V.PC_OBJ, "PeerClient is None"
     while not P.F_STOP:
         try:
             new_block = que.get(timeout=1)
@@ -44,13 +45,13 @@ def mined_newblock(que, pc):
                 }
             }
             try:
-                pc.send_command(cmd=ClientCmd.BROADCAST, data=data)
+                V.PC_OBJ.send_command(cmd=ClientCmd.BROADCAST, data=data)
                 log.info("Success broadcast new block {}".format(new_block))
                 update_info_for_generate()
             except TimeoutError:
                 log.warning("Failed broadcast new block, other nodes don\'t accept {}".format(new_block.getinfo()))
         except queue.Empty:
-            if pc.f_stop:
+            if V.PC_OBJ.f_stop:
                 log.debug("Mined new block closed")
                 break
         except BlockChainError as e:

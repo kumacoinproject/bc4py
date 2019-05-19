@@ -63,18 +63,21 @@ def stand_client(p2p_port, sub_dir=None):
     # Debug.F_CONSTANT_DIFF = True
     # Debug.F_SHOW_DIFFICULTY = True
     # Debug.F_STICKY_TX_REJECTION = False  # for debug
+    logging.info("Finished all initialize.")
+
+
+def solo_mining():
     Generate(consensus=C.BLOCK_YES_POW, power_limit=0.05).start()
     Generate(consensus=C.BLOCK_X16S_POW, power_limit=0.05).start()
     Generate(consensus=C.BLOCK_X11_POW, power_limit=0.05).start()
     Generate(consensus=C.BLOCK_COIN_POS, power_limit=0.3).start()
-    Generate(consensus=C.BLOCK_CAP_POS, power_limit=0.3).start()
-    Thread(target=mined_newblock, name='GeneBlock', args=(output_que, pc)).start()
-    logging.info("Finished all initialize.")
+    Generate(consensus=C.BLOCK_CAP_POS, power_limit=0.3, path="E:\\plots").start()
+    Thread(target=mined_newblock, name='GeneBlock', args=(output_que,)).start()
 
 
-def rest_server(f_local, user, password, rest_port):
+def rest_server(user, password, rest_port, rest_host):
     try:
-        create_rest_server(f_local=f_local, user=user, pwd=password, port=rest_port)
+        create_rest_server(user=user, pwd=password, port=rest_port, host=rest_host)
     except Exception as e:
         logging.error("exit by {}".format(e))
     P.F_STOP = True
@@ -89,4 +92,6 @@ if __name__ == '__main__':
     logging.info("\n{}\n====\n{}, chain-ver={}\n{}\n"
                  .format(__logo__, __version__, __chain_version__, __message__))
     stand_client(p2p_port=p.p2p, sub_dir=p.sub_dir)
-    rest_server(f_local=p.local, user=p.user, password=p.password, rest_port=p.rest)
+    if p.solo_mining:
+        solo_mining()
+    rest_server(user=p.user, password=p.password, rest_port=p.rest, rest_host=p.host)

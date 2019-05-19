@@ -96,12 +96,12 @@ def work(port, sub_dir):
     start_emulators()
     # Stratum
     # Stratum(port=port+2000, consensus=C.BLOCK_HMQ_POW, first_difficulty=4)
-    Thread(target=mined_newblock, name='GeneBlock', args=(output_que, pc)).start()
+    Thread(target=mined_newblock, name='GeneBlock', args=(output_que,)).start()
     logging.info("Finished all initialize.")
 
     try:
         # start_stratum(f_blocking=False)
-        create_rest_server(f_local=True, user='user', pwd='password', port=port+1000)
+        create_rest_server(user='user', pwd='password', port=port+1000)
         P.F_STOP = True
         builder.close()
         # close_stratum()

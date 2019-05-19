@@ -77,7 +77,16 @@ def setup_ssl_context(cert, private, hostname=False):
     return ssl_context
 
 
-def create_rest_server(f_local, user, pwd, port=3000, f_blocking=True, ssl_context=None):
+def create_rest_server(user, pwd, port=3000, host='127.0.0.1', f_blocking=True, ssl_context=None):
+    """
+    create REST server for API
+    :param user: BasicAuth username
+    :param pwd: BasicAuth password
+    :param port: REST bind port
+    :param host: REST bind host, "0.0.0.0" is global
+    :param f_blocking: blocked by asyncio loop
+    :param ssl_context: for SSL server
+    """
     threading.current_thread().setName("REST")
     app = web.Application()
     V.API_OBJ = app
@@ -148,11 +157,9 @@ def create_rest_server(f_local, user, pwd, port=3000, f_blocking=True, ssl_conte
     app.middlewares.append(basic_auth_middleware(('/private/',), {user: pwd}, PrivateAccessStrategy))
 
     # Working
-    host = '127.0.0.1' if f_local else '0.0.0.0'
-    # web.run_app(app=app, host=host, port=port)
     runner = web.AppRunner(app)
     loop.run_until_complete(non_blocking_start(runner, host, port, ssl_context))
-    log.info("REST work on port={} mode={}".format(port, 'Local' if f_local else 'Global'))
+    log.info("REST work on port={} host={}".format(port, host))
 
     if f_blocking:
         try:

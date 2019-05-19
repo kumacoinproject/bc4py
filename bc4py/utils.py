@@ -74,6 +74,10 @@ def console_args_parser():
                    help='REST API bind port',
                    default=3000,
                    type=int)
+    p.add_argument('--host',
+                   help='REST API bind host',
+                   default='127.0.0.1',
+                   type=str)
     p.add_argument('--user', '-u',
                    help='API user name',
                    default='user',
@@ -85,9 +89,6 @@ def console_args_parser():
     p.add_argument('--sub-dir',
                    help='setup blockchain folder path',
                    default=None)
-    p.add_argument('--local',
-                   help='REST server bind local env',
-                   action='store_true')
     p.add_argument('--log-level',
                    help='logging level',
                    choices=list(NAME2LEVEL),
@@ -101,6 +102,9 @@ def console_args_parser():
                    action='store_true')
     p.add_argument('--daemon',
                    help='make process daemon',
+                   action='store_true')
+    p.add_argument('--solo-mining',
+                   help='solo mining for debug or testnet',
                    action='store_true')
     return p.parse_args()
 
