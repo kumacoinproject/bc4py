@@ -92,12 +92,12 @@ class C:  # Constant
     ANT_UNKNOWN = 0  # Unknown user
     ANT_VALIDATOR = 1  # ValidatorAddress
     ANT_CONTRACT = 2  # ContractAddress
-    ANT_MINING = 3  # MiningAddress
+    ANT_STAKED = 3  # Staked balance
     account2name = {
         ANT_UNKNOWN: '@Unknown',
         ANT_VALIDATOR: '@Validator',
         ANT_CONTRACT: '@Contract',
-        ANT_MINING: '@Mining'
+        ANT_STAKED: '@Staked',
     }
 
     # Block/TX/Fee limit

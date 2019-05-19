@@ -1140,16 +1140,16 @@ class UserAccount(object):
                 user = read_address2user(address, cur)
                 if user is not None:
                     if tx.type == C.TX_POS_REWARD:
-                        user = C.ANT_MINING
-                    # throw staking reward to @Mining
+                        # subtract staking reward from @Staked
+                        user = C.ANT_STAKED
                     movement[user][coin_id] -= amount
                     # movement[C.ANT_OUTSIDE] += balance
             for address, coin_id, amount in tx.outputs:
                 user = read_address2user(address, cur)
                 if user is not None:
                     if tx.type == C.TX_POS_REWARD:
-                        user = C.ANT_MINING
-                    # throw staking reward to @Mining
+                        # add staking reward to @Staked
+                        user = C.ANT_STAKED
                     movement[user][coin_id] += amount
                     # movement[C.ANT_OUTSIDE] -= balance
             # check

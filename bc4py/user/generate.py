@@ -314,7 +314,7 @@ def create_mining_block(consensus):
             if V.MINING_ADDRESS is None:
                 with create_db(V.DB_ACCOUNT_PATH) as db:
                     cur = db.cursor()
-                    mining_address = create_new_user_keypair(C.ANT_MINING, cur)
+                    mining_address = create_new_user_keypair(C.ANT_UNKNOWN, cur)
                     db.commit()
             else:
                 mining_address = V.MINING_ADDRESS

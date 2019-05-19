@@ -84,6 +84,8 @@ def check_account_db():
             generate_wallet_db(db)
             db.commit()
         log.info("generate wallet success")
+    # small update
+    affect_new_change()
 
 
 def generate_wallet_db(db):
@@ -134,8 +136,22 @@ def generate_wallet_db(db):
         C.account2name[account_id],
         "",
         0,
-    ) for account_id in (C.ANT_UNKNOWN, C.ANT_VALIDATOR, C.ANT_CONTRACT, C.ANT_MINING)]
+    ) for account_id in (C.ANT_UNKNOWN, C.ANT_VALIDATOR, C.ANT_CONTRACT, C.ANT_STAKED)]
     db.executemany("INSERT OR IGNORE INTO `account` VALUES (?,?,?,?,?)", accounts)
+
+
+def affect_new_change():
+    """update differences when wallet format changed"""
+    with create_db(V.DB_ACCOUNT_PATH) as db:
+        cur = db.cursor()
+        # rename @Mining to @Staked
+        cur.execute('SELECT `id` FROM `account` WHERE `name`=?', ('@Mining',))
+        uuid = cur.fetchone()
+        if uuid is not None:
+            uuid = uuid[0]
+            cur.execute('UPDATE `account` SET `name`=? WHERE `id`=?', (C.account2name[C.ANT_STAKED], uuid,))
+            db.commit()
+            log.info("change user_name @Mining to @Staked")
 
 
 def recreate_wallet_db(db):

@@ -41,7 +41,7 @@ async def sendtoaddress(*args, **kwargs):
 
     # execute send
     error = None
-    from_id = C.ANT_MINING
+    from_id = C.ANT_UNKNOWN
     coin_id = 0
     coins = Balance(coin_id, amount)
     with create_db(V.DB_ACCOUNT_PATH) as db:
