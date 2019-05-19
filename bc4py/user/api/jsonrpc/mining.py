@@ -143,13 +143,13 @@ async def getblocktemplate(*args, **kwargs):
     mining_block.bits2target()
     template = {
         "version": mining_block.version,
-        "previousblockhash": bin2hex(mining_block.previous_hash),
+        "previousblockhash": reversed_hex(mining_block.previous_hash),
         "transactions": None,
         "coinbasetxn": {
             # sgminer say, FAILED to decipher work from 127.0.0.1
             "data": mining_block.txs[0].b.hex()
         },  # 採掘報酬TX
-        "target": bin2hex(mining_block.target_hash),
+        "target": reversed_hex(mining_block.target_hash),
         "mutable": ["time", "transactions", "prevblock"],
         "noncerange": "00000000ffffffff",
         "sizelimit": C.SIZE_BLOCK_LIMIT,
@@ -161,9 +161,9 @@ async def getblocktemplate(*args, **kwargs):
     for tx in mining_block.txs[1:]:
         transactions.append({
             "data": tx.b.hex(),
-            "hash": bin2hex(tx.hash),
+            "hash": reversed_hex(tx.hash),
             "depends": list(),
-            "fee": 0,
+            "fee": tx.gas_price * tx.gas_amount,
         })
     template['transactions'] = transactions
     return template
@@ -171,8 +171,16 @@ async def getblocktemplate(*args, **kwargs):
 
 async def submitblock(*args, **kwargs):
     """
-    method "submitblock"
-    Attempts to submit new block to network
+    Attempts to submit new block to network.
+    See https://en.bitcoin.it/wiki/BIP_0022 for full specification.
+
+    Arguments
+        1. "hexdata"        (string, required) the hex-encoded block data to submit
+        2. "dummy"          (optional) dummy value, for compatibility with BIP22. This value is ignored.
+
+    Result:
+        null if success
+        string if failed
     """
     if len(args) == 0:
         raise ValueError('no argument found')
@@ -230,7 +238,7 @@ async def submitblock(*args, **kwargs):
         return 'not satisfied work'
 
 
-def bin2hex(b):
+def reversed_hex(b):
     return b[::-1].hex()
 
 

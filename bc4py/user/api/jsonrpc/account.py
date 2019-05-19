@@ -90,6 +90,9 @@ async def sendmany(*args, **kwargs):
     _minconf = options[0] if 0 < len(options) else 1  # ignore
     _comment = options[1] if 1 < len(options) else None  # ignore
 
+    # replace account "" to "@Unknown"
+    from_account = C.account2name[C.ANT_UNKNOWN] if from_account == '' else from_account
+
     error = None
     with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = db.cursor()

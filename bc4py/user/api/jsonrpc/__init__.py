@@ -15,6 +15,11 @@ log = getLogger('bc4py')
 # https://bitcoin.stackexchange.com/questions/13438/difference-between-coinbaseaux-flags-vs-coinbasetxn-data
 # https://github.com/bitcoin/bips/blob/master/bip-0022.mediawiki
 
+"""
+JSON-RPC server
+It's designed for Yiimp pool program.
+"""
+
 
 async def json_rpc(request):
     # JSON-RPC require BasicAuth
