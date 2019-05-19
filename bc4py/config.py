@@ -115,6 +115,11 @@ class C:  # Constant
     ACCEPT_MARGIN_TIME = 120  # 新規データ受け入れ時間マージンSec
     MAX_RECURSIVE_BLOCK_DEPTH = 30  # recursive accept block limit
 
+    # sqlite params
+    SQLITE_CASHE_SIZE = None  # if None, size is 2000
+    SQLITE_JOURNAL_MODE = 'WAL'  # if None, mode is DELETE
+    SQLITE_SYNC_MODE = 'NORMAL'  # if None, sync is FULL
+
 
 class V:
     # Blockchain basic params

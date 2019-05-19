@@ -11,20 +11,41 @@ log = getLogger('bc4py')
 
 
 @contextmanager
-def create_db(path, f_debug=False, f_on_memory=False, f_wal_mode=False):
+def create_db(path, f_debug=False):
+    """
+    account database connector
+
+    journal_mode: (Do not use OFF mode)
+        DELETE: delete journal file at end of transaction
+        TRUNCATE: set journal file size to 0 at the end of transaction
+        PERSIST: disable headers at end of transaction
+        MEMORY: save journal file on memory
+        WAL: use a write-ahead log instead of a rollback journal
+
+    synchronous:
+        FULL: ensure that all content is safely written to the disk.
+        EXTRA: provides additional durability if the commit is followed closely by a power loss.
+        NORMAL: sync at the most critical moments, but less often than in FULL mode.
+        OFF: without syncing as soon as it has handed data off to the operating system.
+    """
     assert isinstance(path, str), 'You need initialize by set_database_path() before'
     conn = sqlite3.connect(path, timeout=120)
-    conn.execute("PRAGMA cache_size=5000")
-    if f_on_memory:
+
+    # cashe size, default 2000
+    if isinstance(C.SQLITE_CASHE_SIZE, int):
+        conn.execute("PRAGMA cache_size = {}".format(C.SQLITE_CASHE_SIZE))
+
+    # journal mode, default DELETE
+    if isinstance(C.SQLITE_JOURNAL_MODE, str):
         conn.isolation_level = None
-        conn.execute("PRAGMA journal_mode=MEMORY")
-        conn.isolation_level = 'IMMEDIATE'
-    elif f_wal_mode:
-        conn.isolation_level = None
-        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA journal_mode = {}".format(C.SQLITE_JOURNAL_MODE))
         conn.isolation_level = 'IMMEDIATE'
     else:
         conn.isolation_level = 'IMMEDIATE'
+
+    # synchronous mode, default FULL
+    if isinstance(C.SQLITE_SYNC_MODE, str):
+        conn.execute("PRAGMA synchronous = {}".format(C.SQLITE_SYNC_MODE))
 
     if f_debug:
         conn.set_trace_callback(sql_info)
