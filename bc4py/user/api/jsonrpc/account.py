@@ -132,6 +132,8 @@ async def getaccountaddress(*args, **kwargs):
     if len(args) == 0:
         raise ValueError('too few arguments num={}'.format(len(args)))
     user_name = args[0]
+    # replace account "" to "@Unknown"
+    user_name = C.account2name[C.ANT_UNKNOWN] if user_name == '' else user_name
     with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = db.cursor()
         user_id = read_name2user(user_name, cur)
