@@ -11,7 +11,7 @@ from bc4py.database.account import message2signature, create_new_user_keypair
 from bc4py.database.tools import get_unspents_iter
 from bc4py_extension import multi_seek
 from concurrent.futures import ProcessPoolExecutor
-from threading import Thread
+from threading import Thread, Lock
 from time import time, sleep
 from collections import deque
 from random import random
@@ -25,6 +25,7 @@ import re
 
 log = getLogger('bc4py')
 generating_threads = list()
+mining_address_lock = Lock()
 output_que = queue.Queue()
 # mining share info
 mining_address: Optional[AnyStr] = None
@@ -129,6 +130,7 @@ class Generate(Thread):
             else:
                 # Mined yay!!!
                 confirmed_generating_block(mining_block)
+                mining_address = None
             # generate next mining request_num
             try:
                 self.hashrate = (request_num * len(spans_deque) // sum(spans_deque), time())
@@ -172,6 +174,8 @@ class Generate(Thread):
             staking_block.flag = C.BLOCK_COIN_POS
             staking_block.bits2target()
             staking_block.txs.append(None)  # Dummy proof tx
+            if unconfirmed_txs is None:
+                raise FailedGenerateWarning('unconfirmed_txs is None')
             staking_block.txs.extend(unconfirmed_txs)
             calculate_nam = 0
             for proof_tx in unspents_txs.copy():
@@ -305,14 +309,15 @@ class Generate(Thread):
 def create_mining_block(consensus):
     global mining_address
     # setup mining address for PoW
-    if mining_address is None:
-        if V.MINING_ADDRESS is None:
-            with create_db(V.DB_ACCOUNT_PATH) as db:
-                cur = db.cursor()
-                mining_address = create_new_user_keypair(C.ANT_MINING, cur)
-                db.commit()
-        else:
-            mining_address = V.MINING_ADDRESS
+    with mining_address_lock:
+        if mining_address is None:
+            if V.MINING_ADDRESS is None:
+                with create_db(V.DB_ACCOUNT_PATH) as db:
+                    cur = db.cursor()
+                    mining_address = create_new_user_keypair(C.ANT_MINING, cur)
+                    db.commit()
+            else:
+                mining_address = V.MINING_ADDRESS
     if unconfirmed_txs is None:
         raise FailedGenerateWarning('unconfirmed_txs is None')
     if previous_block is None:
@@ -346,6 +351,8 @@ def create_mining_block(consensus):
     mining_block.flag = consensus
     mining_block.bits2target()
     mining_block.txs.append(proof_tx)
+    if unconfirmed_txs is None:
+        raise FailedGenerateWarning('unconfirmed_txs is None')
     mining_block.txs.extend(unconfirmed_txs)
     mining_block.update_merkleroot()
     mining_block.update_time(proof_tx.time)
@@ -354,8 +361,7 @@ def create_mining_block(consensus):
 
 def confirmed_generating_block(new_block):
     log.info("Generate block yey!! {}".format(new_block))
-    global mining_address, previous_block, unconfirmed_txs, unspents_txs
-    mining_address = None
+    global previous_block, unconfirmed_txs, unspents_txs
     previous_block = None
     unconfirmed_txs = None
     unspents_txs = None
