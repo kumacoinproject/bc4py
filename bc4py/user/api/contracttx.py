@@ -26,7 +26,7 @@ async def contract_init(request):
         sender_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
         with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = db.cursor()
-            sender = read_name2user(sender_name, cur)
+            sender = read_name2userid(sender_name, cur)
             tx = create_contract_init_tx(
                 c_address=c_address,
                 v_address=v_address,
@@ -67,7 +67,7 @@ async def contract_update(request):
         sender_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
         with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = db.cursor()
-            sender = read_name2user(sender_name, cur)
+            sender = read_name2userid(sender_name, cur)
             tx = create_contract_update_tx(
                 c_address=c_address,
                 cur=cur,
@@ -101,7 +101,7 @@ async def contract_transfer(request):
         sender_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
         with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = db.cursor()
-            sender = read_name2user(sender_name, cur)
+            sender = read_name2userid(sender_name, cur)
             tx = create_contract_transfer_tx(
                 c_address=c_address,
                 cur=cur,
@@ -164,7 +164,7 @@ async def validator_edit(request):
         with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = db.cursor()
             if v_address is None:
-                v_address = create_new_user_keypair(user=C.ANT_VALIDATOR, cur=cur)
+                v_address = generate_new_address_by_userid(user=C.ANT_VALIDATOR, cur=cur)
             tx = create_validator_edit_tx(
                 v_address=v_address, cur=cur, new_address=new_address, flag=flag, sig_diff=sig_diff)
             if not send_newtx(new_tx=tx, outer_cur=cur):

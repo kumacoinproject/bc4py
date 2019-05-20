@@ -686,14 +686,14 @@ class ChainBuilder(object):
                             address, coin_id, amount = input_tx.outputs[txindex]
                             if builder.db.db_config['addrindex'] or \
                                     is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_CONTRACT_VER) or \
-                                    read_address2user(address=address, cur=cur):
+                                    read_address2userid(address=address, cur=cur):
                                 # 必要なAddressのみ
                                 self.db.write_address_idx(address, txhash, txindex, coin_id, amount, True)
                         # outputs
                         for index, (address, coin_id, amount) in enumerate(tx.outputs):
                             if builder.db.db_config['addrindex'] or \
                                     is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_CONTRACT_VER) or \
-                                    read_address2user(address=address, cur=cur):
+                                    read_address2userid(address=address, cur=cur):
                                 # 必要なAddressのみ
                                 self.db.write_address_idx(address, tx.hash, index, coin_id, amount, False)
                         # TXの種類による追加操作
@@ -962,14 +962,14 @@ class UserAccount(object):
 
         def _wrapper(cur):
             memory_sum = Accounting()
-            for move_log in read_log_iter(cur):
+            for move_log in read_movelog_iter(cur):
                 # logに記録されてもBlockに取り込まれていないならTXは存在せず
                 if builder.db.read_tx(move_log.txhash):
                     memory_sum += move_log.movement
                 else:
                     log.debug("It's unknown log {}".format(move_log))
                     if f_delete:
-                        delete_log(move_log.txhash, cur)
+                        delete_movelog(move_log.txhash, cur)
             self.db_balance += memory_sum
 
         assert f_delete is False, 'Unsafe function!'
@@ -991,7 +991,7 @@ class UserAccount(object):
             limit_height = builder.best_block.height - confirm
             for block in builder.best_chain:
                 for tx in block.txs:
-                    move_log = read_txhash2log(tx.hash, cur)
+                    move_log = read_txhash2movelog(tx.hash, cur)
                     if move_log is None:
                         if tx.hash in self.memory_movement:
                             move_log = self.memory_movement[tx.hash]
@@ -1006,7 +1006,7 @@ class UserAccount(object):
                                     account[user][coin_id] += amount
             # Unconfirmed
             for tx in list(tx_builder.unconfirmed.values()):
-                move_log = read_txhash2log(tx.hash, cur)
+                move_log = read_txhash2movelog(tx.hash, cur)
                 if move_log is None:
                     if tx.hash in self.memory_movement:
                         move_log = self.memory_movement[tx.hash]
@@ -1032,7 +1032,7 @@ class UserAccount(object):
             movements = Accounting()
             movements[_from] -= coins
             movements[_to] += coins
-            txhash = insert_log(movements, cur)
+            txhash = insert_movelog(movements, cur)
             self.db_balance += movements
             return txhash
 
@@ -1051,7 +1051,7 @@ class UserAccount(object):
             count = 0
             # Unconfirmed
             for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time, reverse=True):
-                move_log = read_txhash2log(tx.hash, cur)
+                move_log = read_txhash2movelog(tx.hash, cur)
                 if move_log is None:
                     if tx.hash in self.memory_movement:
                         move_log = self.memory_movement[tx.hash]
@@ -1068,7 +1068,7 @@ class UserAccount(object):
             # Memory
             for block in reversed(builder.best_chain):
                 for tx in block.txs:
-                    move_log = read_txhash2log(tx.hash, cur)
+                    move_log = read_txhash2movelog(tx.hash, cur)
                     if move_log is None:
                         if tx.hash in self.memory_movement:
                             move_log = self.memory_movement[tx.hash]
@@ -1083,7 +1083,7 @@ class UserAccount(object):
                                 yield move_log.get_tuple_data()
                         count += 1
             # DataBase
-            for move_log in read_log_iter(cur, start - count):
+            for move_log in read_movelog_iter(cur, start - count):
                 # TRANSFERなど はDBとMemoryの両方に存在する
                 if move_log.txhash in self.memory_movement:
                     continue
@@ -1103,7 +1103,7 @@ class UserAccount(object):
         def _wrapper(cur):
             for block in batched_blocks:
                 for tx in block.txs:
-                    move_log = read_txhash2log(tx.hash, cur)
+                    move_log = read_txhash2movelog(tx.hash, cur)
                     if move_log:
                         # User操作の記録
                         self.db_balance += move_log.movement
@@ -1117,7 +1117,7 @@ class UserAccount(object):
                         # memory_movementから削除
                         del self.memory_movement[tx.hash]
                         # insert_log
-                        insert_log(movement, cur, _type, _time, tx.hash)
+                        insert_movelog(movement, cur, _type, _time, tx.hash)
 
         if outer_cur:
             _wrapper(outer_cur)
@@ -1137,7 +1137,7 @@ class UserAccount(object):
             for txhash, txindex in tx.inputs:
                 input_tx = tx_builder.get_tx(txhash)
                 address, coin_id, amount = input_tx.outputs[txindex]
-                user = read_address2user(address, cur)
+                user = read_address2userid(address, cur)
                 if user is not None:
                     if tx.type == C.TX_POS_REWARD:
                         # subtract staking reward from @Staked
@@ -1145,7 +1145,7 @@ class UserAccount(object):
                     movement[user][coin_id] -= amount
                     # movement[C.ANT_OUTSIDE] += balance
             for address, coin_id, amount in tx.outputs:
-                user = read_address2user(address, cur)
+                user = read_address2userid(address, cur)
                 if user is not None:
                     if tx.type == C.TX_POS_REWARD:
                         # add staking reward to @Staked

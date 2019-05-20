@@ -16,7 +16,7 @@ async def list_balance(request):
         cur = db.cursor()
         users = user_account.get_balance(confirm=confirm, outer_cur=cur)
         for user, balance in users.items():
-            data[read_user2name(user, cur)] = dict(balance)
+            data[read_userid2name(user, cur)] = dict(balance)
     return web_base.json_res(data)
 
 
@@ -90,7 +90,7 @@ async def list_account_address(request):
     with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = db.cursor()
         user_name = request.query.get('account', C.account2name[C.ANT_UNKNOWN])
-        user_id = read_name2user(user_name, cur)
+        user_id = read_name2userid(user_name, cur)
         address_list = list()
         for uuid, address, user in read_pooled_address_iter(cur):
             if user_id == user:
@@ -113,8 +113,8 @@ async def move_one(request):
         coins = Balance(coin_id, amount)
         with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = db.cursor()
-            _from = read_name2user(ant_from, cur)
-            _to = read_name2user(ant_to, cur)
+            _from = read_name2userid(ant_from, cur)
+            _to = read_name2userid(ant_to, cur)
             txhash = user_account.move_balance(_from, _to, coins, cur)
             db.commit()
         return web_base.json_res({'txhash': txhash.hex(), 'from_id': _from, 'to_id': _to})
@@ -132,8 +132,8 @@ async def move_many(request):
             coins[int(k)] += int(v)
         with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = db.cursor()
-            _from = read_name2user(ant_from, cur)
-            _to = read_name2user(ant_to, cur)
+            _from = read_name2userid(ant_from, cur)
+            _to = read_name2userid(ant_to, cur)
             txhash = user_account.move_balance(_from, _to, coins, cur)
             db.commit()
         return web_base.json_res({'txhash': txhash.hex(), 'from_id': _from, 'to_id': _to})
@@ -145,8 +145,8 @@ async def new_address(request):
     with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = db.cursor()
         user_name = request.query.get('account', C.account2name[C.ANT_UNKNOWN])
-        user_id = read_name2user(user_name, cur)
-        address = create_new_user_keypair(user_id, cur)
+        user_id = read_name2userid(user_name, cur)
+        address = generate_new_address_by_userid(user_id, cur)
         db.commit()
         if user_id == C.ANT_VALIDATOR:
             address = convert_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_VALIDATOR_VER)

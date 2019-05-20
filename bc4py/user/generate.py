@@ -7,7 +7,7 @@ from bc4py.chain.difficulty import get_bits_by_hash
 from bc4py.chain.utils import GompertzCurve
 from bc4py.chain.checking.utils import stake_coin_check
 from bc4py.database.create import create_db
-from bc4py.database.account import message2signature, create_new_user_keypair
+from bc4py.database.account import sign_message_by_address, generate_new_address_by_userid
 from bc4py.database.tools import get_unspents_iter
 from bc4py_extension import multi_seek
 from concurrent.futures import ProcessPoolExecutor
@@ -204,7 +204,7 @@ class Generate(Thread):
                         staking_block.txs.pop()
                     staking_block.update_time(proof_tx.time)
                     staking_block.update_merkleroot()
-                    signature = message2signature(raw=staking_block.b, address=address)
+                    signature = sign_message_by_address(raw=staking_block.b, address=address)
                     proof_tx.signature.append(signature)
                     confirmed_generating_block(staking_block)
                     break
@@ -295,7 +295,7 @@ class Generate(Thread):
                 staked_block.update_time(staked_proof_tx.time)
                 staked_block.update_merkleroot()
                 staked_block.work_hash = work_hash
-                signature = message2signature(raw=staked_block.b, address=address)
+                signature = sign_message_by_address(raw=staked_block.b, address=address)
                 staked_proof_tx.signature.append(signature)
                 confirmed_generating_block(staked_block)
 
@@ -314,7 +314,7 @@ def create_mining_block(consensus):
             if V.MINING_ADDRESS is None:
                 with create_db(V.DB_ACCOUNT_PATH) as db:
                     cur = db.cursor()
-                    mining_address = create_new_user_keypair(C.ANT_UNKNOWN, cur)
+                    mining_address = generate_new_address_by_userid(C.ANT_UNKNOWN, cur)
                     db.commit()
             else:
                 mining_address = V.MINING_ADDRESS

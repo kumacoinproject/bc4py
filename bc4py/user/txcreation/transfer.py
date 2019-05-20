@@ -1,7 +1,7 @@
 from bc4py import __chain_version__
 from bc4py.config import C, V, BlockChainError
 from bc4py.chain.tx import TX
-from bc4py.database.account import insert_log, read_address2user
+from bc4py.database.account import insert_movelog, read_address2userid
 from bc4py.user import Balance, Accounting
 from bc4py.user.txcreation.utils import *
 from time import time
@@ -28,7 +28,7 @@ def send_many(sender,
         assert isinstance(coin_id, int) and isinstance(amount, int), 'CoinID, amount is int'
         coins[coin_id] += amount
         outputs.append((address, coin_id, amount))
-        user = read_address2user(address=address, cur=cur)
+        user = read_address2userid(address=address, cur=cur)
         if user is not None:
             movements[user][coin_id] += amount  # send to myself
     movements[sender] -= coins
@@ -71,7 +71,7 @@ def send_many(sender,
     setup_signature(tx, input_address)
     movements[sender] -= fee_coins
     # movements[C.ANT_OUTSIDE] += fee_coins
-    insert_log(movements, cur, tx.type, tx.time, tx.hash)
+    insert_movelog(movements, cur, tx.type, tx.time, tx.hash)
     return tx
 
 

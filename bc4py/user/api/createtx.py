@@ -88,7 +88,7 @@ async def sign_raw_tx(request):
             input_tx = tx_builder.get_tx(txhash)
             address, coin_id, amount = input_tx.outputs[txindex]
             try:
-                tx.signature.append(message2signature(raw=tx.b, address=address))
+                tx.signature.append(sign_message_by_address(raw=tx.b, address=address))
             except BlockChainError:
                 if address not in other_pairs:
                     raise BlockChainError('Not found secret key "{}"'.format(address))
@@ -130,7 +130,7 @@ async def send_from_user(request):
         cur = db.cursor()
         try:
             from_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
-            from_id = read_name2user(from_name, cur)
+            from_id = read_name2userid(from_name, cur)
             to_address = post['address']
             coin_id = int(post.get('coin_id', 0))
             amount = int(post['amount'])
@@ -171,7 +171,7 @@ async def send_many_user(request):
         cur = db.cursor()
         try:
             user_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
-            user_id = read_name2user(user_name, cur)
+            user_id = read_name2userid(user_name, cur)
             send_pairs = list()
             for address, coin_id, amount in post['pairs']:
                 send_pairs.append((address, int(coin_id), int(amount)))
@@ -207,7 +207,7 @@ async def issue_mint_tx(request):
         cur = db.cursor()
         try:
             user_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
-            sender = read_name2user(user_name, cur)
+            sender = read_name2userid(user_name, cur)
             mint_id, tx = issue_mintcoin(
                 name=post['name'],
                 unit=post['unit'],
@@ -240,7 +240,7 @@ async def change_mint_tx(request):
         cur = db.cursor()
         try:
             user_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
-            sender = read_name2user(user_name, cur)
+            sender = read_name2userid(user_name, cur)
             tx = change_mintcoin(
                 mint_id=post['mint_id'],
                 cur=cur,

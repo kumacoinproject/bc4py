@@ -1,7 +1,7 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.bip32 import dummy_address
 from bc4py.database.builder import user_account
-from bc4py.database.account import message2signature, create_new_user_keypair
+from bc4py.database.account import sign_message_by_address, generate_new_address_by_userid
 from bc4py.database.tools import get_unspents_iter, get_utxo_iter
 from bc4py.user import Balance
 from logging import getLogger
@@ -120,7 +120,7 @@ def replace_redeem_dummy_address(tx, cur=None, replace_by=None):
         if address != DUMMY_REDEEM_ADDRESS:
             continue
         if replace_by is None:
-            new_address = create_new_user_keypair(user=C.ANT_UNKNOWN, cur=cur, is_inner=True)
+            new_address = generate_new_address_by_userid(user=C.ANT_UNKNOWN, cur=cur, is_inner=True)
         else:
             new_address = replace_by
         tx.outputs[index] = (new_address, coin_id, amount)
@@ -133,7 +133,7 @@ def setup_signature(tx, input_address):
     # tx.signature.clear()
     count = 0
     for address in input_address:
-        sign_pairs = message2signature(raw=tx.b, address=address)
+        sign_pairs = sign_message_by_address(raw=tx.b, address=address)
         if sign_pairs not in tx.signature:
             tx.signature.append(sign_pairs)
             tx.verified_list.append(address)
@@ -145,7 +145,7 @@ def setup_contract_signature(tx, validators):
     count = 0
     for address in validators:
         try:
-            sign_pairs = message2signature(raw=tx.b, address=address)
+            sign_pairs = sign_message_by_address(raw=tx.b, address=address)
         except BlockChainError:
             continue
         if sign_pairs in tx.signature:

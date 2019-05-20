@@ -3,7 +3,7 @@ from bc4py.chain.tx import TX
 from bc4py.database import contract
 from bc4py.database.validator import F_NOP, F_REMOVE, F_ADD, get_validator_object
 from bc4py.database.contract import get_validator_by_contract_info
-from bc4py.database.account import create_new_user_keypair
+from bc4py.database.account import generate_new_address_by_userid
 from bc4py.user.txcreation.utils import *
 from bc4py.user.txcreation.transfer import send_many
 from copy import deepcopy
@@ -25,7 +25,7 @@ def create_contract_init_tx(c_address,
                             retention=10800):
     c_method = contract.M_INIT
     c_args = (c_bin, v_address, c_extra_imports, c_settings)
-    redeem_address = create_new_user_keypair(sender, cur, True)
+    redeem_address = generate_new_address_by_userid(sender, cur, True)
     msg_body = msgpack.packb((c_address, c_method, redeem_address, c_args), use_bin_type=True)
     send_pairs = send_pairs_format_check(c_address=c_address, send_pairs=send_pairs)
     tx = send_many(
@@ -52,7 +52,7 @@ def create_contract_update_tx(c_address,
     assert c_bin or c_extra_imports or c_settings
     c_method = contract.M_UPDATE
     c_args = (c_bin, c_extra_imports, c_settings)
-    redeem_address = create_new_user_keypair(sender, cur, True)
+    redeem_address = generate_new_address_by_userid(sender, cur, True)
     msg_body = msgpack.packb((c_address, c_method, redeem_address, c_args), use_bin_type=True)
     send_pairs = send_pairs_format_check(c_address=c_address, send_pairs=send_pairs)
     tx = send_many(
@@ -80,7 +80,7 @@ def create_contract_transfer_tx(c_address,
         c_args = tuple()
     else:
         c_args = tuple(c_args)
-    redeem_address = create_new_user_keypair(sender, cur, True)
+    redeem_address = generate_new_address_by_userid(sender, cur, True)
     msg_body = msgpack.packb((c_address, c_method, redeem_address, c_args), use_bin_type=True)
     send_pairs = send_pairs_format_check(c_address=c_address, send_pairs=send_pairs)
     tx = send_many(

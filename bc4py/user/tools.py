@@ -23,7 +23,7 @@ class Search(dict):
         check = list()
         while gap_user > 0:
             for is_inner in (False, True):
-                last_index = get_keypair_last_index(user=user, is_inner=is_inner, cur=self.cur)
+                last_index = read_keypair_last_index(user=user, is_inner=is_inner, cur=self.cur)
                 check.append((user, is_inner, last_index))
                 if last_index == 0:
                     gap_user -= 1
@@ -32,16 +32,16 @@ class Search(dict):
         index = None
         for user, is_inner, last_index in check:
             for index in range(last_index, last_index + self.gap_limit):
-                bip = extract_keypair(user=user, is_inner=is_inner, index=index, cur=self.cur)
+                bip = read_bip_from_path(user=user, is_inner=is_inner, index=index, cur=self.cur)
                 ck = bip.get_address(hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER)
                 self[ck] = (user, is_inner, index)
             log.info("Finish userID={} is_inner={} index={}".format(user, is_inner, index))
 
     def recode(self, ck):
         user, is_inner, index = self[ck]
-        insert_keypair_from_bip(ck=ck, user=user, is_inner=is_inner, index=index, cur=self.cur)
+        insert_keypair_from_bip32(ck=ck, user=user, is_inner=is_inner, index=index, cur=self.cur)
         next_index = self.biggest_index(user=user, is_inner=is_inner) + 1
-        bip = extract_keypair(user=user, is_inner=is_inner, index=next_index, cur=self.cur)
+        bip = read_bip_from_path(user=user, is_inner=is_inner, index=next_index, cur=self.cur)
         ck = bip.get_address(hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER)  # over write
         self[ck] = (user, is_inner, next_index)
         log.info("Recode new userID={} is_inner={} index={} address={}".format(user, is_inner, index, ck))
@@ -70,7 +70,7 @@ def repair_wallet(gap_user=10, gap_limit=20):
                         search.recode(address)
                         is_related = True
                         break
-                    elif read_address2user(address=address, cur=cur):
+                    elif read_address2userid(address=address, cur=cur):
                         is_related = True
                         break
                 if not is_related:
@@ -79,23 +79,23 @@ def repair_wallet(gap_user=10, gap_limit=20):
                             search.recode(address)
                             is_related = True
                             break
-                        elif read_address2user(address=address, cur=cur):
+                        elif read_address2userid(address=address, cur=cur):
                             is_related = True
                             break
                 # recode or ignore
                 if is_related:
-                    if read_txhash2log(txhash=tx.hash, cur=cur):
+                    if read_txhash2movelog(txhash=tx.hash, cur=cur):
                         continue
                     movement = Accounting()
                     for txhash, txindex in tx.inputs:
                         input_tx = tx_builder.get_tx(txhash)
                         address, coin_id, amount = input_tx.outputs[txindex]
-                        user = read_address2user(address=address, cur=cur)
+                        user = read_address2userid(address=address, cur=cur)
                         if user is not None:
                             movement[user][coin_id] -= amount
                             # movement[C.ANT_OUTSIDE] += balance
                     for address, coin_id, amount in tx.outputs:
-                        user = read_address2user(address, cur)
+                        user = read_address2userid(address, cur)
                         if user is not None:
                             movement[user][coin_id] += amount
                             # movement[C.ANT_OUTSIDE] -= balance
@@ -103,9 +103,9 @@ def repair_wallet(gap_user=10, gap_limit=20):
                     movement.cleanup()
                     if len(movement) == 0:
                         continue
-                    if read_txhash2log(txhash=tx.hash, cur=cur):
+                    if read_txhash2movelog(txhash=tx.hash, cur=cur):
                         continue
-                    insert_log(movements=movement, cur=cur, _type=tx.type, _time=tx.time, txhash=tx.hash)
+                    insert_movelog(movements=movement, cur=cur, _type=tx.type, _time=tx.time, txhash=tx.hash)
                     log.info("Find not recoded transaction {}".format(tx))
             if height % 5000 == 0:
                 log.info("Now height {}".format(height))

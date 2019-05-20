@@ -1,6 +1,6 @@
 from bc4py.config import C, V, stream
 from bc4py.database.create import create_db
-from bc4py.database.account import read_address2user, read_user2name
+from bc4py.database.account import read_address2userid, read_userid2name
 from bc4py.database.validator import *
 from bc4py.database.contract import get_validator_by_contract_info
 from expiringdict import ExpiringDict
@@ -92,9 +92,9 @@ def check_related_address(address_list):
     with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = db.cursor()
         for address in address_list:
-            user = read_address2user(address=address, cur=cur)
+            user = read_address2userid(address=address, cur=cur)
             if user:
-                r.append((read_user2name(user, cur), address))
+                r.append((read_userid2name(user, cur), address))
     return r
 
 
