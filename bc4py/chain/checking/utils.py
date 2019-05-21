@@ -1,6 +1,6 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.bip32 import is_address
-from bc4py.database.builder import builder, tx_builder
+from bc4py.database.builder import chain_builder, tx_builder
 from bc4py.database.tools import get_usedindex
 from bc4py.database.validator import get_validator_object
 from bc4py.user import Balance
@@ -10,7 +10,7 @@ from hashlib import sha256
 def inputs_origin_check(tx, include_block):
     # Blockに取り込まれているなら
     # TXのInputsも既に取り込まれているはずだ
-    limit_height = builder.best_block.height - C.MATURE_HEIGHT
+    limit_height = chain_builder.best_block.height - C.MATURE_HEIGHT
     for txhash, txindex in tx.inputs:
         input_tx = tx_builder.get_tx(txhash)
         if input_tx is None:

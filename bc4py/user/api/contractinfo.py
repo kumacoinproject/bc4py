@@ -1,6 +1,6 @@
 from bc4py.config import C, P
 from bc4py.user.api import web_base
-from bc4py.database.builder import builder, tx_builder
+from bc4py.database.builder import chain_builder, tx_builder
 from bc4py.database.validator import get_validator_object, validator_tx2index
 from bc4py.database.contract import get_contract_object, start_tx2index
 from bc4py.contract.emulator.watching import watching_tx
@@ -19,7 +19,7 @@ async def contract_info(request):
         stop_hash = request.query.get('stophash', None)
         if stop_hash:
             stop_hash = a2b_hex(stop_hash)
-        best_block = builder.best_block if f_confirmed else None
+        best_block = chain_builder.best_block if f_confirmed else None
         c = get_contract_object(c_address=c_address, best_block=best_block, stop_txhash=stop_hash)
         return web_base.json_res(c.info)
     except Exception as e:
@@ -34,7 +34,7 @@ async def validator_info(request):
         stop_hash = request.query.get('stophash', None)
         if stop_hash:
             stop_hash = a2b_hex(stop_hash)
-        best_block = builder.best_block if f_confirmed else None
+        best_block = chain_builder.best_block if f_confirmed else None
         v = get_validator_object(v_address=v_address, best_block=best_block, stop_txhash=stop_hash)
         return web_base.json_res(v.info)
     except Exception as e:
@@ -48,7 +48,7 @@ async def get_contract_history(request):
         data = list()
         # database
         for index, start_hash, finish_hash, (c_method, c_args, c_storage) in\
-                builder.db.read_contract_iter(c_address=c_address):
+                chain_builder.db.read_contract_iter(c_address=c_address):
             data.append({
                 'index': index,
                 'height': index // 0xffffffff,
@@ -60,7 +60,7 @@ async def get_contract_history(request):
                 'c_storage': {decode(k): decode(v) for k, v in c_storage.items()} if c_storage else None
             })
         # memory
-        for block in reversed(builder.best_chain):
+        for block in reversed(chain_builder.best_chain):
             for tx in block.txs:
                 if tx.type != C.TX_CONCLUDE_CONTRACT:
                     continue
@@ -111,7 +111,7 @@ async def get_validator_history(request):
         v_address = request.query['v_address']
         data = list()
         # database
-        for index, new_address, flag, txhash, sig_diff in builder.db.read_validator_iter(v_address=v_address):
+        for index, new_address, flag, txhash, sig_diff in chain_builder.db.read_validator_iter(v_address=v_address):
             data.append({
                 'index': index,
                 'height': index // 0xffffffff,
@@ -121,7 +121,7 @@ async def get_validator_history(request):
                 'sig_diff': sig_diff
             })
         # memory
-        for block in reversed(builder.best_chain):
+        for block in reversed(chain_builder.best_chain):
             for tx in block.txs:
                 if tx.type != C.TX_VALIDATOR_EDIT:
                     continue
@@ -166,7 +166,7 @@ async def contract_storage(request):
         if stop_hash:
             stop_hash = a2b_hex(stop_hash)
         f_pickle = bool(request.query.get('pickle', False))
-        best_block = builder.best_block if f_confirmed else None
+        best_block = chain_builder.best_block if f_confirmed else None
         c = get_contract_object(c_address=c_address, best_block=best_block, stop_txhash=stop_hash)
         if c is None:
             return web_base.json_res({})

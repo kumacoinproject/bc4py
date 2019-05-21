@@ -3,7 +3,7 @@ from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.chain.checking import new_insert_block, check_tx, check_tx_time
 from bc4py.chain.signature import fill_verified_addr_tx
-from bc4py.database.builder import builder, tx_builder
+from bc4py.database.builder import chain_builder, tx_builder
 from bc4py.user.network.update import update_info_for_generate
 from bc4py.user.network.directcmd import DirectCmd
 from bc4py.user.network.connection import ask_node, seek_nodes
@@ -75,10 +75,10 @@ def fill_newblock_info(data):
     proof: TX = data['proof']
     new_block.txs.append(proof)
     new_block.flag = data['block_flag']
-    my_block = builder.get_block(new_block.hash)
+    my_block = chain_builder.get_block(new_block.hash)
     if my_block:
         raise BlockChainError('Already inserted block {}'.format(my_block))
-    before_block = builder.get_block(new_block.previous_hash)
+    before_block = chain_builder.get_block(new_block.previous_hash)
     if before_block is None:
         log.debug("Cannot find beforeBlock, try to ask outside node")
         # not found beforeBlock, need to check other node have the the block
@@ -131,7 +131,7 @@ def make_block_by_node(blockhash, depth):
     """ create Block by outside node """
     log.debug("make block by node depth={} hash={}".format(depth, blockhash.hex()))
     block: Block = seek_nodes(cmd=DirectCmd.BLOCK_BY_HASH, data={'blockhash': blockhash})
-    before_block = builder.get_block(blockhash=block.previous_hash)
+    before_block = chain_builder.get_block(blockhash=block.previous_hash)
     if before_block is None:
         if depth < C.MAX_RECURSIVE_BLOCK_DEPTH:
             before_block = make_block_by_node(blockhash=block.previous_hash, depth=depth+1)

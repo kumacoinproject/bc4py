@@ -2,7 +2,7 @@ from bc4py.config import C, V, P, BlockChainError
 from bc4py.chain.checking import new_insert_block, check_tx, check_tx_time
 from bc4py.user.network import BroadcastCmd
 from p2p_python.client import ClientCmd
-from bc4py.database.builder import tx_builder, builder
+from bc4py.database.builder import tx_builder, chain_builder
 from bc4py.user.network.update import update_info_for_generate
 from time import time
 import queue
@@ -21,7 +21,7 @@ def mined_newblock(que):
             if P.F_NOW_BOOTING:
                 log.debug("self reject, mined but now booting")
                 continue
-            elif new_block.height != builder.best_block.height + 1:
+            elif new_block.height != chain_builder.best_block.height + 1:
                 log.debug("self reject, mined but its old block")
                 continue
             else:

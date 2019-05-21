@@ -2,7 +2,7 @@ from bc4py import __version__, __chain_version__, __message__
 from bc4py.config import C, V, P
 from bc4py.chain.utils import GompertzCurve
 from bc4py.chain.difficulty import get_bits_by_hash, get_bias_by_hash
-from bc4py.database.builder import builder, tx_builder
+from bc4py.database.builder import chain_builder, tx_builder
 from bc4py.user.api import web_base
 from bc4py.user.generate import generating_threads
 from time import time
@@ -17,10 +17,10 @@ __api_version__ = '0.0.2'
 
 async def chain_info(request):
     try:
-        best_height = builder.best_block.height
-        best_block = builder.best_block
-        old_block_height = builder.best_chain[0].height - 1
-        old_block_hash = builder.get_block_hash(old_block_height).hex()
+        best_height = chain_builder.best_block.height
+        best_block = chain_builder.best_block
+        old_block_height = chain_builder.best_chain[0].height - 1
+        old_block_hash = chain_builder.get_block_hash(old_block_height).hex()
         data = {'best': best_block.getinfo()}
         difficulty = dict()
         for consensus, ratio in V.BLOCK_CONSENSUSES.items():
@@ -54,12 +54,12 @@ async def chain_info(request):
 
 async def chain_fork_info(request):
     try:
-        main_chain = [block.getinfo() for block in builder.best_chain]
-        orphan_chain = [block.getinfo() for block in builder.chain.values() if block not in builder.best_chain]
+        main_chain = [block.getinfo() for block in chain_builder.best_chain]
+        orphan_chain = [block.getinfo() for block in chain_builder.chain.values() if block not in chain_builder.best_chain]
         data = {
             'main': main_chain,
             'orphan': sorted(orphan_chain, key=lambda x: x['height']),
-            'root': builder.root_block.getinfo()
+            'root': chain_builder.root_block.getinfo()
         }
         return web_base.json_res(data)
     except Exception:

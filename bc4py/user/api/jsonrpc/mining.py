@@ -1,6 +1,6 @@
 from bc4py import __chain_version__
 from bc4py.config import C, V
-from bc4py.database.builder import builder, tx_builder
+from bc4py.database.builder import chain_builder, tx_builder
 from bc4py.user.generate import create_mining_block, confirmed_generating_block
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
@@ -39,7 +39,7 @@ async def getwork(*args, **kwargs):
     if len(args) == 0:
         now = int(time() - V.BLOCK_GENESIS_TIME)
         for block in getwork_cashe.values():
-            if block.previous_hash != builder.best_block.hash:
+            if block.previous_hash != chain_builder.best_block.hash:
                 continue
             if now - block.time < 10:
                 mining_block = block
@@ -65,7 +65,7 @@ async def getwork(*args, **kwargs):
         for i in range(0, 128, 4):
             new_data += data[i:i + 4][::-1]
         block = Block.from_binary(binary=new_data[:80])
-        if block.previous_hash != builder.best_block.hash:
+        if block.previous_hash != chain_builder.best_block.hash:
             return 'PreviousHash don\'t match'
         if block.merkleroot in getwork_cashe:
             block.txs.extend(getwork_cashe[block.merkleroot].txs)
@@ -189,9 +189,9 @@ async def submitblock(*args, **kwargs):
         block_bin = a2b_hex(block_hex_or_obj)
         # Block
         mined_block = Block.from_binary(binary=block_bin[:80])
-        if mined_block.previous_hash != builder.best_block.hash:
+        if mined_block.previous_hash != chain_builder.best_block.hash:
             return 'PreviousHash don\'t match'
-        previous_block = builder.get_block(mined_block.previous_hash)
+        previous_block = chain_builder.get_block(mined_block.previous_hash)
         mined_block.height = previous_block.height + 1
         mined_block.flag = int(kwargs['password'])
         # tx length
@@ -225,7 +225,7 @@ async def submitblock(*args, **kwargs):
             return 'Do not match pos [{}!={}]'.format(pos, len(block_bin))
     elif isinstance(block_hex_or_obj, Block):
         mined_block = block_hex_or_obj
-        previous_block = builder.get_block(mined_block.previous_hash)
+        previous_block = chain_builder.get_block(mined_block.previous_hash)
         mined_block.height = previous_block.height + 1
         mined_block.flag = int(kwargs['password'])
     else:

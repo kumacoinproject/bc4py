@@ -1,6 +1,6 @@
 from bc4py.config import C, V
 from bc4py.database.create import create_db
-from bc4py.database.builder import builder, tx_builder
+from bc4py.database.builder import chain_builder, tx_builder
 from bc4py.database.account import *
 from bc4py.user import *
 from logging import getLogger
@@ -59,8 +59,8 @@ def repair_wallet(gap_user=10, gap_limit=20):
     with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = db.cursor()
         search = Search(gap_user=gap_user, gap_limit=gap_limit, cur=cur)
-        for height, blockhash in builder.db.read_block_hash_iter(start_height=0):
-            block = builder.get_block(blockhash=blockhash)
+        for height, blockhash in chain_builder.db.read_block_hash_iter(start_height=0):
+            block = chain_builder.get_block(blockhash=blockhash)
             for tx in block.txs:
                 is_related = False
                 for txhash, txindex in tx.inputs:

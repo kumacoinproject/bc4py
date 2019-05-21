@@ -1,5 +1,5 @@
 from bc4py.config import C, BlockChainError
-from bc4py.database.builder import builder, tx_builder
+from bc4py.database.builder import chain_builder, tx_builder
 from expiringdict import ExpiringDict
 import msgpack
 
@@ -96,17 +96,17 @@ def decode(b):
 def fill_mintcoin_status(m, best_block=None, best_chain=None, stop_txhash=None):
     assert m.version == -1, 'Already updated'
     # database
-    for index, txhash, params, setting in builder.db.read_coins_iter(coin_id=m.coin_id):
+    for index, txhash, params, setting in chain_builder.db.read_coins_iter(coin_id=m.coin_id):
         if txhash == stop_txhash:
             return
         m.update(params=params, setting=setting, txhash=txhash)
     # memory
     if best_chain:
         _best_chain = None
-    elif best_block and best_block == builder.best_block:
-        _best_chain = builder.best_chain
+    elif best_block and best_block == chain_builder.best_block:
+        _best_chain = chain_builder.best_chain
     else:
-        dummy, _best_chain = builder.get_best_chain(best_block=best_block)
+        dummy, _best_chain = chain_builder.get_best_chain(best_block=best_block)
     for block in reversed(best_chain or _best_chain):
         for tx in block.txs:
             if tx.hash == stop_txhash:

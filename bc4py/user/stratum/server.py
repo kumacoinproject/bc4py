@@ -1,7 +1,7 @@
 from bc4py.config import C, P
 from bc4py.user.generate import *
 from bc4py.user.stratum.command import *
-from bc4py.database.builder import builder
+from bc4py.database.builder import chain_builder
 from expiringdict import ExpiringDict
 from collections import deque
 import asyncio
@@ -136,7 +136,7 @@ async def reset_difficulty():
 
 async def backend_process():
     # Check new block loop.
-    best_block_hash = builder.best_block.hash
+    best_block_hash = chain_builder.best_block.hash
     job_id = 0
     last_notify_update = time()
     while True:
@@ -145,14 +145,14 @@ async def backend_process():
         if time() - last_notify_update > 60.0:
             last_notify_update = time()
             clean_jobs = False
-        elif best_block_hash is not builder.best_block.hash:
+        elif best_block_hash is not chain_builder.best_block.hash:
             clean_jobs = True
         else:
             await asyncio.sleep(0.2)
             continue
         # detect new block!
         try:
-            best_block_hash = builder.best_block.hash
+            best_block_hash = chain_builder.best_block.hash
             for s in stratum:
                 job_id += 1
                 mining_block = create_mining_block(consensus=s.consensus)
@@ -164,7 +164,7 @@ async def backend_process():
             import traceback
             traceback.print_exc()
             log.error(e)
-        log.debug("Update new job {} height={}".format(job_id, builder.best_block.height))
+        log.debug("Update new job {} height={}".format(job_id, chain_builder.best_block.height))
         # notify new diff if new job
         if clean_jobs:
             await reset_difficulty()

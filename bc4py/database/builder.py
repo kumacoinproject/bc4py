@@ -692,14 +692,14 @@ class ChainBuilder(object):
                             self.db.write_usedindex(txhash, usedindex)  # UsedIndex update
                             input_tx = tx_builder.get_tx(txhash)
                             address, coin_id, amount = input_tx.outputs[txindex]
-                            if builder.db.db_config['addrindex'] or \
+                            if chain_builder.db.db_config['addrindex'] or \
                                     is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_CONTRACT_VER) or \
                                     read_address2userid(address=address, cur=cur):
                                 # 必要なAddressのみ
                                 self.db.write_address_idx(address, txhash, txindex, coin_id, amount, True)
                         # outputs
                         for index, (address, coin_id, amount) in enumerate(tx.outputs):
-                            if builder.db.db_config['addrindex'] or \
+                            if chain_builder.db.db_config['addrindex'] or \
                                     is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_CONTRACT_VER) or \
                                     read_address2userid(address=address, cur=cur):
                                 # 必要なAddressのみ
@@ -900,7 +900,7 @@ class TransactionBuilder(object):
             if tx.height is None: log.warning("Is unconfirmed. {}".format(tx))
         else:
             # Databaseより
-            tx = builder.db.read_tx(txhash)
+            tx = chain_builder.db.read_tx(txhash)
             if tx:
                 tx.recode_flag = 'database'
                 self.cashe[txhash] = tx
@@ -915,7 +915,7 @@ class TransactionBuilder(object):
 
         def input_check(_tx):
             for input_hash, input_index in _tx.inputs:
-                if input_index in builder.db.read_usedindex(input_hash):
+                if input_index in chain_builder.db.read_usedindex(input_hash):
                     return True
             return False
 
@@ -972,7 +972,7 @@ class UserAccount(object):
             memory_sum = Accounting()
             for move_log in read_movelog_iter(cur):
                 # logに記録されてもBlockに取り込まれていないならTXは存在せず
-                if builder.db.read_tx(move_log.txhash):
+                if chain_builder.db.read_tx(move_log.txhash):
                     memory_sum += move_log.movement
                 else:
                     log.debug("It's unknown log {}".format(move_log))
@@ -996,8 +996,8 @@ class UserAccount(object):
             # DataBase
             account = self.db_balance.copy()
             # Memory
-            limit_height = builder.best_block.height - confirm
-            for block in builder.best_chain:
+            limit_height = chain_builder.best_block.height - confirm
+            for block in chain_builder.best_chain:
                 for tx in block.txs:
                     move_log = read_txhash2movelog(tx.hash, cur)
                     if move_log is None:
@@ -1025,8 +1025,8 @@ class UserAccount(object):
                                 account[user][coin_id] += amount
             return account
 
-        assert confirm < builder.cashe_limit - builder.batch_size, 'Too few cashe size'
-        assert builder.best_block, 'Not DataBase init'
+        assert confirm < chain_builder.cashe_limit - chain_builder.batch_size, 'Too few cashe size'
+        assert chain_builder.best_block, 'Not DataBase init'
         if outer_cur:
             return _wrapper(outer_cur)
         else:
@@ -1074,7 +1074,7 @@ class UserAccount(object):
                             yield move_log.get_tuple_data()
                     count += 1
             # Memory
-            for block in reversed(builder.best_chain):
+            for block in reversed(chain_builder.best_chain):
                 for tx in block.txs:
                     move_log = read_txhash2movelog(tx.hash, cur)
                     if move_log is None:
@@ -1180,12 +1180,12 @@ class BlockBuilderError(Exception):
 
 
 # global object
-builder = ChainBuilder()
+chain_builder = ChainBuilder()
 tx_builder = TransactionBuilder()
 user_account = UserAccount()
 
 __all__ = [
-    "builder",
+    "chain_builder",
     "tx_builder",
     "user_account",
 ]

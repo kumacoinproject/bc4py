@@ -8,7 +8,7 @@ from bc4py.user.boot import *
 from bc4py.user.network import *
 from bc4py.user.api import create_rest_server
 from bc4py.database.create import check_account_db
-from bc4py.database.builder import builder
+from bc4py.database.builder import chain_builder
 from bc4py.chain.msgpack import default_hook, object_hook
 from p2p_python.utils import setup_p2p_params
 from p2p_python.client import PeerClient
@@ -20,7 +20,7 @@ def work(port, sub_dir=None):
     # BlockChain setup
     set_database_path(sub_dir=sub_dir)
     check_already_started()
-    builder.set_database_path()
+    chain_builder.set_database_path()
     import_keystone(passphrase='hello python')
     check_account_db()
     genesis_block, genesis_params, network_ver, connections = load_boot_file()
@@ -51,8 +51,8 @@ def work(port, sub_dir=None):
     pc.broadcast_check = broadcast_check
 
     # Update to newest blockchain
-    builder.db.sync = False
-    if builder.init(genesis_block, batch_size=500):
+    chain_builder.db.sync = False
+    if chain_builder.init(genesis_block, batch_size=500):
         # only genesisBlock yoy have, try to import bootstrap.dat.gz
         load_bootstrap_file()
     sync_chain_loop()
@@ -65,7 +65,7 @@ def work(port, sub_dir=None):
     try:
         create_rest_server(user='user', pwd='password', port=port+1000)
         P.F_STOP = True
-        builder.close()
+        chain_builder.close()
         pc.close()
     except KeyboardInterrupt:
         logging.debug("KeyboardInterrupt.")

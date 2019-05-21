@@ -2,7 +2,7 @@ from bc4py import __version__, __chain_version__, __message__
 from bc4py.config import V
 from bc4py.utils import GompertzCurve
 from bc4py.bip32 import is_address
-from bc4py.database.builder import builder, user_account
+from bc4py.database.builder import chain_builder, user_account
 from bc4py.chain.difficulty import get_bits_by_hash
 from logging import getLogger
 
@@ -15,7 +15,7 @@ async def getinfo(*args, **kwargs):
     method "getinfo"
     """
     consensus = int(kwargs['password'])
-    best_block = builder.best_block
+    best_block = chain_builder.best_block
     # difficulty
     bits, target = get_bits_by_hash(previous_hash=best_block.hash, consensus=consensus)
     difficulty = (0xffffffffffffffff // target) / 100000000

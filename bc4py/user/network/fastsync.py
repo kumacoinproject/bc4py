@@ -8,7 +8,7 @@ from bc4py.user.network.connection import *
 from bc4py.user.network.update import update_info_for_generate
 from bc4py.user.network.directcmd import DirectCmd
 from bc4py.database.create import create_db
-from bc4py.database.builder import builder, tx_builder
+from bc4py.database.builder import chain_builder, tx_builder
 from concurrent.futures import ThreadPoolExecutor
 from threading import Thread, Event, Lock
 from queue import Queue, Empty
@@ -93,12 +93,12 @@ def _main_loop():
         sleep(1)
         if P.F_NOW_BOOTING is False:
             continue
-        if builder.best_block is None:
+        if chain_builder.best_block is None:
             continue
         if not back_sync_thread.is_alive():
             raise Exception('BackSync is dead!')
         # start fast sync
-        my_best_block: Block = builder.best_block
+        my_best_block: Block = chain_builder.best_block
         start_height = my_best_block.height
         start_time = time()
         # first of all
@@ -110,30 +110,30 @@ def _main_loop():
                 log.debug("request height is higher than network height! sync will not need?")
                 stack_dict.clear()
                 break
-            if builder.root_block is not None\
-                    and builder.root_block.height is not None\
-                    and new_block.height <= builder.root_block.height:
+            if chain_builder.root_block is not None\
+                    and chain_builder.root_block.height is not None\
+                    and new_block.height <= chain_builder.root_block.height:
                 log.error("cannot rollback block depth height={}".format(new_block.height))
                 P.F_STOP = True
                 return
-            if new_block.hash in builder.chain:
+            if new_block.hash in chain_builder.chain:
                 log.debug("new block is already known {}".format(new_block))
-                my_best_block = builder.get_block(blockhash=new_block.hash)
+                my_best_block = chain_builder.get_block(blockhash=new_block.hash)
                 continue
             if my_best_block.hash != new_block.previous_hash:
                 log.debug("not chained my_best_block with new_block, rollback to {}".format(my_best_block.height-1))
-                my_best_block = builder.get_block(blockhash=my_best_block.previous_hash)
+                my_best_block = chain_builder.get_block(blockhash=my_best_block.previous_hash)
                 back_que.put(my_best_block.height + 1)
                 continue
             if len(new_block.txs) <= 0:
                 log.debug("something wrong?, rollback to {}".format(my_best_block.height-1))
-                my_best_block = builder.get_block(blockhash=my_best_block.previous_hash)
+                my_best_block = chain_builder.get_block(blockhash=my_best_block.previous_hash)
                 back_que.put(my_best_block.height + 1)
                 continue
             # insert
             if not new_insert_block(block=new_block, f_time=False, f_sign=False):
                 log.debug("failed to insert new block, rollback to {}".format(my_best_block.height-1))
-                my_best_block = builder.get_block(blockhash=my_best_block.previous_hash)
+                my_best_block = chain_builder.get_block(blockhash=my_best_block.previous_hash)
                 back_que.put(my_best_block.height + 1)
                 continue
             # request next chunk
@@ -177,7 +177,7 @@ def _main_loop():
                     log.debug("2: Failed get unconfirmed '{}'".format(e))
         # fast sync finish
         log.info("fast sync finished start={} finish={} {}m".format(
-            start_height, builder.best_block.height, int((time()-start_time)/60)))
+            start_height, chain_builder.best_block.height, int((time() - start_time) / 60)))
         P.F_NOW_BOOTING = False
         update_info_for_generate()
     log.info("close by F_STOP flag")

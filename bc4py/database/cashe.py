@@ -1,4 +1,4 @@
-from bc4py.database.builder import builder
+from bc4py.database.builder import chain_builder
 from threading import Lock
 import os.path
 import atexit
@@ -20,7 +20,7 @@ class Cashe(object):
             self._read()
         except Exception:
             self.data.clear()
-        self.path = os.path.join(builder.db.dirs, self.path)
+        self.path = os.path.join(chain_builder.db.dirs, self.path)
         self.f_init_finish = True
 
     def _read(self):

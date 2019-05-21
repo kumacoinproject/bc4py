@@ -1,5 +1,5 @@
 from bc4py.config import C, V
-from bc4py.database.builder import builder, tx_builder
+from bc4py.database.builder import chain_builder, tx_builder
 from bc4py.database.tools import is_usedindex
 from bc4py.database.validator import *
 from bc4py.database.contract import *
@@ -39,10 +39,10 @@ def update_info_for_generate(u_block=True, u_unspent=True, u_unconfirmed=True):
 
 def _update_block_info():
     with block_lock:
-        while builder.best_block is None:
+        while chain_builder.best_block is None:
             sleep(0.2)
-        update_previous_block(builder.best_block)
-        return ',  height={}'.format(builder.best_block.height + 1)
+        update_previous_block(chain_builder.best_block)
+        return ',  height={}'.format(chain_builder.best_block.height + 1)
 
 
 def _update_unspent_info():
@@ -116,8 +116,8 @@ def _update_unconfirmed_info():
             log.debug("prune too young tx [{}/{}]".format(len(unconfirmed_txs), len(tx_builder.unconfirmed)))
 
         # 3: remove unconfirmed outputs using txs
-        limit_height = builder.best_block.height - C.MATURE_HEIGHT
-        best_block, best_chain = builder.get_best_chain()
+        limit_height = chain_builder.best_block.height - C.MATURE_HEIGHT
+        best_block, best_chain = chain_builder.get_best_chain()
         for tx in unconfirmed_txs.copy():
             if tx.height is not None:
                 unconfirmed_txs.remove(tx)  # already confirmed
@@ -160,7 +160,7 @@ def _update_unconfirmed_info():
 
         # 5. check unconfirmed order
         errored_tx = check_unconfirmed_order(
-            best_block=builder.best_block, ordered_unconfirmed_txs=unconfirmed_txs)
+            best_block=chain_builder.best_block, ordered_unconfirmed_txs=unconfirmed_txs)
         if errored_tx is not None:
             # error is caused by remove tx of too few fee
             unconfirmed_txs = unconfirmed_txs[:unconfirmed_txs.index(errored_tx)]

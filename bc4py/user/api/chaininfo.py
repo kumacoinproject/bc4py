@@ -1,5 +1,5 @@
 from bc4py.user.api import web_base
-from bc4py.database.builder import builder, tx_builder
+from bc4py.database.builder import chain_builder, tx_builder
 from bc4py.database.mintcoin import get_mintcoin_object
 from aiohttp import web
 from binascii import a2b_hex
@@ -14,10 +14,10 @@ async def get_block_by_height(request):
         height = int(request.query['height'])
     except Exception as e:
         return web.Response(text="Height is not specified", status=400)
-    blockhash = builder.get_block_hash(height)
+    blockhash = chain_builder.get_block_hash(height)
     if blockhash is None:
         return web.Response(text="Not found height", status=400)
-    block = builder.get_block(blockhash)
+    block = chain_builder.get_block(blockhash)
     if f_pickled:
         block = pickle.dumps(block)
         return web_base.json_res(b64encode(block).decode())
@@ -34,7 +34,7 @@ async def get_block_by_hash(request):
         if blockhash is None:
             return web.Response(text="Not found height", status=400)
         blockhash = a2b_hex(blockhash)
-        block = builder.get_block(blockhash)
+        block = chain_builder.get_block(blockhash)
         if block is None:
             return web.Response(text="Not found block", status=400)
         if f_pickled:
@@ -79,7 +79,7 @@ async def get_mintcoin_history(request):
     try:
         mint_id = int(request.query.get('mint_id', 0))
         data = list()
-        for index, txhash, params, setting in builder.db.read_coins_iter(coin_id=mint_id):
+        for index, txhash, params, setting in chain_builder.db.read_coins_iter(coin_id=mint_id):
             data.append({'index': index, 'txhash': txhash.hex(), 'params': params, 'setting': setting})
         return web_base.json_res(data)
     except Exception:

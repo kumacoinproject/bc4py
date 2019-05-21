@@ -1,5 +1,5 @@
 from bc4py.config import C, V, Debug
-from bc4py.database.builder import builder
+from bc4py.database.builder import chain_builder
 from bc4py.chain.utils import bits2target, target2bits
 from functools import lru_cache
 
@@ -68,7 +68,7 @@ def get_bits_by_hash(previous_hash, consensus):
     target = list()
     j = 0
     for _ in range(MAX_SEARCH_BLOCKS):
-        target_block = builder.get_block(target_hash)
+        target_block = chain_builder.get_block(target_hash)
         if target_block is None:
             return MAX_BITS, MAX_TARGET
         if target_block.flag != consensus:
@@ -127,7 +127,7 @@ def get_bias_by_hash(previous_hash, consensus):
     target_diffs = list()
     target_hash = previous_hash
     for _ in range(MAX_SEARCH_BLOCKS):
-        target_block = builder.get_block(target_hash)
+        target_block = chain_builder.get_block(target_hash)
         if target_block is None:
             return 1.0
         target_hash = target_block.previous_hash

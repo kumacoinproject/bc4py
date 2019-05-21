@@ -2,7 +2,7 @@ from bc4py.config import C, V, BlockChainError
 from bc4py.bip32 import convert_address, addr2bin
 from bc4py.user import Balance
 from bc4py.user.api import web_base
-from bc4py.database.builder import builder, user_account
+from bc4py.database.builder import chain_builder, user_account
 from bc4py.database.create import create_db
 from bc4py.database.account import *
 from bc4py.database.tools import get_utxo_iter, get_unspents_iter
@@ -38,10 +38,10 @@ async def list_transactions(request):
 
 
 async def list_unspents(request):
-    if not builder.db.db_config['addrindex']:
+    if not chain_builder.db.db_config['addrindex']:
         return web_base.error_res('address isn\'t full indexed')
     try:
-        best_height = builder.best_block.height
+        best_height = chain_builder.best_block.height
         page = int(request.query.get('page', 0))
         limit = min(100, int(request.query.get('limit', 25)))
         start = page * limit
@@ -72,7 +72,7 @@ async def list_unspents(request):
 
 async def list_private_unspents(request):
     data = list()
-    best_height = builder.best_block.height
+    best_height = chain_builder.best_block.height
     for address, height, txhash, txindex, coin_id, amount in get_unspents_iter():
         data.append({
             'address': address,
