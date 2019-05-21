@@ -80,7 +80,7 @@ def fill_inputs_outputs(tx,
                 utxo_cashe=utxo_cashe,
                 depth=depth+1)
         elif len(tx.inputs) > 255:
-            raise BlockChainError('Too many inputs, unspent tx\'s amount is too small')
+            raise BlockChainError('TX inputs is too many num={}'.format(len(tx.inputs)))
         else:
             raise BlockChainError('Insufficient balance. inputs={} needs={}'.format(input_coins, need_coins))
     # redeemを計算
@@ -93,13 +93,26 @@ def fill_inputs_outputs(tx,
         need_gas_amount = tx.size + additional_gas + len(input_address) * C.SIGNATURE_GAS
     else:
         need_gas_amount = tx.size + additional_gas + signature_num * C.SIGNATURE_GAS
-    if 0 <= tx.gas_amount - need_gas_amount < 10000:
-        # input/outputを混ぜる
+    if tx.gas_amount > need_gas_amount:
+        # swap overflowed gas, gas_amount => redeem_output
+        swap_amount = (tx.gas_amount - need_gas_amount) * tx.gas_price
+        for index, (address, coin_id, amount) in enumerate(tx.outputs):
+            if address != DUMMY_REDEEM_ADDRESS:
+                continue
+            elif coin_id != fee_coin_id:
+                continue
+            else:
+                tx.outputs[index] = (address, coin_id, amount + swap_amount)
+                break
+        else:
+            raise BlockChainError('cannot swap overflowed gas amount={}'.format(swap_amount))
+        # success swap
+        tx.gas_amount = need_gas_amount
+        tx.serialize()
         return input_address
-    else:
-        # insufficient gas
-        log.debug("Retry calculate tx fee. [{}=>{}+{}={}]".format(
-            tx.gas_amount, tx.size + len(input_address) * C.SIGNATURE_GAS, additional_gas, need_gas_amount))
+    elif tx.gas_amount < need_gas_amount:
+        # retry insufficient gas
+        log.info("retry calculate fee gasBefore={} gasNext={}".format(tx.gas_amount, need_gas_amount))
         tx.gas_amount = need_gas_amount
         return fill_inputs_outputs(
             tx=tx,
@@ -111,6 +124,9 @@ def fill_inputs_outputs(tx,
             dust_percent=dust_percent,
             utxo_cashe=utxo_cashe,
             depth=depth+1)
+    else:
+        # tx.gas_amount == need_gas_amount
+        return input_address
 
 
 def replace_redeem_dummy_address(tx, cur=None, replace_by=None):
