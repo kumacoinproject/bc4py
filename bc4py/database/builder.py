@@ -9,10 +9,11 @@ from bc4py.database.account import *
 from bc4py.database.create import create_db
 from bc4py_extension import sha256d_hash
 from msgpack import unpackb, packb
+from threading import Thread, Event, current_thread
+from typing import Optional, Dict, List
 import struct
 import weakref
 import os
-import threading
 from time import time
 from logging import getLogger, INFO
 import plyvel
@@ -55,13 +56,11 @@ class DataBase(object):
         "_validator",  # [address][index] -> [new_address][flag][txhash][sig_diff]
     ]
 
-    def __init__(self, f_dummy=False, **kwargs):
-        if f_dummy:
-            return
+    def __init__(self, **kwargs):
         dirs = os.path.join(V.DB_HOME_DIR, 'db-ver{}'.format(DB_VERSION))
         self.dirs = dirs
         self.db_config.update(kwargs)  # extra settings
-        self.event = threading.Event()
+        self.event = Event()
         self.event.set()
         # already used => LevelDBError
         if os.path.exists(dirs):
@@ -79,8 +78,8 @@ class DataBase(object):
         self._coins = plyvel.DB(os.path.join(dirs, 'coins'), create_if_missing=f_create)
         self._contract = plyvel.DB(os.path.join(dirs, 'contract'), create_if_missing=f_create)
         self._validator = plyvel.DB(os.path.join(dirs, 'validator'), create_if_missing=f_create)
-        self.batch = None
-        self.batch_thread = None
+        self.batch: Optional[Dict[str, dict]] = None
+        self.batch_thread: Optional[Thread] = None
         log.debug(':create database connect path={}'.format(dirs.replace("\\", "/")))
 
     def close(self):
@@ -96,7 +95,7 @@ class DataBase(object):
         self.batch = dict()
         for name in self.database_list:
             self.batch[name] = dict()
-        self.batch_thread = threading.current_thread()
+        self.batch_thread = current_thread()
         log.debug(":Create database batch")
 
     def batch_commit(self):
@@ -118,7 +117,7 @@ class DataBase(object):
         log.debug("Rollback database")
 
     def is_batch_thread(self):
-        return self.batch and self.batch_thread is threading.current_thread()
+        return self.batch and self.batch_thread is current_thread()
 
     def read_block(self, blockhash):
         if self.is_batch_thread() and blockhash in self.batch['_block']:
@@ -431,17 +430,26 @@ class DataBase(object):
 class ChainBuilder(object):
 
     def __init__(self, cashe_limit=C.CASHE_LIMIT, batch_size=C.BATCH_SIZE):
+        """
+        chain builder class
+
+        +------ on database --------+   +------- on memory ---------+
+        | block(0) -...- block(n-1) | - | block(n) -...- block(n+m) |
+        +---------------------------+   +---------------------------+
+
+        "chain" include all block objects including forks of height n or more
+        "best_chain" is list  [block(n+m) -....- block(n+1) - block(n)]
+        "root_block" is block(n-1), best block on database
+        "best_block" is block(n+m), best block on memory
+        """
         assert cashe_limit > batch_size, 'cashe_limit > batch_size'
         self.cashe_limit = cashe_limit
         self.batch_size = batch_size
-        self.chain = dict()
-        # self.best_chain → [height=n+m]-[height=n+m-1]-....-[height=n+1]-[height=n]
-        # self.root_block → [height=n-1] (self.chainに含まれず)
-        # self.best_block → [height=n+m]
-        self.best_chain = None
-        self.root_block = None
-        self.best_block = None
-        self.db = DataBase(f_dummy=True)
+        self.chain: Dict[bytes, Block] = dict()
+        self.best_chain: Optional[List[Block]] = None
+        self.root_block: Optional[Block] = None
+        self.best_block: Optional[Block] = None
+        self.db: Optional[DataBase] = None
 
     def close(self):
         # require manual close
@@ -451,12 +459,12 @@ class ChainBuilder(object):
 
     def set_database_path(self, **kwargs):
         try:
-            self.db = DataBase(f_dummy=False, **kwargs)
+            self.db = DataBase(**kwargs)
             log.info("Connect database")
-        except plyvel.Error:
-            log.warning("Already connect database")
-        except Exception as e:
-            log.debug("Failed connect database, {}".format(e))
+        except plyvel.Error as e:
+            log.warning("database connect error, {}".format(e))
+        except Exception:
+            log.fatal("Failed connect database", exc_info=True)
 
     def init(self, genesis_block: Block, batch_size=None):
         assert self.db, 'Why database connection failed?'
@@ -812,10 +820,10 @@ class TransactionBuilder(object):
 
     def __init__(self):
         # TXs that Blocks don't contain
-        self.unconfirmed = dict()
+        self.unconfirmed: Dict[bytes, TX] = dict()
         # Contract/Validator related tx
         # don't affect UTXO check. Ex, same inputs has or not enough signatures
-        self.pre_unconfirmed = dict()
+        self.pre_unconfirmed: Dict[bytes, TX] = dict()
         # TXs that MAIN chain contains
         self.chained_tx = weakref.WeakValueDictionary()
         # DataBase contains TXs
@@ -1130,10 +1138,10 @@ class UserAccount(object):
 
         def _wrapper(cur):
             movement = Accounting()
-            # send_from_applyで登録済み
+            # already registered by send_from_apply method
             if tx.hash in self.memory_movement:
                 return
-            # memory_movementに追加
+            # add to memory_movement dict
             for txhash, txindex in tx.inputs:
                 input_tx = tx_builder.get_tx(txhash)
                 address, coin_id, amount = input_tx.outputs[txindex]
@@ -1155,10 +1163,10 @@ class UserAccount(object):
             # check
             movement.cleanup()
             if len(movement) == 0:
-                return  # 無関係である
+                return  # cannot find no movement to recode, skip
             move_log = MoveLog(tx.hash, tx.type, movement, tx.time, tx)
             self.memory_movement[tx.hash] = move_log
-            log.debug("Affect account new tx. {}".format(tx))
+            log.info("affected account by {}".format(tx))
 
         if outer_cur:
             _wrapper(outer_cur)
@@ -1171,11 +1179,9 @@ class BlockBuilderError(Exception):
     pass
 
 
-# ファイル読み込みと同時に作成
+# global object
 builder = ChainBuilder()
-# TXの管理
 tx_builder = TransactionBuilder()
-# User情報
 user_account = UserAccount()
 
 __all__ = [
