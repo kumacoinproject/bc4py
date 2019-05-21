@@ -218,11 +218,11 @@ async def submitblock(*args, **kwargs):
                 return 'tx_ver do not match [{}!={}]'.format(tx.version, __chain_version__)
             pos += len(tx.b)
             mined_block.txs.append(tx_builder.get_tx(txhash=tx.hash, default=tx))
-            # check
-            if tx_len != len(mined_block.txs):
-                return 'Do not match txlen [{}!={}]'.format(tx_len, len(mined_block.txs))
-            if pos != len(block_bin):
-                return 'Do not match pos [{}!={}]'.format(pos, len(block_bin))
+        # check format
+        if tx_len != len(mined_block.txs):
+            return 'Do not match txlen [{}!={}]'.format(tx_len, len(mined_block.txs))
+        if pos != len(block_bin):
+            return 'Do not match pos [{}!={}]'.format(pos, len(block_bin))
     elif isinstance(block_hex_or_obj, Block):
         mined_block = block_hex_or_obj
         previous_block = builder.get_block(mined_block.previous_hash)
