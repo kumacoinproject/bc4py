@@ -3,7 +3,6 @@ from bc4py.config import C, V, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from time import time
-import msgpack
 from more_itertools import chunked
 
 

@@ -6,6 +6,7 @@ from logging import getLogger
 from struct import Struct
 from time import time
 from math import log2
+import traceback
 
 log = getLogger('bc4py')
 struct_block = Struct('<I32s32sII4s')
@@ -126,7 +127,6 @@ class Block(object):
                 update_work_hash(self)
             r['work_hash'] = self.work_hash.hex()
         except Exception as e:
-            import traceback
             traceback.print_exc()
             print(e)
             r['work_hash'] = None

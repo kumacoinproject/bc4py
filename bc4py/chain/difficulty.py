@@ -22,6 +22,12 @@ from functools import lru_cache
 # // https://github.com/graft-project/GraftNetwork/pull/118/files
 
 
+MAX_BITS = 0x1f0fffff
+MAX_TARGET = bits2target(MAX_BITS)
+GENESIS_PREVIOUS_HASH = b'\xff' * 32
+MAX_SEARCH_BLOCKS = 1000
+
+
 @lru_cache(maxsize=256)
 def params(block_span=600):
     # T=<target solvetime(s)>
@@ -41,12 +47,6 @@ def params(block_span=600):
 
     # Bitcoin_gold T=600, N=45, K=13632
     return N, K
-
-
-MAX_BITS = 0x1f0fffff
-MAX_TARGET = bits2target(MAX_BITS)
-GENESIS_PREVIOUS_HASH = b'\xff' * 32
-MAX_SEARCH_BLOCKS = 1000
 
 
 @lru_cache(maxsize=512)
@@ -148,3 +148,11 @@ def get_bias_by_hash(previous_hash, consensus):
     if Debug.F_SHOW_DIFFICULTY:
         print("bias", bias, previous_hash.hex())
     return bias
+
+
+__all__ = [
+    "MAX_BITS",
+    "MAX_TARGET",
+    "get_bits_by_hash",
+    "get_bias_by_hash",
+]
