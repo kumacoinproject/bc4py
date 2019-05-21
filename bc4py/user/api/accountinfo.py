@@ -111,7 +111,7 @@ async def move_one(request):
         coin_id = int(post.get('coin_id', 0))
         amount = int(post['amount'])
         coins = Balance(coin_id, amount)
-        with create_db(V.DB_ACCOUNT_PATH) as db:
+        with create_db(V.DB_ACCOUNT_PATH, f_strict=True) as db:
             cur = db.cursor()
             _from = read_name2userid(ant_from, cur)
             _to = read_name2userid(ant_to, cur)
@@ -130,7 +130,7 @@ async def move_many(request):
         coins = Balance()
         for k, v in post['coins'].items():
             coins[int(k)] += int(v)
-        with create_db(V.DB_ACCOUNT_PATH) as db:
+        with create_db(V.DB_ACCOUNT_PATH, f_strict=True) as db:
             cur = db.cursor()
             _from = read_name2userid(ant_from, cur)
             _to = read_name2userid(ant_to, cur)
@@ -157,7 +157,8 @@ async def new_address(request):
         'account': user_name,
         'user_id': user_id,
         'address': address,
-        'ver_identifier': ver_identifier.hex(),
+        'version': ver_identifier[0],
+        'identifier': ver_identifier[1:].hex(),
     })
 
 

@@ -11,9 +11,12 @@ log = getLogger('bc4py')
 
 
 @contextmanager
-def create_db(path, f_debug=False):
+def create_db(path, f_strict=False, f_debug=False):
     """
     account database connector
+
+    f_strict:
+        Phantom read sometimes occur on IMMEDIATE, avoid it by EXCLUSIVE.
 
     journal_mode: (Do not use OFF mode)
         DELETE: delete journal file at end of transaction
@@ -39,9 +42,9 @@ def create_db(path, f_debug=False):
     if isinstance(C.SQLITE_JOURNAL_MODE, str):
         conn.isolation_level = None
         conn.execute("PRAGMA journal_mode = {}".format(C.SQLITE_JOURNAL_MODE))
-        conn.isolation_level = 'IMMEDIATE'
+        conn.isolation_level = 'EXCLUSIVE' if f_strict else 'IMMEDIATE'
     else:
-        conn.isolation_level = 'IMMEDIATE'
+        conn.isolation_level = 'EXCLUSIVE' if f_strict else 'IMMEDIATE'
 
     # synchronous mode, default FULL
     if isinstance(C.SQLITE_SYNC_MODE, str):

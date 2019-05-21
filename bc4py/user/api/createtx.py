@@ -126,7 +126,7 @@ async def send_from_user(request):
     if P.F_NOW_BOOTING:
         return web.Response(text='Now booting', status=403)
     post = await web_base.content_type_json_check(request)
-    with create_db(V.DB_ACCOUNT_PATH) as db:
+    with create_db(V.DB_ACCOUNT_PATH, f_strict=True) as db:
         cur = db.cursor()
         try:
             from_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
@@ -167,7 +167,7 @@ async def send_many_user(request):
     if P.F_NOW_BOOTING:
         return web.Response(text='Now booting', status=403)
     post = await web_base.content_type_json_check(request)
-    with create_db(V.DB_ACCOUNT_PATH) as db:
+    with create_db(V.DB_ACCOUNT_PATH, f_strict=True) as db:
         cur = db.cursor()
         try:
             user_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
@@ -203,7 +203,7 @@ async def send_many_user(request):
 async def issue_mint_tx(request):
     start = time()
     post = await web_base.content_type_json_check(request)
-    with create_db(V.DB_ACCOUNT_PATH) as db:
+    with create_db(V.DB_ACCOUNT_PATH, f_strict=True) as db:
         cur = db.cursor()
         try:
             user_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
@@ -236,7 +236,7 @@ async def issue_mint_tx(request):
 async def change_mint_tx(request):
     start = time()
     post = await web_base.content_type_json_check(request)
-    with create_db(V.DB_ACCOUNT_PATH) as db:
+    with create_db(V.DB_ACCOUNT_PATH, f_strict=True) as db:
         cur = db.cursor()
         try:
             user_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
