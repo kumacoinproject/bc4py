@@ -103,8 +103,8 @@ class Block(object):
         self.nonce = block['nonce']
         self.serialize()
         # extension
-        self.height = block.get('height', self.height)
-        self.flag = block.get('flag', self.flag)
+        self.height = block.get('height')
+        self.flag = block.get('flag')
         return self
 
     def serialize(self):

@@ -94,7 +94,7 @@ def get_bits_by_hash(previous_hash, consensus):
 
     sum_target = t = j = 0
     for i in range(N):
-        solve_time = timestamp[i + 1] - timestamp[i]
+        solve_time = max(0, timestamp[i + 1] - timestamp[i])
         j += 1
         t += solve_time * j
         sum_target += target[i + 1]
