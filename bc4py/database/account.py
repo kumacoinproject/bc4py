@@ -26,10 +26,10 @@ def read_txhash2movelog(txhash, cur):
     if len(d) == 0:
         return None
     movement = Accounting()
-    _type = _time = None
-    for _type, user, coin_id, amount, _time in d:
+    ntype = ntime = None
+    for ntype, user, coin_id, amount, ntime in d:
         movement[user][coin_id] += amount
-    return MoveLog(txhash, _type, movement, _time)
+    return MoveLog(txhash, ntype, movement, ntime)
 
 
 def read_movelog_iter(cur, start=0):
@@ -42,17 +42,17 @@ def read_movelog_iter(cur, start=0):
         c += 1
 
 
-def insert_movelog(movements, cur, _type=None, _time=None, txhash=None):
+def insert_movelog(movements, cur, ntype=None, ntime=None, txhash=None):
     """recode account balance movement"""
     assert isinstance(movements, Accounting), 'movements is Accounting'
-    _type = _type or C.TX_INNER
-    _time = _time or int(time() - V.BLOCK_GENESIS_TIME)
-    txhash = txhash or (b'\x00'*24 + _time.to_bytes(4, 'big') + os.urandom(4))
+    ntype = ntype or C.TX_INNER
+    ntime = ntime or int(time() - V.BLOCK_GENESIS_TIME)
+    txhash = txhash or (b'\x00' * 24 + ntime.to_bytes(4, 'big') + os.urandom(4))
     move = list()
     index = 0
     for user, coins in movements.items():
         for coin_id, amount in coins:
-            move.append((txhash, index, _type, user, coin_id, amount, _time))
+            move.append((txhash, index, ntype, user, coin_id, amount, ntime))
             index += 1
     cur.executemany(
         """INSERT INTO `log` (`hash`,`index`,`type`,`user`,`coin_id`,
@@ -138,8 +138,8 @@ def read_account_info(user, cur):
     """, (user,)).fetchone()
     if d is None:
         return None
-    name, description, _time = d
-    return name, description, _time
+    name, description, ntime = d
+    return name, description, ntime
 
 
 def read_pooled_address_iter(cur):
@@ -174,12 +174,12 @@ def read_userid2name(user, cur):
     return d[0]
 
 
-def insert_new_account(name, cur, description="", _time=None):
+def insert_new_account(name, cur, description="", ntime=None):
     """create new account by name"""
     assert isinstance(name, str)
     if name.startswith('@'):
         raise BlockChainError('prefix"@" is root user, name={}'.format(name))
-    _time = _time or int(time() - V.BLOCK_GENESIS_TIME)
+    ntime = ntime or int(time() - V.BLOCK_GENESIS_TIME)
     # get extend public key
     if V.EXTENDED_KEY_OBJ is None or V.EXTENDED_KEY_OBJ.secret is None:
         raise BlockChainError('you try to create account but not found secretKey')
@@ -190,7 +190,7 @@ def insert_new_account(name, cur, description="", _time=None):
     extended_key = V.EXTENDED_KEY_OBJ.child_key(BIP32_HARDEN + new_id).extended_key(False)
     cur.execute("""
         INSERT INTO `account` (`name`,`extended_key`,`description`,`time`) VALUES (?,?,?,?)
-    """, (name, extended_key, description, _time))
+    """, (name, extended_key, description, ntime))
     # check new inserted id
     insert_id = cur.execute("SELECT last_insert_rowid()").fetchone()[0]
     assert insert_id == new_id, "insert={} new={}".format(insert_id, new_id)
@@ -241,11 +241,11 @@ def read_bip_from_path(user, is_inner, index, cur):
 class MoveLog(object):
     __slots__ = ("txhash", "type", "movement", "time", "tx_ref")
 
-    def __init__(self, txhash, _type, movement, _time, tx=None):
+    def __init__(self, txhash, ntype, movement, ntime, tx=None):
         self.txhash = txhash
-        self.type = _type
+        self.type = ntype
         self.movement = movement
-        self.time = _time
+        self.time = ntime
         self.tx_ref = ref(tx) if tx else None
 
     def __repr__(self):

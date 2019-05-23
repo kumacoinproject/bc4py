@@ -55,9 +55,9 @@ class Generate(Thread):
             executor = get_executor_object()
 
     def __repr__(self):
-        hashrate, _time = self.hashrate
-        if time() - _time > 120:
-            data = "NotActive ({}minutes before updated)".format(round((time() - _time) / 60, 1))
+        hashrate, ntime = self.hashrate
+        if time() - ntime > 120:
+            data = "NotActive ({}minutes before updated)".format(round((time() - ntime) / 60, 1))
         elif hashrate < 1000 * 10:
             data = "{}hash/s".format(hashrate)
         elif hashrate < 1000 * 1000 * 10:

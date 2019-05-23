@@ -117,38 +117,38 @@ def send_websocket_data(cmd, data, status=True, is_public_data=False):
 def new_info2json_data(cmd, data_list):
     send_data = dict()
     if cmd == C_Conclude:
-        _time, tx, related_list, c_address, start_hash, c_storage = data_list
+        ntime, tx, related_list, c_address, start_hash, c_storage = data_list
         send_data['address'] = c_address
         send_data['hash'] = tx.hash.hex()
-        send_data['time'] = _time
+        send_data['time'] = ntime
         send_data['tx'] = tx.getinfo()
         send_data['related'] = related_list
         send_data['start_hash'] = start_hash.hex()
         send_data['c_storage'] = decode(c_storage)
     elif cmd == C_Validator:
-        _time, tx, related_list, v_address, new_address, flag, sig_diff = data_list
+        ntime, tx, related_list, v_address, new_address, flag, sig_diff = data_list
         send_data['address'] = v_address
         send_data['hash'] = tx.hash.hex()
-        send_data['time'] = _time
+        send_data['time'] = ntime
         send_data['tx'] = tx.getinfo()
         send_data['related'] = related_list
         send_data['new_address'] = new_address
         send_data['flag'] = flag
         send_data['sig_diff'] = sig_diff
     elif cmd == C_RequestConclude:
-        _time, tx, related_list, c_address, c_method, redeem_address, c_args = data_list
+        ntime, tx, related_list, c_address, c_method, redeem_address, c_args = data_list
         send_data['address'] = c_address
         send_data['hash'] = tx.hash.hex()
-        send_data['time'] = _time
+        send_data['time'] = ntime
         send_data['tx'] = tx.getinfo()
         send_data['related'] = related_list
         send_data['c_method'] = c_method
         send_data['redeem_address'] = redeem_address
         send_data['c_args'] = decode(c_args)
     elif cmd == C_FinishConclude or cmd == C_FinishValidator:
-        _time, tx = data_list
+        ntime, tx = data_list
         send_data['hash'] = tx.hash.hex()
-        send_data['time'] = _time
+        send_data['time'] = ntime
         send_data['tx'] = tx.getinfo()
     else:
         log.warning("Not found cmd {}".format(cmd))

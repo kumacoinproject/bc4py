@@ -963,7 +963,7 @@ class UserAccount(object):
 
     def __init__(self):
         self.db_balance = Accounting()
-        # {txhash: (_type, movement, _time),..}
+        # {txhash: (ntype, movement, ntime),..}
         self.memory_movement = dict()
 
     def init(self, f_delete=False, outer_cur=None):
@@ -1120,12 +1120,12 @@ class UserAccount(object):
                         # log.debug("Already recoded log {}".format(tx))
                     elif tx.hash in self.memory_movement:
                         # db_balanceに追加
-                        _type, movement, _time = self.memory_movement[tx.hash].get_tuple_data()
+                        ntype, movement, ntime = self.memory_movement[tx.hash].get_tuple_data()
                         self.db_balance += movement
                         # memory_movementから削除
                         del self.memory_movement[tx.hash]
                         # insert_log
-                        insert_movelog(movement, cur, _type, _time, tx.hash)
+                        insert_movelog(movement, cur, ntype, ntime, tx.hash)
 
         if outer_cur:
             _wrapper(outer_cur)

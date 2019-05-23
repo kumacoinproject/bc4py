@@ -105,7 +105,7 @@ def repair_wallet(gap_user=10, gap_limit=20):
                         continue
                     if read_txhash2movelog(txhash=tx.hash, cur=cur):
                         continue
-                    insert_movelog(movements=movement, cur=cur, _type=tx.type, _time=tx.time, txhash=tx.hash)
+                    insert_movelog(movements=movement, cur=cur, ntype=tx.type, ntime=tx.time, txhash=tx.hash)
                     log.info("Find not recoded transaction {}".format(tx))
             if height % 5000 == 0:
                 log.info("Now height {}".format(height))

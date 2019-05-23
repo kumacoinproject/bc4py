@@ -57,7 +57,7 @@ def loop_emulator(index: int, em: Emulate):
             cmd, is_public, data_list = em.que.get(timeout=1)
             if cmd == C_RequestConclude:
                 # c_transfer tx is confirmed, create conclude tx
-                _time, start_tx, related_list, c_address, c_method, redeem_address, c_args = data_list
+                ntime, start_tx, related_list, c_address, c_method, redeem_address, c_args = data_list
                 if em.c_address != c_address:
                     continue
                 if waiting_start_tx and waiting_conclude_hash:
@@ -116,7 +116,7 @@ def loop_emulator(index: int, em: Emulate):
 
             # elif cmd == C_Conclude:
             #    # sign already created conclude tx
-            #    _time, tx, related_list, c_address, start_hash, c_storage = data_list
+            #    ntime, tx, related_list, c_address, start_hash, c_storage = data_list
 
             else:
                 pass
