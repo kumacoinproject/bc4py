@@ -138,9 +138,23 @@ async def getblocktemplate(*args, **kwargs):
     }
     See https://en.bitcoin.it/wiki/BIP_0022 for full specification.
     """
-    # capabilities = {"capabilities": ["coinbasetxn", "workid", "coinbase/append"]}
+    # check option
+    template_request = dict() if 0 < len(args) else args[0]
+    if isinstance(template_request, dict) and 'capabilities' in template_request:
+        # "coinbasetxn", "workid", "coinbase/append"
+        capabilities = template_request['capabilities']
+    else:
+        capabilities = ['coinbasetxn']
+    # generate block
     mining_block = await get_mining_block(int(kwargs['password']))
     mining_block.bits2target()
+    # add capability "messagenonce"
+    if 'messagenonce' in capabilities:
+        coinbase: TX = mining_block.txs[0]
+        coinbase.message = b'\x00' * 12
+        coinbase.message_type = C.MSG_BYTE
+        coinbase.serialize()
+    # generate template
     template = {
         "version": mining_block.version,
         "previousblockhash": reversed_hex(mining_block.previous_hash),
@@ -155,6 +169,7 @@ async def getblocktemplate(*args, **kwargs):
         "sizelimit": C.SIZE_BLOCK_LIMIT,
         "curtime": mining_block.time,  # block time
         "bits": mining_block.bits.to_bytes(4, 'big').hex(),
+        "time": mining_block.time,
         "height": mining_block.height
     }
     transactions = list()
