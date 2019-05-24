@@ -1,3 +1,4 @@
+from bc4py import __block_version__
 from bc4py.config import C, V
 from bc4py.chain.utils import DEFAULT_TARGET, bits2target
 from bc4py.chain.workhash import update_work_hash
@@ -95,7 +96,7 @@ class Block(object):
     def from_dict(cls, block):
         assert 'pos_bias' not in block
         self = cls()
-        self.version = block.get('version', 0)
+        self.version = block.get('version', __block_version__)
         self.previous_hash = block['previous_hash']
         self.merkleroot = block['merkleroot']
         self.time = block['time']

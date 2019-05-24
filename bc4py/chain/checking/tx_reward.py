@@ -42,6 +42,8 @@ def check_tx_pos_reward(tx, include_block):
         raise BlockChainError('Inputs and outputs is only 1 len')
     elif include_block.txs.index(tx) != 0:
         raise BlockChainError('Proof tx is index 0')
+    elif include_block.version != 0:
+        raise BlockChainError('pos block version is 0')
     elif not (tx.gas_price == 0 and tx.gas_amount == 0):
         raise BlockChainError('Pos gas info is wrong. [{}, {}]'.format(tx.gas_price, tx.gas_amount))
     elif not (tx.message_type == C.MSG_NONE and tx.message == b''):

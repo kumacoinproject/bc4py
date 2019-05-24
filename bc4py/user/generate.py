@@ -164,6 +164,7 @@ class Generate(Thread):
             reward = GompertzCurve.calc_block_reward(previous_block.height + 1)
             staking_block = Block.from_dict(
                 block={
+                    'version': 0,  # always 0
                     'merkleroot': b'\xff' * 32,
                     'time': 0,
                     'previous_hash': previous_block.hash,
@@ -271,6 +272,7 @@ class Generate(Thread):
                 total_fee = sum(tx.gas_price * tx.gas_amount for tx in unconfirmed_txs)
                 staked_block = Block.from_dict(
                     block={
+                        'version': 0,  # always 0
                         'previous_hash': previous_hash,
                         'merkleroot': b'\x00' * 32,
                         'time': 0,

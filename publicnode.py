@@ -1,7 +1,7 @@
 #!/user/env python3
 # -*- coding: utf-8 -*-
 
-from bc4py import __version__, __chain_version__, __message__, __logo__
+from bc4py import __version__, __chain_version__, __block_version__, __message__, __logo__
 from bc4py.config import C, V, P
 from bc4py.utils import *
 from bc4py.user.generate import *
@@ -89,8 +89,8 @@ if __name__ == '__main__':
     p = console_args_parser()
     check_process_status(f_daemon=p.daemon)
     set_logger(level=logging.getLevelName(p.log_level), path=p.log_path, f_remove=p.remove_log)
-    logging.info("\n{}\n====\n{}, chain-ver={}\n{}\n"
-                 .format(__logo__, __version__, __chain_version__, __message__))
+    logging.info(f"\n{__logo__}\n====\nsystem (str) = {__version__}\nchain (int) = {__chain_version__}\n"
+                 f"block (int) = {__block_version__}\nmessage = {__message__}")
     stand_client(p2p_port=p.p2p, sub_dir=p.sub_dir)
     if p.solo_mining:
         solo_mining()
