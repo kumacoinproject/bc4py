@@ -1,7 +1,7 @@
 import msgpack
 import math
 
-MAX_256_INT = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+DEFAULT_TARGET = float(0x00000000ffff0000000000000000000000000000000000000000000000000000)
 
 
 class GompertzCurve(object):
@@ -75,7 +75,7 @@ def target2bits(target):
 
 
 __all__ = [
-    "MAX_256_INT",
+    "DEFAULT_TARGET",
     "GompertzCurve",
     "bin2signature",
     "signature2bin",

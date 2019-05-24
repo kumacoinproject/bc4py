@@ -1,5 +1,5 @@
 from bc4py.config import C, V
-from bc4py.chain.utils import MAX_256_INT, bits2target
+from bc4py.chain.utils import DEFAULT_TARGET, bits2target
 from bc4py.chain.workhash import update_work_hash
 from bc4py_extension import sha256d_hash, merkleroot_hash
 from logging import getLogger
@@ -193,17 +193,19 @@ class Block(object):
 
     def diff2targets(self, difficulty=None):
         difficulty = difficulty if difficulty else self.difficulty
-        return int(MAX_256_INT / (difficulty*100000000)).to_bytes(32, 'little')
+        return int(DEFAULT_TARGET / difficulty).to_bytes(32, 'little')
 
     def target2diff(self):
-        self._difficulty = MAX_256_INT // int.from_bytes(self.target_hash, 'little')
+        target = int.from_bytes(self.target_hash, 'little')
+        self._difficulty = round(DEFAULT_TARGET / float(target), 8)
 
     def bits2target(self):
         target = bits2target(self.bits)
         self.target_hash = target.to_bytes(32, 'little')
 
     def work2diff(self):
-        self._work_difficulty = MAX_256_INT // int.from_bytes(self.work_hash, 'little')
+        work = int.from_bytes(self.work_hash, 'little')
+        self._work_difficulty = round(DEFAULT_TARGET / float(work), 8)
 
     def pow_check(self, extra_target=None):
         if extra_target:

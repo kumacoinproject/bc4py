@@ -1,6 +1,6 @@
 from bc4py import __version__, __chain_version__, __message__
 from bc4py.config import C, V, P
-from bc4py.chain.utils import GompertzCurve
+from bc4py.chain.utils import GompertzCurve, DEFAULT_TARGET
 from bc4py.chain.difficulty import get_bits_by_hash, get_bias_by_hash
 from bc4py.database.builder import chain_builder, tx_builder
 from bc4py.user.api import web_base
@@ -8,7 +8,7 @@ from bc4py.user.generate import generating_threads
 from time import time
 import p2p_python
 
-MAX_256_INT = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+MAX_256_FLOAT = float(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
 start_time = int(time())
 F_ADD_CASHE_INFO = False  # to adjust cashe size
 
@@ -26,8 +26,9 @@ async def chain_info(request):
         for consensus, ratio in V.BLOCK_CONSENSUSES.items():
             name = C.consensus2name[consensus]
             bits, target = get_bits_by_hash(previous_hash=best_block.hash, consensus=consensus)
+            target = float(target)
             block_time = round(V.BLOCK_TIME_SPAN / ratio * 100)
-            diff = (MAX_256_INT//target) / 100000000
+            diff = round(DEFAULT_TARGET / target, 8)
             bias = get_bias_by_hash(previous_hash=best_block.previous_hash, consensus=consensus)
             difficulty[name] = {
                 'number': consensus,
@@ -35,7 +36,7 @@ async def chain_info(request):
                 'diff': round(diff, 8),
                 'bias': round(bias, 8),
                 'fixed_diff': round(diff / bias, 8),
-                'hashrate(kh/s)': round((MAX_256_INT//target) / block_time / 1000, 3)
+                'hashrate(kh/s)': round((MAX_256_FLOAT/target) / block_time / 1000, 3)
             }
         data['mining'] = difficulty
         data['size'] = best_block.size
