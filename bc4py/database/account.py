@@ -127,6 +127,8 @@ def read_keypair_last_index(user, is_inner, cur):
     """, (user, int(is_inner))).fetchone()
     if index is None:
         return 0
+    elif index[0] is None:
+        return 0
     else:
         return index[0] + 1
 
@@ -185,7 +187,7 @@ def insert_new_account(name, cur, description="", ntime=None):
         raise BlockChainError('you try to create account but not found secretKey')
     # get new account id
     last_id = cur.execute("SELECT MAX(`id`) FROM `account`").fetchone()
-    new_id = 0 if last_id is None else (last_id[0] + 1)
+    new_id = 0 if (last_id is None or last_id[0] is None) else last_id[0] + 1
     # get extended public key
     extended_key = V.EXTENDED_KEY_OBJ.child_key(BIP32_HARDEN + new_id).extended_key(False)
     cur.execute("""
