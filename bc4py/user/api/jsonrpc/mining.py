@@ -151,7 +151,10 @@ async def getblocktemplate(*args, **kwargs):
     # add capability "messagenonce"
     if 'messagenonce' in capabilities:
         coinbase: TX = mining_block.txs[0]
-        coinbase.message = b'\x00' * 12
+        # ffffffff  0c    03      9e1b00  00000000     00000000
+        # prefix    push  length  height  extranonce1  extranoce2
+        # [dummy 6bytes]-[height 3bytes]-[extranonce1 4bytes]-[extranonce2 4bytes]
+        coinbase.message = a2b_hex('ffffffff0c03') + mining_block.height.to_bytes(3, 'little') + b'\x00' * 8
         coinbase.message_type = C.MSG_BYTE
         coinbase.serialize()
     # generate template
