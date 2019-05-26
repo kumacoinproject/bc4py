@@ -1,7 +1,7 @@
 from bc4py.config import C, V, P, BlockChainError
 from bc4py.chain.tx import TX
 from bc4py.chain.block import Block
-from bc4py.chain.signature import fill_verified_addr_many
+from bc4py.chain.signature import fill_verified_addr_many, fill_verified_addr_tx
 from bc4py.chain.workhash import get_workhash_fnc
 from bc4py.chain.checking import new_insert_block, check_tx, check_tx_time
 from bc4py.user.network.connection import *
@@ -163,6 +163,7 @@ def _main_loop():
             try:
                 tx: TX = seek_nodes(cmd=DirectCmd.TX_BY_HASH, data={'txhash': txhash})
                 tx.height = None
+                fill_verified_addr_tx(tx)
                 unconfirmed_txs.append(tx)
             except BlockChainError as e:
                 log.debug("1: Failed get unconfirmed {} '{}'".format(txhash.hex(), e))
