@@ -26,7 +26,7 @@ import re
 log = getLogger('bc4py')
 generating_threads = list()
 mining_address_lock = Lock()
-output_que = queue.Queue()
+output_que = queue.Queue(maxsize=1)
 # mining share info
 mining_address: Optional[AnyStr] = None
 previous_block: Optional[Block] = None
@@ -367,7 +367,8 @@ def confirmed_generating_block(new_block):
     previous_block = None
     unconfirmed_txs = None
     unspents_txs = None
-    output_que.put(new_block)
+    # timeout: GeneBlock thread do not start?
+    output_que.put(new_block, timeout=60)
 
 
 def update_previous_block(new_previous_block):
@@ -449,4 +450,5 @@ __all__ = [
     "update_previous_block",
     "update_unconfirmed_txs",
     "update_unspents_txs",
+    "FailedGenerateWarning",
 ]

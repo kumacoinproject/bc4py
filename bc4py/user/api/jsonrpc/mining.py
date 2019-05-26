@@ -1,7 +1,7 @@
 from bc4py import __chain_version__
 from bc4py.config import C, V
 from bc4py.database.builder import chain_builder, tx_builder
-from bc4py.user.generate import create_mining_block, confirmed_generating_block
+from bc4py.user.generate import create_mining_block, confirmed_generating_block, FailedGenerateWarning
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from binascii import a2b_hex
@@ -23,6 +23,8 @@ async def get_mining_block(consensus):
     while True:
         try:
             return create_mining_block(consensus=consensus)
+        except FailedGenerateWarning:
+            await asyncio.sleep(0.1)
         except Exception as e:
             if time() - s > 5:
                 raise TimeoutError("Mining block creation failed by '{}'".format(e))
