@@ -136,8 +136,8 @@ class Block(object):
         r['f_orphan'] = self.f_orphan
         r['recode_flag'] = self.recode_flag
         r['height'] = self.height
-        r['difficulty'] = round(self.difficulty / 100000000, 8)
-        r['fixed_difficulty'] = round(self.difficulty / self.bias / 100000000, 8)
+        r['difficulty'] = round(self.difficulty, 8)
+        r['fixed_difficulty'] = round(self.difficulty / self.bias, 8)
         r['score'] = round(self.score, 8)
         r['flag'] = C.consensus2name[self.flag]
         r['merkleroot'] = self.merkleroot.hex() if self.merkleroot else None
@@ -198,7 +198,7 @@ class Block(object):
 
     def target2diff(self):
         target = int.from_bytes(self.target_hash, 'little')
-        self._difficulty = round(DEFAULT_TARGET / float(target), 8)
+        self._difficulty = DEFAULT_TARGET / float(target)
 
     def bits2target(self):
         target = bits2target(self.bits)
@@ -206,7 +206,7 @@ class Block(object):
 
     def work2diff(self):
         work = int.from_bytes(self.work_hash, 'little')
-        self._work_difficulty = round(DEFAULT_TARGET / float(work), 8)
+        self._work_difficulty = DEFAULT_TARGET / float(work)
 
     def pow_check(self, extra_target=None):
         if extra_target:

@@ -22,6 +22,7 @@ from functools import lru_cache
 # // https://github.com/graft-project/GraftNetwork/pull/118/files
 
 
+BASE_TARGET = 0x00000000ffff0000000000000000000000000000000000000000000000000000
 MAX_BITS = 0x1f0fffff
 MAX_TARGET = bits2target(MAX_BITS)
 GENESIS_PREVIOUS_HASH = b'\xff' * 32
@@ -123,7 +124,7 @@ def get_bias_by_hash(previous_hash, consensus):
     elif previous_hash == GENESIS_PREVIOUS_HASH:
         return 1.0
 
-    base_difficulty_sum = MAX_TARGET * N
+    base_difficulty_sum = BASE_TARGET * N
     target_diffs = list()
     target_hash = previous_hash
     for _ in range(MAX_SEARCH_BLOCKS):
@@ -142,7 +143,7 @@ def get_bias_by_hash(previous_hash, consensus):
         if len(target_diffs) == 0:
             return 1.0
         else:
-            return MAX_TARGET * len(target_diffs) / sum(target_diffs)
+            return BASE_TARGET * len(target_diffs) / sum(target_diffs)
 
     bias = base_difficulty_sum / sum(target_diffs)
     if Debug.F_SHOW_DIFFICULTY:
