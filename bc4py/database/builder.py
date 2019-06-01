@@ -974,6 +974,8 @@ class UserAccount(object):
                 # logに記録されてもBlockに取り込まれていないならTXは存在せず
                 if chain_builder.db.read_tx(move_log.txhash):
                     memory_sum += move_log.movement
+                elif move_log.type == C.TX_INNER:
+                    continue
                 else:
                     log.debug("It's unknown log {}".format(move_log))
                     if f_delete:

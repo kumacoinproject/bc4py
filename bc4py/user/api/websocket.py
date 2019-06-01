@@ -2,7 +2,8 @@ from bc4py.config import P, stream
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.contract.emulator.watching import *
-from aiohttp import web
+from aiohttp import web, ServerTimeoutError
+from aiohttp.web_ws import WebSocketResponse
 import asyncio
 import json
 from logging import getLogger
@@ -26,8 +27,9 @@ async def websocket_route(request):
     else:
         raise web.HTTPNotFound()
     client = await websocket_protocol_check(request=request, is_public=is_public)
-    async for msg in client.ws:
+    while True:
         try:
+            msg = await client.ws.receive(timeout=5.0)
             if msg.type == web.WSMsgType.TEXT:
                 log.debug("Get text from {} data={}".format(client, msg.data))
                 # send dummy response
@@ -40,13 +42,20 @@ async def websocket_route(request):
                 break
             elif msg.type == web.WSMsgType.ERROR:
                 log.error("Get error from {} data={}".format(client, msg.data))
+        except ServerTimeoutError:
+            if client.ws.closed:
+                break
         except Exception as e:
             import traceback
             await client.send(
                 raw_data=get_send_format(cmd=CMD_ERROR, data=str(traceback.format_exc()), status=False))
+            break
     log.debug("close {}".format(client))
-    await client.close()
-    return client.ws
+    try:
+        if not client.ws.closed:
+            await client.close()
+    except Exception:
+        pass
 
 
 async def websocket_protocol_check(request, is_public):
@@ -65,7 +74,7 @@ class WsConnection(object):
         global number
         number += 1
         self.number = number
-        self.ws = ws
+        self.ws: WebSocketResponse = ws
         self.request = request
         self.is_public = is_public
         clients.append(self)
@@ -103,8 +112,11 @@ def send_websocket_data(cmd, data, status=True, is_public_data=False):
 
     async def exe():
         for client in clients.copy():
-            if is_public_data or not client.is_public:
-                await client.send(send_format)
+            try:
+                if is_public_data or not client.is_public:
+                    await client.send(send_format)
+            except Exception:
+                pass
 
     if P.F_NOW_BOOTING:
         return
