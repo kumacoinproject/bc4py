@@ -2,8 +2,8 @@ from bc4py.config import P, stream
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.contract.emulator.watching import *
-from aiohttp import web, ServerTimeoutError
 from aiohttp.web_ws import WebSocketResponse
+from aiohttp import web
 import asyncio
 import json
 from logging import getLogger
@@ -42,8 +42,9 @@ async def websocket_route(request):
                 break
             elif msg.type == web.WSMsgType.ERROR:
                 log.error("Get error from {} data={}".format(client, msg.data))
-        except ServerTimeoutError:
+        except asyncio.TimeoutError:
             if client.ws.closed:
+                log.debug("websocket already closed")
                 break
         except Exception as e:
             import traceback
