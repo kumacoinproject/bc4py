@@ -110,6 +110,7 @@ class C:  # Constant
     # CONTRACT_CREATE_FEE = int(10 * pow(10, 6))  # コントラクト作成GasFee
     VALIDATOR_EDIT_GAS = int(10 * pow(10, 6))  # gas
     CONTRACT_MINIMUM_INPUT = int(1 * pow(10, 8))  # Contractの発火最小amount
+    EXTRA_OUTPUT_REWARD_FEE = int(0.0001 * pow(10, 8))  # subtract EXTRA_OUTPUT fee from reward
 
     # network params
     ACCEPT_MARGIN_TIME = 120  # 新規データ受け入れ時間マージンSec

@@ -7,8 +7,8 @@ from bc4py.database.builder import tx_builder
 
 
 def check_tx_pow_reward(tx, include_block):
-    if not (len(tx.inputs) == 0 and len(tx.outputs) == 1):
-        raise BlockChainError('Inout is 0, output is 1 len')
+    if not (len(tx.inputs) == 0 and len(tx.outputs) > 0):
+        raise BlockChainError('Inout is 0, output is more than 1')
     elif include_block.txs.index(tx) != 0:
         raise BlockChainError('Proof tx is index 0')
     elif not (tx.gas_price == 0 and tx.gas_amount == 0):
@@ -18,16 +18,22 @@ def check_tx_pow_reward(tx, include_block):
     elif len(tx.signature) != 0:
         raise BlockChainError('signature is only zero not {}'.format(len(tx.signature)))
 
-    address, coin_id, amount = tx.outputs[0]
+    total_output_amount = 0
+    for address, coin_id, amount in tx.outputs:
+        if coin_id != 0:
+            raise BlockChainError('Output coin_id is zero not {}'.format(coin_id))
+        total_output_amount += amount
+    # allow many outputs for PoW reward distribution
+    extra_output_fee = (len(tx.outputs) - 1) * C.EXTRA_OUTPUT_REWARD_FEE
     reward = GompertzCurve.calc_block_reward(include_block.height)
-    fees = sum(tx.gas_amount * tx.gas_price for tx in include_block.txs)
+    income_fee = sum(tx.gas_amount * tx.gas_price for tx in include_block.txs)
 
     if not (include_block.time == tx.time == tx.deadline - 10800):
         raise BlockChainError('TX time is wrong 3. [{}={}={}-10800]'.format(include_block.time, tx.time,
                                                                             tx.deadline))
-    elif not (coin_id == 0 and amount <= reward + fees):
-        raise BlockChainError('Input and output is wrong coin={} [{}<={}+{}]'.format(
-            coin_id, amount, reward, fees))
+    elif total_output_amount > reward + income_fee - extra_output_fee:
+        raise BlockChainError('Input and output is wrong [{}<{}+{}-{}]'
+                              .format(total_output_amount, reward, income_fee, extra_output_fee))
     elif not include_block.pow_check():
         include_block.work2diff()
         include_block.target2diff()
