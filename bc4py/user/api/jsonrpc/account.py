@@ -1,7 +1,7 @@
 from bc4py.config import C, V
 from bc4py.bip32 import is_address
 from bc4py.database.create import create_db
-from bc4py.database.account import read_name2userid, generate_new_address_by_userid
+from bc4py.database.account import read_name2userid, read_account_address
 from bc4py.user import Balance
 from bc4py.user.txcreation.transfer import send_from, send_many
 from bc4py.user.network.sendnew import send_newtx
@@ -137,7 +137,7 @@ async def getaccountaddress(*args, **kwargs):
     with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = db.cursor()
         user_id = read_name2userid(user_name, cur)
-        address = generate_new_address_by_userid(user_id, cur)
+        address = read_account_address(user_id, cur)
         db.commit()
     return address
 

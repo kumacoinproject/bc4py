@@ -124,13 +124,11 @@ def read_keypair_last_index(user, is_inner, cur):
     assert isinstance(user, int) and isinstance(is_inner, bool)
     index = cur.execute("""
     SELECT MAX(`index`) FROM `pool` WHERE `user`=? AND `is_inner`=?
-    """, (user, int(is_inner))).fetchone()
+    """, (user, int(is_inner))).fetchone()[0]
     if index is None:
         return 0
-    elif index[0] is None:
-        return 0
     else:
-        return index[0] + 1
+        return index + 1
 
 
 def read_account_info(user, cur):
@@ -212,6 +210,22 @@ def generate_new_address_by_userid(user, cur, is_inner=False):
     insert_keypair_from_bip32(ck=ck, user=user, is_inner=is_inner, index=last_index, cur=cur)
     log.debug("generate new address {} path={}".format(ck, bip.path))
     return ck
+
+
+def read_account_address(user, cur, is_inner=False):
+    """get newest address of account (don't care about used/unused)"""
+    assert isinstance(user, int) and isinstance(is_inner, bool)
+    # raise if unknown user_id
+    read_userid2name(user, cur)
+    # get last_index
+    index = cur.execute("""
+        SELECT MAX(`index`) FROM `pool` WHERE `user`=? AND `is_inner`=?
+        """, (user, int(is_inner))).fetchone()[0]
+    if index is None:
+        return generate_new_address_by_userid(user=user, cur=cur, is_inner=is_inner)
+    else:
+        bip = read_bip_from_path(user=user, is_inner=is_inner, index=index, cur=cur)
+        return bip.get_address(hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER)
 
 
 def sign_message_by_address(raw, address):
@@ -299,6 +313,7 @@ __all__ = [
     "read_userid2name",
     "insert_new_account",
     "generate_new_address_by_userid",
+    "read_account_address",
     "sign_message_by_address",
     "read_bip_from_path",
     "MoveLog",
