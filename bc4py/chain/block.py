@@ -4,6 +4,7 @@ from bc4py.chain.utils import DEFAULT_TARGET, bits2target
 from bc4py.chain.workhash import update_work_hash
 from bc4py_extension import sha256d_hash, merkleroot_hash
 from logging import getLogger
+from typing import Optional
 from struct import Struct
 from time import time
 from math import log2
@@ -76,12 +77,12 @@ class Block(object):
         self._bias = None  # bias 4bytes float
         self.inner_score = 1.0
         # block header
-        self.version = None
-        self.previous_hash = None
-        self.merkleroot = None
-        self.time = None
-        self.bits = None
-        self.nonce = None
+        self.version: Optional[int] = None
+        self.previous_hash: Optional[bytes] = None
+        self.merkleroot: Optional[bytes] = None
+        self.time: Optional[int] = None
+        self.bits: Optional[int] = None
+        self.nonce: Optional[bytes] = None
         # block body
         self.txs = list()  # tx object list
 

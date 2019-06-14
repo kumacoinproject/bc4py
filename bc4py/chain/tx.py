@@ -2,6 +2,7 @@ from bc4py import __chain_version__
 from bc4py.config import C, V, BlockChainError
 from bc4py.bip32 import ADDR_SIZE, addr2bin, bin2addr
 from bc4py_extension import sha256d_hash
+from typing import Optional, List
 from time import time
 from logging import getLogger
 from struct import Struct
@@ -57,16 +58,16 @@ class TX(object):
         # data
         self.b = None
         # body
-        self.version = None
-        self.type = None
-        self.time = None
-        self.deadline = None
-        self.inputs = None
-        self.outputs = None
-        self.gas_price = None
-        self.gas_amount = None
-        self.message_type = None
-        self.message = None
+        self.version: Optional[int] = None
+        self.type: Optional[int] = None
+        self.time: Optional[int] = None
+        self.deadline: Optional[int] = None
+        self.inputs: Optional[List[(bytes, int)]] = None
+        self.outputs: Optional[List[(str, int, int)]] = None
+        self.gas_price: Optional[int] = None
+        self.gas_amount: Optional[int] = None
+        self.message_type: Optional[int] = None
+        self.message: Optional[bytes] = None
         # verify
         self.signature = list()
         self.verified_list = list()
