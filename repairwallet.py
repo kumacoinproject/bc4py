@@ -11,7 +11,7 @@ from bc4py.database.create import check_account_db
 from bc4py.database.builder import chain_builder
 from bc4py.chain.msgpack import default_hook, object_hook
 from p2p_python.utils import setup_p2p_params
-from p2p_python.client import PeerClient
+from p2p_python.server import Peer2Peer
 from bc4py.for_debug import set_logger
 from time import sleep
 import logging
@@ -29,27 +29,27 @@ def work(port, sub_dir=None):
 
     # P2P network setup
     setup_p2p_params(network_ver=network_ver, p2p_port=port, sub_dir=sub_dir)
-    pc = PeerClient(default_hook=default_hook, object_hook=object_hook)
-    pc.event.addevent(cmd=DirectCmd.BEST_INFO, f=DirectCmd.best_info)
-    pc.event.addevent(cmd=DirectCmd.BLOCK_BY_HEIGHT, f=DirectCmd.block_by_height)
-    pc.event.addevent(cmd=DirectCmd.BLOCK_BY_HASH, f=DirectCmd.block_by_hash)
-    pc.event.addevent(cmd=DirectCmd.TX_BY_HASH, f=DirectCmd.tx_by_hash)
-    pc.event.addevent(cmd=DirectCmd.UNCONFIRMED_TX, f=DirectCmd.unconfirmed_tx)
-    pc.event.addevent(cmd=DirectCmd.BIG_BLOCKS, f=DirectCmd.big_blocks)
-    pc.start()
-    V.PC_OBJ = pc
+    p2p = Peer2Peer(default_hook=default_hook, object_hook=object_hook)
+    p2p.event.addevent(cmd=DirectCmd.BEST_INFO, f=DirectCmd.best_info)
+    p2p.event.addevent(cmd=DirectCmd.BLOCK_BY_HEIGHT, f=DirectCmd.block_by_height)
+    p2p.event.addevent(cmd=DirectCmd.BLOCK_BY_HASH, f=DirectCmd.block_by_hash)
+    p2p.event.addevent(cmd=DirectCmd.TX_BY_HASH, f=DirectCmd.tx_by_hash)
+    p2p.event.addevent(cmd=DirectCmd.UNCONFIRMED_TX, f=DirectCmd.unconfirmed_tx)
+    p2p.event.addevent(cmd=DirectCmd.BIG_BLOCKS, f=DirectCmd.big_blocks)
+    p2p.start()
+    V.P2P_OBJ = p2p
 
-    if pc.p2p.create_connection('tipnem.tk', 2000):
+    if p2p.core.create_connection('tipnem.tk', 2000):
         logging.info("1Connect!")
-    elif pc.p2p.create_connection('nekopeg.tk', 2000):
+    elif p2p.core.create_connection('nekopeg.tk', 2000):
         logging.info("2Connect!")
 
     for host, port in connections:
-        pc.p2p.create_connection(host, port)
+        p2p.core.create_connection(host, port)
     set_blockchain_params(genesis_block, genesis_params)
 
     # BroadcastProcess setup
-    pc.broadcast_check = broadcast_check
+    p2p.broadcast_check = broadcast_check
 
     # Update to newest blockchain
     chain_builder.db.sync = False
@@ -68,7 +68,7 @@ def work(port, sub_dir=None):
     # close
     P.F_STOP = True
     chain_builder.close()
-    pc.close()
+    p2p.close()
     logging.info("Finish repair wallet.")
 
 

@@ -1,4 +1,6 @@
+from p2p_python.server import Peer2Peer
 from rx.subjects import Subject
+from typing import Optional
 import atexit
 
 
@@ -147,7 +149,7 @@ class V:
 
     # mining
     MINING_ADDRESS = None
-    PC_OBJ = None  # P2P peer client object
+    P2P_OBJ: Optional[Peer2Peer] = None  # P2P peer client object
     API_OBJ = None  # REST API object
 
     # developer

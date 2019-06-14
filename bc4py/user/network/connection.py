@@ -14,10 +14,10 @@ best_height_on_network = None
 
 def set_good_node():
     node = list()
-    pc = V.PC_OBJ
+    pc = V.P2P_OBJ
     status_counter = Counter()
     f_all_booting = True  # flag: there is no stable node
-    for user in pc.p2p.user:
+    for user in pc.core.user:
         try:
             dummy, r = pc.send_direct_cmd(cmd=DirectCmd.BEST_INFO, data=None, user=user)
             if isinstance(r, str):
@@ -35,7 +35,7 @@ def set_good_node():
             f_all_booting = False
         node.append((user, r['hash'], r['height'], r['booting']))
     # check unstable?
-    if f_all_booting and len(pc.p2p.user) < 3:
+    if f_all_booting and len(pc.core.user) < 3:
         raise UnstableNetworkError("unstable network: All connection booting")
     if len(status_counter) == 0:
         raise UnstableNetworkError("unstable network: No status count")
@@ -65,8 +65,8 @@ def reset_good_node():
 def ask_node(cmd, data=None, f_continue_asking=False):
     check_network_connection()
     failed = 0
-    pc = V.PC_OBJ
-    user_list = pc.p2p.user.copy()
+    pc = V.P2P_OBJ
+    user_list = pc.core.user.copy()
     random.shuffle(user_list)
     while failed < 10:
         try:
@@ -98,11 +98,11 @@ def ask_node(cmd, data=None, f_continue_asking=False):
 
 def ask_all_nodes(cmd, data=None):
     check_network_connection()
-    pc = V.PC_OBJ
-    user_list = pc.p2p.user.copy()
+    pc = V.P2P_OBJ
+    user_list = pc.core.user.copy()
     random.shuffle(user_list)
     result = list()
-    for user in pc.p2p.user.copy():
+    for user in pc.core.user.copy():
         try:
             if len(good_node) == 0:
                 set_good_node()
@@ -125,10 +125,10 @@ def ask_all_nodes(cmd, data=None):
 
 def seek_nodes(cmd, data=None):
     check_network_connection()
-    pc = V.PC_OBJ
-    user_list = pc.p2p.user.copy()
+    pc = V.P2P_OBJ
+    user_list = pc.core.user.copy()
     random.shuffle(user_list)
-    for user in pc.p2p.user.copy():
+    for user in pc.core.user.copy():
         try:
             if len(good_node) == 0:
                 set_good_node()
@@ -158,10 +158,10 @@ def get_best_conn_info():
 def check_network_connection(minimum=None):
     count = 0
     need = minimum or 2
-    while not P.F_STOP and len(V.PC_OBJ.p2p.user) <= need:
+    while not P.F_STOP and len(V.P2P_OBJ.core.user) <= need:
         count += 1
         if count % 30 == 0:
-            log.debug("{} connections, waiting for new.. {}Sec".format(len(V.PC_OBJ.p2p.user), count))
+            log.debug("{} connections, waiting for new.. {}Sec".format(len(V.P2P_OBJ.core.user), count))
         sleep(1)
 
 

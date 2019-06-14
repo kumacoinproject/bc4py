@@ -29,7 +29,7 @@ async def getinfo(*args, **kwargs):
         "balance": round(users.get(0, 0) / pow(10, V.COIN_DIGIT), 8),
         "blocks": best_block.height,
         "moneysupply": GompertzCurve.calc_total_supply(best_block.height),
-        "connections": len(V.PC_OBJ.p2p.user),
+        "connections": len(V.P2P_OBJ.core.user),
         "testnet": V.BECH32_HRP == 'test',
         "difficulty": round(difficulty, 8),
         "paytxfee": round(V.COIN_MINIMUM_PRICE / pow(10, V.COIN_DIGIT), 8),

@@ -74,7 +74,7 @@ async def system_info(request):
         'chain_ver': __chain_version__,
         'branch': V.BRANCH_NAME,
         'booting': P.F_NOW_BOOTING,
-        'connections': len(V.PC_OBJ.p2p.user),
+        'connections': len(V.P2P_OBJ.core.user),
         'unconfirmed': [txhash.hex() for txhash in tx_builder.unconfirmed.keys()],
         'pre_unconfirmed': [txhash.hex() for txhash in tx_builder.pre_unconfirmed.keys()],
         'access_time': int(time()),
@@ -92,7 +92,7 @@ async def system_private_info(request):
             'branch': V.BRANCH_NAME,
             'message': __message__,
             'booting': P.F_NOW_BOOTING,
-            'connections': len(V.PC_OBJ.p2p.user),
+            'connections': len(V.P2P_OBJ.core.user),
             'unconfirmed': [txhash.hex() for txhash in tx_builder.unconfirmed.keys()],
             'directory': V.DB_HOME_DIR,
             'generate_threads': [str(s) for s in generating_threads],
@@ -109,10 +109,10 @@ async def network_info(request):
         networks = list()
         data = {
             'p2p_ver': p2p_python.__version__,
-            'status': V.PC_OBJ.p2p.get_server_header(),
+            'status': V.P2P_OBJ.core.get_server_header(),
             'networks': networks
         }
-        for user in V.PC_OBJ.p2p.user:
+        for user in V.P2P_OBJ.core.user:
             info = {
                 'number': user.number,
                 'neers': ["{}:{}".format(*conn) for conn in user.neers],
