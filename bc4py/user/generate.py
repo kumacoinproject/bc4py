@@ -8,7 +8,7 @@ from bc4py.chain.utils import GompertzCurve
 from bc4py.chain.checking.utils import stake_coin_check
 from bc4py.database.create import create_db
 from bc4py.database.account import sign_message_by_address, generate_new_address_by_userid
-from bc4py.database.tools import get_unspents_iter
+from bc4py.database.tools import get_my_unspents_iter
 from bc4py_extension import multi_seek
 from concurrent.futures import ProcessPoolExecutor
 from threading import Thread, Lock
@@ -393,7 +393,7 @@ def update_unspents_txs(time_limit=0.2):
     previous_height = previous_block.height
     proof_txs = list()
     all_num = 0
-    for address, height, txhash, txindex, coin_id, amount in get_unspents_iter():
+    for address, height, txhash, txindex, coin_id, amount in get_my_unspents_iter():
         if time() - s > time_limit:
             break
         if height is None:

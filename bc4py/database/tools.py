@@ -26,11 +26,11 @@ def _get_best_chain_all(best_block):
         return best_chain
 
 
-def get_utxo_iter(target_address, best_block=None, best_chain=None):
-    assert isinstance(target_address, set) or isinstance(target_address, list) or isinstance(target_address, tuple)
+def get_unspents_iter(target_address, best_block=None, best_chain=None):
     failed = 0
     while failed < 20:
-        best_chain = best_chain or _get_best_chain_all(best_block)
+        if best_chain is None:
+            best_chain = _get_best_chain_all(best_block)
         if best_chain:
             break
         failed += 1
@@ -76,18 +76,17 @@ def get_utxo_iter(target_address, best_block=None, best_chain=None):
     # address, height, txhash, index, coin_id, amount
 
 
-def get_unspents_iter(outer_cur=None, best_chain=None):
-    target_address = set()
+def get_my_unspents_iter(outer_cur=None, best_chain=None):
     with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = outer_cur or db.cursor()
-        for (uuid, address, user) in read_pooled_address_iter(cur):
-            target_address.add(address)
-    return get_utxo_iter(target_address=target_address, best_block=None, best_chain=best_chain)
+        target_address = {address for (uuid, address, user) in read_pooled_address_iter(cur=cur)}
+    yield from get_unspents_iter(target_address=target_address, best_block=None, best_chain=best_chain)
 
 
 def get_usedindex(txhash, best_block=None, best_chain=None):
     assert chain_builder.best_block, 'Not DataBase init'
-    best_chain = best_chain or _get_best_chain_all(best_block)
+    if best_chain is None:
+        best_chain = _get_best_chain_all(best_block)
     # Memoryより
     usedindex = set()
     for block in best_chain:
@@ -110,7 +109,8 @@ def get_usedindex(txhash, best_block=None, best_chain=None):
 
 def is_usedindex(txhash, txindex, except_txhash, best_block=None, best_chain=None):
     assert chain_builder.best_block, 'Not DataBase init'
-    best_chain = best_chain or _get_best_chain_all(best_block)
+    if best_chain is None:
+        best_chain = _get_best_chain_all(best_block)
     # Memoryより
     for block in best_chain:
         for tx in block.txs:
@@ -134,8 +134,8 @@ def is_usedindex(txhash, txindex, except_txhash, best_block=None, best_chain=Non
 
 
 __all__ = [
-    "get_utxo_iter",
     "get_unspents_iter",
+    "get_my_unspents_iter",
     "get_usedindex",
     "is_usedindex",
 ]

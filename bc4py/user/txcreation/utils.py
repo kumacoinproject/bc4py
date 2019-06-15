@@ -2,7 +2,7 @@ from bc4py.config import C, V, BlockChainError
 from bc4py.bip32 import dummy_address
 from bc4py.database.builder import user_account
 from bc4py.database.account import sign_message_by_address, generate_new_address_by_userid
-from bc4py.database.tools import get_unspents_iter, get_utxo_iter
+from bc4py.database.tools import get_my_unspents_iter, get_unspents_iter
 from bc4py.user import Balance
 from logging import getLogger
 
@@ -41,9 +41,9 @@ def fill_inputs_outputs(tx,
     f_dust_skipped = False
     if utxo_cashe is None:
         if target_address:
-            utxo_iter = get_utxo_iter(target_address=target_address)
+            utxo_iter = get_unspents_iter(target_address=target_address)
         elif cur:
-            utxo_iter = get_unspents_iter(outer_cur=cur)
+            utxo_iter = get_my_unspents_iter(outer_cur=cur)
         else:
             raise Exception('target_address and cur is None?')
         utxo_cashe = list()

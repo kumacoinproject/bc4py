@@ -5,7 +5,7 @@ from bc4py.user.api import web_base
 from bc4py.database.builder import chain_builder, user_account
 from bc4py.database.create import create_db
 from bc4py.database.account import *
-from bc4py.database.tools import get_utxo_iter, get_unspents_iter
+from bc4py.database.tools import get_unspents_iter, get_my_unspents_iter
 from aiohttp import web
 
 
@@ -48,7 +48,7 @@ async def list_unspents(request):
         finish = (page+1) * limit - 1
         f_next_page = False
         target_address = request.query['address']
-        unspents_iter = get_utxo_iter(target_address=set(target_address.split(',')))
+        unspents_iter = get_unspents_iter(target_address=set(target_address.split(',')))
         data = list()
         for index, (address, height, txhash, txindex, coin_id, amount) in enumerate(unspents_iter):
             if finish < index:
@@ -73,7 +73,7 @@ async def list_unspents(request):
 async def list_private_unspents(request):
     data = list()
     best_height = chain_builder.best_block.height
-    for address, height, txhash, txindex, coin_id, amount in get_unspents_iter():
+    for address, height, txhash, txindex, coin_id, amount in get_my_unspents_iter():
         data.append({
             'address': address,
             'height': height,
