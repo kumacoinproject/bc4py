@@ -67,7 +67,6 @@ def stand_client(p2p_port, sub_dir=None):
     # Debug.F_CONSTANT_DIFF = True
     # Debug.F_SHOW_DIFFICULTY = True
     # Debug.F_STICKY_TX_REJECTION = False  # for debug
-    Generate(consensus=C.BLOCK_COIN_POS, power_limit=0.3).start()
     Thread(target=mined_newblock, name='GeneBlock', args=(output_que,)).start()
     logging.info("Finished all initialize.")
 
@@ -97,6 +96,8 @@ if __name__ == '__main__':
     logging.info(f"\n{__logo__}\n====\nsystem (str) = {__version__}\nchain (int) = {__chain_version__}\n"
                  f"block (int) = {__block_version__}\nmessage = {__message__}")
     stand_client(p2p_port=p.p2p, sub_dir=p.sub_dir)
+    if p.staking:
+        Generate(consensus=C.BLOCK_COIN_POS, power_limit=0.3).start()
     if p.solo_mining:
         solo_mining()
     rest_server(user=p.user, password=p.password, rest_port=p.rest, rest_host=p.host)

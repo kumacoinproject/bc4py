@@ -103,6 +103,9 @@ def console_args_parser():
     p.add_argument('--daemon',
                    help='make process daemon',
                    action='store_true')
+    p.add_argument('--staking',
+                   help='enable coin base staking',
+                   action='store_true')
     p.add_argument('--solo-mining',
                    help='solo mining for debug or testnet',
                    action='store_true')
