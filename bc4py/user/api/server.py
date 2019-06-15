@@ -52,17 +52,17 @@ def escape_cross_origin_block(app):
 
 
 class PrivateAccessStrategy(BaseStrategy):
-    # enable access from browser with OPTIONS method
+    """
+    enable access from browser with OPTIONS method
+    private method access allow only from local
+    proxy is on local and add X-Forwarded-Host header (option)
+    """
     async def check(self):
-        # access allow only local
-        proxy_host = self.request.headers.get('X-Forwarded-Host')
-        remote_host = self.request.remote
         if self.request.method == 'OPTIONS':
             return await self.handler(self.request)
-        if remote_host in localhost_urls:
-            if proxy_host is None:
-                return await super().check()
-            elif proxy_host in localhost_urls:
+        if self.request.remote in localhost_urls:
+            proxy_host = self.request.headers.get('X-Forwarded-Host')
+            if proxy_host is None or proxy_host in localhost_urls:
                 return await super().check()
             else:
                 raise web.HTTPForbidden()
@@ -77,14 +77,13 @@ def setup_ssl_context(cert, private, hostname=False):
     return ssl_context
 
 
-def create_rest_server(user, pwd, port=3000, host='127.0.0.1', f_blocking=True, ssl_context=None):
+def create_rest_server(user='user', pwd='password', port=3000, host='127.0.0.1', ssl_context=None):
     """
     create REST server for API
     :param user: BasicAuth username
     :param pwd: BasicAuth password
     :param port: REST bind port
     :param host: REST bind host, "0.0.0.0" is global
-    :param f_blocking: blocked by asyncio loop
     :param ssl_context: for SSL server
     """
     threading.current_thread().setName("REST")
@@ -152,25 +151,13 @@ def create_rest_server(user, pwd, port=3000, host='127.0.0.1', f_blocking=True, 
     escape_cross_origin_block(app)
 
     # setup basic auth
-    assert isinstance(user, str) and len(user) > 2
-    assert isinstance(pwd, str) and len(pwd) > 7
+    assert isinstance(user, str) and isinstance(pwd, str)
     app.middlewares.append(basic_auth_middleware(('/private/',), {user: pwd}, PrivateAccessStrategy))
 
     # Working
     runner = web.AppRunner(app)
     loop.run_until_complete(non_blocking_start(runner, host, port, ssl_context))
-    log.info("REST work on port={} host={}".format(port, host))
-
-    if f_blocking:
-        try:
-            log.info("Create REST server with blocking")
-            loop.run_forever()
-        except KeyboardInterrupt:
-            pass
-        loop.close()
-        log.info("REST server close")
-    else:
-        log.info("Create REST server with no blocking")
+    log.info(f"API listen on {host}:{port}")
 
 
 async def non_blocking_start(runner, host, port, ssl_context):

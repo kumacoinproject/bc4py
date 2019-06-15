@@ -17,8 +17,12 @@ from p2p_python.utils import setup_p2p_params
 from p2p_python.server import Peer2Peer
 from bc4py.for_debug import set_logger, f_already_bind
 from threading import Thread
+import asyncio
 import logging
 import os
+
+
+loop = asyncio.get_event_loop()
 
 
 def copy_boot(port):
@@ -94,20 +98,17 @@ def work(port, sub_dir):
     Emulate(c_address='CJ4QZ7FDEH5J7B2O3OLPASBHAFEDP6I7UKI2YMKF')
     # Emulate(c_address='CLBKXHOTXTLK3FENVTCH6YPM5MFZS4BNAXFYNWBD')
     start_emulators()
-    # Stratum
-    # Stratum(port=port+2000, consensus=C.BLOCK_HMQ_POW, first_difficulty=4)
     Thread(target=mined_newblock, name='GeneBlock', args=(output_que,)).start()
     logging.info("Finished all initialize.")
 
     try:
-        # start_stratum(f_blocking=False)
         create_rest_server(user='user', pwd='password', port=port+1000)
-        P.F_STOP = True
-        chain_builder.close()
-        # close_stratum()
-        p2p.close()
-    except KeyboardInterrupt:
-        logging.debug("KeyboardInterrupt.")
+        loop.run_forever()
+    except Exception as e:
+        logging.debug(e)
+    P.F_STOP = True
+    chain_builder.close()
+    p2p.close()
 
 
 def connection():

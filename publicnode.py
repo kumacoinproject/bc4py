@@ -15,7 +15,11 @@ from p2p_python.utils import setup_p2p_params
 from p2p_python.server import Peer2Peer
 from bc4py.for_debug import set_logger
 from threading import Thread
+import asyncio
 import logging
+
+
+loop = asyncio.get_event_loop()
 
 
 def stand_client(p2p_port, sub_dir=None):
@@ -78,6 +82,7 @@ def solo_mining():
 def rest_server(user, password, rest_port, rest_host):
     try:
         create_rest_server(user=user, pwd=password, port=rest_port, host=rest_host)
+        loop.run_forever()
     except Exception as e:
         logging.error("exit by {}".format(e))
     P.F_STOP = True
