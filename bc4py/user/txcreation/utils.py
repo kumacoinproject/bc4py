@@ -46,17 +46,16 @@ def fill_inputs_outputs(tx,
             utxo_iter = get_my_unspents_iter(outer_cur=cur)
         else:
             raise Exception('target_address and cur is None?')
-        utxo_cashe = list()
-        f_put_cashe = True
+        cashe = list()
+        utxo_cashe = [cashe, utxo_iter]
     else:
-        utxo_iter = utxo_cashe
-        f_put_cashe = False
-    for address, height, txhash, txindex, coin_id, amount in utxo_iter:
-        if f_put_cashe:
-            utxo_cashe.append((address, height, txhash, txindex, coin_id, amount))
+        cashe, utxo_iter = utxo_cashe
+    for is_cashe, (address, height, txhash, txindex, coin_id, amount) in sum_utxo_iter(cashe, utxo_iter):
+        if not is_cashe:
+            cashe.append((address, height, txhash, txindex, coin_id, amount))
         if coin_id not in need_coins:
             continue
-        elif need_coins[coin_id] * dust_percent > amount:
+        if need_coins[coin_id] * dust_percent > amount:
             f_dust_skipped = True
             continue
         need_coins[coin_id] -= amount
@@ -179,6 +178,14 @@ def check_enough_amount(sender, send_coins, fee_coins, cur):
     if not remain_coins.is_all_plus_amount():
         raise BlockChainError('Not enough balance in id={} balance={} remains={}request_num'.format(
             sender, from_coins, remain_coins))
+
+
+def sum_utxo_iter(cashe: list, utxo_iter):
+    """return with flag is_cashe"""
+    for args in cashe:
+        yield True, args
+    for args in utxo_iter:
+        yield False, args
 
 
 __all__ = [
