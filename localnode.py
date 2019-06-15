@@ -4,7 +4,6 @@
 from bc4py import __version__, __chain_version__, __message__, __logo__
 from bc4py.config import C, V, P
 from bc4py.utils import set_database_path, set_blockchain_params, check_already_started
-# from bc4py.user.stratum import Stratum, start_stratum, close_stratum
 from bc4py.user.generate import *
 from bc4py.user.boot import *
 from bc4py.user.network import *
