@@ -2,7 +2,7 @@ from bc4py import __chain_version__
 from bc4py.config import V
 from bc4py.chain import msgpack
 from bc4py.database.builder import chain_builder
-from bc4py.user.api import web_base
+from bc4py.user.api import utils
 from logging import getLogger
 from time import time
 import asyncio
@@ -36,13 +36,13 @@ async def create_bootstrap(request):
                 if block.height % 100 == 0:
                     log.info("create bootstrap.dat.gz height={} {}s passed".format(block.height, round(time() - s)))
         log.info("create new bootstrap.dat.gz finished, last={} {}Minutes".format(block, (time() - s) // 60))
-        return web_base.json_res({
+        return utils.json_res({
             "height": stop_height,
             "start_time": int(s),
             "finish_time": int(time())
         })
     except Exception:
-        return web_base.error_res()
+        return utils.error_res()
 
 
 __all__ = [

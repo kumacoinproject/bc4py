@@ -3,7 +3,7 @@ from bc4py.config import C, V, P
 from bc4py.chain.utils import GompertzCurve, DEFAULT_TARGET
 from bc4py.chain.difficulty import get_bits_by_hash, get_bias_by_hash
 from bc4py.database.builder import chain_builder, tx_builder
-from bc4py.user.api import web_base
+from bc4py.user.api import utils
 from bc4py.user.generate import generating_threads
 from time import time
 import p2p_python
@@ -48,9 +48,9 @@ async def chain_info(request):
                 'get_bits_by_hash': str(get_bits_by_hash.cache_info()),
                 'get_bias_by_hash': str(get_bias_by_hash.cache_info())
             }
-        return web_base.json_res(data)
+        return utils.json_res(data)
     except Exception:
-        return web_base.error_res()
+        return utils.error_res()
 
 
 async def chain_fork_info(request):
@@ -62,9 +62,9 @@ async def chain_fork_info(request):
             'orphan': sorted(orphan_chain, key=lambda x: x['height']),
             'root': chain_builder.root_block.getinfo()
         }
-        return web_base.json_res(data)
+        return utils.json_res(data)
     except Exception:
-        return web_base.error_res()
+        return utils.error_res()
 
 
 async def system_info(request):
@@ -80,7 +80,7 @@ async def system_info(request):
         'access_time': int(time()),
         'start_time': start_time
     }
-    return web_base.json_res(data)
+    return utils.json_res(data)
 
 
 async def system_private_info(request):
@@ -99,9 +99,9 @@ async def system_private_info(request):
             'access_time': int(time()),
             'start_time': start_time
         }
-        return web_base.json_res(data)
+        return utils.json_res(data)
     except Exception:
-        return web_base.error_res()
+        return utils.error_res()
 
 
 async def network_info(request):
@@ -122,9 +122,9 @@ async def network_info(request):
             }
             info.update(user.serialize())
             networks.append(info)
-        return web_base.json_res(data)
+        return utils.json_res(data)
     except Exception:
-        return web_base.error_res()
+        return utils.error_res()
 
 
 __all__ = [

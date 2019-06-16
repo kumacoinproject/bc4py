@@ -23,7 +23,9 @@ async def content_type_json_check(request):
 
 
 def json_res(data, indent=4):
-    return web.Response(text=json.dumps(data, indent=indent), content_type='application/json')
+    res = web.Response(text=json.dumps(data, indent=indent), content_type='application/json')
+    res.enable_compression()
+    return res
 
 
 def error_res(errors=None):

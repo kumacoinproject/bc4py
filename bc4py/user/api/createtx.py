@@ -7,7 +7,7 @@ from bc4py.database.builder import tx_builder
 from bc4py.database.account import *
 from bc4py.database.create import create_db
 from bc4py.user.network.sendnew import send_newtx
-from bc4py.user.api import web_base
+from bc4py.user.api import utils
 from bc4py.chain.tx import TX
 from multi_party_schnorr import PyKeyPair
 from aiohttp import web
@@ -36,7 +36,7 @@ async def create_raw_tx(request):
     # [inputs:list()] [outputs:list()]
     # [gas_price=MINIMUM_PRICE] [gas_amount=MINIMUM_AMOUNT]
     # [message_type=None] [message=None]
-    post = await web_base.content_type_json_check(request)
+    post = await utils.content_type_json_check(request)
     try:
         publish_time = post.get('time', int(time() - V.BLOCK_GENESIS_TIME))
         deadline_time = post.get('deadline', publish_time + 10800)
@@ -66,13 +66,13 @@ async def create_raw_tx(request):
         require_gas = tx.size + len(input_address) * C.SIGNATURE_GAS
         tx.gas_amount = post.get('gas_amount', require_gas)
         tx.serialize()
-        return web_base.json_res({'tx': tx.getinfo(), 'hex': tx.b.hex()})
+        return utils.json_res({'tx': tx.getinfo(), 'hex': tx.b.hex()})
     except Exception:
-        return web_base.error_res()
+        return utils.error_res()
 
 
 async def sign_raw_tx(request):
-    post = await web_base.content_type_json_check(request)
+    post = await utils.content_type_json_check(request)
     try:
         binary = a2b_hex(post['hex'])
         other_pairs = dict()
@@ -94,14 +94,14 @@ async def sign_raw_tx(request):
                     raise BlockChainError('Not found secret key "{}"'.format(address))
                 tx.signature.append(other_pairs[address])
         data = tx.getinfo()
-        return web_base.json_res({'hash': data['hash'], 'signature': data['signature'], 'hex': tx.b.hex()})
+        return utils.json_res({'hash': data['hash'], 'signature': data['signature'], 'hex': tx.b.hex()})
     except Exception:
-        return web_base.error_res()
+        return utils.error_res()
 
 
 async def broadcast_tx(request):
     start = time()
-    post = await web_base.content_type_json_check(request)
+    post = await utils.content_type_json_check(request)
     try:
         binary = a2b_hex(post['hex'])
         new_tx = TX.from_binary(binary=binary)
@@ -110,7 +110,7 @@ async def broadcast_tx(request):
             new_tx.R = a2b_hex(post['R'])
         if not send_newtx(new_tx=new_tx):
             raise BlockChainError('Failed to send new tx')
-        return web_base.json_res({
+        return utils.json_res({
             'hash': new_tx.hash.hex(),
             'gas_amount': new_tx.gas_amount,
             'gas_price': new_tx.gas_price,
@@ -118,14 +118,14 @@ async def broadcast_tx(request):
             'time': round(time() - start, 3)
         })
     except Exception:
-        return web_base.error_res()
+        return utils.error_res()
 
 
 async def send_from_user(request):
     start = time()
     if P.F_NOW_BOOTING:
         return web.Response(text='Now booting', status=403)
-    post = await web_base.content_type_json_check(request)
+    post = await utils.content_type_json_check(request)
     with create_db(V.DB_ACCOUNT_PATH, f_strict=True) as db:
         cur = db.cursor()
         try:
@@ -150,7 +150,7 @@ async def send_from_user(request):
             if not send_newtx(new_tx=new_tx, outer_cur=cur):
                 raise BlockChainError('Failed to send new tx')
             db.commit()
-            return web_base.json_res({
+            return utils.json_res({
                 'hash': new_tx.hash.hex(),
                 'gas_amount': new_tx.gas_amount,
                 'gas_price': new_tx.gas_price,
@@ -159,14 +159,14 @@ async def send_from_user(request):
             })
         except Exception as e:
             db.rollback()
-            return web_base.error_res()
+            return utils.error_res()
 
 
 async def send_many_user(request):
     start = time()
     if P.F_NOW_BOOTING:
         return web.Response(text='Now booting', status=403)
-    post = await web_base.content_type_json_check(request)
+    post = await utils.content_type_json_check(request)
     with create_db(V.DB_ACCOUNT_PATH, f_strict=True) as db:
         cur = db.cursor()
         try:
@@ -188,7 +188,7 @@ async def send_many_user(request):
             if not send_newtx(new_tx=new_tx, outer_cur=cur):
                 raise BlockChainError('Failed to send new tx')
             db.commit()
-            return web_base.json_res({
+            return utils.json_res({
                 'hash': new_tx.hash.hex(),
                 'gas_amount': new_tx.gas_amount,
                 'gas_price': new_tx.gas_price,
@@ -197,12 +197,12 @@ async def send_many_user(request):
             })
         except Exception as e:
             db.rollback()
-            return web_base.error_res()
+            return utils.error_res()
 
 
 async def issue_mint_tx(request):
     start = time()
-    post = await web_base.content_type_json_check(request)
+    post = await utils.content_type_json_check(request)
     with create_db(V.DB_ACCOUNT_PATH, f_strict=True) as db:
         cur = db.cursor()
         try:
@@ -221,7 +221,7 @@ async def issue_mint_tx(request):
             if not send_newtx(new_tx=tx, outer_cur=cur):
                 raise BlockChainError('Failed to send new tx')
             db.commit()
-            return web_base.json_res({
+            return utils.json_res({
                 'hash': tx.hash.hex(),
                 'gas_amount': tx.gas_amount,
                 'gas_price': tx.gas_price,
@@ -230,12 +230,12 @@ async def issue_mint_tx(request):
                 'mint_id': mint_id
             })
         except Exception:
-            return web_base.error_res()
+            return utils.error_res()
 
 
 async def change_mint_tx(request):
     start = time()
-    post = await web_base.content_type_json_check(request)
+    post = await utils.content_type_json_check(request)
     with create_db(V.DB_ACCOUNT_PATH, f_strict=True) as db:
         cur = db.cursor()
         try:
@@ -253,7 +253,7 @@ async def change_mint_tx(request):
             if not send_newtx(new_tx=tx, outer_cur=cur):
                 raise BlockChainError('Failed to send new tx')
             db.commit()
-            return web_base.json_res({
+            return utils.json_res({
                 'hash': tx.hash.hex(),
                 'gas_amount': tx.gas_amount,
                 'gas_price': tx.gas_price,
@@ -261,7 +261,7 @@ async def change_mint_tx(request):
                 'time': round(time() - start, 3)
             })
         except Exception:
-            return web_base.error_res()
+            return utils.error_res()
 
 
 __all__ = [

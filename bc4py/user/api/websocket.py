@@ -61,6 +61,7 @@ async def websocket_route(request):
 
 async def websocket_protocol_check(request, is_public):
     ws = web.WebSocketResponse()
+    ws.enable_compression()
     available = ws.can_prepare(request)
     if not available:
         raise TypeError('Cannot prepare websocket')

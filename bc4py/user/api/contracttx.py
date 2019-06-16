@@ -5,7 +5,7 @@ from bc4py.database.create import create_db
 from bc4py.database.account import *
 from bc4py.database.builder import tx_builder
 from bc4py.user.network.sendnew import send_newtx
-from bc4py.user.api import web_base
+from bc4py.user.api import utils
 from binascii import a2b_hex
 from time import time
 import msgpack
@@ -13,7 +13,7 @@ import msgpack
 
 async def contract_init(request):
     start = time()
-    post = await web_base.content_type_json_check(request)
+    post = await utils.content_type_json_check(request)
     try:
         c_address = post['c_address']
         v_address = post['v_address']
@@ -39,7 +39,7 @@ async def contract_init(request):
             if not send_newtx(new_tx=tx, outer_cur=cur):
                 raise Exception('Failed to send new tx')
             db.commit()
-            return web_base.json_res({
+            return utils.json_res({
                 'hash': tx.hash.hex(),
                 'gas_amount': tx.gas_amount,
                 'gas_price': tx.gas_price,
@@ -47,12 +47,12 @@ async def contract_init(request):
                 'time': round(time() - start, 3)
             })
     except Exception:
-        return web_base.error_res()
+        return utils.error_res()
 
 
 async def contract_update(request):
     start = time()
-    post = await web_base.content_type_json_check(request)
+    post = await utils.content_type_json_check(request)
     try:
         c_address = post['c_address']
         c_extra_imports = post.get('extra_imports', None)
@@ -79,7 +79,7 @@ async def contract_update(request):
             if not send_newtx(new_tx=tx, outer_cur=cur):
                 raise Exception('Failed to send new tx')
             db.commit()
-        return web_base.json_res({
+        return utils.json_res({
             'hash': tx.hash.hex(),
             'gas_amount': tx.gas_amount,
             'gas_price': tx.gas_price,
@@ -87,12 +87,12 @@ async def contract_update(request):
             'time': round(time() - start, 3)
         })
     except Exception:
-        return web_base.error_res()
+        return utils.error_res()
 
 
 async def contract_transfer(request):
     start = time()
-    post = await web_base.content_type_json_check(request)
+    post = await utils.content_type_json_check(request)
     try:
         c_address = post['c_address']
         c_method = post['c_method']
@@ -112,7 +112,7 @@ async def contract_transfer(request):
             if not send_newtx(new_tx=tx, outer_cur=cur):
                 raise Exception('Failed to send new tx')
             db.commit()
-        return web_base.json_res({
+        return utils.json_res({
             'hash': tx.hash.hex(),
             'gas_amount': tx.gas_amount,
             'gas_price': tx.gas_price,
@@ -120,17 +120,17 @@ async def contract_transfer(request):
             'time': round(time() - start, 3)
         })
     except Exception:
-        return web_base.error_res()
+        return utils.error_res()
 
 
 async def conclude_contract(request):
     start = time()
-    post = await web_base.content_type_json_check(request)
+    post = await utils.content_type_json_check(request)
     try:
         start_hash = a2b_hex(post['start_hash'])
         start_tx = tx_builder.get_tx(txhash=start_hash)
         if start_tx is None:
-            return web_base.error_res('Not found start_tx {}'.format(post['start_hash']))
+            return utils.error_res('Not found start_tx {}'.format(post['start_hash']))
         c_address, c_method, redeem_address, c_args = start_tx.encoded_message()
         send_pairs = post.get('send_pairs', None)
         c_storage = post.get('storage', None)
@@ -142,7 +142,7 @@ async def conclude_contract(request):
             c_storage=c_storage)
         if not send_newtx(new_tx=tx):
             raise Exception('Failed to send new tx')
-        return web_base.json_res({
+        return utils.json_res({
             'hash': tx.hash.hex(),
             'gas_amount': tx.gas_amount,
             'gas_price': tx.gas_price,
@@ -150,12 +150,12 @@ async def conclude_contract(request):
             'time': round(time() - start, 3)
         })
     except Exception:
-        return web_base.error_res()
+        return utils.error_res()
 
 
 async def validator_edit(request):
     start = time()
-    post = await web_base.content_type_json_check(request)
+    post = await utils.content_type_json_check(request)
     v_address = post.get('v_address', None)
     new_address = post.get('new_address', None)
     flag = int(post.get('flag', F_NOP))
@@ -170,7 +170,7 @@ async def validator_edit(request):
             if not send_newtx(new_tx=tx, outer_cur=cur):
                 raise Exception('Failed to send new tx')
             db.commit()
-            return web_base.json_res({
+            return utils.json_res({
                 'hash': tx.hash.hex(),
                 'gas_amount': tx.gas_amount,
                 'gas_price': tx.gas_price,
@@ -178,17 +178,17 @@ async def validator_edit(request):
                 'time': round(time() - start, 3)
             })
     except Exception:
-        return web_base.error_res()
+        return utils.error_res()
 
 
 async def validate_unconfirmed(request):
     start = time()
-    post = await web_base.content_type_json_check(request)
+    post = await utils.content_type_json_check(request)
     try:
         txhash = a2b_hex(post['hash'])
         tx = tx_builder.get_tx(txhash=txhash)
         if tx is None or tx.height is not None:
-            return web_base.error_res('You cannot validate tx. {}'.format(tx))
+            return utils.error_res('You cannot validate tx. {}'.format(tx))
         with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = db.cursor()
             new_tx = create_signed_tx_as_validator(tx=tx)
@@ -196,7 +196,7 @@ async def validate_unconfirmed(request):
             if not send_newtx(new_tx=new_tx, outer_cur=cur):
                 raise Exception('Failed to send new tx')
             db.commit()
-            return web_base.json_res({
+            return utils.json_res({
                 'hash': new_tx.hash.hex(),
                 'gas_amount': new_tx.gas_amount,
                 'gas_price': new_tx.gas_price,
@@ -204,19 +204,19 @@ async def validate_unconfirmed(request):
                 'time': round(time() - start, 3)
             })
     except Exception:
-        return web_base.error_res()
+        return utils.error_res()
 
 
 async def source_compile(request):
-    post = await web_base.content_type_json_check(request)
+    post = await utils.content_type_json_check(request)
     # Warning: do not execute unknown source code!
     try:
         c_obj = path2contract(path=post['path'])
         c_bin = contract2binary(c_obj)
         c_dis = contract2dis(c_obj)
-        return web_base.json_res({'hex': c_bin.hex(), 'dis': c_dis})
+        return utils.json_res({'hex': c_bin.hex(), 'dis': c_dis})
     except Exception:
-        return web_base.error_res()
+        return utils.error_res()
 
 
 __all__ = [

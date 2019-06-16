@@ -1,5 +1,5 @@
 from bc4py.config import P
-from bc4py.user.api import web_base
+from bc4py.user.api import utils
 from .account import *
 from .mining import *
 from .others import *
@@ -33,7 +33,7 @@ async def json_rpc(request):
     # user     => no meaning
     # password => mining consensus number by confing.py
     user, password = b64decode(auth_data.encode()).decode().split(':')
-    post = await web_base.content_type_json_check(request)
+    post = await utils.content_type_json_check(request)
     if not isinstance(post, dict):
         return res_failed("post data is not correct? post={}".format(post), None)
     if P.F_NOW_BOOTING:

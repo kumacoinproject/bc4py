@@ -1,7 +1,6 @@
 from bc4py.config import C, V
 from bc4py.bip32 import Bip32, BIP32_HARDEN, get_address
-from bc4py.user.api import web_base
-from bc4py.user.tools import repair_wallet
+from bc4py.user.api import utils
 from bc4py.database.create import create_db
 from bc4py.database.account import insert_keypair_from_outside, read_name2userid
 from multi_party_schnorr import PyKeyPair
@@ -19,17 +18,17 @@ loop = asyncio.get_event_loop()
 
 async def create_wallet(request):
     try:
-        post = await web_base.content_type_json_check(request)
+        post = await utils.content_type_json_check(request)
         passphrase = str(post.get('passphrase', ''))
         length = int(post.get('length', 256))
         if length not in length_list:
-            return web_base.error_res('length is {}'.format(length_list))
+            return utils.error_res('length is {}'.format(length_list))
         mnemonic = Mnemonic(language).generate(length)
         seed = Mnemonic.to_seed(mnemonic, passphrase)
         root = Bip32.from_entropy(seed)
         bip = root.child_key(44 + BIP32_HARDEN).child_key(C.BIP44_COIN_TYPE)
         # keystone.json format
-        return web_base.json_res({
+        return utils.json_res({
             'mnemonic': mnemonic,
             'passphrase': passphrase,
             'account_secret_key': bip.extended_key(True),
@@ -39,27 +38,27 @@ async def create_wallet(request):
                        'You can remove "account_secret_key" but you cannot sign and create new account',
         })
     except Exception:
-        return web_base.error_res()
+        return utils.error_res()
 
 
 async def import_private_key(request):
     try:
-        post = await web_base.content_type_json_check(request)
+        post = await utils.content_type_json_check(request)
         sk = a2b_hex(post['private_key'])
         ck = post['address']
         name = post.get('account', C.account2name[C.ANT_UNKNOWN])
         keypair: PyKeyPair = PyKeyPair.from_secret_key(sk)
         check_ck = get_address(pk=keypair.get_public_key(), hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER)
         if ck != check_ck:
-            return web_base.error_res('Don\'t match, {}!={}'.format(ck, check_ck))
+            return utils.error_res('Don\'t match, {}!={}'.format(ck, check_ck))
         with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = db.cursor()
             user = read_name2userid(name=name, cur=cur)
             insert_keypair_from_outside(sk=sk, ck=ck, user=user, cur=cur)
             db.commit()
-        return web_base.json_res({'status': True})
+        return utils.json_res({'status': True})
     except Exception:
-        return web_base.error_res()
+        return utils.error_res()
 
 
 __all__ = [

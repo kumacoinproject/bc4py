@@ -1,7 +1,7 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.bip32 import convert_address, addr2bin
 from bc4py.user import Balance
-from bc4py.user.api import web_base
+from bc4py.user.api import utils
 from bc4py.database.builder import chain_builder, user_account
 from bc4py.database.create import create_db
 from bc4py.database.account import *
@@ -17,7 +17,7 @@ async def list_balance(request):
         users = user_account.get_balance(confirm=confirm, outer_cur=cur)
         for user, balance in users.items():
             data[read_userid2name(user, cur)] = dict(balance)
-    return web_base.json_res(data)
+    return utils.json_res(data)
 
 
 async def list_transactions(request):
@@ -34,12 +34,12 @@ async def list_transactions(request):
         data.append(tx_dict)
         start += 1
         limit -= 1
-    return web_base.json_res({'txs': data, 'next': f_next_page})
+    return utils.json_res({'txs': data, 'next': f_next_page})
 
 
 async def list_unspents(request):
     if not chain_builder.db.db_config['addrindex']:
-        return web_base.error_res('address isn\'t full indexed')
+        return utils.error_res('address isn\'t full indexed')
     try:
         best_height = chain_builder.best_block.height
         page = int(request.query.get('page', 0))
@@ -65,9 +65,9 @@ async def list_unspents(request):
                 'coin_id': coin_id,
                 'amount': amount
             })
-        return web_base.json_res({'data': data, 'next': f_next_page})
+        return utils.json_res({'data': data, 'next': f_next_page})
     except Exception:
-        return web_base.error_res()
+        return utils.error_res()
 
 
 async def list_private_unspents(request):
@@ -83,7 +83,7 @@ async def list_private_unspents(request):
             'coin_id': coin_id,
             'amount': amount
         })
-    return web_base.json_res(data)
+    return utils.json_res(data)
 
 
 async def list_account_address(request):
@@ -100,12 +100,12 @@ async def list_account_address(request):
                     address_list.append(convert_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_CONTRACT_VER))
                 else:
                     address_list.append(address)
-    return web_base.json_res({'account': user_name, 'user_id': user_id, 'address': address_list})
+    return utils.json_res({'account': user_name, 'user_id': user_id, 'address': address_list})
 
 
 async def move_one(request):
     try:
-        post = await web_base.content_type_json_check(request)
+        post = await utils.content_type_json_check(request)
         ant_from = post.get('from', C.account2name[C.ANT_UNKNOWN])
         ant_to = post['to']
         coin_id = int(post.get('coin_id', 0))
@@ -117,14 +117,14 @@ async def move_one(request):
             _to = read_name2userid(ant_to, cur)
             txhash = user_account.move_balance(_from, _to, coins, cur)
             db.commit()
-        return web_base.json_res({'txhash': txhash.hex(), 'from_id': _from, 'to_id': _to})
+        return utils.json_res({'txhash': txhash.hex(), 'from_id': _from, 'to_id': _to})
     except Exception:
-        return web_base.error_res()
+        return utils.error_res()
 
 
 async def move_many(request):
     try:
-        post = await web_base.content_type_json_check(request)
+        post = await utils.content_type_json_check(request)
         ant_from = post.get('from', C.account2name[C.ANT_UNKNOWN])
         ant_to = post['to']
         coins = Balance()
@@ -136,7 +136,7 @@ async def move_many(request):
             _to = read_name2userid(ant_to, cur)
             txhash = user_account.move_balance(_from, _to, coins, cur)
             db.commit()
-        return web_base.json_res({'txhash': txhash.hex(), 'from_id': _from, 'to_id': _to})
+        return utils.json_res({'txhash': txhash.hex(), 'from_id': _from, 'to_id': _to})
     except Exception as e:
         return web.Response(text=str(e), status=400)
 
@@ -153,7 +153,7 @@ async def new_address(request):
         if user_id == C.ANT_CONTRACT:
             address = convert_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_CONTRACT_VER)
         ver_identifier = addr2bin(hrp=V.BECH32_HRP, ck=address)
-    return web_base.json_res({
+    return utils.json_res({
         'account': user_name,
         'user_id': user_id,
         'address': address,
@@ -168,7 +168,7 @@ async def get_keypair(request):
             cur = db.cursor()
             address = request.query['address']
             uuid, keypair, path = read_address2keypair(address, cur)
-            return web_base.json_res({
+            return utils.json_res({
                 'uuid': uuid,
                 'address': address,
                 'private_key': keypair.get_secret_key().hex(),
@@ -176,7 +176,7 @@ async def get_keypair(request):
                 'path': path
             })
     except Exception:
-        return web_base.error_res()
+        return utils.error_res()
 
 
 __all__ = [

@@ -16,7 +16,7 @@ from .contractinfo import *
 from .contracttx import *
 from .jsonrpc import json_rpc
 from bc4py.config import V
-from bc4py.user.api import web_base
+from bc4py.user.api import utils
 import threading
 import os
 import asyncio
@@ -178,17 +178,17 @@ async def web_page(request):
             markdown_body = markdown_body.replace('\\', '\\\\').replace('\"', '\\\"').replace("\n", "\\n")
             return web.Response(
                 text=markdown_template.replace('{:title}', markdown_title, 1).replace('{:body}', markdown_body, 1),
-                headers=web_base.CONTENT_TYPE_HTML)
+                headers=utils.CONTENT_TYPE_HTML)
         elif not os.path.exists(abs_path):
             return web.Response(text="Not found page. {}".format(req_path[-1]), status=404)
         elif os.path.isfile(abs_path):
-            return web.Response(body=open(abs_path, mode='rb').read(), headers=web_base.CONTENT_TYPE_HTML)
+            return web.Response(body=open(abs_path, mode='rb').read(), headers=utils.CONTENT_TYPE_HTML)
         else:
             return web.Response(
                 body=open(os.path.join(abs_path, 'index.html'), mode='rb').read(),
-                headers=web_base.CONTENT_TYPE_HTML)
+                headers=utils.CONTENT_TYPE_HTML)
     except Exception:
-        return web_base.error_res()
+        return utils.error_res()
 
 
 async def resync(request):
