@@ -1,7 +1,6 @@
-from bc4py.config import C, V, BlockChainError
+from bc4py.config import C, BlockChainError
 from bc4py.database.builder import chain_builder, tx_builder
-from bc4py.database.create import create_db
-from bc4py.database.account import read_pooled_address_iter
+from bc4py.database.account import read_all_pooled_address
 from time import sleep
 
 best_block_cashe = None
@@ -76,10 +75,8 @@ def get_unspents_iter(target_address, best_block=None, best_chain=None):
     # address, height, txhash, index, coin_id, amount
 
 
-def get_my_unspents_iter(outer_cur=None, best_chain=None):
-    with create_db(V.DB_ACCOUNT_PATH) as db:
-        cur = outer_cur or db.cursor()
-        target_address = {address for (uuid, address, user) in read_pooled_address_iter(cur=cur)}
+def get_my_unspents_iter(cur, best_chain=None):
+    target_address = read_all_pooled_address(cur=cur)
     yield from get_unspents_iter(target_address=target_address, best_block=None, best_chain=best_chain)
 
 

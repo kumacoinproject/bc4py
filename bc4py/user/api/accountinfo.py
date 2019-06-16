@@ -73,16 +73,18 @@ async def list_unspents(request):
 async def list_private_unspents(request):
     data = list()
     best_height = chain_builder.best_block.height
-    for address, height, txhash, txindex, coin_id, amount in get_my_unspents_iter():
-        data.append({
-            'address': address,
-            'height': height,
-            'confirmed': None if height is None else best_height - height,
-            'txhash': txhash.hex(),
-            'txindex': txindex,
-            'coin_id': coin_id,
-            'amount': amount
-        })
+    with create_db(V.DB_ACCOUNT_PATH) as db:
+        cur = db.cursor()
+        for address, height, txhash, txindex, coin_id, amount in get_my_unspents_iter(cur):
+            data.append({
+                'address': address,
+                'height': height,
+                'confirmed': None if height is None else best_height - height,
+                'txhash': txhash.hex(),
+                'txindex': txindex,
+                'coin_id': coin_id,
+                'amount': amount
+            })
     return utils.json_res(data)
 
 

@@ -7,6 +7,7 @@ from bc4py.utils import AESCipher
 from multi_party_schnorr import PyKeyPair
 from weakref import ref
 from logging import getLogger
+from sqlite3 import Cursor
 import os
 
 
@@ -146,6 +147,12 @@ def read_pooled_address_iter(cur):
     """iterate pooled addresses"""
     cur.execute("SELECT `id`,`ck`,`user` FROM `pool`")
     return cur
+
+
+def read_all_pooled_address(cur: Cursor) -> set:
+    """get all pooled address"""
+    cur.execute("SELECT `ck` FROM `pool`")
+    return {addr for (addr,) in cur}
 
 
 def read_address2account(address, cur):
@@ -308,6 +315,7 @@ __all__ = [
     "read_keypair_last_index",
     "read_account_info",
     "read_pooled_address_iter",
+    "read_all_pooled_address",
     "read_address2account",
     "read_name2userid",
     "read_userid2name",

@@ -393,36 +393,38 @@ def update_unspents_txs(time_limit=0.2):
     previous_height = previous_block.height
     proof_txs = list()
     all_num = 0
-    for address, height, txhash, txindex, coin_id, amount in get_my_unspents_iter():
-        if time() - s > time_limit:
-            break
-        if height is None:
-            continue
-        if coin_id != 0:
-            continue
-        if not (previous_height + 1 > height + C.MATURE_HEIGHT):
-            continue
-        if not is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER):
-            continue
-        if amount < 100000000:
-            continue
-        if staking_limit < all_num:
-            log.debug("Unspents limit reached, skip by {} limits".format(staking_limit))
-            break
-        all_num += 1
-        proof_tx = TX.from_dict(
-            tx={
-                'type': C.TX_POS_REWARD,
-                'inputs': [(txhash, txindex)],
-                'outputs': [(address, 0, 0)],
-                'gas_price': 0,
-                'gas_amount': 0,
-                'message_type': C.MSG_NONE,
-                'message': b''
-            })
-        proof_tx.height = previous_height + 1
-        proof_tx.pos_amount = amount
-        proof_txs.append(proof_tx)
+    with create_db(V.DB_ACCOUNT_PATH) as db:
+        cur = db.cursor()
+        for address, height, txhash, txindex, coin_id, amount in get_my_unspents_iter(cur):
+            if time() - s > time_limit:
+                break
+            if height is None:
+                continue
+            if coin_id != 0:
+                continue
+            if not (previous_height + 1 > height + C.MATURE_HEIGHT):
+                continue
+            if not is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER):
+                continue
+            if amount < 100000000:
+                continue
+            if staking_limit < all_num:
+                log.debug("Unspents limit reached, skip by {} limits".format(staking_limit))
+                break
+            all_num += 1
+            proof_tx = TX.from_dict(
+                tx={
+                    'type': C.TX_POS_REWARD,
+                    'inputs': [(txhash, txindex)],
+                    'outputs': [(address, 0, 0)],
+                    'gas_price': 0,
+                    'gas_amount': 0,
+                    'message_type': C.MSG_NONE,
+                    'message': b''
+                })
+            proof_tx.height = previous_height + 1
+            proof_tx.pos_amount = amount
+            proof_txs.append(proof_tx)
     unspents_txs = proof_txs
     return all_num, len(proof_txs)
 
