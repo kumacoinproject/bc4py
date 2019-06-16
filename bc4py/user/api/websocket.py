@@ -4,9 +4,9 @@ from bc4py.chain.tx import TX
 from bc4py.contract.emulator.watching import *
 from aiohttp.web_ws import WebSocketResponse
 from aiohttp import web
+from logging import getLogger
 import asyncio
 import json
-from logging import getLogger
 
 log = getLogger('bc4py')
 number = 0
@@ -82,8 +82,8 @@ class WsConnection(object):
         clients.append(self)
 
     def __repr__(self):
-        return "<WsConnection {} {} {}>".format(self.number, 'Pub' if self.is_public else 'Pri',
-                                                self.request.remote)
+        ws_type = 'Pub' if self.is_public else 'Pri'
+        return f"<Websocket {self.number} {ws_type} {self.request.remote}>"
 
     async def close(self):
         await self.ws.close()
