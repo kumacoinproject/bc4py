@@ -115,12 +115,13 @@ async def network_info(request):
         for user in V.P2P_OBJ.core.user:
             info = {
                 'number': user.number,
+                'endpoint': "{}:{}".format(*user.get_host_port()),
                 'neers': ["{}:{}".format(*conn) for conn in user.neers],
                 'sock_type': user.sock_type,
                 'score': user.score,
                 'warn': user.warn
             }
-            info.update(user.serialize())
+            info.update(user.header.getinfo())
             networks.append(info)
         return utils.json_res(data)
     except Exception:
