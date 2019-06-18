@@ -429,7 +429,7 @@ class DataBase(object):
 
 class ChainBuilder(object):
 
-    def __init__(self, cashe_limit=C.CASHE_LIMIT, batch_size=C.BATCH_SIZE):
+    def __init__(self, cashe_limit=C.MEMORY_CASHE_LIMIT, batch_size=C.MEMORY_BATCH_SIZE):
         """
         chain builder class
 

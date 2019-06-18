@@ -105,9 +105,9 @@ class C:  # Constant
     # Block/TX/Fee limit
     SIZE_BLOCK_LIMIT = 300 * 1000  # 300kb block
     SIZE_TX_LIMIT = 100 * 1000  # 100kb tx
-    CASHE_LIMIT = 300  # Memoryに置く最大Block数、実質Reorg制限
     MEMORY_FILE_REFRESH_SPAN = 101  # memory_file refresh span
-    BATCH_SIZE = 30
+    MEMORY_CASHE_LIMIT = 250  # max memorized block size, means re-org limit
+    MEMORY_BATCH_SIZE = 30
     MINTCOIN_GAS = int(10 * pow(10, 6))  # 新規Mintcoin発行GasFee
     SIGNATURE_GAS = int(0.01 * pow(10, 6))  # gas per one signature
     # CONTRACT_CREATE_FEE = int(10 * pow(10, 6))  # コントラクト作成GasFee
@@ -116,7 +116,7 @@ class C:  # Constant
     EXTRA_OUTPUT_REWARD_FEE = int(0.0001 * pow(10, 8))  # subtract EXTRA_OUTPUT fee from reward
 
     # network params
-    ACCEPT_MARGIN_TIME = 120  # 新規データ受け入れ時間マージンSec
+    ACCEPT_MARGIN_TIME = 180  # New block acceptance time margin (sec)
     MAX_RECURSIVE_BLOCK_DEPTH = 30  # recursive accept block limit
 
     # sqlite params
