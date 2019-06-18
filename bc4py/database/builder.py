@@ -454,7 +454,6 @@ class ChainBuilder(object):
     def close(self):
         # require manual close
         self.db.batch_create()
-        self.save_memory_file()
         self.db.close()
 
     def set_database_path(self, **kwargs):
@@ -544,7 +543,7 @@ class ChainBuilder(object):
                     log.debug("UserAccount batched at {} height".format(block.height))
             # load and rebuild memory section
             self.root_block = before_block
-            memorized_blocks, self.best_block = self.load_memory_file(before_block)
+            memorized_blocks, self.best_block = self.recover_from_memory_file(before_block)
             # Memory化されたChainを直接復元
             for block in memorized_blocks:
                 batch_blocks.append(block)
@@ -562,58 +561,43 @@ class ChainBuilder(object):
         log.info("Init finished, last block is {} {}Sec".format(before_block, round(time() - t, 3)))
         return False
 
-    def save_memory_file(self):
-        odd_path = os.path.join(self.db.dirs, 'memory.odd.dat')
-        even_path = os.path.join(self.db.dirs, 'memory.even.dat')
-        if not os.path.exists(odd_path):
-            priority_tuple = odd_path, even_path
-        elif not os.path.exists(even_path):
-            priority_tuple = even_path, odd_path
-        elif os.stat(odd_path).st_mtime > os.stat(even_path).st_mtime:
-            priority_tuple = even_path, odd_path
-        else:
-            priority_tuple = odd_path, even_path
-        for path in priority_tuple:
-            try:
+    def write_to_memory_file(self, new_block: Block):
+        """add new block to memory_file"""
+        path = os.path.join(self.db.dirs, 'memory.mpac')
+        try:
+            if new_block.height % C.MEMORY_FILE_REFRESH_SPAN == 0:
+                # clear
                 with open(path, mode='bw') as fp:
-                    bc4py_msgpack.dump(self.best_chain, fp)
-                return
-            except Exception as e:
-                log.warning("Failed recode by '{}'".format(e))
-        raise Exception("Cannot recode two memory files?")
-
-    def load_memory_file(self, root_block):
-        memorized_blocks = list()
-        odd_path = os.path.join(self.db.dirs, 'memory.odd.dat')
-        even_path = os.path.join(self.db.dirs, 'memory.even.dat')
-        # load by file date order
-        check_order = list()
-        if os.path.exists(odd_path) and os.path.exists(even_path):
-            if os.stat(odd_path).st_mtime < os.stat(even_path).st_mtime:
-                check_order.extend([odd_path, even_path])
+                    for block in reversed(self.best_chain):
+                        bc4py_msgpack.dump(block, fp)
+                log.debug(f"refresh memory_file height={new_block.height}")
             else:
-                check_order.extend([even_path, odd_path])
-        elif os.path.exists(odd_path):
-            check_order.append(odd_path)
-        elif os.path.exists(even_path):
-            check_order.append(even_path)
-        else:
-            raise Exception('Not found memory files')
-        # load by check_order
-        for path in check_order:
-            try:
-                with open(path, mode='br') as fp:
-                    for block in reversed(bc4py_msgpack.load(fp)):
-                        if root_block.hash == block.previous_hash:
-                            memorized_blocks.append(block)
-                            root_block = block
-            except Exception as e:
-                log.error("Failed load, \"{}\"".format(e), exc_info=True)
-        if len(memorized_blocks) > 0:
-            log.debug("Load {} blocks, best={}".format(len(memorized_blocks), root_block))
+                # append
+                with open(path, mode='ba') as fp:
+                    bc4py_msgpack.dump(new_block, fp)
+        except Exception as e:
+            log.warning(f"failed to recode memory block by '{str(e)}'")
+
+    def recover_from_memory_file(self, root_block: Block) -> (List[Block], Block):
+        """recover memory from memory_file"""
+        path = os.path.join(self.db.dirs, 'memory.mpac')
+        memorized_blocks = list()
+        if not os.path.exists(path):
+            log.debug("no memory file found")
             return memorized_blocks, root_block
-        else:
-            raise BlockBuilderError("Failed load memory files")
+        try:
+            with open(path, mode='br') as fp:
+                block_list: List[Block] = list()
+                for block in reversed(tuple(bc4py_msgpack.stream_unpacker(fp))):
+                    if len(block_list) == 0 or block.hash == block_list[0].previous_hash:
+                        block_list.insert(0, block)
+                for block in block_list:
+                    if root_block.hash == block.previous_hash:
+                        memorized_blocks.append(block)
+                        root_block = block
+        except Exception:
+            log.warning(f"failed to recover from memory_file", exc_info=True)
+        return memorized_blocks, root_block
 
     def get_best_chain(self, best_block=None):
         assert self.root_block, 'Do not init'
@@ -736,7 +720,6 @@ class ChainBuilder(object):
                 self.best_chain = best_chain
                 self.root_block = block
                 self.db.batch_commit()
-                self.save_memory_file()
                 # root_blockよりHeightの小さいBlockを消す
                 for blockhash, block in self.chain.copy().items():
                     if self.root_block.height >= block.height:
@@ -751,9 +734,9 @@ class ChainBuilder(object):
                 log.warning("Failed batch block builder. '{}'".format(e), exc_info=True)
                 return list()
 
-    def new_block(self, block):
+    def new_block(self, new_block):
         # とりあえず新規に挿入
-        self.chain[block.hash] = block
+        self.chain[new_block.hash] = new_block
         # BestChainの変化を調べる
         new_best_block, new_best_chain = self.get_best_chain()
         if self.best_block and new_best_block == self.best_block:
@@ -781,6 +764,7 @@ class ChainBuilder(object):
         # 変化しているので反映する
         self.best_block, self.best_chain = new_best_block, new_best_chain
         tx_builder.affect_new_chain(new_best_sets=new_best_sets, old_best_sets=old_best_sets)
+        self.write_to_memory_file(new_block)
 
     def get_block(self, blockhash=None, height=None):
         if height is not None:

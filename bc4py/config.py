@@ -106,6 +106,7 @@ class C:  # Constant
     SIZE_BLOCK_LIMIT = 300 * 1000  # 300kb block
     SIZE_TX_LIMIT = 100 * 1000  # 100kb tx
     CASHE_LIMIT = 300  # Memoryに置く最大Block数、実質Reorg制限
+    MEMORY_FILE_REFRESH_SPAN = 101  # memory_file refresh span
     BATCH_SIZE = 30
     MINTCOIN_GAS = int(10 * pow(10, 6))  # 新規Mintcoin発行GasFee
     SIGNATURE_GAS = int(0.01 * pow(10, 6))  # gas per one signature
