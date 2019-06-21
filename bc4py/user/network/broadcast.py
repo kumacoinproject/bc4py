@@ -2,7 +2,8 @@ from bc4py.config import C, V, P, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.chain.checking import new_insert_block, check_tx, check_tx_time
-from bc4py.database.builder import builder, tx_builder
+from bc4py.chain.signature import fill_verified_addr_tx
+from bc4py.database.builder import chain_builder, tx_builder
 from bc4py.user.network.update import update_info_for_generate
 from bc4py.user.network.directcmd import DirectCmd
 from bc4py.user.network.connection import ask_node, seek_nodes
@@ -29,7 +30,7 @@ class BroadcastCmd:
             log.error(error, exc_info=True)
             return False
         try:
-            if new_insert_block(new_block, time_check=True):
+            if new_insert_block(new_block):
                 update_info_for_generate()
                 log.info("Accept new block {}".format(new_block))
                 return True
@@ -49,6 +50,7 @@ class BroadcastCmd:
         try:
             new_tx: TX = data['tx']
             check_tx_time(new_tx)
+            fill_verified_addr_tx(new_tx)
             check_tx(tx=new_tx, include_block=None)
             if new_tx.type in (C.TX_VALIDATOR_EDIT, C.TX_CONCLUDE_CONTRACT):
                 tx_builder.marge_signature(tx=new_tx)
@@ -73,12 +75,12 @@ def fill_newblock_info(data):
     proof: TX = data['proof']
     new_block.txs.append(proof)
     new_block.flag = data['block_flag']
-    my_block = builder.get_block(new_block.hash)
+    my_block = chain_builder.get_block(new_block.hash)
     if my_block:
         raise BlockChainError('Already inserted block {}'.format(my_block))
-    before_block = builder.get_block(new_block.previous_hash)
+    before_block = chain_builder.get_block(new_block.previous_hash)
     if before_block is None:
-        log.debug("Cannot find beforeBlock, try to ask outside node.")
+        log.debug("Cannot find beforeBlock, try to ask outside node")
         # not found beforeBlock, need to check other node have the the block
         new_block.inner_score *= 0.70  # unknown previousBlock, score down
         before_block = make_block_by_node(blockhash=new_block.previous_hash, depth=0)
@@ -88,13 +90,13 @@ def fill_newblock_info(data):
     # work check
     # TODO: correct position?
     if not new_block.pow_check():
-        raise BlockChainError('Proof of work is not satisfied.')
+        raise BlockChainError('Proof of work is not satisfied')
     # Append general txs
     for txhash in data['txs'][1:]:
         tx = tx_builder.get_tx(txhash)
         if tx is None:
             new_block.inner_score *= 0.75  # unknown tx, score down
-            log.debug("Unknown tx, try to download.")
+            log.debug("Unknown tx, try to download")
             r = ask_node(cmd=DirectCmd.TX_BY_HASH, data={'txhash': txhash}, f_continue_asking=True)
             if isinstance(r, str):
                 raise BlockChainError('Failed unknown tx download "{}"'.format(r))
@@ -122,10 +124,6 @@ def broadcast_check(data):
         BroadcastCmd.fail = 0
     else:
         BroadcastCmd.fail += 1
-        if BroadcastCmd.fail > 100:
-            P.F_NOW_BOOTING = True
-            BroadcastCmd.fail = 0
-            log.warning("Set booting mode, too many fail on broadcast_check().")
     return result
 
 
@@ -133,7 +131,7 @@ def make_block_by_node(blockhash, depth):
     """ create Block by outside node """
     log.debug("make block by node depth={} hash={}".format(depth, blockhash.hex()))
     block: Block = seek_nodes(cmd=DirectCmd.BLOCK_BY_HASH, data={'blockhash': blockhash})
-    before_block = builder.get_block(blockhash=block.previous_hash)
+    before_block = chain_builder.get_block(blockhash=block.previous_hash)
     if before_block is None:
         if depth < C.MAX_RECURSIVE_BLOCK_DEPTH:
             before_block = make_block_by_node(blockhash=block.previous_hash, depth=depth+1)
@@ -145,6 +143,6 @@ def make_block_by_node(blockhash, depth):
     block.inner_score *= 0.70
     for tx in block.txs:
         tx.height = height
-    if not new_insert_block(block):
+    if not new_insert_block(block=block, f_time=False, f_sign=True):
         raise BlockChainError('Failed insert beforeBlock {}'.format(before_block))
     return block

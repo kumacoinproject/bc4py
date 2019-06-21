@@ -79,7 +79,7 @@ def emulate(start_tx, c_address, c_method, redeem_address, c_args, new_config=No
     # get ContractObject with database, memory and unconfirmed (not pre-unconfirmed)
     c = get_contract_object(c_address=c_address)
     if c.version == -1 or c.binary is None:
-        raise BlockChainError('Need register contract binary first.')
+        raise BlockChainError('Need register contract binary first')
     kwargs = dict(
         genesis_block=V.GENESIS_BLOCK,
         genesis_params=V.GENESIS_PARAMS,
@@ -93,11 +93,11 @@ def emulate(start_tx, c_address, c_method, redeem_address, c_args, new_config=No
         c_args=c_args)
     p = cxt.Process(target=_vm, kwargs=kwargs)
     p.start()
-    log.debug('wait for notify of listen port.')
+    log.debug('wait for notify of listen port')
     cmd, port = que.get(timeout=10)
     if cmd != CMD_PORT:
         raise Exception('Not correct command="{}" data="{}"'.format(cmd, port))
-    log.debug("Communication port={}.".format(port))
+    log.debug("Communication port={}".format(port))
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect(("127.0.0.1", port))
     sock.settimeout(10)

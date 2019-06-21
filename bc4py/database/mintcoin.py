@@ -1,5 +1,5 @@
 from bc4py.config import C, BlockChainError
-from bc4py.database.builder import builder, tx_builder
+from bc4py.database.builder import chain_builder, tx_builder
 from expiringdict import ExpiringDict
 import msgpack
 
@@ -12,7 +12,7 @@ setting_template = {
 cashe = ExpiringDict(max_len=100, max_age_seconds=1800)
 
 
-class MintCoin:
+class MintCoin(object):
 
     def __init__(self, coin_id):
         self.coin_id = coin_id
@@ -96,17 +96,17 @@ def decode(b):
 def fill_mintcoin_status(m, best_block=None, best_chain=None, stop_txhash=None):
     assert m.version == -1, 'Already updated'
     # database
-    for index, txhash, params, setting in builder.db.read_coins_iter(coin_id=m.coin_id):
+    for index, txhash, params, setting in chain_builder.db.read_coins_iter(coin_id=m.coin_id):
         if txhash == stop_txhash:
             return
         m.update(params=params, setting=setting, txhash=txhash)
     # memory
     if best_chain:
         _best_chain = None
-    elif best_block and best_block == builder.best_block:
-        _best_chain = builder.best_chain
+    elif best_block and best_block == chain_builder.best_block:
+        _best_chain = chain_builder.best_chain
     else:
-        dummy, _best_chain = builder.get_best_chain(best_block=best_block)
+        dummy, _best_chain = chain_builder.get_best_chain(best_block=best_block)
     for block in reversed(best_chain or _best_chain):
         for tx in block.txs:
             if tx.hash == stop_txhash:
@@ -187,7 +187,7 @@ def check_mintcoin_new_format(m_before, new_params, new_setting):
                 pass
         else:
             if len(new_params) == 0:
-                return 'No update found on params.'
+                return 'No update found on params'
             for k, v in new_params.items():
                 if k in ('name', 'unit', 'digit'):
                     return 'Not allowed params edit. {}=>{}'.format(k, v)
@@ -208,7 +208,7 @@ def check_mintcoin_new_format(m_before, new_params, new_setting):
         return 'params is None or dict. {}'.format(type(new_setting))
     # additional issue
     # if new_params is None and new_setting is None:
-    #    return 'new_params and new_setting is None.'
+    #    return 'new_params and new_setting is None'
 
 
 __all__ = [

@@ -1,10 +1,10 @@
 http-basic-auth  # need for aiohttp-basicauth-middleware
 git+https://github.com/namuyan/yespower-python
 git+https://github.com/namuyan/hmq-hash
-multi-party-schnorr>=0.1.5
+multi-party-schnorr==0.1.6
+bc4py_extension==0.1.4
 x11_hash
 litecoin_scrypt
 git+https://github.com/namuyan/shield-x16s-hash
 plyvel  # leveldb wrapper
-bc4py_extension>=0.1.2
 fastecdsa  # BIP32 Wallet

@@ -1,6 +1,6 @@
 from aiohttp import web
-import json
 from logging import getLogger
+import json
 
 log = getLogger('bc4py')
 
@@ -11,8 +11,9 @@ CONTENT_TYPE_JSON = {'Content-Type': 'application/json'}
 
 
 async def content_type_json_check(request):
+    """check message is json, used for POST method"""
     if request.content_type != 'application/json':
-        raise TypeError('Content-Type is application/json,' ' not {}'.format(request.content_type))
+        raise TypeError(f"Content-Type is application/json, not {request.content_type}")
     else:
         try:
             return await request.json()
@@ -23,14 +24,18 @@ async def content_type_json_check(request):
 
 
 def json_res(data, indent=4):
-    return web.Response(text=json.dumps(data, indent=indent), content_type='application/json')
+    """return json response with indent"""
+    res = web.Response(text=json.dumps(data, indent=indent), content_type='application/json')
+    res.enable_compression()
+    return res
 
 
 def error_res(errors=None):
+    """simple error message response"""
     if errors is None:
         import traceback
         errors = str(traceback.format_exc())
-    log.info("API error:\n{}".format(errors))
+    log.info(f"API error:\n{errors}")
     s = errors.split("\n")
     simple_msg = None
     while not simple_msg:

@@ -32,7 +32,7 @@ get system info (private)
     "api_ver": "0.0.2",
     "chain_ver": 2,
     "branch": "develop",
-    "message": "This is alpha version - use at your own risk, do not use for merchant applications.",
+    "message": "This is alpha version - use at your own risk, do not use for merchant applications",
     "booting": false,
     "connections": 3,
     "unconfirmed": [],
@@ -125,10 +125,10 @@ get chain info (public)
 }
 ```
 
-get chain info (private)
+get chain fork info
 ----
 * Request example
-    * `curl --basic -u user:password -H "accept: application/json" 127.0.0.1:3000/private/getchaininfo`
+    * `curl --basic -u user:password -H "accept: application/json" 127.0.0.1:3000/private/chainforkinfo`
 * Response
 ```json
 {
@@ -374,7 +374,8 @@ create bootstrap
 ```text
 {
     "height": 10203,
-    "time": 234
+    "start_time": 1556588063,
+    "finish_time": 15565883020,
 }
 ```
 

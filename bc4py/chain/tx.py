@@ -1,22 +1,46 @@
 from bc4py import __chain_version__
 from bc4py.config import C, V, BlockChainError
 from bc4py.bip32 import ADDR_SIZE, addr2bin, bin2addr
-from hashlib import sha256
+from bc4py_extension import sha256d_hash
+from typing import Optional, List
 from time import time
 from logging import getLogger
-import struct
+from struct import Struct
 import msgpack
 
 log = getLogger('bc4py')
-struct_tx_header = struct.Struct('<IIIIQqBBBI')
-struct_inputs = struct.Struct('<32sB')
-struct_outputs = struct.Struct('<{}sIQ'.format(ADDR_SIZE))
+struct_tx_header = Struct('<IIIIQqBBBI')
+struct_inputs = Struct('<32sB')
+struct_outputs = Struct('<{}sIQ'.format(ADDR_SIZE))
 
 
-class TX:
-    __slots__ = ("b", "hash", "height", "pos_amount", "version", "type", "time", "deadline", "inputs", "outputs",
-                 "gas_price", "gas_amount", "message_type", "message", "signature", "R", "recode_flag",
-                 "create_time", "__weakref__")
+class TX(object):
+    __slots__ = (
+        # transaction data
+        "b",
+        "hash",
+        # transaction body
+        "version",  # 4bytes int
+        "type",  # 4bytes int
+        "time",  # 4bytes int
+        "deadline",  # 4bytes int
+        "inputs",  # [(txhash: 32bytes bin, txindex: 1byte int),..]
+        "outputs",  # [(address: 21bytes bin, coin_id: 4bytes int, amount: 8bytes int),..]
+        "gas_price",  # fee
+        "gas_amount",  # fee
+        "message_type",  # 2bytes int
+        "message",  # 0~256**4 bytes bin
+        # for verify
+        "signature",  # [(pk, r, s),.. ]
+        "verified_list",  # [address: str, ..]
+        "R",
+        # meta info
+        "height",
+        "pos_amount",
+        "recode_flag",
+        "create_time",
+        "__weakref__",
+    )
 
     def __eq__(self, other):
         if isinstance(other, TX):
@@ -31,27 +55,27 @@ class TX:
         return "<TX {} {} {}>".format(self.height, C.txtype2name.get(self.type, None), self.hash.hex())
 
     def __init__(self):
+        # data
         self.b = None
-        # tx id
+        # body
+        self.version: Optional[int] = None
+        self.type: Optional[int] = None
+        self.time: Optional[int] = None
+        self.deadline: Optional[int] = None
+        self.inputs: Optional[List[(bytes, int)]] = None
+        self.outputs: Optional[List[(str, int, int)]] = None
+        self.gas_price: Optional[int] = None
+        self.gas_amount: Optional[int] = None
+        self.message_type: Optional[int] = None
+        self.message: Optional[bytes] = None
+        # verify
+        self.signature = list()
+        self.verified_list = list()
+        self.R = b''
+        # meta
         self.hash = None
         self.height = None
-        # pos
         self.pos_amount = None
-        # tx body
-        self.version = None  # 4bytes int
-        self.type = None  # 4bytes int
-        self.time = None  # 4bytes int
-        self.deadline = None  # 4bytes int
-        self.inputs = None  # [(txhash, txindex),..]
-        self.outputs = None  # [(address, coin_id, amount),..]
-        self.gas_price = None  # fee
-        self.gas_amount = None  # fee
-        self.message_type = None  # 2bytes int
-        self.message = None  # 0~256**4 bytes bin
-        # for validation
-        self.signature = list()  # [(pk, r, s),.. ]
-        self.R = b''  # use for hash-locked
-        # don't use for process
         self.recode_flag = None
         self.create_time = time()
 
@@ -97,7 +121,7 @@ class TX:
         # message
         self.b += self.message
         # txhash
-        self.hash = sha256(sha256(self.b).digest()).digest()
+        self.hash = sha256d_hash(self.b)
 
     def deserialize(self, first_pos=0, f_raise=True):
         self.version, self.type, self.time, self.deadline, self.gas_price, self.gas_amount,\
@@ -122,7 +146,7 @@ class TX:
                 raise BlockChainError('Do not match len [{}!={}'.format(len(self.b), pos))
             else:
                 self.b = self.b[first_pos:pos]
-        self.hash = sha256(sha256(self.b).digest()).digest()
+        self.hash = sha256d_hash(self.b)
 
     def getinfo(self):
         r = dict()
@@ -175,7 +199,7 @@ class TX:
 
     def update_time(self, retention=10800):
         if retention < 10800:
-            raise BlockChainError('Retention time is too short.')
+            raise BlockChainError('Retention time is too short')
         now = int(time())
         self.time = now - V.BLOCK_GENESIS_TIME
         self.deadline = now - V.BLOCK_GENESIS_TIME + retention

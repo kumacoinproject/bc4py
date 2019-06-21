@@ -1,33 +1,33 @@
 from bc4py.config import V, P, BlockChainError
-from bc4py.database.builder import builder, tx_builder
+from bc4py.database.builder import chain_builder, tx_builder
 
 
 def _best_info():
-    if builder.best_block:
-        return {'hash': builder.best_block.hash, 'height': builder.best_block.height, 'booting': P.F_NOW_BOOTING}
+    if chain_builder.best_block:
+        return {'hash': chain_builder.best_block.hash, 'height': chain_builder.best_block.height, 'booting': P.F_NOW_BOOTING}
     else:
         return {'hash': None, 'height': None, 'booting': True}
 
 
 def _block_by_height(height):
-    block = builder.get_block(height=height)
+    block = chain_builder.get_block(height=height)
     if block:
         return block
     else:
-        return 'Not found block height {}.'.format(height)
+        return 'Not found block height {}'.format(height)
 
 
 def _block_by_hash(blockhash):
-    block = builder.get_block(blockhash=blockhash)
+    block = chain_builder.get_block(blockhash=blockhash)
     if block is None:
-        return 'Not found blockhash {}.'.format(blockhash.hex())
+        return 'Not found blockhash {}'.format(blockhash.hex())
     return block
 
 
 def _tx_by_hash(txhash):
     tx = tx_builder.get_tx(txhash=txhash)
     if tx is None:
-        return 'Not found tx {}.'.format(txhash.hex())
+        return 'Not found tx {}'.format(txhash.hex())
     return tx
 
 
@@ -38,7 +38,7 @@ def _unconfirmed_tx():
 def _big_blocks(index_height):
     data = list()
     for height in range(index_height, index_height + 20):
-        block = builder.get_block(height=height)
+        block = chain_builder.get_block(height=height)
         if block is None:
             break
         data.append(block)
@@ -46,7 +46,7 @@ def _big_blocks(index_height):
     return data
 
 
-class DirectCmd:
+class DirectCmd(object):
     BEST_INFO = 'cmd/v1/best-info'
     BLOCK_BY_HEIGHT = 'cmd/v1/block-by-height'
     BLOCK_BY_HASH = 'cmd/v1/block-by-hash'

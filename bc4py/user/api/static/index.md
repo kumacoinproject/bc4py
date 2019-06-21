@@ -4,7 +4,13 @@ Index page
 * [REST response test](./test-response-rest.html)
 * [WebSocket response test](./test-response-ws.html)
 * [bootstrap3 components](https://getbootstrap.com/docs/3.3/components/)
+* [pyContract 8bit wallet](./8bitwallet.html)
 
+How to close client?
+----
+Do not kill process or break database file.
+* type `curl --basic -u user:password -H "accept: application/json" 127.0.0.1:3000/private/stop`
+* access the **[API](./private/stop)** on browser
 
 System
 ----
@@ -15,7 +21,7 @@ System
 |[/public/getsysteminfo](./public/getsysteminfo)    |GET    |public   | System public info.                    |
 |[/private/getsysteminfo](./private/getsysteminfo)  |GET    |private  | System private info.                   |
 |[/public/getchaininfo](./public/getchaininfo)      |GET    |public   | Blockchain info.                       |
-|[/private/getchaininfo](./private/getchaininfo)    |GET    |public   | inner chain info of database.          |
+|[/private/chainforkinfo](./private/chainforkinfo)    |GET    |public   | chain fork info.          |
 |[/public/getnetworkinfo](./public/getnetworkinfo)  |GET    |public   | System network info.                   |
 |[/private/createbootstrap](./private/createbootstrap)  |GET    |private   | create bootstrap.dat file.        |
 |[/private/resync](./private/resync)                |GET    |private  | Make system resync status.              |
@@ -93,9 +99,10 @@ Others
 
 |URL    |Method    |Type    |About   |
 |----   |----   |----   |----   |
-|[/public/ws](./public/ws)          |GET   |public      | Realtime information stream.                       |
-|[/private/ws](./private/ws)        |GET   |private     | Realtime private information stream.               |
-|[/json-rpc](./json-rpc)            |POST   |JSON-RPC   | Mining interface, `getwork` and `getblocktemplete` |
+|[/](./)                         |GET   |public      | main page                                          |
+|[/](./)                         |POST  |JSON-RPC    | Mining interface, `getwork` and `getblocktemplete` |
+|[/public/ws](./public/ws)      |GET   |public      | Realtime information stream.                       |
+|[/private/ws](./private/ws)    |GET   |private     | Realtime private information stream.               |
 
 
 API version 0.0.2 2018/11/23

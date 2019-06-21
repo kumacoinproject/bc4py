@@ -6,13 +6,14 @@ from bc4py.chain.block import Block
 import bc4py.chain.msgpack as bc4py_msgpack
 from bc4py.user import Balance, Accounting
 from bc4py.database.account import *
-from bc4py.database.create import closing, create_db
+from bc4py.database.create import create_db
+from bc4py_extension import sha256d_hash
 from msgpack import unpackb, packb
-from hashlib import sha256
+from threading import Thread, Event, current_thread
+from typing import Optional, Dict, List
 import struct
 import weakref
 import os
-import threading
 from time import time
 from logging import getLogger, INFO
 import plyvel
@@ -37,12 +38,12 @@ ZERO_FILLED_HASH = b'\x00' * 32
 DUMMY_VALIDATOR_ADDRESS = b'\x00' * ADDR_SIZE
 
 
-class DataBase:
+class DataBase(object):
     db_config = {
         'txindex': True,
         'addrindex': True,
         'timeout': None,
-        'sync': False
+        'sync': False,
     }
     database_list = [
         "_block",  # [blockhash] -> [height, time, work, b_block, flag, tx_len][txhash0]..[txhashN]
@@ -55,19 +56,17 @@ class DataBase:
         "_validator",  # [address][index] -> [new_address][flag][txhash][sig_diff]
     ]
 
-    def __init__(self, f_dummy=False, **kwargs):
-        if f_dummy:
-            return
+    def __init__(self, **kwargs):
         dirs = os.path.join(V.DB_HOME_DIR, 'db-ver{}'.format(DB_VERSION))
         self.dirs = dirs
         self.db_config.update(kwargs)  # extra settings
-        self.event = threading.Event()
+        self.event = Event()
         self.event.set()
         # already used => LevelDBError
         if os.path.exists(dirs):
             f_create = False
         else:
-            log.debug('No database directory found.')
+            log.debug('No database directory found')
             os.mkdir(dirs)
             f_create = True
         self._block = plyvel.DB(os.path.join(dirs, 'block'), create_if_missing=f_create)
@@ -79,28 +78,28 @@ class DataBase:
         self._coins = plyvel.DB(os.path.join(dirs, 'coins'), create_if_missing=f_create)
         self._contract = plyvel.DB(os.path.join(dirs, 'contract'), create_if_missing=f_create)
         self._validator = plyvel.DB(os.path.join(dirs, 'validator'), create_if_missing=f_create)
-        self.batch = None
-        self.batch_thread = None
+        self.batch: Optional[Dict[str, dict]] = None
+        self.batch_thread: Optional[Thread] = None
         log.debug(':create database connect path={}'.format(dirs.replace("\\", "/")))
 
     def close(self):
         for name in self.database_list:
             getattr(self, name).close()
-        log.info("close database connection.")
+        log.info("close database connection")
 
     def batch_create(self):
-        assert self.batch is None, 'batch is already start.'
+        assert self.batch is None, 'batch is already start'
         if not self.event.wait(timeout=self.db_config['timeout']):
-            raise TimeoutError('batch_create timeout.')
+            raise TimeoutError('batch_create timeout')
         self.event.clear()
         self.batch = dict()
         for name in self.database_list:
             self.batch[name] = dict()
-        self.batch_thread = threading.current_thread()
-        log.debug(":Create database batch.")
+        self.batch_thread = current_thread()
+        log.debug(":Create database batch")
 
     def batch_commit(self):
-        assert self.batch, 'Not created batch.'
+        assert self.batch, 'Not created batch'
         for name, memory in self.batch.items():
             batch = getattr(self, name).write_batch(sync=self.db_config['sync'])
             for k, v in memory.items():
@@ -109,16 +108,16 @@ class DataBase:
         self.batch = None
         self.batch_thread = None
         self.event.set()
-        log.debug("Commit database.")
+        log.debug("Commit database")
 
     def batch_rollback(self):
         self.batch = None
         self.batch_thread = None
         self.event.set()
-        log.debug("Rollback database.")
+        log.debug("Rollback database")
 
     def is_batch_thread(self):
-        return self.batch and self.batch_thread is threading.current_thread()
+        return self.batch and self.batch_thread is current_thread()
 
     def read_block(self, blockhash):
         if self.is_batch_thread() and blockhash in self.batch['_block']:
@@ -213,7 +212,7 @@ class DataBase:
         offset += sign_len
         R = b[offset:offset + r_len]
         offset += r_len
-        if txhash != sha256(sha256(b_tx).digest()).digest():
+        if txhash != sha256d_hash(b_tx):
             return None  # will be forked
         tx = TX.from_binary(binary=b_tx)
         tx.height = int.from_bytes(b_height, ITER_ORDER)
@@ -347,7 +346,7 @@ class DataBase:
                         yield index, bin2addr(b=b_new_address, hrp=V.BECH32_HRP), flag, txhash, sig_diff
 
     def write_block(self, block):
-        assert self.is_batch_thread(), 'Not created batch.'
+        assert self.is_batch_thread(), 'Not created batch'
         tx_len = len(block.txs)
         if block.work_hash is None:
             block.update_pow()
@@ -372,19 +371,19 @@ class DataBase:
         log.debug("Insert new block {}".format(block))
 
     def write_usedindex(self, txhash, usedindex):
-        assert self.is_batch_thread(), 'Not created batch.'
-        assert isinstance(usedindex, set), 'Unsedindex is set.'
+        assert self.is_batch_thread(), 'Not created batch'
+        assert isinstance(usedindex, set), 'Unsedindex is set'
         self.batch['_used_index'][txhash] = bytes(sorted(usedindex))
 
     def write_address_idx(self, address, txhash, index, coin_id, amount, f_used):
-        assert self.is_batch_thread(), 'Not created batch.'
+        assert self.is_batch_thread(), 'Not created batch'
         k = addr2bin(ck=address, hrp=V.BECH32_HRP) + txhash + index.to_bytes(1, ITER_ORDER)
         v = struct_address_idx.pack(coin_id, amount, f_used)
         self.batch['_address_index'][k] = v
         log.debug("Insert new address idx {}".format(address))
 
     def write_coins(self, coin_id, txhash, params, setting):
-        assert self.is_batch_thread(), 'Not created batch.'
+        assert self.is_batch_thread(), 'Not created batch'
         index = -1
         for index, *dummy in self.read_coins_iter(coin_id=coin_id):
             pass
@@ -395,7 +394,7 @@ class DataBase:
         log.debug("Insert new coins id={}".format(coin_id))
 
     def write_contract(self, c_address, start_tx, finish_hash, message):
-        assert self.is_batch_thread(), 'Not created batch.'
+        assert self.is_batch_thread(), 'Not created batch'
         assert len(message) == 3
         include_block = self.read_block(blockhash=self.read_block_hash(height=start_tx.height))
         index = start_tx.height * 0xffffffff + include_block.txs.index(start_tx)
@@ -410,7 +409,7 @@ class DataBase:
         log.debug("Insert new contract {} {}".format(c_address, index))
 
     def write_validator(self, v_address, new_address, flag, tx, sign_diff):
-        assert self.is_batch_thread(), 'Not created batch.'
+        assert self.is_batch_thread(), 'Not created batch'
         include_block = self.read_block(blockhash=self.read_block_hash(height=tx.height))
         index = tx.height * 0xffffffff + include_block.txs.index(tx)
         # check newer index already inserted
@@ -428,39 +427,48 @@ class DataBase:
         log.debug("Insert new validator {} {}".format(v_address, index))
 
 
-class ChainBuilder:
+class ChainBuilder(object):
 
-    def __init__(self, cashe_limit=C.CASHE_LIMIT, batch_size=C.BATCH_SIZE):
-        assert cashe_limit > batch_size, 'cashe_limit > batch_size.'
+    def __init__(self, cashe_limit=C.MEMORY_CASHE_LIMIT, batch_size=C.MEMORY_BATCH_SIZE):
+        """
+        chain builder class
+
+        +------ on database --------+   +------- on memory ---------+
+        | block(0) -...- block(n-1) | - | block(n) -...- block(n+m) |
+        +---------------------------+   +---------------------------+
+
+        "chain" include all block objects including forks of height n or more
+        "best_chain" is list  [block(n+m) -....- block(n+1) - block(n)]
+        "root_block" is block(n-1), best block on database
+        "best_block" is block(n+m), best block on memory
+        """
+        assert cashe_limit > batch_size, 'cashe_limit > batch_size'
         self.cashe_limit = cashe_limit
         self.batch_size = batch_size
-        self.chain = dict()
-        # self.best_chain → [height=n+m]-[height=n+m-1]-....-[height=n+1]-[height=n]
-        # self.root_block → [height=n-1] (self.chainに含まれず)
-        # self.best_block → [height=n+m]
-        self.best_chain = None
-        self.root_block = None
-        self.best_block = None
-        self.db = DataBase(f_dummy=True)
+        self.chain: Dict[bytes, Block] = dict()
+        self.best_chain: Optional[List[Block]] = None
+        self.root_block: Optional[Block] = None
+        self.best_block: Optional[Block] = None
+        self.db: Optional[DataBase] = None
 
     def close(self):
+        # require manual close
         self.db.batch_create()
-        self.save_memory_file()
         self.db.close()
 
     def set_database_path(self, **kwargs):
         try:
-            self.db = DataBase(f_dummy=False, **kwargs)
-            log.info("connect database.")
-        except plyvel.Error:
-            log.warning("Already connect database.")
-        except Exception as e:
-            log.debug("Failed connect database, {}.".format(e))
+            self.db = DataBase(**kwargs)
+            log.info("Connect database")
+        except plyvel.Error as e:
+            log.warning("database connect error, {}".format(e))
+        except Exception:
+            log.fatal("Failed connect database", exc_info=True)
 
     def init(self, genesis_block: Block, batch_size=None):
         assert self.db, 'Why database connection failed?'
         # return status
-        # True  = Only genesisBlock, recommend to import bootstrap.dat first
+        # True  = Only genesisBlock, recommend to import bootstrap.dat.gz first
         # False = Many blocks in LevelDB, sync by network
         if batch_size is None:
             batch_size = self.cashe_limit
@@ -486,7 +494,7 @@ class ChainBuilder:
             user_account.init()
             return True
 
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+        with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = db.cursor()
             # 0HeightよりBlockを取得して確認
             before_block = genesis_block
@@ -532,10 +540,10 @@ class ChainBuilder:
                 if len(batch_blocks) >= batch_size:
                     user_account.new_batch_apply(batched_blocks=batch_blocks, outer_cur=cur)
                     batch_blocks.clear()
-                    log.debug("UserAccount batched at {} height.".format(block.height))
+                    log.debug("UserAccount batched at {} height".format(block.height))
             # load and rebuild memory section
             self.root_block = before_block
-            memorized_blocks, self.best_block = self.load_memory_file(before_block)
+            memorized_blocks, self.best_block = self.recover_from_memory_file(before_block)
             # Memory化されたChainを直接復元
             for block in memorized_blocks:
                 batch_blocks.append(block)
@@ -553,63 +561,48 @@ class ChainBuilder:
         log.info("Init finished, last block is {} {}Sec".format(before_block, round(time() - t, 3)))
         return False
 
-    def save_memory_file(self):
-        odd_path = os.path.join(self.db.dirs, 'memory.odd.dat')
-        even_path = os.path.join(self.db.dirs, 'memory.even.dat')
-        if not os.path.exists(odd_path):
-            priority_tuple = odd_path, even_path
-        elif not os.path.exists(even_path):
-            priority_tuple = even_path, odd_path
-        elif os.stat(odd_path).st_mtime > os.stat(even_path).st_mtime:
-            priority_tuple = even_path, odd_path
-        else:
-            priority_tuple = odd_path, even_path
-        for path in priority_tuple:
-            try:
+    def write_to_memory_file(self, new_block: Block):
+        """add new block to memory_file"""
+        path = os.path.join(self.db.dirs, 'memory.mpac')
+        try:
+            if new_block.height % C.MEMORY_FILE_REFRESH_SPAN == 0:
+                # clear
                 with open(path, mode='bw') as fp:
-                    bc4py_msgpack.dump(self.best_chain, fp)
-                return
-            except Exception as e:
-                log.warning("Failed recode by '{}'".format(e))
-        raise Exception("Cannot recode two memory files?")
-
-    def load_memory_file(self, root_block):
-        memorized_blocks = list()
-        odd_path = os.path.join(self.db.dirs, 'memory.odd.dat')
-        even_path = os.path.join(self.db.dirs, 'memory.even.dat')
-        # load by file date order
-        check_order = list()
-        if os.path.exists(odd_path) and os.path.exists(even_path):
-            if os.stat(odd_path).st_mtime < os.stat(even_path).st_mtime:
-                check_order.extend([odd_path, even_path])
+                    for block in reversed(self.best_chain):
+                        bc4py_msgpack.dump(block, fp)
+                log.debug(f"refresh memory_file height={new_block.height}")
             else:
-                check_order.extend([even_path, odd_path])
-        elif os.path.exists(odd_path):
-            check_order.append(odd_path)
-        elif os.path.exists(even_path):
-            check_order.append(even_path)
-        else:
-            raise Exception('Not found memory files.')
-        # load by check_order
-        for path in check_order:
-            try:
-                with open(path, mode='br') as fp:
-                    for block in reversed(bc4py_msgpack.load(fp)):
-                        if root_block.hash == block.previous_hash:
-                            memorized_blocks.append(block)
-                            root_block = block
-            except Exception as e:
-                log.error("Failed load, \"{}\"".format(e), exc_info=True)
-        if len(memorized_blocks) > 0:
-            log.debug("Load {} blocks, best={}".format(len(memorized_blocks), root_block))
+                # append
+                with open(path, mode='ba') as fp:
+                    bc4py_msgpack.dump(new_block, fp)
+        except Exception as e:
+            log.warning(f"failed to recode memory block by '{str(e)}'")
+
+    def recover_from_memory_file(self, root_block: Block) -> (List[Block], Block):
+        """recover memory from memory_file"""
+        path = os.path.join(self.db.dirs, 'memory.mpac')
+        memorized_blocks = list()
+        if not os.path.exists(path):
+            log.debug("no memory file found")
             return memorized_blocks, root_block
-        else:
-            raise BlockBuilderError("Failed load memory files.")
+        try:
+            with open(path, mode='br') as fp:
+                block_list: List[Block] = list()
+                for block in reversed(tuple(bc4py_msgpack.stream_unpacker(fp))):
+                    if len(block_list) == 0 or block.hash == block_list[0].previous_hash:
+                        block_list.insert(0, block)
+                for block in block_list:
+                    if root_block.hash == block.previous_hash:
+                        memorized_blocks.append(block)
+                        root_block = block
+        except Exception:
+            log.warning(f"failed to recover from memory_file", exc_info=True)
+        return memorized_blocks, root_block
 
     def get_best_chain(self, best_block=None):
-        assert self.root_block, 'Do not init.'
+        assert self.root_block, 'Do not init'
         if best_block:
-            best_chain = [best_block]
+            best_sets = {best_block}
             previous_hash = best_block.previous_hash
             while self.root_block.hash != previous_hash:
                 if previous_hash not in self.chain:
@@ -617,22 +610,24 @@ class ChainBuilder:
                         previous_hash.hex()))
                 block = self.chain[previous_hash]
                 previous_hash = block.previous_hash
-                best_chain.append(block)
+                best_sets.add(block)
+            # best_chain = [<height=n>, <height=n-1>, ...]
+            best_chain = sorted(best_sets, key=lambda x: x.height, reverse=True)
             return best_block, best_chain
         # BestBlockがchainにおける
         best_score = 0.0
         best_block = None
-        best_chain = list()
-        for block in list(self.chain.values()):
-            if block in best_chain:
+        best_sets = set()
+        for block in sorted(self.chain.values(), key=lambda x: x.create_time, reverse=True):
+            if block in best_sets:
                 continue
             tmp_best_score = block.score
             tmp_best_block = block
-            tmp_best_chain = [block]
+            tmp_best_sets = {block}
             while block.previous_hash in self.chain:
                 block = self.chain[block.previous_hash]
                 tmp_best_score += block.score
-                tmp_best_chain.append(block)
+                tmp_best_sets.add(block)
             else:
                 if self.root_block.hash != block.previous_hash:
                     continue
@@ -640,13 +635,14 @@ class ChainBuilder:
                 continue
             best_score = tmp_best_score
             best_block = tmp_best_block
-            best_chain = tmp_best_chain
+            best_sets = tmp_best_sets
         # txのheightを揃える
-        for block in best_chain:
+        for block in best_sets:
             for tx in block.txs:
                 tx.height = block.height
         assert best_block, 'Cannot find best_block on get_best_chain? chain={}'.format(list(self.chain))
         # best_chain = [<height=n>, <height=n-1>, ...]
+        best_chain = sorted(best_sets, key=lambda x: x.height, reverse=True)
         return best_block, best_chain
 
     def batch_apply(self):
@@ -659,7 +655,7 @@ class ChainBuilder:
         best_chain = self.best_chain.copy()
         batch_count = self.batch_size
         batched_blocks = list()
-        with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+        with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = db.cursor()
             try:
                 block = None
@@ -680,16 +676,16 @@ class ChainBuilder:
                             self.db.write_usedindex(txhash, usedindex)  # UsedIndex update
                             input_tx = tx_builder.get_tx(txhash)
                             address, coin_id, amount = input_tx.outputs[txindex]
-                            if builder.db.db_config['addrindex'] or \
+                            if chain_builder.db.db_config['addrindex'] or \
                                     is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_CONTRACT_VER) or \
-                                    read_address2user(address=address, cur=cur):
+                                    read_address2userid(address=address, cur=cur):
                                 # 必要なAddressのみ
                                 self.db.write_address_idx(address, txhash, txindex, coin_id, amount, True)
                         # outputs
                         for index, (address, coin_id, amount) in enumerate(tx.outputs):
-                            if builder.db.db_config['addrindex'] or \
+                            if chain_builder.db.db_config['addrindex'] or \
                                     is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_CONTRACT_VER) or \
-                                    read_address2user(address=address, cur=cur):
+                                    read_address2userid(address=address, cur=cur):
                                 # 必要なAddressのみ
                                 self.db.write_address_idx(address, tx.hash, index, coin_id, amount, False)
                         # TXの種類による追加操作
@@ -724,12 +720,11 @@ class ChainBuilder:
                 self.best_chain = best_chain
                 self.root_block = block
                 self.db.batch_commit()
-                self.save_memory_file()
                 # root_blockよりHeightの小さいBlockを消す
                 for blockhash, block in self.chain.copy().items():
                     if self.root_block.height >= block.height:
                         del self.chain[blockhash]
-                log.debug("Success batch {} blocks, root={}.".format(len(batched_blocks), self.root_block))
+                log.debug("Success batch {} blocks, root={}".format(len(batched_blocks), self.root_block))
                 # アカウントへ反映↓
                 user_account.new_batch_apply(batched_blocks=batched_blocks, outer_cur=cur)
                 db.commit()
@@ -739,38 +734,37 @@ class ChainBuilder:
                 log.warning("Failed batch block builder. '{}'".format(e), exc_info=True)
                 return list()
 
-    def new_block(self, block):
+    def new_block(self, new_block):
         # とりあえず新規に挿入
-        self.chain[block.hash] = block
+        self.chain[new_block.hash] = new_block
         # BestChainの変化を調べる
         new_best_block, new_best_chain = self.get_best_chain()
         if self.best_block and new_best_block == self.best_block:
             return  # 操作を加える必要は無い
         # tx heightを合わせる
         old_best_chain = self.best_chain.copy()
-        commons = set(new_best_chain) & set(old_best_chain)
-        for index, block in enumerate(old_best_chain):
-            if block not in commons:
-                try:
-                    old_best_chain[index + 1].next_hash = None
-                except IndexError:
-                    pass
-                for tx in block.txs:
-                    tx.height = None
-                block.f_orphan = True
-        for index, block in enumerate(new_best_chain):
-            if block not in commons:
-                try:
-                    new_best_chain[index + 1].next_hash = block.hash
-                except IndexError:
-                    pass
-                for tx in block.txs:
-                    tx.height = block.height
-                block.f_orphan = False
+        new_best_sets = set(new_best_chain) - set(old_best_chain)
+        old_best_sets = set(old_best_chain) - set(new_best_chain)
+        for index, block in enumerate(old_best_sets):
+            try:
+                old_best_chain[index + 1].next_hash = None
+            except IndexError:
+                pass
+            for tx in block.txs:
+                tx.height = None
+            block.f_orphan = True
+        for index, block in enumerate(new_best_sets):
+            try:
+                new_best_chain[index + 1].next_hash = block.hash
+            except IndexError:
+                pass
+            for tx in block.txs:
+                tx.height = block.height
+            block.f_orphan = False
         # 変化しているので反映する
         self.best_block, self.best_chain = new_best_block, new_best_chain
-        tx_builder.affect_new_chain(
-            new_best_chain=set(new_best_chain) - commons, old_best_chain=set(old_best_chain) - commons)
+        tx_builder.affect_new_chain(new_best_sets=new_best_sets, old_best_sets=old_best_sets)
+        self.write_to_memory_file(new_block)
 
     def get_block(self, blockhash=None, height=None):
         if height is not None:
@@ -806,14 +800,14 @@ class ChainBuilder:
         return self.db.read_block_hash(height)
 
 
-class TransactionBuilder:
+class TransactionBuilder(object):
 
     def __init__(self):
         # TXs that Blocks don't contain
-        self.unconfirmed = dict()
+        self.unconfirmed: Dict[bytes, TX] = dict()
         # Contract/Validator related tx
         # don't affect UTXO check. Ex, same inputs has or not enough signatures
-        self.pre_unconfirmed = dict()
+        self.pre_unconfirmed: Dict[bytes, TX] = dict()
         # TXs that MAIN chain contains
         self.chained_tx = weakref.WeakValueDictionary()
         # DataBase contains TXs
@@ -890,7 +884,7 @@ class TransactionBuilder:
             if tx.height is None: log.warning("Is unconfirmed. {}".format(tx))
         else:
             # Databaseより
-            tx = builder.db.read_tx(txhash)
+            tx = chain_builder.db.read_tx(txhash)
             if tx:
                 tx.recode_flag = 'database'
                 self.cashe[txhash] = tx
@@ -901,23 +895,23 @@ class TransactionBuilder:
     def __contains__(self, item):
         return bool(self.get_tx(item.hash))
 
-    def affect_new_chain(self, old_best_chain, new_best_chain):
+    def affect_new_chain(self, old_best_sets, new_best_sets):
 
         def input_check(_tx):
             for input_hash, input_index in _tx.inputs:
-                if input_index in builder.db.read_usedindex(input_hash):
+                if input_index in chain_builder.db.read_usedindex(input_hash):
                     return True
             return False
 
         # 状態を戻す
-        for block in old_best_chain:
+        for block in old_best_sets:
             for tx in block.txs:
                 if tx.hash not in self.unconfirmed and tx.type not in (C.TX_POW_REWARD, C.TX_POS_REWARD):
                     self.unconfirmed[tx.hash] = tx
                 if tx.hash in self.chained_tx:
                     del self.chained_tx[tx.hash]
         # 新規に反映する
-        for block in new_best_chain:
+        for block in new_best_sets:
             for tx in block.txs:
                 if tx.hash not in self.chained_tx:
                     self.chained_tx[tx.hash] = tx
@@ -949,35 +943,37 @@ class TransactionBuilder:
             log.warning("Removed {} unconfirmed txs".format(len(self.unconfirmed) - before_num))
 
 
-class UserAccount:
+class UserAccount(object):
 
     def __init__(self):
         self.db_balance = Accounting()
-        # {txhash: (_type, movement, _time),..}
+        # {txhash: (ntype, movement, ntime),..}
         self.memory_movement = dict()
 
     def init(self, f_delete=False, outer_cur=None):
 
         def _wrapper(cur):
             memory_sum = Accounting()
-            for move_log in read_log_iter(cur):
+            for move_log in read_movelog_iter(cur):
                 # logに記録されてもBlockに取り込まれていないならTXは存在せず
-                if builder.db.read_tx(move_log.txhash):
+                if chain_builder.db.read_tx(move_log.txhash):
                     memory_sum += move_log.movement
+                elif move_log.type == C.TX_INNER:
+                    continue
                 else:
                     log.debug("It's unknown log {}".format(move_log))
                     if f_delete:
-                        delete_log(move_log.txhash, cur)
+                        delete_movelog(move_log.txhash, cur)
             self.db_balance += memory_sum
 
         assert f_delete is False, 'Unsafe function!'
         if outer_cur:
             _wrapper(outer_cur)
         else:
-            with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+            with create_db(V.DB_ACCOUNT_PATH) as db:
                 _wrapper(db.cursor())
                 if f_delete:
-                    log.warning("Delete user's old unconfirmed tx.")
+                    log.warning("Delete user's old unconfirmed tx")
                     db.commit()
 
     def get_balance(self, confirm=6, outer_cur=None):
@@ -986,10 +982,10 @@ class UserAccount:
             # DataBase
             account = self.db_balance.copy()
             # Memory
-            limit_height = builder.best_block.height - confirm
-            for block in builder.best_chain:
+            limit_height = chain_builder.best_block.height - confirm
+            for block in chain_builder.best_chain:
                 for tx in block.txs:
-                    move_log = read_txhash2log(tx.hash, cur)
+                    move_log = read_txhash2movelog(tx.hash, cur)
                     if move_log is None:
                         if tx.hash in self.memory_movement:
                             move_log = self.memory_movement[tx.hash]
@@ -1004,7 +1000,7 @@ class UserAccount:
                                     account[user][coin_id] += amount
             # Unconfirmed
             for tx in list(tx_builder.unconfirmed.values()):
-                move_log = read_txhash2log(tx.hash, cur)
+                move_log = read_txhash2movelog(tx.hash, cur)
                 if move_log is None:
                     if tx.hash in self.memory_movement:
                         move_log = self.memory_movement[tx.hash]
@@ -1015,12 +1011,12 @@ class UserAccount:
                                 account[user][coin_id] += amount
             return account
 
-        assert confirm < builder.cashe_limit - builder.batch_size, 'Too few cashe size.'
-        assert builder.best_block, 'Not DataBase init.'
+        assert confirm < chain_builder.cashe_limit - chain_builder.batch_size, 'Too few cashe size'
+        assert chain_builder.best_block, 'Not DataBase init'
         if outer_cur:
             return _wrapper(outer_cur)
         else:
-            with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+            with create_db(V.DB_ACCOUNT_PATH) as db:
                 return _wrapper(db.cursor())
 
     def move_balance(self, _from, _to, coins, outer_cur=None):
@@ -1030,15 +1026,15 @@ class UserAccount:
             movements = Accounting()
             movements[_from] -= coins
             movements[_to] += coins
-            txhash = insert_log(movements, cur)
+            txhash = insert_movelog(movements, cur)
             self.db_balance += movements
             return txhash
 
-        assert isinstance(coins, Balance), 'coins is Balance.'
+        assert isinstance(coins, Balance), 'coins is Balance'
         if outer_cur:
             return _wrapper(outer_cur)
         else:
-            with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+            with create_db(V.DB_ACCOUNT_PATH) as db:
                 r = _wrapper(db.cursor())
                 db.commit()
                 return r
@@ -1049,7 +1045,7 @@ class UserAccount:
             count = 0
             # Unconfirmed
             for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time, reverse=True):
-                move_log = read_txhash2log(tx.hash, cur)
+                move_log = read_txhash2movelog(tx.hash, cur)
                 if move_log is None:
                     if tx.hash in self.memory_movement:
                         move_log = self.memory_movement[tx.hash]
@@ -1064,9 +1060,9 @@ class UserAccount:
                             yield move_log.get_tuple_data()
                     count += 1
             # Memory
-            for block in reversed(builder.best_chain):
+            for block in reversed(chain_builder.best_chain):
                 for tx in block.txs:
-                    move_log = read_txhash2log(tx.hash, cur)
+                    move_log = read_txhash2movelog(tx.hash, cur)
                     if move_log is None:
                         if tx.hash in self.memory_movement:
                             move_log = self.memory_movement[tx.hash]
@@ -1081,7 +1077,7 @@ class UserAccount:
                                 yield move_log.get_tuple_data()
                         count += 1
             # DataBase
-            for move_log in read_log_iter(cur, start - count):
+            for move_log in read_movelog_iter(cur, start - count):
                 # TRANSFERなど はDBとMemoryの両方に存在する
                 if move_log.txhash in self.memory_movement:
                     continue
@@ -1093,7 +1089,7 @@ class UserAccount:
         if outer_cur:
             yield from _wrapper(outer_cur)
         else:
-            with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+            with create_db(V.DB_ACCOUNT_PATH) as db:
                 yield from _wrapper(db.cursor())
 
     def new_batch_apply(self, batched_blocks, outer_cur=None):
@@ -1101,7 +1097,7 @@ class UserAccount:
         def _wrapper(cur):
             for block in batched_blocks:
                 for tx in block.txs:
-                    move_log = read_txhash2log(tx.hash, cur)
+                    move_log = read_txhash2movelog(tx.hash, cur)
                     if move_log:
                         # User操作の記録
                         self.db_balance += move_log.movement
@@ -1110,17 +1106,17 @@ class UserAccount:
                         # log.debug("Already recoded log {}".format(tx))
                     elif tx.hash in self.memory_movement:
                         # db_balanceに追加
-                        _type, movement, _time = self.memory_movement[tx.hash].get_tuple_data()
+                        ntype, movement, ntime = self.memory_movement[tx.hash].get_tuple_data()
                         self.db_balance += movement
                         # memory_movementから削除
                         del self.memory_movement[tx.hash]
                         # insert_log
-                        insert_log(movement, cur, _type, _time, tx.hash)
+                        insert_movelog(movement, cur, ntype, ntime, tx.hash)
 
         if outer_cur:
             _wrapper(outer_cur)
         else:
-            with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+            with create_db(V.DB_ACCOUNT_PATH) as db:
                 _wrapper(db.cursor())
                 db.commit()
 
@@ -1128,40 +1124,40 @@ class UserAccount:
 
         def _wrapper(cur):
             movement = Accounting()
-            # send_from_applyで登録済み
+            # already registered by send_from_apply method
             if tx.hash in self.memory_movement:
                 return
-            # memory_movementに追加
+            # add to memory_movement dict
             for txhash, txindex in tx.inputs:
                 input_tx = tx_builder.get_tx(txhash)
                 address, coin_id, amount = input_tx.outputs[txindex]
-                user = read_address2user(address, cur)
+                user = read_address2userid(address, cur)
                 if user is not None:
                     if tx.type == C.TX_POS_REWARD:
-                        user = C.ANT_MINING
-                    # throw staking reward to @Mining
+                        # subtract staking reward from @Staked
+                        user = C.ANT_STAKED
                     movement[user][coin_id] -= amount
                     # movement[C.ANT_OUTSIDE] += balance
             for address, coin_id, amount in tx.outputs:
-                user = read_address2user(address, cur)
+                user = read_address2userid(address, cur)
                 if user is not None:
                     if tx.type == C.TX_POS_REWARD:
-                        user = C.ANT_MINING
-                    # throw staking reward to @Mining
+                        # add staking reward to @Staked
+                        user = C.ANT_STAKED
                     movement[user][coin_id] += amount
                     # movement[C.ANT_OUTSIDE] -= balance
             # check
             movement.cleanup()
             if len(movement) == 0:
-                return  # 無関係である
+                return  # cannot find no movement to recode, skip
             move_log = MoveLog(tx.hash, tx.type, movement, tx.time, tx)
             self.memory_movement[tx.hash] = move_log
-            log.debug("Affect account new tx. {}".format(tx))
+            log.info("affected account by {}".format(tx))
 
         if outer_cur:
             _wrapper(outer_cur)
         else:
-            with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
+            with create_db(V.DB_ACCOUNT_PATH) as db:
                 _wrapper(db.cursor())
 
 
@@ -1169,15 +1165,13 @@ class BlockBuilderError(Exception):
     pass
 
 
-# ファイル読み込みと同時に作成
-builder = ChainBuilder()
-# TXの管理
+# global object
+chain_builder = ChainBuilder()
 tx_builder = TransactionBuilder()
-# User情報
 user_account = UserAccount()
 
 __all__ = [
-    "builder",
+    "chain_builder",
     "tx_builder",
     "user_account",
 ]

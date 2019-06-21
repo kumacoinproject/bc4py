@@ -1,8 +1,8 @@
 from bc4py.config import C, V, P, BlockChainError
 from bc4py.chain.checking import new_insert_block, check_tx, check_tx_time
 from bc4py.user.network import BroadcastCmd
-from p2p_python.client import ClientCmd
-from bc4py.database.builder import tx_builder, builder
+from p2p_python.server import Peer2PeerCmd
+from bc4py.database.builder import tx_builder, chain_builder
 from bc4py.user.network.update import update_info_for_generate
 from time import time
 import queue
@@ -11,21 +11,22 @@ from logging import getLogger
 log = getLogger('bc4py')
 
 
-def mined_newblock(que, pc):
-    # 新規採掘BlockをP2Pに公開
-    while True:
+def mined_newblock(que):
+    """new thread, broadcast mined block to network"""
+    assert V.P2P_OBJ, "PeerClient is None"
+    while not P.F_STOP:
         try:
             new_block = que.get(timeout=1)
             new_block.create_time = int(time())
             if P.F_NOW_BOOTING:
-                log.debug("self reject, mined but now booting..")
+                log.debug("self reject, mined but now booting")
                 continue
-            elif new_block.height != builder.best_block.height + 1:
-                log.debug("self reject, mined but its old block...")
+            elif new_block.height != chain_builder.best_block.height + 1:
+                log.debug("self reject, mined but its old block")
                 continue
             else:
                 log.debug("Mined block check success")
-                if new_insert_block(new_block, time_check=True):
+                if new_insert_block(new_block):
                     log.info("Mined new block {}".format(new_block.getinfo()))
                 else:
                     log.debug("self reject, cannot new insert")
@@ -44,16 +45,14 @@ def mined_newblock(que, pc):
                 }
             }
             try:
-                pc.send_command(cmd=ClientCmd.BROADCAST, data=data)
+                V.P2P_OBJ.send_command(cmd=Peer2PeerCmd.BROADCAST, data=data)
                 log.info("Success broadcast new block {}".format(new_block))
                 update_info_for_generate()
             except TimeoutError:
                 log.warning("Failed broadcast new block, other nodes don\'t accept {}".format(new_block.getinfo()))
-                # log.warning("47 Set booting mode.")
-                # P.F_NOW_BOOTING = True
         except queue.Empty:
-            if pc.f_stop:
-                log.debug("Mined new block closed.")
+            if V.P2P_OBJ.f_stop:
+                log.debug("Mined new block closed")
                 break
         except BlockChainError as e:
             log.error('Failed mined new block "{}"'.format(e))
@@ -62,7 +61,7 @@ def mined_newblock(que, pc):
 
 
 def send_newtx(new_tx, outer_cur=None, exc_info=True):
-    assert V.PC_OBJ, "PeerClient is None."
+    assert V.P2P_OBJ, "PeerClient is None"
     try:
         check_tx_time(new_tx)
         check_tx(new_tx, include_block=None)
@@ -72,7 +71,7 @@ def send_newtx(new_tx, outer_cur=None, exc_info=True):
                 'tx': new_tx
             }
         }
-        V.PC_OBJ.send_command(cmd=ClientCmd.BROADCAST, data=data)
+        V.P2P_OBJ.send_command(cmd=Peer2PeerCmd.BROADCAST, data=data)
         if new_tx.type in (C.TX_VALIDATOR_EDIT, C.TX_CONCLUDE_CONTRACT):
             tx_builder.marge_signature(tx=new_tx)
         else:

@@ -2,10 +2,11 @@ from bc4py.config import P, stream
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.contract.emulator.watching import *
+from aiohttp.web_ws import WebSocketResponse
 from aiohttp import web
+from logging import getLogger
 import asyncio
 import json
-from logging import getLogger
 
 log = getLogger('bc4py')
 number = 0
@@ -17,7 +18,7 @@ CMD_NEW_TX = 'TX'
 CMD_ERROR = 'Error'
 
 
-# TODO: fix error: "socket.send() raised exception." => https://github.com/aio-libs/aiohttp/issues/3448
+# TODO: fix error: "socket.send() raised exception" => https://github.com/aio-libs/aiohttp/issues/3448
 async def websocket_route(request):
     if request.rel_url.path.startswith('/public/'):
         is_public = True
@@ -26,8 +27,9 @@ async def websocket_route(request):
     else:
         raise web.HTTPNotFound()
     client = await websocket_protocol_check(request=request, is_public=is_public)
-    async for msg in client.ws:
+    while True:
         try:
+            msg = await client.ws.receive(timeout=5.0)
             if msg.type == web.WSMsgType.TEXT:
                 log.debug("Get text from {} data={}".format(client, msg.data))
                 # send dummy response
@@ -40,39 +42,48 @@ async def websocket_route(request):
                 break
             elif msg.type == web.WSMsgType.ERROR:
                 log.error("Get error from {} data={}".format(client, msg.data))
+        except asyncio.TimeoutError:
+            if client.ws.closed:
+                log.debug("websocket already closed")
+                break
         except Exception as e:
             import traceback
             await client.send(
                 raw_data=get_send_format(cmd=CMD_ERROR, data=str(traceback.format_exc()), status=False))
+            break
     log.debug("close {}".format(client))
-    await client.close()
-    return client.ws
+    try:
+        if not client.ws.closed:
+            await client.close()
+    except Exception:
+        pass
 
 
 async def websocket_protocol_check(request, is_public):
     ws = web.WebSocketResponse()
+    ws.enable_compression()
     available = ws.can_prepare(request)
     if not available:
-        raise TypeError('Cannot prepare websocket.')
+        raise TypeError('Cannot prepare websocket')
     await ws.prepare(request)
     log.debug("protocol upgrade to websocket. {}".format(request.remote))
     return WsConnection(ws=ws, request=request, is_public=is_public)
 
 
-class WsConnection:
+class WsConnection(object):
 
     def __init__(self, ws, request, is_public):
         global number
         number += 1
         self.number = number
-        self.ws = ws
+        self.ws: WebSocketResponse = ws
         self.request = request
         self.is_public = is_public
         clients.append(self)
 
     def __repr__(self):
-        return "<WsConnection {} {} {}>".format(self.number, 'Pub' if self.is_public else 'Pri',
-                                                self.request.remote)
+        ws_type = 'Pub' if self.is_public else 'Pri'
+        return f"<Websocket {self.number} {ws_type} {self.request.remote}>"
 
     async def close(self):
         await self.ws.close()
@@ -103,8 +114,11 @@ def send_websocket_data(cmd, data, status=True, is_public_data=False):
 
     async def exe():
         for client in clients.copy():
-            if is_public_data or not client.is_public:
-                await client.send(send_format)
+            try:
+                if is_public_data or not client.is_public:
+                    await client.send(send_format)
+            except Exception:
+                pass
 
     if P.F_NOW_BOOTING:
         return
@@ -117,38 +131,38 @@ def send_websocket_data(cmd, data, status=True, is_public_data=False):
 def new_info2json_data(cmd, data_list):
     send_data = dict()
     if cmd == C_Conclude:
-        _time, tx, related_list, c_address, start_hash, c_storage = data_list
+        ntime, tx, related_list, c_address, start_hash, c_storage = data_list
         send_data['address'] = c_address
         send_data['hash'] = tx.hash.hex()
-        send_data['time'] = _time
+        send_data['time'] = ntime
         send_data['tx'] = tx.getinfo()
         send_data['related'] = related_list
         send_data['start_hash'] = start_hash.hex()
         send_data['c_storage'] = decode(c_storage)
     elif cmd == C_Validator:
-        _time, tx, related_list, v_address, new_address, flag, sig_diff = data_list
+        ntime, tx, related_list, v_address, new_address, flag, sig_diff = data_list
         send_data['address'] = v_address
         send_data['hash'] = tx.hash.hex()
-        send_data['time'] = _time
+        send_data['time'] = ntime
         send_data['tx'] = tx.getinfo()
         send_data['related'] = related_list
         send_data['new_address'] = new_address
         send_data['flag'] = flag
         send_data['sig_diff'] = sig_diff
     elif cmd == C_RequestConclude:
-        _time, tx, related_list, c_address, c_method, redeem_address, c_args = data_list
+        ntime, tx, related_list, c_address, c_method, redeem_address, c_args = data_list
         send_data['address'] = c_address
         send_data['hash'] = tx.hash.hex()
-        send_data['time'] = _time
+        send_data['time'] = ntime
         send_data['tx'] = tx.getinfo()
         send_data['related'] = related_list
         send_data['c_method'] = c_method
         send_data['redeem_address'] = redeem_address
         send_data['c_args'] = decode(c_args)
     elif cmd == C_FinishConclude or cmd == C_FinishValidator:
-        _time, tx = data_list
+        ntime, tx = data_list
         send_data['hash'] = tx.hash.hex()
-        send_data['time'] = _time
+        send_data['time'] = ntime
         send_data['tx'] = tx.getinfo()
     else:
         log.warning("Not found cmd {}".format(cmd))

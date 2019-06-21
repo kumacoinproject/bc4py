@@ -1,7 +1,6 @@
-from bc4py.config import C, V, BlockChainError
-from bc4py.database.builder import builder, tx_builder
-from bc4py.database.create import closing, create_db
-from bc4py.database.account import read_pooled_address_iter
+from bc4py.config import C, BlockChainError
+from bc4py.database.builder import chain_builder, tx_builder
+from bc4py.database.account import read_all_pooled_address
 from time import sleep
 
 best_block_cashe = None
@@ -13,24 +12,24 @@ def _get_best_chain_all(best_block):
     # MemoryにおけるBestBlockまでのChainを返す
     if best_block is None:
         best_block_cashe = best_chain_cashe = None
-        return builder.best_chain
+        return chain_builder.best_chain
     elif best_block_cashe and best_block == best_block_cashe:
         return best_chain_cashe
     else:
-        dummy, best_chain = builder.get_best_chain(best_block)
+        dummy, best_chain = chain_builder.get_best_chain(best_block)
         # best_chain = [<height=n>, <height=n-1>,.. <height=n-m>]
         if len(best_chain) == 0:
-            raise BlockChainError('Ignore, New block inserted on "_get_best_chain_all".')
+            raise BlockChainError('Ignore, New block inserted on "_get_best_chain_all"')
         best_block_cashe = best_block
         best_chain_cashe = best_chain
         return best_chain
 
 
-def get_utxo_iter(target_address, best_block=None, best_chain=None):
-    assert isinstance(target_address, set) or isinstance(target_address, list) or isinstance(target_address, tuple)
+def get_unspents_iter(target_address, best_block=None, best_chain=None):
     failed = 0
     while failed < 20:
-        best_chain = best_chain or _get_best_chain_all(best_block)
+        if best_chain is None:
+            best_chain = _get_best_chain_all(best_block)
         if best_chain:
             break
         failed += 1
@@ -40,7 +39,7 @@ def get_utxo_iter(target_address, best_block=None, best_chain=None):
     allow_mined_height = best_chain[0].height - C.MATURE_HEIGHT
     # DataBaseより
     for address in target_address:
-        for dummy, txhash, txindex, coin_id, amount, f_used in builder.db.read_address_idx_iter(address):
+        for dummy, txhash, txindex, coin_id, amount, f_used in chain_builder.db.read_address_idx_iter(address):
             if f_used is False:
                 if txindex in get_usedindex(txhash=txhash, best_block=best_block, best_chain=best_chain):
                     continue  # Used
@@ -76,18 +75,15 @@ def get_utxo_iter(target_address, best_block=None, best_chain=None):
     # address, height, txhash, index, coin_id, amount
 
 
-def get_unspents_iter(outer_cur=None, best_chain=None):
-    target_address = set()
-    with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-        cur = outer_cur or db.cursor()
-        for (uuid, address, user) in read_pooled_address_iter(cur):
-            target_address.add(address)
-    return get_utxo_iter(target_address=target_address, best_block=None, best_chain=best_chain)
+def get_my_unspents_iter(cur, best_chain=None):
+    target_address = read_all_pooled_address(cur=cur)
+    yield from get_unspents_iter(target_address=target_address, best_block=None, best_chain=best_chain)
 
 
 def get_usedindex(txhash, best_block=None, best_chain=None):
-    assert builder.best_block, 'Not DataBase init.'
-    best_chain = best_chain or _get_best_chain_all(best_block)
+    assert chain_builder.best_block, 'Not DataBase init'
+    if best_chain is None:
+        best_chain = _get_best_chain_all(best_block)
     # Memoryより
     usedindex = set()
     for block in best_chain:
@@ -98,7 +94,7 @@ def get_usedindex(txhash, best_block=None, best_chain=None):
                 if _txhash == txhash:
                     usedindex.add(_txindex)
     # DataBaseより
-    usedindex.update(builder.db.read_usedindex(txhash))
+    usedindex.update(chain_builder.db.read_usedindex(txhash))
     # unconfirmedより
     if best_block is None:
         for tx in list(tx_builder.unconfirmed.values()):
@@ -109,8 +105,9 @@ def get_usedindex(txhash, best_block=None, best_chain=None):
 
 
 def is_usedindex(txhash, txindex, except_txhash, best_block=None, best_chain=None):
-    assert builder.best_block, 'Not DataBase init.'
-    best_chain = best_chain or _get_best_chain_all(best_block)
+    assert chain_builder.best_block, 'Not DataBase init'
+    if best_chain is None:
+        best_chain = _get_best_chain_all(best_block)
     # Memoryより
     for block in best_chain:
         for tx in block.txs:
@@ -120,7 +117,7 @@ def is_usedindex(txhash, txindex, except_txhash, best_block=None, best_chain=Non
                 if _txhash == txhash and _txindex == txindex:
                     return True
     # DataBaseより
-    if txindex in builder.db.read_usedindex(txhash):
+    if txindex in chain_builder.db.read_usedindex(txhash):
         return True
     # unconfirmedより
     if best_block is None:
@@ -134,8 +131,8 @@ def is_usedindex(txhash, txindex, except_txhash, best_block=None, best_chain=Non
 
 
 __all__ = [
-    "get_utxo_iter",
     "get_unspents_iter",
+    "get_my_unspents_iter",
     "get_usedindex",
     "is_usedindex",
 ]

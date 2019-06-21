@@ -1,5 +1,5 @@
 from bc4py.config import C, V, Debug
-from bc4py.database.builder import builder
+from bc4py.database.builder import chain_builder
 from bc4py.chain.utils import bits2target, target2bits
 from functools import lru_cache
 
@@ -20,6 +20,13 @@ from functools import lru_cache
 # // CN coins (but not Monero >= 12.3) must deploy the Jagerman MTP Patch. See:
 # // https://github.com/loki-project/loki/pull/26   or
 # // https://github.com/graft-project/GraftNetwork/pull/118/files
+
+
+BASE_TARGET = 0x00000000ffff0000000000000000000000000000000000000000000000000000
+MAX_BITS = 0x1f0fffff
+MAX_TARGET = bits2target(MAX_BITS)
+GENESIS_PREVIOUS_HASH = b'\xff' * 32
+MAX_SEARCH_BLOCKS = 1000
 
 
 @lru_cache(maxsize=256)
@@ -43,12 +50,6 @@ def params(block_span=600):
     return N, K
 
 
-MAX_BITS = 0x1f0fffff
-MAX_TARGET = bits2target(MAX_BITS)
-GENESIS_PREVIOUS_HASH = b'\xff' * 32
-MAX_SEARCH_BLOCKS = 1000
-
-
 @lru_cache(maxsize=512)
 def get_bits_by_hash(previous_hash, consensus):
     if Debug.F_CONSTANT_DIFF:
@@ -68,7 +69,7 @@ def get_bits_by_hash(previous_hash, consensus):
     target = list()
     j = 0
     for _ in range(MAX_SEARCH_BLOCKS):
-        target_block = builder.get_block(target_hash)
+        target_block = chain_builder.get_block(target_hash)
         if target_block is None:
             return MAX_BITS, MAX_TARGET
         if target_block.flag != consensus:
@@ -84,18 +85,17 @@ def get_bits_by_hash(previous_hash, consensus):
             return MAX_BITS, MAX_TARGET
     else:
         # search too many block
-        if len(target) == 0:
+        if len(target) < 2:
             # not found any mined blocks
             return MAX_BITS, MAX_TARGET
         else:
             # May have been a sudden difficulty raise
-            most_low_diff_target = max(target)
-            most_low_diff_bits = target2bits(most_low_diff_target)
-            return most_low_diff_bits, most_low_diff_target
+            # overwrite N param
+            N = len(timestamp) - 1
 
     sum_target = t = j = 0
     for i in range(N):
-        solve_time = timestamp[i + 1] - timestamp[i]
+        solve_time = max(0, timestamp[i + 1] - timestamp[i])
         j += 1
         t += solve_time * j
         sum_target += target[i + 1]
@@ -124,11 +124,11 @@ def get_bias_by_hash(previous_hash, consensus):
     elif previous_hash == GENESIS_PREVIOUS_HASH:
         return 1.0
 
-    base_difficulty_sum = MAX_TARGET * N
+    base_difficulty_sum = BASE_TARGET * N
     target_diffs = list()
     target_hash = previous_hash
     for _ in range(MAX_SEARCH_BLOCKS):
-        target_block = builder.get_block(target_hash)
+        target_block = chain_builder.get_block(target_hash)
         if target_block is None:
             return 1.0
         target_hash = target_block.previous_hash
@@ -140,9 +140,20 @@ def get_bias_by_hash(previous_hash, consensus):
             break
     else:
         # search too many block
-        return 1.0
+        if len(target_diffs) == 0:
+            return 1.0
+        else:
+            return BASE_TARGET * len(target_diffs) / sum(target_diffs)
 
     bias = base_difficulty_sum / sum(target_diffs)
     if Debug.F_SHOW_DIFFICULTY:
         print("bias", bias, previous_hash.hex())
     return bias
+
+
+__all__ = [
+    "MAX_BITS",
+    "MAX_TARGET",
+    "get_bits_by_hash",
+    "get_bias_by_hash",
+]

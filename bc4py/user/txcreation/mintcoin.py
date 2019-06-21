@@ -2,7 +2,7 @@ from bc4py.config import C, V, BlockChainError
 from bc4py.bip32 import dummy_address
 from bc4py.chain.tx import TX
 from bc4py.database.mintcoin import *
-from bc4py.database.account import create_new_user_keypair, insert_log
+from bc4py.database.account import generate_new_address_by_userid, insert_movelog
 from bc4py.user import Balance, Accounting
 from bc4py.user.txcreation.utils import *
 import random
@@ -24,7 +24,7 @@ def issue_mintcoin(name,
                    sender=C.ANT_UNKNOWN,
                    retention=10800):
     mint_id = get_new_coin_id()
-    mint_address = create_new_user_keypair(user=sender, cur=cur)
+    mint_address = generate_new_address_by_userid(user=sender, cur=cur)
     params = {
         "name": name,
         "unit": unit,
@@ -74,7 +74,7 @@ def issue_mintcoin(name,
     # movements[C.ANT_OUTSIDE] -= minting_coins
     movements[sender] -= fee_coins
     # movements[C.ANT_OUTSIDE] += fee_coins
-    insert_log(movements, cur, tx.type, tx.time, tx.hash)
+    insert_movelog(movements, cur, tx.type, tx.time, tx.hash)
     return mint_id, tx
 
 
@@ -99,7 +99,7 @@ def change_mintcoin(mint_id,
     if len(params) == 0:
         params = None
     if not params and not setting and not amount:
-        raise BlockChainError('No update found.')
+        raise BlockChainError('No update found')
     m_before = get_mintcoin_object(coin_id=mint_id)
     if m_before.version == -1:
         raise BlockChainError('Not init mintcoin. {}'.format(m_before))
@@ -146,7 +146,7 @@ def change_mintcoin(mint_id,
     # movements[C.ANT_OUTSIDE] -= minting_coins
     movements[sender] -= fee_coins
     # movements[C.ANT_OUTSIDE] += fee_coins
-    insert_log(movements, cur, tx.type, tx.time, tx.hash)
+    insert_movelog(movements, cur, tx.type, tx.time, tx.hash)
     return tx
 
 
@@ -164,7 +164,7 @@ def replace_mint_dummy_address(tx, mint_address, mint_id, f_raise):
             break
     else:
         if f_raise:
-            raise BlockChainError('Cannot replace Mintcoin dummy address.')
+            raise BlockChainError('Cannot replace Mintcoin dummy address')
 
 
 __all__ = [

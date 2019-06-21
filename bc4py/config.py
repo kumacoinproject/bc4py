@@ -1,24 +1,13 @@
+from p2p_python.server import Peer2Peer
 from rx.subjects import Subject
-from concurrent.futures import ProcessPoolExecutor
-from threading import Lock
+from typing import Optional
 import atexit
-import psutil
+
 
 # internal stream by ReactiveX
 # doc: https://github.com/ReactiveX/RxPY/blob/develop/notebooks/Getting%20Started.ipynb
 stream = Subject()
 atexit.register(stream.dispose)
-
-# multiprocessing executor
-max_process_num = 4
-logical_cpu_num = psutil.cpu_count(logical=True) or max_process_num
-physical_cpu_nam = psutil.cpu_count(logical=False) or max_process_num
-max_workers = min(logical_cpu_num, physical_cpu_nam)
-executor = ProcessPoolExecutor(max_workers=max_workers)
-atexit.register(executor.shutdown, wait=True)
-
-# executor "submit+add_callback_done" lock
-executor_lock = Lock()
 
 
 class C:  # Constant
@@ -28,7 +17,7 @@ class C:  # Constant
         'unit': 'PC',
         'digit': 8,
         'address': 'NDUMMYADDRESSAAAAAAAAAAAACRSTTMF',
-        'description': 'Base currency.',
+        'description': 'Base currency',
         'image': None
     }
 
@@ -42,7 +31,7 @@ class C:  # Constant
     BLOCK_X11_POW = 6
     BLOCK_HMQ_POW = 7
     BLOCK_LTC_POW = 8
-    BLOCK_X16R_POW = 9
+    BLOCK_X16S_POW = 9
     consensus2name = {
         BLOCK_GENESIS: 'GENESIS',
         BLOCK_COIN_POS: 'POS_COIN',
@@ -52,7 +41,7 @@ class C:  # Constant
         BLOCK_X11_POW: 'POW_X11',
         BLOCK_HMQ_POW: 'POW_HMQ',
         BLOCK_LTC_POW: 'POW_LTC',
-        BLOCK_X16R_POW: 'POW_X16R',
+        BLOCK_X16S_POW: 'POW_X16S',
     }
 
     # tx type
@@ -105,28 +94,35 @@ class C:  # Constant
     ANT_UNKNOWN = 0  # Unknown user
     ANT_VALIDATOR = 1  # ValidatorAddress
     ANT_CONTRACT = 2  # ContractAddress
-    ANT_MINING = 3  # MiningAddress
+    ANT_STAKED = 3  # Staked balance
     account2name = {
         ANT_UNKNOWN: '@Unknown',
         ANT_VALIDATOR: '@Validator',
         ANT_CONTRACT: '@Contract',
-        ANT_MINING: '@Mining'
+        ANT_STAKED: '@Staked',
     }
 
     # Block/TX/Fee limit
     SIZE_BLOCK_LIMIT = 300 * 1000  # 300kb block
     SIZE_TX_LIMIT = 100 * 1000  # 100kb tx
-    CASHE_LIMIT = 300  # Memoryに置く最大Block数、実質Reorg制限
-    BATCH_SIZE = 30
+    MEMORY_FILE_REFRESH_SPAN = 101  # memory_file refresh span
+    MEMORY_CASHE_LIMIT = 250  # max memorized block size, means re-org limit
+    MEMORY_BATCH_SIZE = 30
     MINTCOIN_GAS = int(10 * pow(10, 6))  # 新規Mintcoin発行GasFee
     SIGNATURE_GAS = int(0.01 * pow(10, 6))  # gas per one signature
     # CONTRACT_CREATE_FEE = int(10 * pow(10, 6))  # コントラクト作成GasFee
     VALIDATOR_EDIT_GAS = int(10 * pow(10, 6))  # gas
     CONTRACT_MINIMUM_INPUT = int(1 * pow(10, 8))  # Contractの発火最小amount
+    EXTRA_OUTPUT_REWARD_FEE = int(0.0001 * pow(10, 8))  # subtract EXTRA_OUTPUT fee from reward
 
     # network params
-    ACCEPT_MARGIN_TIME = 120  # 新規データ受け入れ時間マージンSec
-    MAX_RECURSIVE_BLOCK_DEPTH = 10  # recursive accept block limit
+    ACCEPT_MARGIN_TIME = 180  # New block acceptance time margin (sec)
+    MAX_RECURSIVE_BLOCK_DEPTH = 30  # recursive accept block limit
+
+    # sqlite params
+    SQLITE_CASHE_SIZE = None  # if None, size is 2000
+    SQLITE_JOURNAL_MODE = 'WAL'  # if None, mode is DELETE
+    SQLITE_SYNC_MODE = 'NORMAL'  # if None, sync is FULL
 
 
 class V:
@@ -149,19 +145,16 @@ class V:
     DB_ACCOUNT_PATH = None
 
     # Wallet
-    # mnemonic =(decrypt)=> seed ==> 44' => coinType' => secret key
     BECH32_HRP = None  # human readable part
-    BIP44_ENCRYPTED_MNEMONIC = None
-    BIP44_ROOT_PUB_KEY = None  # path: m
-    BIP44_BRANCH_SEC_KEY = None  # path: m/44'/coin_type'
+    EXTENDED_KEY_OBJ = None  # <Bip32 m/44'/coinType'> object
 
     # mining
     MINING_ADDRESS = None
-    PC_OBJ = None
-    API_OBJ = None
+    P2P_OBJ: Optional[Peer2Peer] = None  # P2P peer client object
+    API_OBJ = None  # REST API object
 
     # developer
-    BRANCH_NAME = None
+    BRANCH_NAME = None  # Github branch name
 
 
 class P:  # 起動中もダイナミックに変化
@@ -181,9 +174,6 @@ class BlockChainError(Exception):
 
 __all__ = [
     'stream',
-    'max_workers',
-    'executor',
-    'executor_lock',
     'C',
     'V',
     'P',

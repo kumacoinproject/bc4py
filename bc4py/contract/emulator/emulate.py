@@ -15,7 +15,7 @@ emulators = list()
 lock = Lock()
 
 
-class Emulate:
+class Emulate(object):
 
     def __init__(self, c_address, f_claim_gas=True):
         self.c_address = c_address
@@ -25,7 +25,7 @@ class Emulate:
         for e in emulators:
             if c_address == e.c_address:
                 raise Exception('Already registered c_address {}'.format(c_address))
-        assert not lock.locked(), 'Already start emulator.'
+        assert not lock.locked(), 'Already start emulator'
         emulators.append(self)
 
     def __repr__(self):
@@ -46,7 +46,7 @@ def on_next(data):
 def loop_emulator(index: int, em: Emulate):
     # wait for booting_mode finish
     if P.F_NOW_BOOTING:
-        log.debug("waiting for booting finish.")
+        log.debug("waiting for booting finish")
     while P.F_NOW_BOOTING:
         sleep(1)
     log.info("Start emulator {}".format(em))
@@ -57,7 +57,7 @@ def loop_emulator(index: int, em: Emulate):
             cmd, is_public, data_list = em.que.get(timeout=1)
             if cmd == C_RequestConclude:
                 # c_transfer tx is confirmed, create conclude tx
-                _time, start_tx, related_list, c_address, c_method, redeem_address, c_args = data_list
+                ntime, start_tx, related_list, c_address, c_method, redeem_address, c_args = data_list
                 if em.c_address != c_address:
                     continue
                 if waiting_start_tx and waiting_conclude_hash:
@@ -70,14 +70,14 @@ def loop_emulator(index: int, em: Emulate):
                             log.debug("Confirmed waiting StartTX(to unconfirmed)")
                             break  # put unconfirmed!
                         elif waiting_conclude_hash in tx_builder.pre_unconfirmed:
-                            log.debug("Waiting before start_tx confirmed...")
+                            log.debug("Waiting before start_tx confirmed")
                             sleep(5)
                         else:
                             # check another ConcludeTX confirmed/unconfirmed?
                             check_conclude_hash = get_conclude_hash_from_start(
                                 c_address=c_address, start_hash=waiting_start_tx.hash)
                             if check_conclude_hash is None:
-                                log.debug("Not confirmed waiting StartTX? ignore.")
+                                log.debug("Not confirmed waiting StartTX? ignore")
                                 break  # unconfirmed? next contract.
                             else:
                                 log.debug("Another ConcludeTX is confirmed? next. ")
@@ -87,7 +87,7 @@ def loop_emulator(index: int, em: Emulate):
                     waiting_conclude_hash = None
                 # execute/broadcast
                 if c_method == M_INIT:
-                    log.warning("No work on init.")
+                    log.warning("No work on init")
                 else:
                     if em.f_claim_gas:
                         gas_limit = 0
@@ -116,7 +116,7 @@ def loop_emulator(index: int, em: Emulate):
 
             # elif cmd == C_Conclude:
             #    # sign already created conclude tx
-            #    _time, tx, related_list, c_address, start_hash, c_storage = data_list
+            #    ntime, tx, related_list, c_address, start_hash, c_storage = data_list
 
             else:
                 pass
@@ -133,8 +133,8 @@ def start_emulators():
     """ start emulation listen, need close by close_emulators() """
     # version check, emulator require Python3.6 or more
     if version_info.major < 3 or version_info.minor < 6:
-        raise Exception('Emulator require 3.6.0 or more.')
-    assert not lock.locked(), 'Already started emulator.'
+        raise Exception('Emulator require 3.6.0 or more')
+    assert not lock.locked(), 'Already started emulator'
     for index, em in enumerate(emulators):
         Thread(target=loop_emulator, name='Emulator{}'.format(index), args=(index, em), daemon=True).start()
     stream.subscribe(on_next=on_next, on_error=log.error)

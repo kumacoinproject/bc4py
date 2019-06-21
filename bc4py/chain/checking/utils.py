@@ -1,9 +1,8 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.bip32 import is_address
-from bc4py.database.builder import builder, tx_builder
+from bc4py.database.builder import chain_builder, tx_builder
 from bc4py.database.tools import get_usedindex
 from bc4py.database.validator import get_validator_object
-from bc4py.chain.signature import get_signed_cks
 from bc4py.user import Balance
 from hashlib import sha256
 
@@ -11,7 +10,7 @@ from hashlib import sha256
 def inputs_origin_check(tx, include_block):
     # Blockに取り込まれているなら
     # TXのInputsも既に取り込まれているはずだ
-    limit_height = builder.best_block.height - C.MATURE_HEIGHT
+    limit_height = chain_builder.best_block.height - C.MATURE_HEIGHT
     for txhash, txindex in tx.inputs:
         input_tx = tx_builder.get_tx(txhash)
         if input_tx is None:
@@ -21,7 +20,7 @@ def inputs_origin_check(tx, include_block):
             # InputのOriginはUnconfirmed
             if include_block:
                 raise BlockChainError('TX {} is include'
-                                      ', but input origin {} is unconfirmed.'.format(tx, input_tx))
+                                      ', but input origin {} is unconfirmed'.format(tx, input_tx))
             else:
                 # UnconfirmedTXの受け入れなので、txもinput_txもUnconfirmed
                 pass  # OK
@@ -74,7 +73,7 @@ def amount_check(tx, payfee_coin_id):
 def signature_check(tx, include_block):
     require_cks = set()
     checked_cks = set()
-    signed_cks = get_signed_cks(tx)
+    signed_cks = set(tx.verified_list)
     for txhash, txindex in tx.inputs:
         input_tx = tx_builder.get_tx(txhash)
         if input_tx is None:
@@ -97,7 +96,7 @@ def signature_check(tx, include_block):
         elif is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_CONTRACT_VER):
             raise BlockChainError('Not allow ContractAddress include in normal Transfer. {}'.format(address, tx))
         else:
-            raise BlockChainError('Not common address {} {}.'.format(address, tx))
+            raise BlockChainError('Not common address {} {}'.format(address, tx))
         # success check
         checked_cks.add(address)
 

@@ -1,8 +1,8 @@
-from bc4py.config import max_workers, executor, executor_lock, C, BlockChainError
+from bc4py.config import C, BlockChainError
 from bc4py_extension import poc_hash, poc_work, scope_index
 from os import urandom
 from time import time
-from threading import BoundedSemaphore
+from concurrent.futures import ProcessPoolExecutor
 from yespower import hash as yespower_hash  # for CPU
 from x11_hash import getPoWHash as x11_hash  # for ASIC
 from hmq_hash import getPoWHash as hmq_hash  # for GPU
@@ -10,9 +10,11 @@ from litecoin_scrypt import getPoWHash as ltc_hash  # for ASIC
 from shield_x16s_hash import getPoWHash as x16s_hash  # for GPU
 from logging import getLogger
 from hashlib import sha256
+import psutil
+import atexit
+
 
 log = getLogger('bc4py')
-semaphore = BoundedSemaphore(value=max(1, max_workers - 1))
 
 
 def get_workhash_fnc(flag):
@@ -24,7 +26,7 @@ def get_workhash_fnc(flag):
         return hmq_hash
     elif flag == C.BLOCK_LTC_POW:
         return ltc_hash
-    elif flag == C.BLOCK_X16R_POW:
+    elif flag == C.BLOCK_X16S_POW:
         return x16s_hash
     elif flag in C.consensus2name:
         raise Exception('Not found block flag {}'.format(C.consensus2name[flag]))
@@ -70,15 +72,11 @@ def update_work_hash(block):
         block.work_hash = hash_fnc(block.b)
 
 
-def generate_many_hash(block, how_many):
-    # CAUTION: mining by one core!
-    assert how_many > 0
+def generate_many_hash(executor: ProcessPoolExecutor, block, request_num):
+    assert request_num > 0
     # hash generating with multi-core
-    with semaphore:
-        start = time()
-        with executor_lock:
-            future = executor.submit(_pow_generator, block.b, block.flag, how_many)
-        binary, hashed = future.result(timeout=120)
+    future = executor.submit(_pow_generator, block.b, block.flag, request_num)
+    binary, hashed, start = future.result(timeout=120)
     if binary is None:
         raise Exception(hashed)
     block.b = binary
@@ -87,13 +85,14 @@ def generate_many_hash(block, how_many):
     return time() - start
 
 
-def _pow_generator(binary, block_flag, how_many):
+def _pow_generator(binary, block_flag, request_num):
+    start = time()
     try:
         hash_fnc = get_workhash_fnc(block_flag)
         hashed = hash_fnc(binary)
         minimum_num = int.from_bytes(hashed, 'little')
         new_binary = binary
-        for i in range(how_many):
+        for _ in range(request_num):
             new_binary = new_binary[:-4] + urandom(4)
             new_hash = hash_fnc(new_binary)
             new_num = int.from_bytes(new_hash, 'little')
@@ -101,14 +100,27 @@ def _pow_generator(binary, block_flag, how_many):
                 binary = new_binary
                 hashed = new_hash
                 minimum_num = new_num
-        return binary, hashed
+        return binary, hashed, start
     except Exception as e:
         error = "Hashing failed {} by \"{}\"".format(binary, e)
-        return None, error
+        return None, error, start
+
+
+def get_executor_object(max_workers=None):
+    """PoW mining process generator"""
+    if max_workers is None:
+        max_process_num = 4
+        logical_cpu_num = psutil.cpu_count(logical=True) or max_process_num
+        physical_cpu_nam = psutil.cpu_count(logical=False) or max_process_num
+        max_workers = min(logical_cpu_num, physical_cpu_nam)
+    executor = ProcessPoolExecutor(max_workers)
+    atexit.register(executor.shutdown, wait=True)
+    return executor
 
 
 __all__ = [
     "get_workhash_fnc",
     "update_work_hash",
     "generate_many_hash",
+    "get_executor_object",
 ]

@@ -1,7 +1,7 @@
 from bc4py.config import C, V, stream, BlockChainError
 from bc4py.bip32 import is_address
 from bc4py.chain.block import Block
-from bc4py.database.builder import builder, tx_builder
+from bc4py.database.builder import chain_builder, tx_builder
 from bc4py.database.cashe import Cashe
 from copy import deepcopy
 from logging import getLogger
@@ -15,7 +15,7 @@ F_REMOVE = -1
 F_NOP = 0
 
 
-class Validator:
+class Validator(object):
     __slots__ = ("v_address", "validators", "require", "db_index", "version", "txhash")
 
     def __init__(self, v_address):
@@ -97,16 +97,16 @@ def encode(*args):
 
 def validator_fill_iter(v: Validator, best_block=None, best_chain=None):
     # database
-    v_iter = builder.db.read_validator_iter(v_address=v.v_address, start_idx=v.db_index)
+    v_iter = chain_builder.db.read_validator_iter(v_address=v.v_address, start_idx=v.db_index)
     for index, address, flag, txhash, sig_diff in v_iter:
         yield index, flag, address, sig_diff, txhash
     # memory
     if best_chain:
         _best_chain = None
-    elif best_block and best_block == builder.best_block:
-        _best_chain = builder.best_chain
+    elif best_block and best_block == chain_builder.best_block:
+        _best_chain = chain_builder.best_chain
     else:
-        dummy, _best_chain = builder.get_best_chain(best_block=best_block)
+        dummy, _best_chain = chain_builder.get_best_chain(best_block=best_block)
     for block in reversed(best_chain or _best_chain):
         for tx in block.txs:
             if tx.type != C.TX_VALIDATOR_EDIT:
@@ -153,7 +153,7 @@ def validator_tx2index(txhash=None, tx=None):
         raise BlockChainError('Not found ValidatorTX {}'.format(tx))
     if tx.height is None:
         raise BlockChainError('Not confirmed ValidatorTX {}'.format(tx))
-    block = builder.get_block(height=tx.height)
+    block = chain_builder.get_block(height=tx.height)
     if block is None:
         raise BlockChainError('Not found block of start_tx included? {}'.format(tx))
     if tx not in block.txs:
@@ -165,7 +165,7 @@ def update_validator_cashe(*args):
     s = time()
     line = 0
     for v_address, v in cashe:
-        v_iter = builder.db.read_validator_iter(v_address=v_address, start_idx=v.db_index)
+        v_iter = chain_builder.db.read_validator_iter(v_address=v_address, start_idx=v.db_index)
         for index, address, flag, txhash, sig_diff in v_iter:
             v.update(db_index=index, flag=flag, address=address, sig_diff=sig_diff, txhash=txhash)
             line += 1

@@ -1,61 +1,63 @@
-from bc4py.config import C, V, BlockChainError
+from bc4py.config import C, V, P, BlockChainError
 from bc4py.bip32 import is_address
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
-from bc4py.chain.workhash import generate_many_hash
+from bc4py.chain.workhash import generate_many_hash, get_executor_object
 from bc4py.chain.difficulty import get_bits_by_hash
 from bc4py.chain.utils import GompertzCurve
 from bc4py.chain.checking.utils import stake_coin_check
-from bc4py.database.create import create_db, closing
-from bc4py.database.account import message2signature, create_new_user_keypair
-from bc4py.database.tools import get_unspents_iter
+from bc4py.database.create import create_db
+from bc4py.database.account import sign_message_by_address, generate_new_address_by_userid
+from bc4py.database.tools import get_my_unspents_iter
 from bc4py_extension import multi_seek
-from threading import Thread, Event
+from concurrent.futures import ProcessPoolExecutor
+from threading import Thread, Lock
 from time import time, sleep
 from collections import deque
 from random import random
 from logging import getLogger
+from typing import Optional, List, AnyStr
 import traceback
+import atexit
 import queue
 import os
 import re
 
 log = getLogger('bc4py')
 generating_threads = list()
-output_que = queue.Queue()
+mining_address_lock = Lock()
+output_que = queue.Queue(maxsize=1)
 # mining share info
-mining_address = None
-previous_block = None
-unconfirmed_txs = None
-unspents_txs = None
+mining_address: Optional[AnyStr] = None
+previous_block: Optional[Block] = None
+unconfirmed_txs: Optional[List] = None
+unspents_txs: Optional[List] = None
 staking_limit = 500
-
-
-def new_key(user=C.ANT_MINING):
-    with closing(create_db(V.DB_ACCOUNT_PATH)) as db:
-        ck = create_new_user_keypair(user, db.cursor())
-        db.commit()
-    return ck
+optimize_file_name_re = re.compile("^optimized\\.([a-z0-9]+)\\-([0-9]+)\\-([0-9]+)\\.dat$")
+executor: Optional['ProcessPoolExecutor'] = None
 
 
 class Generate(Thread):
 
     def __init__(self, consensus, power_limit=1.0, **kwargs):
-        assert consensus in V.BLOCK_CONSENSUSES, \
-            "{} is not used by blockchain.".format(C.consensus2name[consensus])
+        assert consensus in V.BLOCK_CONSENSUSES
         assert 0.0 < power_limit <= 1.0
         super(Generate, self).__init__(name="Gene-{}".format(C.consensus2name[consensus]), daemon=True)
         self.consensus = consensus
         self.power_limit = min(1.0, max(0.01, power_limit))
         self.hashrate = (0, 0.0)  # [hash/s, update_time]
-        self.event_close = Event()
+        self.f_enable = True
         self.config = kwargs
         generating_threads.append(self)
+        # generate worker process (common)
+        global executor
+        if executor is None:
+            executor = get_executor_object()
 
     def __repr__(self):
-        hashrate, _time = self.hashrate
-        if time() - _time > 120:
-            data = "NotActive ({}minutes before updated)".format(round((time() - _time) / 60, 1))
+        hashrate, ntime = self.hashrate
+        if time() - ntime > 120:
+            data = "NotActive ({}minutes before updated)".format(round((time() - ntime) / 60, 1))
         elif hashrate < 1000 * 10:
             data = "{}hash/s".format(hashrate)
         elif hashrate < 1000 * 1000 * 10:
@@ -64,12 +66,14 @@ class Generate(Thread):
             data = "{}Mh/s".format(round(hashrate / 1000000, 3))
         return "<Generate {} {} limit={}>".format(C.consensus2name[self.consensus], data, self.power_limit)
 
-    def close(self, timeout=120):
-        self.event_close.clear()
+    def close(self):
+        self.f_enable = False
 
     def run(self):
-        self.event_close.set()
-        while self.event_close.is_set():
+        while self.f_enable:
+            while P.F_NOW_BOOTING:
+                # wait for booting finish
+                sleep(1)
             log.info("Start {} generating!".format(C.consensus2name[self.consensus]))
             try:
                 if self.consensus == C.BLOCK_COIN_POS:
@@ -80,39 +84,40 @@ class Generate(Thread):
                     raise BlockChainError("unimplemented")
                 else:
                     self.proof_of_work()
+            except FailedGenerateWarning as e:
+                log.debug("skip by \"{}\"".format(e))
             except BlockChainError as e:
                 log.warning(e)
                 sleep(5)
-            except AttributeError as e:
+            except AttributeError:
                 if 'previous_block.' in str(traceback.format_exc()):
-                    log.debug("attribute error of previous_block, passed.")
+                    log.debug("attribute error of previous_block, passed")
                     sleep(1)
                 else:
-                    log.error("Unknown error wait60s...", exc_info=True)
+                    log.error("Unknown error, wait 60s", exc_info=True)
                     sleep(60)
             except KeyError as e:
-                log.debug("Key error by lru_cache bug wait 5s...")
+                log.debug("Key error by lru_cache bug wait 5s... \"{}\"".format(e))
                 sleep(5)
             except Exception:
-                log.error("GeneratingError wait60s...", exc_info=True)
+                log.error("GeneratingError, wait60s", exc_info=True)
                 sleep(60)
 
     def proof_of_work(self):
         global mining_address
         spans_deque = deque(maxlen=8)
-        how_many = 100
+        request_num = 100
         base_span = 10
         work_span = base_span * self.power_limit
         sleep_span = base_span * (1.0 - self.power_limit)
-        self.event_close.set()
-        while self.event_close.is_set():
+        while self.f_enable:
             # check start mining
             if previous_block is None or unconfirmed_txs is None:
                 sleep(0.1)
                 continue
             mining_block = create_mining_block(self.consensus)
             # throw task
-            new_span = generate_many_hash(mining_block, how_many)
+            new_span = generate_many_hash(executor, mining_block, request_num)
             spans_deque.append(new_span)
             # check block
             if previous_block is None or unconfirmed_txs is None:
@@ -125,15 +130,16 @@ class Generate(Thread):
             else:
                 # Mined yay!!!
                 confirmed_generating_block(mining_block)
-            # generate next mining how_many
+                mining_address = None
+            # generate next mining request_num
             try:
-                self.hashrate = (how_many * len(spans_deque) // sum(spans_deque), time())
+                self.hashrate = (request_num * len(spans_deque) // sum(spans_deque), time())
                 bias = sum(work_span * i for i, span in enumerate(spans_deque))
                 bias /= sum(span * i for i, span in enumerate(spans_deque))
                 bias = min(2.0, max(0.5, bias))
-                how_many = max(100, int(how_many * bias))
+                request_num = max(100, int(request_num * bias))
                 if int(time()) % 90 == 0:
-                    log.info("Mining... Next target how_many is {} {}".format(how_many,
+                    log.info("Mining... Next target request_num is {} {}".format(request_num,
                                                                               "Up" if bias > 1 else "Down"))
             except ZeroDivisionError:
                 pass
@@ -143,14 +149,13 @@ class Generate(Thread):
     def proof_of_stake(self):
         global staking_limit
         limit_deque = deque(maxlen=10)
-        self.event_close.set()
-        while self.event_close.is_set():
+        while self.f_enable:
             # check start mining
             if previous_block is None or unconfirmed_txs is None or unspents_txs is None:
                 sleep(0.1)
                 continue
             if len(unspents_txs) == 0:
-                log.info("No unspents for staking, wait 180s..")
+                log.info("No unspents for staking, wait 180s")
                 sleep(180)
                 continue
             start = time()
@@ -159,6 +164,7 @@ class Generate(Thread):
             reward = GompertzCurve.calc_block_reward(previous_block.height + 1)
             staking_block = Block.from_dict(
                 block={
+                    'version': 0,  # always 0
                     'merkleroot': b'\xff' * 32,
                     'time': 0,
                     'previous_hash': previous_block.hash,
@@ -169,6 +175,8 @@ class Generate(Thread):
             staking_block.flag = C.BLOCK_COIN_POS
             staking_block.bits2target()
             staking_block.txs.append(None)  # Dummy proof tx
+            if unconfirmed_txs is None:
+                raise FailedGenerateWarning('unconfirmed_txs is None')
             staking_block.txs.extend(unconfirmed_txs)
             calculate_nam = 0
             for proof_tx in unspents_txs.copy():
@@ -197,7 +205,7 @@ class Generate(Thread):
                         staking_block.txs.pop()
                     staking_block.update_time(proof_tx.time)
                     staking_block.update_merkleroot()
-                    signature = message2signature(raw=staking_block.b, address=address)
+                    signature = sign_message_by_address(raw=staking_block.b, address=address)
                     proof_tx.signature.append(signature)
                     confirmed_generating_block(staking_block)
                     break
@@ -216,8 +224,7 @@ class Generate(Thread):
 
     def proof_of_capacity(self):
         dir_path: str = self.config.get('path', os.path.join(V.DB_HOME_DIR, 'plots'))
-        self.event_close.set()
-        while self.event_close.is_set():
+        while self.f_enable:
             # check start mining
             if previous_block is None or unconfirmed_txs is None:
                 sleep(0.1)
@@ -235,12 +242,12 @@ class Generate(Thread):
             # start staking by capacity
             count = 0
             for file_name in os.listdir(dir_path):
-                m = re.match("^optimized\\.([a-z0-9]+)\\-([0-9]+)\\-([0-9]+)\\.dat$", file_name)
+                m = optimize_file_name_re.match(file_name)
                 if m is None:
                     continue
                 count += int(m.group(3)) - int(m.group(2))
             if count < 1:
-                log.debug("not found plot file, wait for 60 sec...")
+                log.debug("not found plot file, wait 60 sec")
                 sleep(60)
                 continue
 
@@ -253,8 +260,8 @@ class Generate(Thread):
                 worker=os.cpu_count())
             if work_hash is None:
                 # return failed => (None, None, err-msg)
-                if int(s) % 60 == 0:
-                    log.debug("failed PoC mining by \"{}\"".format(address))
+                if int(s) % 300 == 0:
+                    log.debug("PoC mining info by \"{}\"".format(address))
             else:
                 # return success => (nonce, workhash, address)
                 if previous_block is None or unconfirmed_txs is None:
@@ -265,6 +272,7 @@ class Generate(Thread):
                 total_fee = sum(tx.gas_price * tx.gas_amount for tx in unconfirmed_txs)
                 staked_block = Block.from_dict(
                     block={
+                        'version': 0,  # always 0
                         'previous_hash': previous_hash,
                         'merkleroot': b'\x00' * 32,
                         'time': 0,
@@ -289,7 +297,7 @@ class Generate(Thread):
                 staked_block.update_time(staked_proof_tx.time)
                 staked_block.update_merkleroot()
                 staked_block.work_hash = work_hash
-                signature = message2signature(raw=staked_block.b, address=address)
+                signature = sign_message_by_address(raw=staked_block.b, address=address)
                 staked_proof_tx.signature.append(signature)
                 confirmed_generating_block(staked_block)
 
@@ -302,8 +310,21 @@ class Generate(Thread):
 
 def create_mining_block(consensus):
     global mining_address
+    # setup mining address for PoW
+    with mining_address_lock:
+        if mining_address is None:
+            if V.MINING_ADDRESS is None:
+                with create_db(V.DB_ACCOUNT_PATH) as db:
+                    cur = db.cursor()
+                    mining_address = generate_new_address_by_userid(C.ANT_UNKNOWN, cur)
+                    db.commit()
+            else:
+                mining_address = V.MINING_ADDRESS
+    if unconfirmed_txs is None:
+        raise FailedGenerateWarning('unconfirmed_txs is None')
+    if previous_block is None:
+        raise FailedGenerateWarning('previous_block is None')
     # create proof_tx
-    mining_address = mining_address or V.MINING_ADDRESS or new_key()
     reward = GompertzCurve.calc_block_reward(previous_block.height + 1)
     fees = sum(tx.gas_amount * tx.gas_price for tx in unconfirmed_txs)
     proof_tx = TX.from_dict(
@@ -332,6 +353,8 @@ def create_mining_block(consensus):
     mining_block.flag = consensus
     mining_block.bits2target()
     mining_block.txs.append(proof_tx)
+    if unconfirmed_txs is None:
+        raise FailedGenerateWarning('unconfirmed_txs is None')
     mining_block.txs.extend(unconfirmed_txs)
     mining_block.update_merkleroot()
     mining_block.update_time(proof_tx.time)
@@ -340,12 +363,12 @@ def create_mining_block(consensus):
 
 def confirmed_generating_block(new_block):
     log.info("Generate block yey!! {}".format(new_block))
-    global mining_address, previous_block, unconfirmed_txs, unspents_txs
-    mining_address = None
+    global previous_block, unconfirmed_txs, unspents_txs
     previous_block = None
     unconfirmed_txs = None
     unspents_txs = None
-    output_que.put(new_block)
+    # timeout: GeneBlock thread do not start?
+    output_que.put(new_block, timeout=60)
 
 
 def update_previous_block(new_previous_block):
@@ -363,50 +386,61 @@ def update_unspents_txs(time_limit=0.2):
     c = 100
     while previous_block is None:
         if c < 0:
-            raise Exception('Timeout on update unspents.')
+            raise Exception('Timeout on update unspents')
         sleep(0.1)
         c -= 1
     s = time()
     previous_height = previous_block.height
     proof_txs = list()
     all_num = 0
-    for address, height, txhash, txindex, coin_id, amount in get_unspents_iter():
-        if time() - s > time_limit:
-            break
-        if height is None:
-            continue
-        if coin_id != 0:
-            continue
-        if not (previous_height + 1 > height + C.MATURE_HEIGHT):
-            continue
-        if not is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER):
-            continue
-        if amount < 100000000:
-            continue
-        if staking_limit < all_num:
-            log.debug("Unspents limit reached, skip by {} limits.".format(staking_limit))
-            break
-        all_num += 1
-        proof_tx = TX.from_dict(
-            tx={
-                'type': C.TX_POS_REWARD,
-                'inputs': [(txhash, txindex)],
-                'outputs': [(address, 0, 0)],
-                'gas_price': 0,
-                'gas_amount': 0,
-                'message_type': C.MSG_NONE,
-                'message': b''
-            })
-        proof_tx.height = previous_height + 1
-        proof_tx.pos_amount = amount
-        proof_txs.append(proof_tx)
+    with create_db(V.DB_ACCOUNT_PATH) as db:
+        cur = db.cursor()
+        for address, height, txhash, txindex, coin_id, amount in get_my_unspents_iter(cur):
+            if time() - s > time_limit:
+                break
+            if height is None:
+                continue
+            if coin_id != 0:
+                continue
+            if not (previous_height + 1 > height + C.MATURE_HEIGHT):
+                continue
+            if not is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER):
+                continue
+            if amount < 100000000:
+                continue
+            if staking_limit < all_num:
+                log.debug("Unspents limit reached, skip by {} limits".format(staking_limit))
+                break
+            all_num += 1
+            proof_tx = TX.from_dict(
+                tx={
+                    'type': C.TX_POS_REWARD,
+                    'inputs': [(txhash, txindex)],
+                    'outputs': [(address, 0, 0)],
+                    'gas_price': 0,
+                    'gas_amount': 0,
+                    'message_type': C.MSG_NONE,
+                    'message': b''
+                })
+            proof_tx.height = previous_height + 1
+            proof_tx.pos_amount = amount
+            proof_txs.append(proof_tx)
     unspents_txs = proof_txs
     return all_num, len(proof_txs)
+
+
+class FailedGenerateWarning(Exception):
+    pass  # skip this exception
 
 
 def close_generate():
     for t in generating_threads:
         t.close()
+    if 0 < len(generating_threads):
+        log.info("close generate thread")
+
+
+atexit.register(close_generate)
 
 
 __all__ = [
@@ -418,5 +452,5 @@ __all__ = [
     "update_previous_block",
     "update_unconfirmed_txs",
     "update_unspents_txs",
-    "close_generate",
+    "FailedGenerateWarning",
 ]

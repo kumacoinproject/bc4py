@@ -1,4 +1,4 @@
-from bc4py.config import V
+from bc4py.config import V, BlockChainError
 from bc4py.bip32 import Bip32, BIP32_HARDEN
 from collections import defaultdict
 
@@ -102,17 +102,7 @@ class Accounting(defaultdict):
         return users
 
 
-def extract_keypair(user, is_inner, index):
-    # change: 0=outer、1=inner
-    assert isinstance(user, int)
-    if V.BIP44_BRANCH_SEC_KEY is None:
-        raise PermissionError('wallet is locked!')
-    bip = Bip32.from_extended_key(V.BIP44_BRANCH_SEC_KEY)
-    return bip.child_key(user + BIP32_HARDEN).child_key(int(is_inner)).child_key(index)
-
-
 __all__ = [
     "Balance",
     "Accounting",
-    "extract_keypair",
 ]

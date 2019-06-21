@@ -1,7 +1,7 @@
 from bc4py.config import C, V, stream, BlockChainError
 from bc4py.bip32 import is_address
 from bc4py.chain.block import Block
-from bc4py.database.builder import builder, tx_builder
+from bc4py.database.builder import chain_builder, tx_builder
 from bc4py.database.validator import get_validator_object
 from bc4py.database.cashe import Cashe
 from copy import deepcopy
@@ -55,7 +55,7 @@ class Storage(dict):
         # check value is not None
         for v in self.values():
             if v is None:
-                raise Exception('Not allowed None value...')
+                raise Exception('Not allowed None value')
         diff = dict()
         for key in original_storage.keys() | self.keys():
             if key in original_storage and key in self:
@@ -81,7 +81,7 @@ class Storage(dict):
         return self
 
 
-class Contract:
+class Contract(object):
     __slots__ = ("c_address", "v_address", "version", "db_index", "binary", "extra_imports", "storage", "settings",
                  "start_hash", "finish_hash")
 
@@ -124,7 +124,7 @@ class Contract:
 
     def update(self, db_index, start_hash, finish_hash, c_method, c_args, c_storage):
         # DO NOT RAISE ERROR
-        assert self.db_index is None or self.db_index < db_index, 'Tyr to put old index data.'
+        assert self.db_index is None or self.db_index < db_index, 'Tyr to put old index data'
         if c_method == M_INIT:
             assert self.version == -1
             c_bin, v_address, c_extra_imports, c_settings = c_args
@@ -188,7 +188,7 @@ def decode(b):
 
 def contract_fill(c: Contract, best_block=None, best_chain=None, stop_txhash=None):
     # database
-    c_iter = builder.db.read_contract_iter(c_address=c.c_address, start_idx=c.db_index)
+    c_iter = chain_builder.db.read_contract_iter(c_address=c.c_address, start_idx=c.db_index)
     for index, start_hash, finish_hash, (c_method, c_args, c_storage) in c_iter:
         if start_hash == stop_txhash or finish_hash == stop_txhash:
             return
@@ -202,10 +202,10 @@ def contract_fill(c: Contract, best_block=None, best_chain=None, stop_txhash=Non
     # memory
     if best_chain:
         _best_chain = None
-    elif best_block and best_block == builder.best_block:
-        _best_chain = builder.best_chain
+    elif best_block and best_block == chain_builder.best_block:
+        _best_chain = chain_builder.best_chain
     else:
-        dummy, _best_chain = builder.get_best_chain(best_block=best_block)
+        dummy, _best_chain = chain_builder.get_best_chain(best_block=best_block)
     for block in reversed(best_chain or _best_chain):
         for tx in block.txs:
             if tx.hash == stop_txhash:
@@ -267,17 +267,17 @@ def get_contract_object(c_address, best_block=None, best_chain=None, stop_txhash
 def get_conclude_hash_from_start(c_address, start_hash, best_block=None, best_chain=None):
     """ return ConcludeTX's hash by start_hash """
     # database
-    c_iter = builder.db.read_contract_iter(c_address=c_address)
+    c_iter = chain_builder.db.read_contract_iter(c_address=c_address)
     for index, _start_hash, conclude_hash, dummy in c_iter:
         if _start_hash == start_hash:
             return conclude_hash
     # memory
     if best_chain:
         _best_chain = None
-    elif best_block and best_block == builder.best_block:
-        _best_chain = builder.best_chain
+    elif best_block and best_block == chain_builder.best_block:
+        _best_chain = chain_builder.best_chain
     else:
-        dummy, _best_chain = builder.get_best_chain(best_block=best_block)
+        dummy, _best_chain = chain_builder.get_best_chain(best_block=best_block)
     for block in reversed(best_chain or _best_chain):
         for tx in block.txs:
             if tx.type != C.TX_CONCLUDE_CONTRACT:
@@ -338,7 +338,7 @@ def start_tx2index(start_hash=None, start_tx=None):
         start_tx = tx_builder.get_tx(txhash=start_hash)
     if start_tx.height is None:
         raise BlockChainError('Not confirmed startTX {}'.format(start_tx))
-    block = builder.get_block(height=start_tx.height)
+    block = chain_builder.get_block(height=start_tx.height)
     if block is None:
         raise BlockChainError('Not found block of start_tx included? {}'.format(start_tx))
     if start_tx not in block.txs:
@@ -350,7 +350,7 @@ def update_contract_cashe(*args):
     s = time()
     line = 0
     for c_address, c_contract in cashe:
-        c_iter = builder.db.read_contract_iter(c_address=c_address, start_idx=c_contract.db_index)
+        c_iter = chain_builder.db.read_contract_iter(c_address=c_address, start_idx=c_contract.db_index)
         for index, start_hash, finish_hash, (c_method, c_args, c_storage) in c_iter:
             c_contract.update(
                 db_index=index,

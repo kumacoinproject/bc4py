@@ -5,7 +5,7 @@
 #
 
 from bc4py.bip32.base58 import check_decode, check_encode
-from bc4py.bip32.bech32 import encode
+from bc4py_extension import bech2address
 from fastecdsa.curve import secp256k1
 from fastecdsa.util import mod_sqrt
 from fastecdsa.point import Point
@@ -32,19 +32,20 @@ WALLET_VERSION = b'\x80'
 
 
 class Bip32(object):
-    __slots__ = ("secret", "public", "chain", "depth", "index", "parent_fpr")
+    __slots__ = ("secret", "public", "chain", "depth", "index", "parent_fpr", "path")
 
-    def __init__(self, secret, public, chain, depth, index, fpr):
+    def __init__(self, secret, public, chain, depth, index, fpr, path):
         self.secret: int = secret
         self.public: Point = public
         self.chain: bytes = chain
         self.depth: int = depth
         self.index: int = index
         self.parent_fpr: bytes = fpr
+        self.path: str = path
 
     def __repr__(self):
-        key_type = "public" if self.secret is None else "secret"
-        return "<BIP32-{} depth={} index={} fpr={}>".format(key_type, self.depth, self.index, self.parent_fpr.hex())
+        key_type = "PUB" if self.secret is None else "SEC"
+        return "<BIP32-{} depth={} path={}>".format(key_type, self.depth, self.path)
 
     @classmethod
     def from_entropy(cls, entropy, is_public=False):
@@ -59,9 +60,9 @@ class Bip32(object):
         secret = int.from_bytes(il, 'big')
         public = get_public_key(secret, secp256k1)
         if is_public:
-            return cls(secret=None, public=public, chain=ir, depth=0, index=0, fpr=b'\0\0\0\0')
+            return cls(secret=None, public=public, chain=ir, depth=0, index=0, fpr=b'\0\0\0\0', path='m')
         else:
-            return cls(secret=secret, public=public, chain=ir, depth=0, index=0, fpr=b'\0\0\0\0')
+            return cls(secret=secret, public=public, chain=ir, depth=0, index=0, fpr=b'\0\0\0\0', path='m')
 
     @classmethod
     def from_extended_key(cls, key, is_public=False):
@@ -70,13 +71,19 @@ class Bip32(object):
         If public is True, return a public-only key regardless of input type.
         """
         # Sanity checks
-        raw = check_decode(key)
+        if isinstance(key, str):
+            raw = check_decode(key)
+        else:
+            raw = b'\x00\x00\x00\x00' + key
         if len(raw) != 78:
             raise ValueError("extended key format wrong length")
 
         # Verify address version/type
         version = raw[:4]
-        if version in EX_MAIN_PRIVATE:
+        if version == b'\x00\x00\x00\x00':
+            is_testnet = None
+            is_pubkey = None
+        elif version in EX_MAIN_PRIVATE:
             is_testnet = False
             is_pubkey = False
         elif version in EX_TEST_PRIVATE:
@@ -96,17 +103,20 @@ class Bip32(object):
         fpr = raw[5:9]
         child = struct.unpack(">L", raw[9:13])[0]
         chain = raw[13:45]
-        secret = raw[45:78]
+        data = raw[45:78]
+
+        # check prefix of key
+        is_pubkey = (data[0] == 2 or data[0] == 3)
 
         # Extract private key or public key point
         if not is_pubkey:
-            secret = int.from_bytes(secret[1:], 'big')
+            secret = int.from_bytes(data[1:], 'big')
             public = get_public_key(secret, secp256k1)
         else:
             # Recover public curve point from compressed key
             # Python3 FIX
-            lsb = secret[0] & 1 if type(secret[0]) == int else ord(secret[0]) & 1
-            x = int.from_bytes(secret[1:], 'big')
+            lsb = data[0] & 1 if type(data[0]) == int else ord(data[0]) & 1
+            x = int.from_bytes(data[1:], 'big')
             ys = (x**3 + 7) % FIELD_ORDER  # y^2 = x^3 + 7 mod p
             y, _ = mod_sqrt(ys, FIELD_ORDER)
             if y & 1 != lsb:
@@ -115,9 +125,9 @@ class Bip32(object):
             public = Point(x, y, secp256k1)
 
         if not is_pubkey and is_public:
-            return cls(secret=None, public=public, chain=chain, depth=depth, index=child, fpr=fpr)
+            return cls(secret=None, public=public, chain=chain, depth=depth, index=child, fpr=fpr, path='m')
         else:
-            return cls(secret=secret, public=public, chain=chain, depth=depth, index=child, fpr=fpr)
+            return cls(secret=secret, public=public, chain=chain, depth=depth, index=child, fpr=fpr, path='m')
 
     # Internal methods not intended to be called externally
     def _hmac(self, data):
@@ -138,14 +148,17 @@ class Bip32(object):
         Returns a BIP32Key constructed with the child key parameters,
         or None if i index would result in an invalid key.
         """
+
         # Index as bytes, BE
         i_str = struct.pack(">L", i)
 
         # Data to HMAC
         if i & BIP32_HARDEN:
             data = b'\0' + self.get_private_key() + i_str
+            path = self.path + '/' + str(i % BIP32_HARDEN) + '\''
         else:
             data = self.get_public_key() + i_str
+            path = self.path + '/' + str(i)
         # Get HMAC of data
         (Il, Ir) = self._hmac(data)
 
@@ -159,7 +172,8 @@ class Bip32(object):
 
         # Construct and return a new BIP32Key
         public = get_public_key(k_int, secp256k1)
-        return Bip32(secret=k_int, public=public, chain=Ir, depth=self.depth + 1, index=i, fpr=self.fingerprint())
+        return Bip32(
+            secret=k_int, public=public, chain=Ir, depth=self.depth + 1, index=i, fpr=self.fingerprint(), path=path)
 
     def CKDpub(self, i):
         """
@@ -190,7 +204,9 @@ class Bip32(object):
             return None
 
         # Construct and return a new BIP32Key
-        return Bip32(secret=None, public=point, chain=Ir, depth=self.depth + 1, index=i, fpr=self.fingerprint())
+        path = self.path + '/' + str(i)
+        return Bip32(
+            secret=None, public=point, chain=Ir, depth=self.depth + 1, index=i, fpr=self.fingerprint(), path=path)
 
     def child_key(self, i):
         """
@@ -219,7 +235,7 @@ class Bip32(object):
 
     def get_address(self, hrp, ver):
         """Return bech32 compressed address"""
-        return encode(hrp, ver, self.identifier())
+        return bech2address(hrp, ver, self.identifier())
 
     def identifier(self):
         """Return key identifier as string"""
@@ -238,19 +254,20 @@ class Bip32(object):
             version = EX_TEST_PRIVATE[0] if is_private else EX_TEST_PUBLIC[0]
         else:
             version = EX_MAIN_PRIVATE[0] if is_private else EX_MAIN_PUBLIC[0]
-        depth = bytes(bytearray([self.depth]))
+        depth = self.depth.to_bytes(1, 'big')
         fpr = self.parent_fpr
         child = struct.pack('>L', self.index)
         chain = self.chain
         if self.secret is None or is_private is False:
+            # startswith b'\x02' or b'\x03'
             data = self.get_public_key()
         else:
+            # startswith b'\x00'
             data = b'\x00' + self.get_private_key()
-        raw = version + depth + fpr + child + chain + data
-        if not encoded:
-            return raw
+        if encoded:
+            return check_encode(version + depth + fpr + child + chain + data)
         else:
-            return check_encode(raw)
+            return depth + fpr + child + chain + data
 
     def wallet_import_format(self, prefix=WALLET_VERSION):
         """Returns private key encoded for wallet import"""
@@ -265,6 +282,7 @@ class Bip32(object):
         print("     * (hex):      ", self.identifier().hex())
         print("     * (fpr):      ", self.fingerprint().hex())
         print("     * (main addr):", self.get_address('bc', 0))
+        print("     * (path):     ", self.path)
         if self.secret:
             print("   * Secret key")
             print("     * (hex):      ", self.get_private_key().hex())
@@ -282,10 +300,10 @@ class Bip32(object):
             print("     * (prv b58):  ", self.extended_key(is_private=True, encoded=True))
 
 
-def parse_bip32_path(nstr):
+def parse_bip32_path(path):
     """parse BIP32 format"""
     r = list()
-    for s in nstr.split('/'):
+    for s in path.split('/'):
         if s == 'm':
             continue
         elif s.endswith("'") or s.endswith('h'):
@@ -295,8 +313,20 @@ def parse_bip32_path(nstr):
     return r
 
 
+def struct_bip32_path(path):
+    """struct BIP32 string path"""
+    s = 'm'
+    for p in path:
+        if p & BIP32_HARDEN:
+            s += "/{}'".format(p % BIP32_HARDEN)
+        else:
+            s += "/{}".format(p)
+    return s
+
+
 __all__ = [
     "BIP32_HARDEN",
     "Bip32",
     "parse_bip32_path",
+    "struct_bip32_path",
 ]

@@ -16,7 +16,7 @@ from .contractinfo import *
 from .contracttx import *
 from .jsonrpc import json_rpc
 from bc4py.config import V
-from bc4py.user.api import web_base
+from bc4py.user.api import utils
 import threading
 import os
 import asyncio
@@ -52,17 +52,17 @@ def escape_cross_origin_block(app):
 
 
 class PrivateAccessStrategy(BaseStrategy):
-    # enable access from browser with OPTIONS method
+    """
+    enable access from browser with OPTIONS method
+    private method access allow only from local
+    proxy is on local and add X-Forwarded-Host header (option)
+    """
     async def check(self):
-        # access allow only local
-        proxy_host = self.request.headers.get('X-Forwarded-Host')
-        remote_host = self.request.remote
         if self.request.method == 'OPTIONS':
             return await self.handler(self.request)
-        if remote_host in localhost_urls:
-            if proxy_host is None:
-                return await super().check()
-            elif proxy_host in localhost_urls:
+        if self.request.remote in localhost_urls:
+            proxy_host = self.request.headers.get('X-Forwarded-Host')
+            if proxy_host is None or proxy_host in localhost_urls:
                 return await super().check()
             else:
                 raise web.HTTPForbidden()
@@ -77,7 +77,15 @@ def setup_ssl_context(cert, private, hostname=False):
     return ssl_context
 
 
-def create_rest_server(f_local, user, pwd, port=3000, f_blocking=True, ssl_context=None):
+def create_rest_server(user='user', pwd='password', port=3000, host='127.0.0.1', ssl_context=None):
+    """
+    create REST server for API
+    :param user: BasicAuth username
+    :param pwd: BasicAuth password
+    :param port: REST bind port
+    :param host: REST bind host, "0.0.0.0" is global
+    :param ssl_context: for SSL server
+    """
     threading.current_thread().setName("REST")
     app = web.Application()
     V.API_OBJ = app
@@ -86,7 +94,7 @@ def create_rest_server(f_local, user, pwd, port=3000, f_blocking=True, ssl_conte
     app.router.add_get('/public/getsysteminfo', system_info)
     app.router.add_get('/private/getsysteminfo', system_private_info)
     app.router.add_get('/public/getchaininfo', chain_info)
-    app.router.add_get('/private/getchaininfo', chain_private_info)
+    app.router.add_get('/private/chainforkinfo', chain_fork_info)
     app.router.add_get('/public/getnetworkinfo', network_info)
     app.router.add_get('/private/createbootstrap', create_bootstrap)
     app.router.add_get('/private/resync', resync)
@@ -97,8 +105,6 @@ def create_rest_server(f_local, user, pwd, port=3000, f_blocking=True, ssl_conte
     app.router.add_get('/public/listunspents', list_unspents)
     app.router.add_get('/private/listunspents', list_private_unspents)
     app.router.add_get('/private/listaccountaddress', list_account_address)
-    app.router.add_post('/private/lockwallet', lock_wallet)
-    app.router.add_post('/private/unlockwallet', unlock_wallet)
     app.router.add_post('/private/createwallet', create_wallet)
     app.router.add_post('/private/importprivatekey', import_private_key)
     app.router.add_post('/private/move', move_one)
@@ -136,37 +142,22 @@ def create_rest_server(f_local, user, pwd, port=3000, f_blocking=True, ssl_conte
     # Others
     app.router.add_get('/public/ws', websocket_route)
     app.router.add_get('/private/ws', websocket_route)
-    app.router.add_post('/json-rpc', json_rpc)  # Json-RPC
-    # html/markdown pages
+    # JSON-RPC html/markdown pages
     app.router.add_get('/', web_page)
+    app.router.add_post('/', json_rpc)
     app.router.add_get('/{page_path:[^{}]+.}', web_page)
-
-    # route2markdown(app)
 
     # Cross-Origin Resource Sharing
     escape_cross_origin_block(app)
 
     # setup basic auth
-    assert isinstance(user, str) and len(user) > 2
-    assert isinstance(pwd, str) and len(pwd) > 7
+    assert isinstance(user, str) and isinstance(pwd, str)
     app.middlewares.append(basic_auth_middleware(('/private/',), {user: pwd}, PrivateAccessStrategy))
 
     # Working
-    host = '127.0.0.1' if f_local else '0.0.0.0'
-    # web.run_app(app=app, host=host, port=port)
     runner = web.AppRunner(app)
     loop.run_until_complete(non_blocking_start(runner, host, port, ssl_context))
-    log.info("REST work on port={} mode={}.".format(port, 'Local' if f_local else 'Global'))
-
-    if f_blocking:
-        try:
-            loop.run_forever()
-        except KeyboardInterrupt:
-            pass
-        loop.close()
-        log.info("REST Server closed now.")
-    else:
-        log.info("Create REST Server.")
+    log.info(f"API listen on {host}:{port}")
 
 
 async def non_blocking_start(runner, host, port, ssl_context):
@@ -187,35 +178,36 @@ async def web_page(request):
             markdown_body = markdown_body.replace('\\', '\\\\').replace('\"', '\\\"').replace("\n", "\\n")
             return web.Response(
                 text=markdown_template.replace('{:title}', markdown_title, 1).replace('{:body}', markdown_body, 1),
-                headers=web_base.CONTENT_TYPE_HTML)
+                headers=utils.CONTENT_TYPE_HTML)
         elif not os.path.exists(abs_path):
             return web.Response(text="Not found page. {}".format(req_path[-1]), status=404)
         elif os.path.isfile(abs_path):
-            return web.Response(body=open(abs_path, mode='rb').read(), headers=web_base.CONTENT_TYPE_HTML)
+            return web.Response(body=open(abs_path, mode='rb').read(), headers=utils.CONTENT_TYPE_HTML)
         else:
             return web.Response(
                 body=open(os.path.join(abs_path, 'index.html'), mode='rb').read(),
-                headers=web_base.CONTENT_TYPE_HTML)
+                headers=utils.CONTENT_TYPE_HTML)
     except Exception:
-        return web_base.error_res()
+        return utils.error_res()
 
 
 async def resync(request):
     from bc4py.config import P
-    log.warning("222 Set booting mode.")
+    log.warning("Manual set booting flag to go into resync mode")
     P.F_NOW_BOOTING = True
-    return web.Response(text='Resync')
+    return web.Response(text='set booting mode now')
 
 
 async def close_server(request):
 
     def close():
+        log.debug("close server now")
         loop.call_soon_threadsafe(loop.stop)
 
-    log.info("Closing server...")
+    log.info("Closing server after 5 seconds")
     import threading
     threading.Timer(interval=5.0, function=close).start()
-    return web.Response(text='Close after 5 seconds.')
+    return web.Response(text='close server after 5 seconds')
 
 
 __all__ = [

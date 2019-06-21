@@ -1,9 +1,8 @@
 aiohttp>=3.0.0b0 # ver3 required
 aiohttp_cors
-aiohttp-basicauth-middleware==1.1.0
-aiofile>=1.5.1
+aiohttp-basicauth-middleware==1.1.2
 pycryptodomex
-p2p_python>=2.0.1
+p2p_python==2.1.1
 psutil
 pysha3
 xmltodict
