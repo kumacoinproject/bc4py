@@ -1,7 +1,6 @@
 from bc4py.config import P, stream
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
-from bc4py.contract.emulator.watching import *
 from aiohttp.web_ws import WebSocketResponse
 from aiohttp import web
 from logging import getLogger
@@ -106,7 +105,11 @@ class WsConnection(object):
 
 
 def get_send_format(cmd, data, status=True):
-    send_data = {'cmd': cmd, 'data': data, 'status': status}
+    send_data = {
+        'cmd': cmd,
+        'data': data,
+        'status': status,
+    }
     return json.dumps(send_data)
 
 
@@ -128,47 +131,6 @@ def send_websocket_data(cmd, data, status=True, is_public_data=False):
     asyncio.run_coroutine_threadsafe(coro=exe(), loop=loop)
 
 
-def new_info2json_data(cmd, data_list):
-    send_data = dict()
-    if cmd == C_Conclude:
-        ntime, tx, related_list, c_address, start_hash, c_storage = data_list
-        send_data['address'] = c_address
-        send_data['hash'] = tx.hash.hex()
-        send_data['time'] = ntime
-        send_data['tx'] = tx.getinfo()
-        send_data['related'] = related_list
-        send_data['start_hash'] = start_hash.hex()
-        send_data['c_storage'] = decode(c_storage)
-    elif cmd == C_Validator:
-        ntime, tx, related_list, v_address, new_address, flag, sig_diff = data_list
-        send_data['address'] = v_address
-        send_data['hash'] = tx.hash.hex()
-        send_data['time'] = ntime
-        send_data['tx'] = tx.getinfo()
-        send_data['related'] = related_list
-        send_data['new_address'] = new_address
-        send_data['flag'] = flag
-        send_data['sig_diff'] = sig_diff
-    elif cmd == C_RequestConclude:
-        ntime, tx, related_list, c_address, c_method, redeem_address, c_args = data_list
-        send_data['address'] = c_address
-        send_data['hash'] = tx.hash.hex()
-        send_data['time'] = ntime
-        send_data['tx'] = tx.getinfo()
-        send_data['related'] = related_list
-        send_data['c_method'] = c_method
-        send_data['redeem_address'] = redeem_address
-        send_data['c_args'] = decode(c_args)
-    elif cmd == C_FinishConclude or cmd == C_FinishValidator:
-        ntime, tx = data_list
-        send_data['hash'] = tx.hash.hex()
-        send_data['time'] = ntime
-        send_data['tx'] = tx.getinfo()
-    else:
-        log.warning("Not found cmd {}".format(cmd))
-    return send_data
-
-
 def decode(b):
     # decode Python obj to dump json data
     if isinstance(b, bytes) or isinstance(b, bytearray):
@@ -187,11 +149,6 @@ def on_next(data):
         send_websocket_data(cmd=CMD_NEW_BLOCK, data=data.getinfo(), is_public_data=True)
     elif isinstance(data, TX):
         send_websocket_data(cmd=CMD_NEW_TX, data=data.getinfo(), is_public_data=True)
-    elif isinstance(data, tuple):
-        cmd, is_public, data_list = data
-        send_data = new_info2json_data(cmd=cmd, data_list=data_list)
-        if send_data:
-            send_websocket_data(cmd=cmd, data=send_data, is_public_data=is_public)
     else:
         pass
 

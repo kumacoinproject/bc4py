@@ -1,8 +1,6 @@
 from bc4py.config import C, V
 from bc4py.database.builder import chain_builder, tx_builder
 from bc4py.database.tools import is_usedindex
-from bc4py.database.validator import *
-from bc4py.database.contract import *
 from bc4py.chain.checking.checktx import check_unconfirmed_order
 from bc4py.user.generate import *
 from threading import Lock, Thread
@@ -58,62 +56,10 @@ def _update_unconfirmed_info():
         prune_limit = s - 10
 
         # 1: check upgradable pre-unconfirmed
-        for tx in sorted(tx_builder.pre_unconfirmed.values(), key=lambda x: x.create_time):
-            try:
-                if tx.create_time > prune_limit:
-                    continue  # too young tx
-                if not (tx.time - C.ACCEPT_MARGIN_TIME < s - V.BLOCK_GENESIS_TIME <
-                        tx.deadline + C.ACCEPT_MARGIN_TIME):
-                    del tx_builder.pre_unconfirmed[tx.hash]
-                    log.debug("Remove from pre-unconfirmed, over deadline. {}".format(tx))
-                    continue
-                if tx.hash in tx_builder.unconfirmed:
-                    del tx_builder.pre_unconfirmed[tx.hash]
-                    log.debug("Remove from pre-unconfirmed, already unconfirmed. {}".format(tx))
-                    continue
-                # check by tx type
-                if tx.type == C.TX_CONCLUDE_CONTRACT:
-                    c_address, start_hash, c_storage = tx.encoded_message()
-                    c = get_contract_object(c_address=c_address)
-                    if c.version > -1:
-                        index = start_tx2index(start_hash=start_hash)
-                        if index <= c.db_index:
-                            del tx_builder.pre_unconfirmed[tx.hash]
-                            log.debug("remove, too old {}<{} {}".format(index, c.db_index, tx))
-                            continue
-                        else:
-                            # c.db_index < index
-                            # accept correct ordered
-                            pass
-                        v = get_validator_object(v_address=c.v_address)
-                    else:
-                        # init tx
-                        v = get_validator_by_contract_info(c_address=c_address, start_hash=start_hash)
-                elif tx.type == C.TX_VALIDATOR_EDIT:
-                    v_address, new_address, flag, sig_diff = tx.encoded_message()
-                    v = get_validator_object(v_address=v_address)
-                else:
-                    log.error("Why include pre-unconfirmed? {}".format(tx))
-                    continue
-                # check upgradable
-                signed_cks = set(tx.verified_list)
-                if v.require <= len(signed_cks & set(v.validators)):
-                    del tx_builder.pre_unconfirmed[tx.hash]
-                    if tx.hash in tx_builder.unconfirmed:
-                        log.warning("Upgrade skip, already unconfirmed {}".format(tx))
-                    else:
-                        tx_builder.put_unconfirmed(tx=tx)
-                        log.info("Upgrade pre-unconfirmed {}".format(tx))
-            except Exception as e:
-                log.debug("skip by '{}'".format(e), exc_info=True)
+        # CODE REMOVED
 
         # 2: sort and get txs to include in block
-        unconfirmed_txs = [
-            tx for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time)
-            if tx.create_time < prune_limit
-        ]
-        if len(tx_builder.unconfirmed) != len(unconfirmed_txs):
-            log.debug("prune too young tx [{}/{}]".format(len(unconfirmed_txs), len(tx_builder.unconfirmed)))
+        unconfirmed_txs = sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time)
 
         # 3: remove unconfirmed outputs using txs
         limit_height = chain_builder.best_block.height - C.MATURE_HEIGHT
@@ -158,25 +104,26 @@ def _update_unconfirmed_info():
             unconfirmed_txs.remove(tx)
             total_size -= tx.size
 
+        # TODO: オーダーをチェック＆依存関係をキャッシュ化する
+
         # 5. check unconfirmed order
-        errored_tx = check_unconfirmed_order(
-            best_block=chain_builder.best_block, ordered_unconfirmed_txs=unconfirmed_txs)
-        if errored_tx is not None:
-            # error is caused by remove tx of too few fee
-            unconfirmed_txs = unconfirmed_txs[:unconfirmed_txs.index(errored_tx)]
-            if errored_tx.hash in failed_txs:
-                if 10 < failed_txs[errored_tx.hash]:
-                    del tx_builder.unconfirmed[errored_tx.hash], failed_txs[errored_tx.hash]
-                    log.warning('delete too many fail {}'.format(errored_tx))
-                else:
-                    failed_txs[errored_tx.hash] += 1
-            else:
-                failed_txs[errored_tx.hash] = 1
-                log.warning('prune error tx {}'.format(errored_tx))
+        #errored_tx = check_unconfirmed_order(
+        #    best_block=chain_builder.best_block, ordered_unconfirmed_txs=unconfirmed_txs)
+        #if errored_tx is not None:
+        #    # error is caused by remove tx of too few fee
+        #    unconfirmed_txs = unconfirmed_txs[:unconfirmed_txs.index(errored_tx)]
+        #    if errored_tx.hash in failed_txs:
+        #        if 10 < failed_txs[errored_tx.hash]:
+        #            del tx_builder.unconfirmed[errored_tx.hash], failed_txs[errored_tx.hash]
+        #            log.warning('delete too many fail {}'.format(errored_tx))
+        #        else:
+        #            failed_txs[errored_tx.hash] += 1
+        #    else:
+        #        failed_txs[errored_tx.hash] = 1
+        #        log.warning('prune error tx {}'.format(errored_tx))
 
         # 6. update unconfirmed txs
         update_unconfirmed_txs(unconfirmed_txs)
 
-    return ',  unconfirmed={}/{}/{} {}mS'.format(
-        len(unconfirmed_txs), len(tx_builder.unconfirmed), len(tx_builder.pre_unconfirmed), int(
-            (time() - s) * 1000))
+    return ',  unconfirmed={} {}mS'.format(
+        len(unconfirmed_txs), int((time() - s) * 1000))

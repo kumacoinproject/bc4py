@@ -2,7 +2,6 @@ from bc4py.config import C, V, BlockChainError
 from bc4py.bip32 import is_address
 from bc4py.database.builder import chain_builder, tx_builder
 from bc4py.database.tools import get_usedindex
-from bc4py.database.validator import get_validator_object
 from bc4py.user import Balance
 from hashlib import sha256
 
@@ -85,16 +84,6 @@ def signature_check(tx, include_block):
             continue
         elif is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER):
             require_cks.add(address)
-        elif is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_VALIDATOR_VER):
-            v_before = get_validator_object(v_address=address, best_block=include_block, stop_txhash=tx.hash)
-            if v_before.version == -1:
-                raise BlockChainError('Not init validator {}'.format(address))
-            if len(signed_cks & v_before.validators) < v_before.require:
-                raise BlockChainError('Don\'t satisfy required signature {}<{}'.format(
-                    len(signed_cks & v_before.validators), v_before.require))
-            require_cks.update(v_before.validators)
-        elif is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_CONTRACT_VER):
-            raise BlockChainError('Not allow ContractAddress include in normal Transfer. {}'.format(address, tx))
         else:
             raise BlockChainError('Not common address {} {}'.format(address, tx))
         # success check

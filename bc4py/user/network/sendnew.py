@@ -72,10 +72,7 @@ def send_newtx(new_tx, outer_cur=None, exc_info=True):
             }
         }
         V.P2P_OBJ.send_command(cmd=Peer2PeerCmd.BROADCAST, data=data)
-        if new_tx.type in (C.TX_VALIDATOR_EDIT, C.TX_CONCLUDE_CONTRACT):
-            tx_builder.marge_signature(tx=new_tx)
-        else:
-            tx_builder.put_unconfirmed(tx=new_tx)
+        tx_builder.put_unconfirmed(tx=new_tx)
         log.info("Success broadcast new tx {}".format(new_tx))
         update_info_for_generate(u_block=False, u_unspent=True, u_unconfirmed=True)
         return True

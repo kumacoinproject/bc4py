@@ -156,21 +156,6 @@ def setup_signature(tx, input_address):
     return count
 
 
-def setup_contract_signature(tx, validators):
-    count = 0
-    for address in validators:
-        try:
-            sign_pairs = sign_message_by_address(raw=tx.b, address=address)
-        except BlockChainError:
-            continue
-        if sign_pairs in tx.signature:
-            pass
-        elif sign_pairs:
-            tx.signature.append(sign_pairs)
-            count += 1
-    return count
-
-
 def check_enough_amount(sender, send_coins, fee_coins, cur):
     assert isinstance(sender, int)
     from_coins = user_account.get_balance(outer_cur=cur)[sender]
@@ -193,6 +178,5 @@ __all__ = [
     "fill_inputs_outputs",
     "replace_redeem_dummy_address",
     "setup_signature",
-    "setup_contract_signature",
     "check_enough_amount",
 ]

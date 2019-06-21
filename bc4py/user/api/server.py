@@ -12,8 +12,6 @@ from .usertool import *
 from .chaininfo import *
 from .websocket import *
 from .createtx import *
-from .contractinfo import *
-from .contracttx import *
 from .jsonrpc import json_rpc
 from bc4py.config import V
 from bc4py.user.api import utils
@@ -119,20 +117,6 @@ def create_rest_server(user='user', pwd='password', port=3000, host='127.0.0.1',
     app.router.add_post('/private/sendmany', send_many_user)
     app.router.add_post('/private/issueminttx', issue_mint_tx)
     app.router.add_post('/private/changeminttx', change_mint_tx)
-    # Contract
-    app.router.add_get('/public/getcontractinfo', contract_info)
-    app.router.add_get('/public/getvalidatorinfo', validator_info)
-    app.router.add_get('/public/getcontracthistory', get_contract_history)
-    app.router.add_get('/public/getvalidatorhistory', get_validator_history)
-    app.router.add_get('/public/contractstorage', contract_storage)
-    app.router.add_get('/private/watchinginfo', watching_info)
-    app.router.add_post('/private/sourcecompile', source_compile)
-    app.router.add_post('/private/contractinit', contract_init)
-    app.router.add_post('/private/contractupdate', contract_update)
-    app.router.add_post('/private/contracttransfer', contract_transfer)
-    app.router.add_post('/private/concludecontract', conclude_contract)
-    app.router.add_post('/private/validatoredit', validator_edit)
-    app.router.add_post('/private/validateunconfirmed', validate_unconfirmed)
     # BlockChain
     app.router.add_get('/public/getblockbyheight', get_block_by_height)
     app.router.add_get('/public/getblockbyhash', get_block_by_hash)

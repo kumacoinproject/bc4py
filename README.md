@@ -8,8 +8,6 @@ Function
 * UTXO base
 * PoW, PoS and PoC multi-consensus
 * Minting colored coin
-* Python interpreter based smart contract
-* block containing result smart contract
 
 Requirement
 ----
@@ -44,7 +42,6 @@ Start node
 ----
 * `python3 localnode.py` Node working on local env, for debug.
 * `python3 publicnode.py` Node with mining/staking.
-* `python3 observenode.py` Node only accept blocks/txs.
 * `python3 repairwallet.py` Fix wallet data.
 
 Documents

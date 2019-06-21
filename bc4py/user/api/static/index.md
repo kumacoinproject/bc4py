@@ -61,26 +61,6 @@ Sending
 |[/private/issueminttx](./private/issueminttx)      |POST   |private  | Issue new mintcoin.                 |
 |[/private/changeminttx](./private/changeminttx)    |POST   |private  | Cahge mintcoin's status.            |
 
-Contract
-----
-[document link](./doc_contract.md)
-
-|URL    |Method    |Type    |About   |
-|----   |----   |----   |----   |
-|[/public/getcontractinfo](./public/getcontractinfo)           |GET    |public   | Get contract info.                           |
-|[/public/getvalidatorinfo](./public/getvalidatorinfo)         |GET    |public   | Get validator info.                          |
-|[/public/getcontracthistory](./public/getcontracthistory)           |GET    |public   | Get contract history.                           |
-|[/public/getvalidatorhistory](./public/getvalidatorhistory)         |GET    |public   | Get validator history.                          |
-|[/public/contractstorage](./public/contractstorage)           |GET    |public   | Get contract storage key-value.              |
-|[/private/watchinginfo](./private/watchinginfo)               |GET   |private  | Get account related contrac/validator tx.      |
-|[/private/sourcecompile](./private/sourcecompile)             |POST   |private  | Compile source.                              |
-|[/private/contractinit](./private/contractinit)               |POST   |private  | Init contract first of all.                  |
-|[/private/contractupdate](./private/contractupdate)           |POST   |private  | Update contract params after.                |
-|[/private/contracttransfer](./private/contracttransfer)       |POST   |private  | Start contract transaction.                  |
-|[/private/concludecontract](./private/concludecontract)       |POST   |private  | Conclude contract transaction.               |
-|[/private/validatoredit](./private/validatoredit)              |POST   |private  | Edit validator status.                      |
-|[/private/validateunconfirmed](./private/validateunconfirmed) |POST   |private  | Validate unconfirmed contract transactions.  |
-
 Blockchain
 ----
 [document link](./doc_blockchain.md)

@@ -26,16 +26,10 @@ struct_tx = struct.Struct('>2IB')
 struct_address = struct.Struct('>{}s32sB'.format(ADDR_SIZE))
 struct_address_idx = struct.Struct('>IQ?')
 struct_coins = struct.Struct('>II')
-struct_construct_key = struct.Struct('>{}sQ'.format(ADDR_SIZE))
-struct_construct_value = struct.Struct('>32s32s')
-struct_validator_key = struct.Struct('>{}sQ'.format(ADDR_SIZE))
-struct_validator_value = struct.Struct('>{}sb32sb'.format(ADDR_SIZE))
 
 # constant
 ITER_ORDER = 'big'
 DB_VERSION = 0  # increase if you change database structure
-ZERO_FILLED_HASH = b'\x00' * 32
-DUMMY_VALIDATOR_ADDRESS = b'\x00' * ADDR_SIZE
 
 
 class DataBase(object):
@@ -52,8 +46,6 @@ class DataBase(object):
         "_block_index",  # [height] -> [blockhash]
         "_address_index",  # [address][txhash][index] -> [coin_id, amount, f_used]
         "_coins",  # [coin_id][index] -> [txhash][params, setting]
-        "_contract",  # [address][index] -> [start_hash][finish_hash][c_method, c_args, c_storage]
-        "_validator",  # [address][index] -> [new_address][flag][txhash][sig_diff]
     ]
 
     def __init__(self, **kwargs):
@@ -76,8 +68,6 @@ class DataBase(object):
         self._block_index = plyvel.DB(os.path.join(dirs, 'block_index'), create_if_missing=f_create)
         self._address_index = plyvel.DB(os.path.join(dirs, 'address_index'), create_if_missing=f_create)
         self._coins = plyvel.DB(os.path.join(dirs, 'coins'), create_if_missing=f_create)
-        self._contract = plyvel.DB(os.path.join(dirs, 'contract'), create_if_missing=f_create)
-        self._validator = plyvel.DB(os.path.join(dirs, 'validator'), create_if_missing=f_create)
         self.batch: Optional[Dict[str, dict]] = None
         self.batch_thread: Optional[Thread] = None
         log.debug(':create database connect path={}'.format(dirs.replace("\\", "/")))
@@ -284,67 +274,6 @@ class DataBase(object):
                     txhash, (params, setting) = v[:32], unpackb(v[32:], raw=True, use_list=False, encoding='utf8')
                     yield index, txhash, params, setting
 
-    def read_contract_iter(self, c_address, start_idx=None):
-        f_batch = self.is_batch_thread()
-        batch_copy = self.batch['_contract'].copy() if self.batch else dict()
-        b_c_address = addr2bin(ck=c_address, hrp=V.BECH32_HRP)
-        # caution: iterator/RangeIter's result include start and stop, need to add 1.
-        start = b_c_address + ((start_idx + 1).to_bytes(8, ITER_ORDER) if start_idx else b'\x00' * 8)
-        stop = b_c_address + b'\xff'*8
-        contract_iter = self._contract.iterator(start=start, stop=stop)
-        for k, v in contract_iter:
-            k, v = bytes(k), bytes(v)
-            # KEY: [c_address 21s]-[index uint8]
-            # VALUE: [start_hash 32s]-[finish_hash 32s]-[msgpack(c_method, c_args, c_storage)]
-            # c_address, index, start_hash, finish_hash, message
-            if f_batch and k in batch_copy and start <= k <= stop:
-                v = batch_copy[k]
-                del batch_copy[k]
-            dummy, index = struct_construct_key.unpack(k)
-            start_hash, finish_hash, raw_message = v[0:32], v[32:64], v[64:]
-            message = unpackb(raw_message, raw=True, use_list=False, encoding='utf8')
-            yield index, start_hash, finish_hash, message
-        if f_batch:
-            for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
-                if k.startswith(b_c_address) and start <= k <= stop:
-                    dummy, index = struct_construct_key.unpack(k)
-                    start_hash, finish_hash, raw_message = v[0:32], v[32:64], v[64:]
-                    message = unpackb(raw_message, raw=True, use_list=False, encoding='utf8')
-                    yield index, start_hash, finish_hash, message
-
-    def read_validator_iter(self, v_address, start_idx=None):
-        f_batch = self.is_batch_thread()
-        batch_copy = self.batch['_validator'].copy() if self.batch else dict()
-        b_v_address = addr2bin(ck=v_address, hrp=V.BECH32_HRP)
-        # caution: iterator/RangeIter's result include start and stop, need to add 1.
-        start = b_v_address + ((start_idx + 1).to_bytes(8, ITER_ORDER) if start_idx else b'\x00' * 8)
-        stop = b_v_address + b'\xff'*8
-        # from database
-        validator_iter = self._validator.iterator(start=start, stop=stop)
-        for k, v in validator_iter:
-            k, v = bytes(k), bytes(v)
-            # KEY [v_address 21s]-[index unit8]
-            # VALUE [new_address 21s]-[flag int1]-[txhash 32s]-[sig_diff int1]
-            if f_batch and k in batch_copy and start <= k <= stop:
-                v = batch_copy[k]
-                del batch_copy[k]
-            dummy, index = struct_validator_key.unpack(k)
-            b_new_address, flag, txhash, sig_diff = struct_validator_value.unpack(v)
-            if b_new_address == DUMMY_VALIDATOR_ADDRESS:
-                yield index, None, flag, txhash, sig_diff
-            else:
-                yield index, bin2addr(b=b_new_address, hrp=V.BECH32_HRP), flag, txhash, sig_diff
-        # from memory
-        if f_batch:
-            for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
-                if k.startswith(b_v_address) and start <= k <= stop:
-                    dummy, index = struct_validator_key.unpack(k)
-                    b_new_address, flag, txhash, sig_diff = struct_validator_value.unpack(v)
-                    if b_new_address == DUMMY_VALIDATOR_ADDRESS:
-                        yield index, None, flag, txhash, sig_diff
-                    else:
-                        yield index, bin2addr(b=b_new_address, hrp=V.BECH32_HRP), flag, txhash, sig_diff
-
     def write_block(self, block):
         assert self.is_batch_thread(), 'Not created batch'
         tx_len = len(block.txs)
@@ -392,39 +321,6 @@ class DataBase(object):
         v = txhash + packb((params, setting), use_bin_type=True)
         self.batch['_coins'][k] = v
         log.debug("Insert new coins id={}".format(coin_id))
-
-    def write_contract(self, c_address, start_tx, finish_hash, message):
-        assert self.is_batch_thread(), 'Not created batch'
-        assert len(message) == 3
-        include_block = self.read_block(blockhash=self.read_block_hash(height=start_tx.height))
-        index = start_tx.height * 0xffffffff + include_block.txs.index(start_tx)
-        # check newer index already inserted
-        last_index = None
-        for last_index, *dummy in self.read_contract_iter(c_address=c_address, start_idx=index):
-            pass
-        assert last_index is None, 'Not allow older ConcludeTX insert. my={} last={}'.format(index, last_index)
-        k = addr2bin(ck=c_address, hrp=V.BECH32_HRP) + index.to_bytes(8, ITER_ORDER)
-        v = start_tx.hash + finish_hash + packb(message, use_bin_type=True)
-        self.batch['_contract'][k] = v
-        log.debug("Insert new contract {} {}".format(c_address, index))
-
-    def write_validator(self, v_address, new_address, flag, tx, sign_diff):
-        assert self.is_batch_thread(), 'Not created batch'
-        include_block = self.read_block(blockhash=self.read_block_hash(height=tx.height))
-        index = tx.height * 0xffffffff + include_block.txs.index(tx)
-        # check newer index already inserted
-        last_index = None
-        for last_index, *dummy in self.read_validator_iter(v_address=v_address, start_idx=index):
-            pass
-        assert last_index is None, 'Not allow older ValidatorEditTX insert. last={}'.format(last_index)
-        if new_address is None:
-            b_new_address = DUMMY_VALIDATOR_ADDRESS
-        else:
-            b_new_address = addr2bin(ck=new_address, hrp=V.BECH32_HRP)
-        k = addr2bin(ck=v_address, hrp=V.BECH32_HRP) + index.to_bytes(8, ITER_ORDER)
-        v = struct_validator_value.pack(b_new_address, flag, tx.hash, sign_diff)
-        self.batch['_validator'][k] = v
-        log.debug("Insert new validator {} {}".format(v_address, index))
 
 
 class ChainBuilder(object):
@@ -677,14 +573,12 @@ class ChainBuilder(object):
                             input_tx = tx_builder.get_tx(txhash)
                             address, coin_id, amount = input_tx.outputs[txindex]
                             if chain_builder.db.db_config['addrindex'] or \
-                                    is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_CONTRACT_VER) or \
                                     read_address2userid(address=address, cur=cur):
                                 # 必要なAddressのみ
                                 self.db.write_address_idx(address, txhash, txindex, coin_id, amount, True)
                         # outputs
                         for index, (address, coin_id, amount) in enumerate(tx.outputs):
                             if chain_builder.db.db_config['addrindex'] or \
-                                    is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_CONTRACT_VER) or \
                                     read_address2userid(address=address, cur=cur):
                                 # 必要なAddressのみ
                                 self.db.write_address_idx(address, tx.hash, index, coin_id, amount, False)
@@ -700,21 +594,6 @@ class ChainBuilder(object):
                         elif tx.type == C.TX_MINT_COIN:
                             mint_id, params, setting = tx.encoded_message()
                             self.db.write_coins(coin_id=mint_id, txhash=tx.hash, params=params, setting=setting)
-
-                        elif tx.type == C.TX_VALIDATOR_EDIT:
-                            v_address, new_address, flag, sig_diff = tx.encoded_message()
-                            self.db.write_validator(
-                                v_address=v_address, new_address=new_address, flag=flag, tx=tx, sign_diff=sig_diff)
-
-                        elif tx.type == C.TX_CONCLUDE_CONTRACT:
-                            v_address, start_hash, c_storage = tx.encoded_message()
-                            start_tx = tx_builder.get_tx(txhash=start_hash)
-                            dummy, c_method, redeem_address, c_args = start_tx.encoded_message()
-                            self.db.write_contract(
-                                c_address=v_address,
-                                start_tx=start_tx,
-                                finish_hash=tx.hash,
-                                message=(c_method, c_args, c_storage))
 
                 # block挿入終了
                 self.best_chain = best_chain
@@ -805,9 +684,6 @@ class TransactionBuilder(object):
     def __init__(self):
         # TXs that Blocks don't contain
         self.unconfirmed: Dict[bytes, TX] = dict()
-        # Contract/Validator related tx
-        # don't affect UTXO check. Ex, same inputs has or not enough signatures
-        self.pre_unconfirmed: Dict[bytes, TX] = dict()
         # TXs that MAIN chain contains
         self.chained_tx = weakref.WeakValueDictionary()
         # DataBase contains TXs
@@ -815,7 +691,6 @@ class TransactionBuilder(object):
 
     def put_unconfirmed(self, tx, outer_cur=None):
         assert tx.height is None, 'Not unconfirmed tx {}'.format(tx)
-        assert tx.hash not in self.pre_unconfirmed
         if tx.type in (C.TX_POW_REWARD, C.TX_POS_REWARD):
             return  # It is Reword tx
         elif tx.hash in self.unconfirmed:
@@ -831,31 +706,6 @@ class TransactionBuilder(object):
         if not stream.is_disposed:
             stream.on_next(tx)
 
-    def marge_signature(self, tx):
-        # try to marge signature
-        # check before signature manageable
-        if tx.hash in self.unconfirmed:
-            original_tx = self.unconfirmed[tx.hash]
-            new_signature = list(set(tx.signature) | set(original_tx.signature))
-            log.info("Marge unconfirmed TX's signature sign={}>{}".format(
-                len(original_tx.signature), len(new_signature)))
-            original_tx.signature = new_signature
-        elif tx.hash in self.pre_unconfirmed:
-            original_tx = self.pre_unconfirmed[tx.hash]
-            new_signature = list(set(tx.signature) | set(original_tx.signature))
-            log.info("Marge pre-unconfirmed TX's signature sign={}>{}".format(
-                len(original_tx.signature), len(new_signature)))
-            original_tx.signature = new_signature
-        elif tx.hash in self.chained_tx:
-            log.error("Try to marge already confirmed TX's signature {}".format(tx))
-        else:
-            # new pre-unconfirmed tx
-            tx.recode_flag = 'pre-unconfirmed'
-            self.pre_unconfirmed[tx.hash] = tx
-            if not stream.is_disposed:
-                stream.on_next(tx)
-            log.info("Insert pre-unconfirmed TX")
-
     def get_tx(self, txhash, default=None):
         if txhash in self.cashe:
             try:
@@ -863,11 +713,6 @@ class TransactionBuilder(object):
             except KeyError:
                 # flashed WeakValueDictionary, need to retry
                 return self.get_tx(txhash=txhash, default=default)
-        elif txhash in self.pre_unconfirmed:
-            # pre-unconfirmedより
-            tx = self.pre_unconfirmed[txhash]
-            tx.recode_flag = 'pre-unconfirmed'
-            if tx.height is not None: log.warning("Not unconfirmed. {}".format(tx))
         elif txhash in self.unconfirmed:
             # unconfirmedより
             tx = self.unconfirmed[txhash]

@@ -8,7 +8,6 @@ from bc4py.user.generate import *
 from bc4py.user.boot import *
 from bc4py.user.network import *
 from bc4py.user.api import create_rest_server
-from bc4py.contract.emulator import start_emulators, Emulate
 from bc4py.database.create import check_account_db
 from bc4py.database.builder import chain_builder
 from bc4py.chain.msgpack import default_hook, object_hook
@@ -93,10 +92,6 @@ def work(port, sub_dir):
     elif port % 3 == 2:
         Generate(consensus=C.BLOCK_X11_POW, power_limit=0.03).start()
     Generate(consensus=C.BLOCK_COIN_POS, power_limit=0.3).start()
-    # contract emulator
-    Emulate(c_address='CJ4QZ7FDEH5J7B2O3OLPASBHAFEDP6I7UKI2YMKF')
-    # Emulate(c_address='CLBKXHOTXTLK3FENVTCH6YPM5MFZS4BNAXFYNWBD')
-    start_emulators()
     Thread(target=mined_newblock, name='GeneBlock', args=(output_que,)).start()
     logging.info("Finished all initialize.")
 
