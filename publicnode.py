@@ -22,7 +22,7 @@ import logging
 loop = asyncio.get_event_loop()
 
 
-def stand_client(p2p_port, sub_dir=None):
+def setup_client(p2p_port, sub_dir=None):
     # BlockChain setup
     set_database_path(sub_dir=sub_dir)
     check_already_started()
@@ -71,33 +71,24 @@ def stand_client(p2p_port, sub_dir=None):
     logging.info("Finished all initialize.")
 
 
-def solo_mining():
-    Generate(consensus=C.BLOCK_YES_POW, power_limit=0.05).start()
-    Generate(consensus=C.BLOCK_X16S_POW, power_limit=0.05).start()
-    Generate(consensus=C.BLOCK_X11_POW, power_limit=0.05).start()
-    Generate(consensus=C.BLOCK_CAP_POS, power_limit=0.3, path="E:\\plots").start()
-
-
-def rest_server(user, password, rest_port, rest_host):
-    try:
-        create_rest_server(user=user, pwd=password, port=rest_port, host=rest_host)
-        loop.run_forever()
-    except Exception as e:
-        logging.error("exit by {}".format(e))
-    P.F_STOP = True
-    chain_builder.close()
-    V.P2P_OBJ.close()
-
-
 if __name__ == '__main__':
     p = console_args_parser()
     check_process_status(f_daemon=p.daemon)
     set_logger(level=logging.getLevelName(p.log_level), path=p.log_path, f_remove=p.remove_log)
     logging.info(f"\n{__logo__}\n====\nsystem (str) = {__version__}\nchain (int) = {__chain_version__}\n"
                  f"block (int) = {__block_version__}\nmessage = {__message__}")
-    stand_client(p2p_port=p.p2p, sub_dir=p.sub_dir)
+    setup_client(p2p_port=p.p2p, sub_dir=p.sub_dir)
+    create_rest_server(user=p.user, pwd=p.password, port=p.rest, host=p.host)
     if p.staking:
         Generate(consensus=C.BLOCK_COIN_POS, power_limit=0.3).start()
     if p.solo_mining:
-        solo_mining()
-    rest_server(user=p.user, password=p.password, rest_port=p.rest, rest_host=p.host)
+        Generate(consensus=C.BLOCK_YES_POW, power_limit=0.05).start()
+        Generate(consensus=C.BLOCK_X16S_POW, power_limit=0.05).start()
+        Generate(consensus=C.BLOCK_X11_POW, power_limit=0.05).start()
+        Generate(consensus=C.BLOCK_CAP_POS, power_limit=0.3, path="E:\\plots").start()
+    try:
+
+        loop.run_forever()
+    except Exception:
+        pass
+    loop.close()

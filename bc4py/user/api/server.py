@@ -1,6 +1,3 @@
-# insight API-ref
-# https://blockexplorer.com/api-ref
-
 from aiohttp import web
 from aiohttp_basicauth_middleware import basic_auth_middleware
 from aiohttp_basicauth_middleware.strategy import BaseStrategy
@@ -20,6 +17,9 @@ import os
 import asyncio
 from ssl import SSLContext, PROTOCOL_SSLv23
 from logging import getLogger, INFO
+
+# insight API-ref
+# https://blockexplorer.com/api-ref
 
 log = getLogger('bc4py')
 loop = asyncio.get_event_loop()
@@ -84,9 +84,9 @@ def create_rest_server(user='user', pwd='password', port=3000, host='127.0.0.1',
     :param host: REST bind host, "0.0.0.0" is global
     :param ssl_context: for SSL server
     """
+    assert not loop.is_running(), "setup before event loop start!"
     threading.current_thread().setName("REST")
     app = web.Application()
-    V.API_OBJ = app
 
     # System
     app.router.add_get('/public/getsysteminfo', system_info)
@@ -95,8 +95,8 @@ def create_rest_server(user='user', pwd='password', port=3000, host='127.0.0.1',
     app.router.add_get('/private/chainforkinfo', chain_fork_info)
     app.router.add_get('/public/getnetworkinfo', network_info)
     app.router.add_get('/private/createbootstrap', create_bootstrap)
-    app.router.add_get('/private/resync', resync)
-    app.router.add_get('/private/stop', close_server)
+    app.router.add_get('/private/resync', system_resync)
+    app.router.add_get('/private/stop', system_close)
     # Account
     app.router.add_get('/private/listbalance', list_balance)
     app.router.add_get('/private/listtransactions', list_transactions)
@@ -139,16 +139,13 @@ def create_rest_server(user='user', pwd='password', port=3000, host='127.0.0.1',
     app.middlewares.append(basic_auth_middleware(('/private/',), {user: pwd}, PrivateAccessStrategy))
 
     # Working
-    runner = web.AppRunner(app)
-    loop.run_until_complete(non_blocking_start(runner, host, port, ssl_context))
-    log.info(f"API listen on {host}:{port}")
-
-
-async def non_blocking_start(runner, host, port, ssl_context):
     # No blocking run https://docs.aiohttp.org/en/stable/web_advanced.html#application-runners
-    await runner.setup()
+    runner = web.AppRunner(app)
+    loop.run_until_complete(runner.setup())
     site = web.TCPSite(runner, host=host, port=port, ssl_context=ssl_context)
-    await site.start()
+    loop.run_until_complete(site.start())
+    log.info(f"API listen on {host}:{port}")
+    V.API_OBJ = runner
 
 
 async def web_page(request):
@@ -175,23 +172,18 @@ async def web_page(request):
         return utils.error_res()
 
 
-async def resync(request):
+async def system_resync(request):
     from bc4py.config import P
     log.warning("Manual set booting flag to go into resync mode")
     P.F_NOW_BOOTING = True
     return web.Response(text='set booting mode now')
 
 
-async def close_server(request):
-
-    def close():
-        log.debug("close server now")
-        loop.call_soon_threadsafe(loop.stop)
-
-    log.info("Closing server after 5 seconds")
-    import threading
-    threading.Timer(interval=5.0, function=close).start()
-    return web.Response(text='close server after 5 seconds')
+async def system_close(request):
+    log.info("closing now")
+    from bc4py.exit import system_safe_exit
+    asyncio.run_coroutine_threadsafe(system_safe_exit(), loop)
+    return web.Response(text='closing now')
 
 
 __all__ = [
