@@ -11,11 +11,11 @@ from bc4py_extension import sha256d_hash
 from msgpack import unpackb, packb
 from threading import Thread, Event, current_thread
 from typing import Optional, Dict, List
+from logging import getLogger, INFO
+from time import time
 import struct
 import weakref
 import os
-from time import time
-from logging import getLogger, INFO
 import plyvel
 
 log = getLogger('bc4py')

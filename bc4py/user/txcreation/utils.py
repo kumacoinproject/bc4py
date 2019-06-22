@@ -1,4 +1,4 @@
-from bc4py.config import C, V, BlockChainError
+from bc4py.config import C, BlockChainError
 from bc4py.bip32 import dummy_address
 from bc4py.database.builder import user_account
 from bc4py.database.account import sign_message_by_address, generate_new_address_by_userid

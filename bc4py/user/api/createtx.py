@@ -208,7 +208,7 @@ async def issue_mint_tx(request):
         try:
             user_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
             sender = read_name2userid(user_name, cur)
-            mint_id, tx = issue_mintcoin(
+            mint_id, tx = issue_mint_coin(
                 name=post['name'],
                 unit=post['unit'],
                 digit=post.get('digit', 8),
@@ -241,7 +241,7 @@ async def change_mint_tx(request):
         try:
             user_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
             sender = read_name2userid(user_name, cur)
-            tx = change_mintcoin(
+            tx = change_mint_coin(
                 mint_id=post['mint_id'],
                 cur=cur,
                 amount=post.get('amount'),

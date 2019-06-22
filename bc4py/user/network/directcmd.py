@@ -2,48 +2,11 @@ from bc4py.config import V, P, BlockChainError
 from bc4py.database.builder import chain_builder, tx_builder
 
 
-def _best_info():
-    if chain_builder.best_block:
-        return {'hash': chain_builder.best_block.hash, 'height': chain_builder.best_block.height, 'booting': P.F_NOW_BOOTING}
-    else:
-        return {'hash': None, 'height': None, 'booting': True}
-
-
-def _block_by_height(height):
-    block = chain_builder.get_block(height=height)
-    if block:
-        return block
-    else:
-        return 'Not found block height {}'.format(height)
-
-
-def _block_by_hash(blockhash):
-    block = chain_builder.get_block(blockhash=blockhash)
-    if block is None:
-        return 'Not found blockhash {}'.format(blockhash.hex())
-    return block
-
-
-def _tx_by_hash(txhash):
-    tx = tx_builder.get_tx(txhash=txhash)
-    if tx is None:
-        return 'Not found tx {}'.format(txhash.hex())
-    return tx
-
-
-def _unconfirmed_tx():
-    return {'txs': list(tx_builder.unconfirmed.keys())}
-
-
-def _big_blocks(index_height):
-    data = list()
-    for height in range(index_height, index_height + 20):
-        block = chain_builder.get_block(height=height)
-        if block is None:
-            break
-        data.append(block)
-    # TODO:一度に送信できるBytesにチェック
-    return data
+"""
+: Peer2Peer DirectCmd definition
+return string => ERROR
+return others => SUCCESS
+"""
 
 
 class DirectCmd(object):
@@ -56,57 +19,93 @@ class DirectCmd(object):
 
     @staticmethod
     def best_info(data):
+        """return best info of chain"""
         try:
-            return _best_info()
+            if chain_builder.best_block:
+                return {
+                    'hash': chain_builder.best_block.hash,
+                    'height': chain_builder.best_block.height,
+                    'booting': P.F_NOW_BOOTING,
+                }
+            else:
+                return {
+                    'hash': None,
+                    'height': None,
+                    'booting': True,
+                }
         except BlockChainError as e:
             return str(e)
 
     @staticmethod
     def block_by_height(data):
-        if 'height' not in data:
+        height = data.get('height')
+        if height is None:
             return 'do not find key "height"'
-        elif not isinstance(data['height'], int):
-            return 'height is not int! {}'.format(type(data['height']))
+        if not isinstance(height, int):
+            return f"height is not int! {height}"
         try:
-            return _block_by_height(height=data['height'])
+            block = chain_builder.get_block(height=height)
+            if block:
+                return block
+            else:
+                return f"Not found block height {height}"
         except BlockChainError as e:
             return str(e)
 
     @staticmethod
     def block_by_hash(data):
-        if 'blockhash' not in data:
+        blockhash = data.get('blockhash')
+        if blockhash is None:
             return 'do not find key "blockhash"'
-        elif not isinstance(data['blockhash'], bytes):
-            return 'blockhash is not bytes! {}'.format(type(data['blockhash']))
+        if not isinstance(blockhash, bytes):
+            return f"blockhash is not bytes! {blockhash}"
         try:
-            return _block_by_hash(blockhash=data['blockhash'])
+            block = chain_builder.get_block(blockhash=blockhash)
+            if block is None:
+                return f"Not found blockhash {blockhash.hex()}"
+            return block
         except BlockChainError as e:
             return str(e)
 
     @staticmethod
     def tx_by_hash(data):
-        if 'txhash' not in data:
+        txhash = data.get('txhash')
+        if txhash is None:
             return 'do not find key "txhash"'
-        elif not isinstance(data['txhash'], bytes):
-            return 'txhash is not bytes! {}'.format(type(data['txhash']))
+        elif not isinstance(txhash, bytes):
+            return f"txhash is not bytes! {txhash}"
         try:
-            return _tx_by_hash(txhash=data['txhash'])
+            tx = tx_builder.get_tx(txhash=txhash)
+            if tx is None:
+                return f"Not found tx {txhash.hex()}"
+            return tx
         except BlockChainError as e:
             return str(e)
 
     @staticmethod
     def unconfirmed_tx(data):
         try:
-            return _unconfirmed_tx()
+            return {
+                'txs': list(tx_builder.unconfirmed.keys()),
+            }
         except BlockChainError as e:
             return str(e)
 
     @staticmethod
     def big_blocks(data):
         try:
-            if 'height' not in data:
+            index_height = data.get('data')
+            request_len = data.get('request_len', 20)
+            if data is None:
                 return 'do not find key "height"'
-            else:
-                return _big_blocks(index_height=data['height'])
+            if not isinstance(request_len, int):
+                return f"request_len is int! {request_len}"
+            data = list()
+            for height in range(index_height, index_height + max(0, request_len)):
+                block = chain_builder.get_block(height=height)
+                if block is None:
+                    break
+                data.append(block)
+            return data
         except BlockChainError as e:
             return str(e)

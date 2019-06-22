@@ -1,8 +1,8 @@
 from bc4py.config import V, stream
 from bc4py.database.create import create_db, sql_info
+from logging import *
 import socket
 import os
-from logging import getLogger, Formatter, FileHandler, StreamHandler, DEBUG, INFO
 
 log = getLogger('bc4py')
 
@@ -53,8 +53,8 @@ def stream_printer():
     stream.subscribe(on_next=print, on_error=log.error)
 
 
-def _debug(sql, path, explain=True):
-    with create_db(path) as db:
+def debug_account(sql, explain=True):
+    with create_db(V.DB_ACCOUNT_PATH) as db:
         db.set_trace_callback(sql_info)
         cur = db.cursor()
         f = cur.execute(('explain query plan ' if explain else '') + sql)
@@ -67,5 +67,9 @@ def _debug(sql, path, explain=True):
                 c += 1
 
 
-def debug_account(sql, explain=True):
-    _debug(sql=sql, path=V.DB_ACCOUNT_PATH, explain=explain)
+__all__ = [
+    "f_already_bind",
+    "set_logger",
+    "stream_printer",
+    "debug_account",
+]

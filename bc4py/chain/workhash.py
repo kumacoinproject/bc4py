@@ -1,7 +1,5 @@
 from bc4py.config import C, BlockChainError
 from bc4py_extension import poc_hash, poc_work, scope_index
-from os import urandom
-from time import time
 from concurrent.futures import ProcessPoolExecutor
 from yespower import hash as yespower_hash  # for CPU
 from x11_hash import getPoWHash as x11_hash  # for ASIC
@@ -10,6 +8,8 @@ from litecoin_scrypt import getPoWHash as ltc_hash  # for ASIC
 from shield_x16s_hash import getPoWHash as x16s_hash  # for GPU
 from logging import getLogger
 from hashlib import sha256
+from os import urandom
+from time import time
 import psutil
 import atexit
 
