@@ -45,11 +45,10 @@ class Block(object):
     )
 
     def __eq__(self, other):
-        try:
+        if isinstance(other, Block):
             return self.hash == other.hash
-        except Exception:
-            log.warning("compare with {} by {}".format(self, other), exc_info=True)
-            return False
+        log.warning("compare with {} by {}".format(self, other))
+        return False
 
     def __hash__(self):
         return hash(self.hash)
