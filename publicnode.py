@@ -30,6 +30,7 @@ def setup_client(p2p_port, sub_dir=None):
     import_keystone(passphrase='hello python')
     check_account_db()
     genesis_block, genesis_params, network_ver, connections = load_boot_file()
+    set_blockchain_params(genesis_block, genesis_params)
     logging.info("Start p2p network-ver{} .".format(network_ver))
 
     # P2P network setup
@@ -43,7 +44,10 @@ def setup_client(p2p_port, sub_dir=None):
     p2p.event.addevent(cmd=DirectCmd.BIG_BLOCKS, f=DirectCmd.big_blocks)
     p2p.start()
     V.P2P_OBJ = p2p
+    loop.run_until_complete(setup_chain(p2p, connections))
 
+
+async def setup_chain(p2p, connections):
     if p2p.core.create_connection('tipnem.tk', 2000):
         logging.info("1Connect!")
     elif p2p.core.create_connection('nekopeg.tk', 2000):
@@ -51,14 +55,12 @@ def setup_client(p2p_port, sub_dir=None):
 
     for host, port in connections:
         p2p.core.create_connection(host, port)
-    set_blockchain_params(genesis_block, genesis_params)
 
     # BroadcastProcess setup
     p2p.broadcast_check = broadcast_check
 
     # Update to newest blockchain
-    chain_builder.db.sync = False
-    if chain_builder.init(genesis_block, batch_size=500):
+    if chain_builder.init(V.GENESIS_BLOCK, batch_size=500):
         # only genesisBlock yoy have, try to import bootstrap.dat.gz
         load_bootstrap_file()
     sync_chain_loop()
@@ -68,10 +70,10 @@ def setup_client(p2p_port, sub_dir=None):
     # Debug.F_SHOW_DIFFICULTY = True
     # Debug.F_STICKY_TX_REJECTION = False  # for debug
     Thread(target=mined_newblock, name='GeneBlock', args=(output_que,)).start()
-    logging.info("Finished all initialize.")
+    logging.info("finished all initialization")
 
 
-if __name__ == '__main__':
+def main():
     p = console_args_parser()
     check_process_status(f_daemon=p.daemon)
     set_logger(level=logging.getLevelName(p.log_level), path=p.log_path, f_remove=p.remove_log)
@@ -92,3 +94,7 @@ if __name__ == '__main__':
     except Exception:
         pass
     loop.close()
+
+
+if __name__ == '__main__':
+    main()
