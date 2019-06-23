@@ -2,15 +2,13 @@ aiohttp>=3.0.0b0 # ver3 required
 aiohttp_cors
 aiohttp-basicauth-middleware==1.1.2
 pycryptodomex
-p2p_python==2.1.1
+p2p_python==3.0.1
 psutil
-pysha3
-xmltodict
 requests
 more_itertools
 expiringdict
-phe  # paillier
-rx==1.6.1  # ReactiveX
+rx>=3.0.0b4  # ReactiveX
 msgpack>=0.5.6
 setuptools-rust
 mnemonic
+aiosqlite
