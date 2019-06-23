@@ -2,12 +2,12 @@ from bc4py.config import C, V, BlockChainError
 from bc4py.bip32 import Bip32, BIP32_HARDEN
 from bc4py.user import Accounting
 from bc4py.database.create import create_db
-from time import time
 from bc4py.utils import AESCipher
 from multi_party_schnorr import PyKeyPair
 from weakref import ref
 from logging import getLogger
 from sqlite3 import Cursor
+from time import time
 import os
 
 

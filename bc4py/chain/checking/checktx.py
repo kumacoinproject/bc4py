@@ -3,7 +3,6 @@ from bc4py.chain.tx import TX
 from bc4py.chain.block import Block
 from bc4py.chain.checking.tx_reward import *
 from bc4py.chain.checking.tx_mintcoin import *
-from bc4py.chain.checking.tx_contract import *
 from bc4py.chain.checking.utils import *
 from logging import getLogger
 from time import time
@@ -72,16 +71,6 @@ def check_tx(tx, include_block):
         f_signature_check = False
         check_tx_mint_coin(tx=tx, include_block=include_block)
 
-    elif tx.type == C.TX_VALIDATOR_EDIT:
-        f_signature_check = False
-        f_minimum_fee_check = False
-        check_tx_validator_edit(tx=tx, include_block=include_block)
-
-    elif tx.type == C.TX_CONCLUDE_CONTRACT:
-        f_signature_check = False
-        f_minimum_fee_check = False
-        check_tx_contract_conclude(tx=tx, include_block=include_block)
-
     else:
         raise BlockChainError('Unknown tx type "{}"'.format(tx.type))
 
@@ -128,15 +117,10 @@ def check_tx(tx, include_block):
 def check_tx_time(tx):
     # For unconfirmed tx
     now = int(time()) - V.BLOCK_GENESIS_TIME
-    if tx.type in (C.TX_VALIDATOR_EDIT, C.TX_CONCLUDE_CONTRACT):
-        if not (tx.time - C.ACCEPT_MARGIN_TIME < now < tx.deadline + C.ACCEPT_MARGIN_TIME):
-            raise BlockChainError('TX time is not correct range. {}<{}<{}'.format(
-                tx.time - C.ACCEPT_MARGIN_TIME, now, tx.deadline + C.ACCEPT_MARGIN_TIME))
-    else:
-        if tx.time > now + C.ACCEPT_MARGIN_TIME:
-            raise BlockChainError('TX time too early. {}>{}+{}'.format(tx.time, now, C.ACCEPT_MARGIN_TIME))
-        if tx.deadline < now - C.ACCEPT_MARGIN_TIME:
-            raise BlockChainError('TX time is too late. [{}<{}-{}]'.format(tx.deadline, now, C.ACCEPT_MARGIN_TIME))
+    if tx.time > now + C.ACCEPT_MARGIN_TIME:
+        raise BlockChainError('TX time too early. {}>{}+{}'.format(tx.time, now, C.ACCEPT_MARGIN_TIME))
+    if tx.deadline < now - C.ACCEPT_MARGIN_TIME:
+        raise BlockChainError('TX time is too late. [{}<{}-{}]'.format(tx.deadline, now, C.ACCEPT_MARGIN_TIME))
     # common check
     if tx.deadline - tx.time < 10800:
         raise BlockChainError('TX acceptable spam is too short. {}-{}<{}'.format(tx.deadline, tx.time, 10800))
@@ -185,10 +169,6 @@ def check_unconfirmed_order(best_block, ordered_unconfirmed_txs):
                 pass
             elif tx.type == C.TX_MINT_COIN:
                 check_tx_mint_coin(tx=tx, include_block=dummy_block)
-            elif tx.type == C.TX_VALIDATOR_EDIT:
-                check_tx_validator_edit(tx=tx, include_block=dummy_block)
-            elif tx.type == C.TX_CONCLUDE_CONTRACT:
-                check_tx_contract_conclude(tx=tx, include_block=dummy_block)
             else:
                 raise BlockChainError('Unknown tx type "{}"'.format(tx.type))
         else:

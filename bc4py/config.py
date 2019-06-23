@@ -1,4 +1,5 @@
 from p2p_python.server import Peer2Peer
+from aiohttp.web import AppRunner
 from rx.subjects import Subject
 from typing import Optional
 import atexit
@@ -50,8 +51,6 @@ class C:  # Constant
     TX_POS_REWARD = 2  # POSの報酬TX
     TX_TRANSFER = 3  # 送受金
     TX_MINT_COIN = 4  # 新規貨幣を鋳造
-    TX_VALIDATOR_EDIT = 8  # change validator info
-    TX_CONCLUDE_CONTRACT = 9  # conclude static contract tx
     TX_INNER = 255  # 内部のみで扱うTX
     txtype2name = {
         TX_GENESIS: 'GENESIS',
@@ -59,8 +58,6 @@ class C:  # Constant
         TX_POS_REWARD: 'POS_REWARD',
         TX_TRANSFER: 'TRANSFER',
         TX_MINT_COIN: 'MINT_COIN',
-        TX_VALIDATOR_EDIT: 'VALIDATOR_EDIT',
-        TX_CONCLUDE_CONTRACT: 'CONCLUDE_CONTRACT',
         TX_INNER: 'TX_INNER'
     }
 
@@ -83,8 +80,6 @@ class C:  # Constant
 
     # address params
     ADDR_NORMAL_VER = 0
-    ADDR_VALIDATOR_VER = 1
-    ADDR_CONTRACT_VER = 2
     BIP44_COIN_TYPE = 0x800002aa
 
     # block params
@@ -92,13 +87,9 @@ class C:  # Constant
 
     # account
     ANT_UNKNOWN = 0  # Unknown user
-    ANT_VALIDATOR = 1  # ValidatorAddress
-    ANT_CONTRACT = 2  # ContractAddress
     ANT_STAKED = 3  # Staked balance
     account2name = {
         ANT_UNKNOWN: '@Unknown',
-        ANT_VALIDATOR: '@Validator',
-        ANT_CONTRACT: '@Contract',
         ANT_STAKED: '@Staked',
     }
 
@@ -110,9 +101,6 @@ class C:  # Constant
     MEMORY_BATCH_SIZE = 30
     MINTCOIN_GAS = int(10 * pow(10, 6))  # 新規Mintcoin発行GasFee
     SIGNATURE_GAS = int(0.01 * pow(10, 6))  # gas per one signature
-    # CONTRACT_CREATE_FEE = int(10 * pow(10, 6))  # コントラクト作成GasFee
-    VALIDATOR_EDIT_GAS = int(10 * pow(10, 6))  # gas
-    CONTRACT_MINIMUM_INPUT = int(1 * pow(10, 8))  # Contractの発火最小amount
     EXTRA_OUTPUT_REWARD_FEE = int(0.0001 * pow(10, 8))  # subtract EXTRA_OUTPUT fee from reward
 
     # network params
@@ -150,8 +138,8 @@ class V:
 
     # mining
     MINING_ADDRESS = None
-    P2P_OBJ: Optional[Peer2Peer] = None  # P2P peer client object
-    API_OBJ = None  # REST API object
+    P2P_OBJ: Optional['Peer2Peer'] = None  # P2P peer client object
+    API_OBJ: Optional['AppRunner'] = None  # REST API object
 
     # developer
     BRANCH_NAME = None  # Github branch name

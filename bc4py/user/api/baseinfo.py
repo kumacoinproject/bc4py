@@ -76,7 +76,6 @@ async def system_info(request):
         'booting': P.F_NOW_BOOTING,
         'connections': len(V.P2P_OBJ.core.user),
         'unconfirmed': [txhash.hex() for txhash in tx_builder.unconfirmed.keys()],
-        'pre_unconfirmed': [txhash.hex() for txhash in tx_builder.pre_unconfirmed.keys()],
         'access_time': int(time()),
         'start_time': start_time
     }

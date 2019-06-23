@@ -1,8 +1,8 @@
 from bc4py.config import C, V
 from bc4py.bip32 import BIP32_HARDEN
 from contextlib import contextmanager
-from time import time
 from logging import getLogger
+from time import time
 import sqlite3
 import re
 import os
@@ -93,34 +93,34 @@ def check_account_db():
 
 def generate_wallet_db(db):
     db.execute("""
-                CREATE TABLE IF NOT EXISTS `log` (
-                `id` INTEGER PRIMARY KEY,
-                `hash` BINARY,
-                `index` INTEGER,
-                `type` INTEGER NOT NULL,
-                `user` INTEGER NOT NULL,
-                `coin_id` INTEGER NOT NULL,
-                `amount` INTEGER NOT NULL,
-                `time` INTEGER NOT NULL
-            )""")
+    CREATE TABLE IF NOT EXISTS `log` (
+    `id` INTEGER PRIMARY KEY,
+    `hash` BINARY,
+    `index` INTEGER,
+    `type` INTEGER NOT NULL,
+    `user` INTEGER NOT NULL,
+    `coin_id` INTEGER NOT NULL,
+    `amount` INTEGER NOT NULL,
+    `time` INTEGER NOT NULL
+    )""")
     db.execute("""
-                CREATE TABLE IF NOT EXISTS `account` (
-                `id` INTEGER PRIMARY KEY,
-                `extended_key` TEXT NOT NULL,
-                `name` TEXT UNIQUE NOT NULL,
-                `description` TEXT NOT NULL,
-                `time` INTEGER NOT NULL
-            )""")
+    CREATE TABLE IF NOT EXISTS `account` (
+    `id` INTEGER PRIMARY KEY,
+    `extended_key` TEXT NOT NULL,
+    `name` TEXT UNIQUE NOT NULL,
+    `description` TEXT NOT NULL,
+    `time` INTEGER NOT NULL
+    )""")
     db.execute("""
-                CREATE TABLE IF NOT EXISTS `pool` (
-                `id` INTEGER PRIMARY KEY,
-                `sk` BINARY,
-                `ck` TEXT UNIQUE NOT NULL,
-                `user` INTEGER NOT NULL,
-                `is_inner` INTEGER,
-                `index` INTEGER,
-                `time` INTEGER NOT NULL
-            )""")
+    CREATE TABLE IF NOT EXISTS `pool` (
+    `id` INTEGER PRIMARY KEY,
+    `sk` BINARY,
+    `ck` TEXT UNIQUE NOT NULL,
+    `user` INTEGER NOT NULL,
+    `is_inner` INTEGER,
+    `index` INTEGER,
+    `time` INTEGER NOT NULL
+    )""")
     # index
     sql = [
         "CREATE INDEX IF NOT EXISTS 'hash_idx' ON `log` (`hash`,`index`)",
@@ -139,7 +139,7 @@ def generate_wallet_db(db):
         C.account2name[account_id],
         "",
         0,
-    ) for account_id in (C.ANT_UNKNOWN, C.ANT_VALIDATOR, C.ANT_CONTRACT, C.ANT_STAKED)]
+    ) for account_id in (C.ANT_UNKNOWN, C.ANT_STAKED)]
     db.executemany("INSERT OR IGNORE INTO `account` VALUES (?,?,?,?,?)", accounts)
 
 

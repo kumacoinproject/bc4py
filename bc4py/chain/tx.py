@@ -45,7 +45,7 @@ class TX(object):
     def __eq__(self, other):
         if isinstance(other, TX):
             return self.hash == other.hash
-        log.warning("compare with {} by {}".format(self, other), exc_info=True)
+        log.warning("compare with {} by {}".format(self, other))
         return False
 
     def __hash__(self):

@@ -1,9 +1,9 @@
 from bc4py.config import V, P, BlockChainError
 from bc4py.user.network.directcmd import DirectCmd
-import random
 from collections import Counter
 from time import sleep
 from logging import getLogger
+import random
 
 log = getLogger('bc4py')
 good_node = list()

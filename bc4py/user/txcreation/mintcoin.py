@@ -11,18 +11,18 @@ import msgpack
 MINTCOIN_DUMMY_ADDRESS = dummy_address(b'MINTCOIN_DUMMY_ADDR_')
 
 
-def issue_mintcoin(name,
-                   unit,
-                   digit,
-                   amount,
-                   cur,
-                   description=None,
-                   image=None,
-                   additional_issue=True,
-                   change_address=True,
-                   gas_price=None,
-                   sender=C.ANT_UNKNOWN,
-                   retention=10800):
+def issue_mint_coin(name,
+                    unit,
+                    digit,
+                    amount,
+                    cur,
+                    description=None,
+                    image=None,
+                    additional_issue=True,
+                    change_address=True,
+                    gas_price=None,
+                    sender=C.ANT_UNKNOWN,
+                    retention=10800):
     mint_id = get_new_coin_id()
     mint_address = generate_new_address_by_userid(user=sender, cur=cur)
     params = {
@@ -78,16 +78,16 @@ def issue_mintcoin(name,
     return mint_id, tx
 
 
-def change_mintcoin(mint_id,
-                    cur,
-                    amount=None,
-                    description=None,
-                    image=None,
-                    setting=None,
-                    new_address=None,
-                    gas_price=None,
-                    sender=C.ANT_UNKNOWN,
-                    retention=10800):
+def change_mint_coin(mint_id,
+                     cur,
+                     amount=None,
+                     description=None,
+                     image=None,
+                     setting=None,
+                     new_address=None,
+                     gas_price=None,
+                     sender=C.ANT_UNKNOWN,
+                     retention=10800):
     assert amount or description or image or setting or new_address
     params = dict()
     if description:
@@ -168,6 +168,6 @@ def replace_mint_dummy_address(tx, mint_address, mint_id, f_raise):
 
 
 __all__ = [
-    "issue_mintcoin",
-    "change_mintcoin",
+    "issue_mint_coin",
+    "change_mint_coin",
 ]

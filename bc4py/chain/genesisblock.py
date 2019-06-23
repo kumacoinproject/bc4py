@@ -60,7 +60,6 @@ def create_genesis_block(mining_supply,
         'block_span': block_span,  # ブロックの採掘間隔
         'digit_number': digit_number,  # 小数点以下の桁数
         'minimum_price': minimum_price,
-        'contract_minimum_amount': pow(10, digit_number),
         'consensus': consensus,  # Block承認のアルゴリズム
     }
     V.BLOCK_GENESIS_TIME = genesis_time
