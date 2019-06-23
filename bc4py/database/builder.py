@@ -10,11 +10,11 @@ from bc4py.database.create import create_db
 from bc4py_extension import sha256d_hash
 from msgpack import unpackb, packb
 from threading import Thread, Event, current_thread
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, MutableMapping
+from weakref import WeakValueDictionary
 from logging import getLogger, INFO
 from time import time
 import struct
-import weakref
 import os
 import plyvel
 
@@ -614,7 +614,10 @@ class ChainBuilder(object):
                 return list()
 
     def new_block(self, new_block):
-        # とりあえず新規に挿入
+        """insert new block, Block/TX format is already checked"""
+        if new_block.height <= self.root_block.height:
+            return
+        # meet chain order: root_block < new_block
         self.chain[new_block.hash] = new_block
         # BestChainの変化を調べる
         new_best_block, new_best_chain = self.get_best_chain()
@@ -685,9 +688,9 @@ class TransactionBuilder(object):
         # TXs that Blocks don't contain
         self.unconfirmed: Dict[bytes, TX] = dict()
         # TXs that MAIN chain contains
-        self.chained_tx = weakref.WeakValueDictionary()
+        self.chained_tx: MutableMapping[bytes, TX] = WeakValueDictionary()
         # DataBase contains TXs
-        self.cashe = weakref.WeakValueDictionary()
+        self.cashe: MutableMapping[bytes, TX] = WeakValueDictionary()
 
     def put_unconfirmed(self, tx, outer_cur=None):
         assert tx.height is None, 'Not unconfirmed tx {}'.format(tx)
