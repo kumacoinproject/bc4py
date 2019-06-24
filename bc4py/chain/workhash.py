@@ -10,10 +10,12 @@ from logging import getLogger
 from hashlib import sha256
 from os import urandom
 from time import time
+import asyncio
 import psutil
 import atexit
 
 
+loop = asyncio.get_event_loop()
 log = getLogger('bc4py')
 
 
@@ -72,11 +74,13 @@ def update_work_hash(block):
         block.work_hash = hash_fnc(block.b)
 
 
-def generate_many_hash(executor: ProcessPoolExecutor, block, request_num):
+async def generate_many_hash(executor: ProcessPoolExecutor, block, request_num):
     assert request_num > 0
     # hash generating with multi-core
-    future = executor.submit(_pow_generator, block.b, block.flag, request_num)
-    binary, hashed, start = future.result(timeout=120)
+    future: asyncio.Future = loop.run_in_executor(
+        executor, pow_generator, block.b, block.flag, request_num)
+    await asyncio.wait_for(future, 120.0)
+    binary, hashed, start = future.result()
     if binary is None:
         raise Exception(hashed)
     block.b = binary
@@ -85,7 +89,7 @@ def generate_many_hash(executor: ProcessPoolExecutor, block, request_num):
     return time() - start
 
 
-def _pow_generator(binary, block_flag, request_num):
+def pow_generator(binary, block_flag, request_num):
     start = time()
     try:
         hash_fnc = get_workhash_fnc(block_flag)

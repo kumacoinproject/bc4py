@@ -12,3 +12,4 @@ msgpack>=0.5.6
 setuptools-rust
 mnemonic
 aiosqlite
+asyncio-contextmanager

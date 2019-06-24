@@ -1,10 +1,12 @@
 from bc4py.config import V, P, BlockChainError
 from bc4py.user.network.directcmd import DirectCmd
 from collections import Counter
-from time import sleep
 from logging import getLogger
 import random
+import asyncio
 
+
+loop = asyncio.get_event_loop()
 log = getLogger('bc4py')
 good_node = list()
 bad_node = list()
@@ -12,17 +14,17 @@ best_hash_on_network = None
 best_height_on_network = None
 
 
-def set_good_node():
+async def set_good_node():
     node = list()
     pc = V.P2P_OBJ
     status_counter = Counter()
     f_all_booting = True  # flag: there is no stable node
     for user in pc.core.user:
         try:
-            dummy, r = pc.send_direct_cmd(cmd=DirectCmd.BEST_INFO, data=None, user=user)
+            dummy, r = await pc.send_direct_cmd(cmd=DirectCmd.best_info, data=None, user=user)
             if isinstance(r, str):
                 continue
-        except TimeoutError:
+        except asyncio.TimeoutError:
             log.debug("timeout", exc_info=True)
             continue
         # success get best-info
@@ -62,8 +64,8 @@ def reset_good_node():
     best_height_on_network = None
 
 
-def ask_node(cmd, data=None, f_continue_asking=False):
-    check_network_connection()
+async def ask_node(cmd, data=None, f_continue_asking=False):
+    await check_network_connection()
     failed = 0
     pc = V.P2P_OBJ
     user_list = pc.core.user.copy()
@@ -73,10 +75,10 @@ def ask_node(cmd, data=None, f_continue_asking=False):
             if len(user_list) == 0:
                 break
             if len(good_node) == 0:
-                set_good_node()
+                await set_good_node()
             user = user_list.pop()
             if user in good_node:
-                dummy, r = pc.send_direct_cmd(cmd=cmd, data=data, user=user)
+                dummy, r = await pc.send_direct_cmd(cmd=cmd, data=data, user=user)
                 if isinstance(r, str):
                     failed += 1
                     if f_continue_asking:
@@ -86,18 +88,18 @@ def ask_node(cmd, data=None, f_continue_asking=False):
             elif user in bad_node:
                 pass
             else:
-                set_good_node()
-        except TimeoutError:
+                await set_good_node()
+        except asyncio.TimeoutError:
             pass
         except UnstableNetworkError as e:
             log.warning("{}, wait 30sec".format(e))
-            sleep(30)
+            await asyncio.sleep(30)
     raise BlockChainError('Too many retry ask_node. good={} bad={} failed={} cmd={}'.format(
         len(good_node), len(bad_node), failed, cmd))
 
 
-def ask_all_nodes(cmd, data=None):
-    check_network_connection()
+async def ask_all_nodes(cmd, data=None):
+    await check_network_connection()
     pc = V.P2P_OBJ
     user_list = pc.core.user.copy()
     random.shuffle(user_list)
@@ -105,64 +107,64 @@ def ask_all_nodes(cmd, data=None):
     for user in pc.core.user.copy():
         try:
             if len(good_node) == 0:
-                set_good_node()
+                await set_good_node()
             # check both good and bad
             if user in good_node or user in bad_node:
-                dummy, r = pc.send_direct_cmd(cmd=cmd, data=data, user=user)
+                dummy, r = await pc.send_direct_cmd(cmd=cmd, data=data, user=user)
                 if not isinstance(r, str):
                     result.append(r)
             else:
-                set_good_node()
-        except TimeoutError:
+                await set_good_node()
+        except asyncio.TimeoutError:
             pass
         except UnstableNetworkError as e:
             log.warning("{}, wait 30sec".format(e))
-            sleep(30)
+            await asyncio.sleep(30)
     if len(result) > 0:
         return result
     raise BlockChainError('Cannot get any data. good={} bad={} cmd={}'.format(len(good_node), len(bad_node), cmd))
 
 
-def seek_nodes(cmd, data=None):
-    check_network_connection()
+async def seek_nodes(cmd, data=None):
+    await check_network_connection()
     pc = V.P2P_OBJ
     user_list = pc.core.user.copy()
     random.shuffle(user_list)
     for user in pc.core.user.copy():
         try:
             if len(good_node) == 0:
-                set_good_node()
+                await set_good_node()
             # check both good and bad
             if user in good_node or user in bad_node:
-                dummy, r = pc.send_direct_cmd(cmd=cmd, data=data, user=user)
+                dummy, r = await pc.send_direct_cmd(cmd=cmd, data=data, user=user)
                 if not isinstance(r, str):
                     return r
             else:
-                set_good_node()
-        except TimeoutError:
+                await set_good_node()
+        except asyncio.TimeoutError:
             pass
         except UnstableNetworkError as e:
             log.warning("{}, wait 30sec".format(e))
-            sleep(30)
+            await asyncio.sleep(30)
     raise BlockChainError('Full seeked but cannot get any data. good={} bad={} cmd={}'
                           .format(len(good_node), len(bad_node), cmd))
 
 
-def get_best_conn_info():
+async def get_best_conn_info():
     while best_height_on_network is None:
-        set_good_node()
-        sleep(0.1)
+        await set_good_node()
+        await asyncio.sleep(0.1)
     return best_height_on_network, best_hash_on_network
 
 
-def check_network_connection(minimum=None):
+async def check_network_connection(minimum=None):
     count = 0
     need = minimum or 2
     while not P.F_STOP and len(V.P2P_OBJ.core.user) <= need:
         count += 1
         if count % 30 == 0:
             log.debug("{} connections, waiting for new.. {}Sec".format(len(V.P2P_OBJ.core.user), count))
-        sleep(1)
+        await asyncio.sleep(1)
 
 
 class UnstableNetworkError(Exception):

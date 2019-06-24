@@ -1,17 +1,18 @@
 from bc4py.config import C, V
 from bc4py.bip32 import BIP32_HARDEN
-from contextlib import contextmanager
-from logging import getLogger
+from aiocontext import async_contextmanager
+from aiosqlite import connect, Connection, Cursor
+from logging import getLogger, INFO
 from time import time
-import sqlite3
 import re
 import os
 
 log = getLogger('bc4py')
+getLogger('aiosqlite').setLevel(INFO)
 
 
-@contextmanager
-def create_db(path, f_strict=False, f_debug=False):
+@async_contextmanager
+async def create_db(path, strict=False) -> Connection:
     """
     account database connector
 
@@ -31,33 +32,23 @@ def create_db(path, f_strict=False, f_debug=False):
         NORMAL: sync at the most critical moments, but less often than in FULL mode.
         OFF: without syncing as soon as it has handed data off to the operating system.
     """
-    assert isinstance(path, str), 'You need initialize by set_database_path() before'
-    conn = sqlite3.connect(path, timeout=120)
+    conn = await connect(path, timeout=120.0)
 
     # cashe size, default 2000
-    if isinstance(C.SQLITE_CASHE_SIZE, int):
-        conn.execute("PRAGMA cache_size = {}".format(C.SQLITE_CASHE_SIZE))
+    # conn.execute("PRAGMA cache_size = 4000")
 
-    # journal mode, default DELETE
-    if isinstance(C.SQLITE_JOURNAL_MODE, str):
-        conn.isolation_level = None
-        conn.execute("PRAGMA journal_mode = {}".format(C.SQLITE_JOURNAL_MODE))
-        conn.isolation_level = 'EXCLUSIVE' if f_strict else 'IMMEDIATE'
-    else:
-        conn.isolation_level = 'EXCLUSIVE' if f_strict else 'IMMEDIATE'
+    # journal mode
+    await conn.execute("PRAGMA journal_mode = WAL")
+    conn.isolation_level = 'EXCLUSIVE' if strict else 'IMMEDIATE'
 
-    # synchronous mode, default FULL
-    if isinstance(C.SQLITE_SYNC_MODE, str):
-        conn.execute("PRAGMA synchronous = {}".format(C.SQLITE_SYNC_MODE))
-
-    if f_debug:
-        conn.set_trace_callback(sql_info)
+    # synchronous mode
+    await conn.execute("PRAGMA synchronous = NORMAL")
 
     # manage close process with contextmanager
     try:
         yield conn
     finally:
-        conn.close()
+        await conn.close()
 
 
 def sql_info(data):
@@ -65,17 +56,18 @@ def sql_info(data):
     log.debug("SQL: {} {}".format(round(time() - V.BLOCK_GENESIS_TIME, 4), re.sub(r"\s+", " ", data)))
 
 
-def check_account_db():
+async def check_account_db():
     if os.path.exists(V.DB_ACCOUNT_PATH):
         if V.EXTENDED_KEY_OBJ is None or V.EXTENDED_KEY_OBJ.secret is None:
             log.debug("already exist wallet without check")
         else:
-            with create_db(V.DB_ACCOUNT_PATH) as db:
-                cur = db.cursor()
-                d = cur.execute("SELECT `extended_key` FROM `account` WHERE `id`=0").fetchone()
-                if d is None:
+            async with create_db(V.DB_ACCOUNT_PATH) as db:
+                cur = await db.cursor()
+                await cur.execute("SELECT `extended_key` FROM `account` WHERE `id`=0")
+                data = await cur.fetchone()
+                if data is None:
                     raise Exception('wallet is exist but not initialized')
-            db_extended_key = d[0]
+            db_extended_key = data[0]
             stone_extended_key = V.EXTENDED_KEY_OBJ.child_key(0 + BIP32_HARDEN).extended_key(False)
             if db_extended_key == stone_extended_key:
                 log.debug("already exist wallet, check success!")
@@ -83,16 +75,17 @@ def check_account_db():
                 raise Exception('already exist wallet, check failed db={} stone={}'
                                 .format(db_extended_key, stone_extended_key))
     else:
-        with create_db(V.DB_ACCOUNT_PATH) as db:
-            generate_wallet_db(db)
-            db.commit()
+        async with create_db(V.DB_ACCOUNT_PATH) as db:
+            cur = await db.cursor()
+            await generate_wallet_db(cur)
+            await db.commit()
         log.info("generate wallet success")
     # small update
-    affect_new_change()
+    await affect_new_change()
 
 
-def generate_wallet_db(db):
-    db.execute("""
+async def generate_wallet_db(cur: Cursor):
+    await cur.execute("""
     CREATE TABLE IF NOT EXISTS `log` (
     `id` INTEGER PRIMARY KEY,
     `hash` BINARY,
@@ -103,7 +96,7 @@ def generate_wallet_db(db):
     `amount` INTEGER NOT NULL,
     `time` INTEGER NOT NULL
     )""")
-    db.execute("""
+    await cur.execute("""
     CREATE TABLE IF NOT EXISTS `account` (
     `id` INTEGER PRIMARY KEY,
     `extended_key` TEXT NOT NULL,
@@ -111,7 +104,7 @@ def generate_wallet_db(db):
     `description` TEXT NOT NULL,
     `time` INTEGER NOT NULL
     )""")
-    db.execute("""
+    await cur.execute("""
     CREATE TABLE IF NOT EXISTS `pool` (
     `id` INTEGER PRIMARY KEY,
     `sk` BINARY,
@@ -129,7 +122,7 @@ def generate_wallet_db(db):
         "CREATE INDEX IF NOT EXISTS 'user_idx' ON `pool` (`user`)"
     ]
     for s in sql:
-        db.execute(s)
+        await cur.execute(s)
     # default account
     if V.EXTENDED_KEY_OBJ is None or V.EXTENDED_KEY_OBJ.secret is None:
         raise Exception('Need to create root accounts first, do "import_keystone" before')
@@ -140,25 +133,25 @@ def generate_wallet_db(db):
         "",
         0,
     ) for account_id in (C.ANT_UNKNOWN, C.ANT_STAKED)]
-    db.executemany("INSERT OR IGNORE INTO `account` VALUES (?,?,?,?,?)", accounts)
+    await cur.executemany("INSERT OR IGNORE INTO `account` VALUES (?,?,?,?,?)", accounts)
 
 
-def affect_new_change():
+async def affect_new_change():
     """update differences when wallet format changed"""
-    with create_db(V.DB_ACCOUNT_PATH) as db:
-        cur = db.cursor()
+    async with create_db(V.DB_ACCOUNT_PATH) as db:
+        cur = await db.cursor()
         # rename @Mining to @Staked
-        cur.execute('SELECT `id` FROM `account` WHERE `name`=?', ('@Mining',))
-        uuid = cur.fetchone()
+        await cur.execute('SELECT `id` FROM `account` WHERE `name`=?', ('@Mining',))
+        uuid = await cur.fetchone()
         if uuid is not None:
             uuid = uuid[0]
-            cur.execute('UPDATE `account` SET `name`=? WHERE `id`=?', (C.account2name[C.ANT_STAKED], uuid,))
-            db.commit()
+            await cur.execute('UPDATE `account` SET `name`=? WHERE `id`=?', (C.account2name[C.ANT_STAKED], uuid,))
+            await db.commit()
             log.info("change user_name @Mining to @Staked")
 
 
-def recreate_wallet_db(db):
-    raise Exception('unimplemented')
+async def recreate_wallet_db(db):
+    raise NotImplemented
 
 
 __all__ = [

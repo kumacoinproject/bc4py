@@ -1,20 +1,19 @@
-from bc4py.config import V, P, stream, BlockChainError
+from bc4py.config import stream, BlockChainError
 from bc4py.chain.checking.checkblock import check_block, check_block_time
 from bc4py.chain.checking.checktx import check_tx, check_tx_time
 from bc4py.chain.signature import fill_verified_addr_single
 from bc4py.database.builder import chain_builder, user_account
-import threading
-from time import time
 from logging import getLogger
+from time import time
+import asyncio
 
-
-new_block_lock = threading.Lock()
+new_block_lock = asyncio.Lock()
 log = getLogger('bc4py')
 
 
-def new_insert_block(block, f_time=True, f_sign=True):
+async def new_insert_block(block, f_time=True, f_sign=True):
     t = time()
-    with new_block_lock:
+    async with new_block_lock:
         fixed_delay = time() - t
         try:
             # Check
@@ -22,7 +21,7 @@ def new_insert_block(block, f_time=True, f_sign=True):
                 check_block_time(block, fixed_delay)
             check_block(block)
             if f_sign:
-                fill_verified_addr_single(block)
+                await fill_verified_addr_single(block)
             for tx in block.txs:
                 check_tx(tx=tx, include_block=block)
                 if f_time:
@@ -30,9 +29,9 @@ def new_insert_block(block, f_time=True, f_sign=True):
             # Recode
             chain_builder.new_block(block)
             for tx in block.txs:
-                user_account.affect_new_tx(tx)
+                await user_account.affect_new_tx(tx)
             # insert database
-            chain_builder.batch_apply()
+            await chain_builder.batch_apply()
             # inner streaming
             if not stream.is_disposed:
                 stream.on_next(block)

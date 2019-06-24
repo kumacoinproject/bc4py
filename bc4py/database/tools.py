@@ -75,9 +75,9 @@ def get_unspents_iter(target_address, best_block=None, best_chain=None):
     # address, height, txhash, index, coin_id, amount
 
 
-def get_my_unspents_iter(cur, best_chain=None):
-    target_address = read_all_pooled_address(cur=cur)
-    yield from get_unspents_iter(target_address=target_address, best_block=None, best_chain=best_chain)
+async def get_my_unspents_iter(cur, best_chain=None):
+    target_address = await read_all_pooled_address(cur=cur)
+    return get_unspents_iter(target_address=target_address, best_block=None, best_chain=best_chain)
 
 
 def get_usedindex(txhash, best_block=None, best_chain=None):

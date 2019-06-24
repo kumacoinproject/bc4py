@@ -15,6 +15,10 @@ from p2p_python.server import Peer2Peer
 from bc4py.for_debug import set_logger
 from time import sleep
 import logging
+import asyncio
+
+
+loop = asyncio.get_event_loop()
 
 
 def work(port, sub_dir=None):
@@ -25,49 +29,46 @@ def work(port, sub_dir=None):
     import_keystone(passphrase='hello python')
     check_account_db()
     genesis_block, genesis_params, network_ver, connections = load_boot_file()
+    set_blockchain_params(genesis_block, genesis_params)
     logging.info("Start p2p network-ver{} .".format(network_ver))
 
     # P2P network setup
     setup_p2p_params(network_ver=network_ver, p2p_port=port, sub_dir=sub_dir)
     p2p = Peer2Peer(default_hook=default_hook, object_hook=object_hook)
-    p2p.event.addevent(cmd=DirectCmd.BEST_INFO, f=DirectCmd.best_info)
-    p2p.event.addevent(cmd=DirectCmd.BLOCK_BY_HEIGHT, f=DirectCmd.block_by_height)
-    p2p.event.addevent(cmd=DirectCmd.BLOCK_BY_HASH, f=DirectCmd.block_by_hash)
-    p2p.event.addevent(cmd=DirectCmd.TX_BY_HASH, f=DirectCmd.tx_by_hash)
-    p2p.event.addevent(cmd=DirectCmd.UNCONFIRMED_TX, f=DirectCmd.unconfirmed_tx)
-    p2p.event.addevent(cmd=DirectCmd.BIG_BLOCKS, f=DirectCmd.big_blocks)
-    p2p.start()
+    p2p.event.setup_events_from_class(DirectCmd)
+    p2p.setup()
     V.P2P_OBJ = p2p
+    loop.run_until_complete(setup_chain(p2p, connections))
 
-    if p2p.core.create_connection('tipnem.tk', 2000):
+
+async def setup_chain(p2p, connections):
+    if await p2p.core.create_connection('tipnem.tk', 2000):
         logging.info("1Connect!")
-    elif p2p.core.create_connection('nekopeg.tk', 2000):
+    elif await p2p.core.create_connection('nekopeg.tk', 2000):
         logging.info("2Connect!")
 
     for host, port in connections:
-        p2p.core.create_connection(host, port)
-    set_blockchain_params(genesis_block, genesis_params)
+        await p2p.core.create_connection(host, port)
 
     # BroadcastProcess setup
     p2p.broadcast_check = broadcast_check
 
     # Update to newest blockchain
-    chain_builder.db.sync = False
-    if chain_builder.init(genesis_block, batch_size=500):
+    if await chain_builder.init(V.GENESIS_BLOCK, batch_size=500):
         # only genesisBlock yoy have, try to import bootstrap.dat.gz
-        load_bootstrap_file()
-    sync_chain_loop()
+        await load_bootstrap_file()
+    await sync_chain_loop()
     logging.info("Finished all initialize.")
 
     while P.F_NOW_BOOTING:
         sleep(5)
 
     # repair
-    repair_wallet()
+    await repair_wallet()
 
     # close
     P.F_STOP = True
-    chain_builder.close()
+    await chain_builder.close()
     p2p.close()
     logging.info("Finish repair wallet.")
 

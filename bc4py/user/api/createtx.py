@@ -88,7 +88,7 @@ async def sign_raw_tx(request):
             input_tx = tx_builder.get_tx(txhash)
             address, coin_id, amount = input_tx.outputs[txindex]
             try:
-                tx.signature.append(sign_message_by_address(raw=tx.b, address=address))
+                tx.signature.append(await sign_message_by_address(raw=tx.b, address=address))
             except BlockChainError:
                 if address not in other_pairs:
                     raise BlockChainError('Not found secret key "{}"'.format(address))
@@ -126,11 +126,11 @@ async def send_from_user(request):
     if P.F_NOW_BOOTING:
         return web.Response(text='Now booting', status=403)
     post = await utils.content_type_json_check(request)
-    with create_db(V.DB_ACCOUNT_PATH, f_strict=True) as db:
-        cur = db.cursor()
+    async with create_db(V.DB_ACCOUNT_PATH, strict=True) as db:
+        cur = await db.cursor()
         try:
             from_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
-            from_id = read_name2userid(from_name, cur)
+            from_id = await read_name2userid(from_name, cur)
             to_address = post['address']
             coin_id = int(post.get('coin_id', 0))
             amount = int(post['amount'])
@@ -144,12 +144,12 @@ async def send_from_user(request):
             else:
                 msg_type = C.MSG_NONE
                 msg_body = b''
-            new_tx = send_from(from_id, to_address, coins, cur, msg_type=msg_type, msg_body=msg_body)
+            new_tx = await send_from(from_id, to_address, coins, cur, msg_type=msg_type, msg_body=msg_body)
             if 'R' in post:
                 new_tx.R = a2b_hex(post['R'])
-            if not send_newtx(new_tx=new_tx, outer_cur=cur):
+            if not await send_newtx(new_tx=new_tx):
                 raise BlockChainError('Failed to send new tx')
-            db.commit()
+            await db.commit()
             return utils.json_res({
                 'hash': new_tx.hash.hex(),
                 'gas_amount': new_tx.gas_amount,
@@ -167,11 +167,11 @@ async def send_many_user(request):
     if P.F_NOW_BOOTING:
         return web.Response(text='Now booting', status=403)
     post = await utils.content_type_json_check(request)
-    with create_db(V.DB_ACCOUNT_PATH, f_strict=True) as db:
-        cur = db.cursor()
+    async with create_db(V.DB_ACCOUNT_PATH, strict=True) as db:
+        cur = await db.cursor()
         try:
             user_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
-            user_id = read_name2userid(user_name, cur)
+            user_id = await read_name2userid(user_name, cur)
             send_pairs = list()
             for address, coin_id, amount in post['pairs']:
                 send_pairs.append((address, int(coin_id), int(amount)))
@@ -184,10 +184,10 @@ async def send_many_user(request):
             else:
                 msg_type = C.MSG_NONE
                 msg_body = b''
-            new_tx = send_many(user_id, send_pairs, cur, msg_type=msg_type, msg_body=msg_body)
-            if not send_newtx(new_tx=new_tx, outer_cur=cur):
+            new_tx = await send_many(user_id, send_pairs, cur, msg_type=msg_type, msg_body=msg_body)
+            if not await send_newtx(new_tx=new_tx):
                 raise BlockChainError('Failed to send new tx')
-            db.commit()
+            await db.commit()
             return utils.json_res({
                 'hash': new_tx.hash.hex(),
                 'gas_amount': new_tx.gas_amount,
@@ -196,19 +196,19 @@ async def send_many_user(request):
                 'time': round(time() - start, 3)
             })
         except Exception as e:
-            db.rollback()
+            await db.rollback()
             return utils.error_res()
 
 
 async def issue_mint_tx(request):
     start = time()
     post = await utils.content_type_json_check(request)
-    with create_db(V.DB_ACCOUNT_PATH, f_strict=True) as db:
-        cur = db.cursor()
+    async with create_db(V.DB_ACCOUNT_PATH, strict=True) as db:
+        cur = await db.cursor()
         try:
             user_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
-            sender = read_name2userid(user_name, cur)
-            mint_id, tx = issue_mint_coin(
+            sender = await read_name2userid(user_name, cur)
+            mint_id, tx = await issue_mint_coin(
                 name=post['name'],
                 unit=post['unit'],
                 digit=post.get('digit', 8),
@@ -218,9 +218,9 @@ async def issue_mint_tx(request):
                 image=post.get('image', None),
                 additional_issue=post.get('additional_issue', True),
                 sender=sender)
-            if not send_newtx(new_tx=tx, outer_cur=cur):
+            if not await send_newtx(new_tx=tx):
                 raise BlockChainError('Failed to send new tx')
-            db.commit()
+            await db.commit()
             return utils.json_res({
                 'hash': tx.hash.hex(),
                 'gas_amount': tx.gas_amount,
@@ -236,12 +236,12 @@ async def issue_mint_tx(request):
 async def change_mint_tx(request):
     start = time()
     post = await utils.content_type_json_check(request)
-    with create_db(V.DB_ACCOUNT_PATH, f_strict=True) as db:
-        cur = db.cursor()
+    async with create_db(V.DB_ACCOUNT_PATH, strict=True) as db:
+        cur = await db.cursor()
         try:
             user_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
-            sender = read_name2userid(user_name, cur)
-            tx = change_mint_coin(
+            sender = await read_name2userid(user_name, cur)
+            tx = await change_mint_coin(
                 mint_id=post['mint_id'],
                 cur=cur,
                 amount=post.get('amount'),
@@ -250,9 +250,9 @@ async def change_mint_tx(request):
                 setting=post.get('setting'),
                 new_address=post.get('new_address'),
                 sender=sender)
-            if not send_newtx(new_tx=tx, outer_cur=cur):
+            if not await send_newtx(new_tx=tx):
                 raise BlockChainError('Failed to send new tx')
-            db.commit()
+            await db.commit()
             return utils.json_res({
                 'hash': tx.hash.hex(),
                 'gas_amount': tx.gas_amount,

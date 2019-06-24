@@ -1,4 +1,4 @@
-from bc4py.config import V, P
+from bc4py.config import V, P, stream
 from logging import getLogger
 import asyncio
 
@@ -12,8 +12,12 @@ async def system_safe_exit():
     log.info("start system stop process")
     try:
         P.F_STOP = True
+
+        # reactive stream close
+        stream.dispose()
+
         from bc4py.database.builder import chain_builder
-        chain_builder.close()
+        await chain_builder.close()
 
         if V.API_OBJ:
             await V.API_OBJ.shutdown()  # should be called before cleanup()

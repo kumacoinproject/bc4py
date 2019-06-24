@@ -44,20 +44,18 @@ async def sendtoaddress(*args, **kwargs):
     from_id = C.ANT_UNKNOWN
     coin_id = 0
     coins = Balance(coin_id, amount)
-    with create_db(V.DB_ACCOUNT_PATH) as db:
-        cur = db.cursor()
+    async with create_db(V.DB_ACCOUNT_PATH) as db:
+        cur = await db.cursor()
         try:
-            new_tx = send_from(from_id, address, coins, cur,
-                               subtract_fee_amount=subtract_fee_amount)
-            if send_newtx(new_tx=new_tx, outer_cur=cur):
-                db.commit()
+            new_tx = await send_from(from_id, address, coins, cur,
+                                     subtract_fee_amount=subtract_fee_amount)
+            if await send_newtx(new_tx=new_tx):
+                await db.commit()
             else:
                 error = 'Failed to send new tx'
-                db.rollback()
         except Exception as e:
             error = str(e)
             log.debug("sendtoaddress", exc_info=True)
-            db.rollback()
 
     # submit result
     if error:
@@ -94,24 +92,24 @@ async def sendmany(*args, **kwargs):
     from_account = C.account2name[C.ANT_UNKNOWN] if from_account == '' else from_account
 
     error = None
-    with create_db(V.DB_ACCOUNT_PATH) as db:
-        cur = db.cursor()
+    async with create_db(V.DB_ACCOUNT_PATH) as db:
+        cur = await db.cursor()
         try:
-            user_id = read_name2userid(from_account, cur)
+            user_id = await read_name2userid(from_account, cur)
             send_pairs = list()
             multiple = pow(10, V.COIN_DIGIT)
             for address, amount in pairs.items():
                 send_pairs.append((address, 0, int(amount * multiple)))
-            new_tx = send_many(user_id, send_pairs, cur)
-            if send_newtx(new_tx=new_tx, outer_cur=cur):
-                db.commit()
+            new_tx = await send_many(user_id, send_pairs, cur)
+            if await send_newtx(new_tx=new_tx):
+                await db.commit()
             else:
                 error = 'Failed to send new tx'
-                db.rollback()
+                await db.rollback()
         except Exception as e:
             error = str(e)
             log.debug("sendmany", exc_info=True)
-            db.rollback()
+            await db.rollback()
 
     # submit result
     if error:
@@ -134,11 +132,11 @@ async def getaccountaddress(*args, **kwargs):
     user_name = args[0]
     # replace account "" to "@Unknown"
     user_name = C.account2name[C.ANT_UNKNOWN] if user_name == '' else user_name
-    with create_db(V.DB_ACCOUNT_PATH) as db:
-        cur = db.cursor()
-        user_id = read_name2userid(user_name, cur)
-        address = read_account_address(user_id, cur)
-        db.commit()
+    async with create_db(V.DB_ACCOUNT_PATH) as db:
+        cur = await db.cursor()
+        user_id = await read_name2userid(user_name, cur)
+        address = await read_account_address(user_id, cur)
+        await db.commit()
     return address
 
 

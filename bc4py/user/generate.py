@@ -11,24 +11,24 @@ from bc4py.database.account import sign_message_by_address, generate_new_address
 from bc4py.database.tools import get_my_unspents_iter
 from bc4py_extension import multi_seek
 from concurrent.futures import ProcessPoolExecutor
-from threading import Thread, Lock
-from time import time, sleep
+from time import time
 from collections import deque
 from random import random
 from logging import getLogger
 from typing import Optional, List, AnyStr
 import traceback
+import asyncio
 import atexit
-import queue
 import os
 import re
 
+loop = asyncio.get_event_loop()
 log = getLogger('bc4py')
-generating_threads = list()
-mining_address_lock = Lock()
-output_que = queue.Queue(maxsize=1)
+generating_threads: List['Generate'] = list()
+output_que = asyncio.Queue(maxsize=1)
 # mining share info
 mining_address: Optional[AnyStr] = None
+mining_address_lock = asyncio.Lock()
 previous_block: Optional[Block] = None
 unconfirmed_txs: Optional[List] = None
 unspents_txs: Optional[List] = None
@@ -37,12 +37,11 @@ optimize_file_name_re = re.compile("^optimized\\.([a-z0-9]+)\\-([0-9]+)\\-([0-9]
 executor: Optional['ProcessPoolExecutor'] = None
 
 
-class Generate(Thread):
+class Generate(object):
 
     def __init__(self, consensus, power_limit=1.0, **kwargs):
         assert consensus in V.BLOCK_CONSENSUSES
         assert 0.0 < power_limit <= 1.0
-        super(Generate, self).__init__(name="Gene-{}".format(C.consensus2name[consensus]), daemon=True)
         self.consensus = consensus
         self.power_limit = min(1.0, max(0.01, power_limit))
         self.hashrate = (0, 0.0)  # [hash/s, update_time]
@@ -53,6 +52,7 @@ class Generate(Thread):
         global executor
         if executor is None:
             executor = get_executor_object()
+        asyncio.ensure_future(self.start_loop())
 
     def __repr__(self):
         hashrate, ntime = self.hashrate
@@ -69,41 +69,41 @@ class Generate(Thread):
     def close(self):
         self.f_enable = False
 
-    def run(self):
+    async def start_loop(self):
         while self.f_enable:
             while P.F_NOW_BOOTING:
                 # wait for booting finish
-                sleep(1)
+                await asyncio.sleep(1)
             log.info("Start {} generating!".format(C.consensus2name[self.consensus]))
             try:
                 if self.consensus == C.BLOCK_COIN_POS:
-                    self.proof_of_stake()
+                    await self.proof_of_stake()
                 elif self.consensus == C.BLOCK_CAP_POS:
-                    self.proof_of_capacity()
+                    await self.proof_of_capacity()
                 elif self.consensus == C.BLOCK_FLK_POS:
                     raise BlockChainError("unimplemented")
                 else:
-                    self.proof_of_work()
+                    await self.proof_of_work()
             except FailedGenerateWarning as e:
                 log.debug("skip by \"{}\"".format(e))
             except BlockChainError as e:
                 log.warning(e)
-                sleep(5)
+                await asyncio.sleep(5)
             except AttributeError:
                 if 'previous_block.' in str(traceback.format_exc()):
                     log.debug("attribute error of previous_block, passed")
-                    sleep(1)
+                    await asyncio.sleep(1)
                 else:
                     log.error("Unknown error, wait 60s", exc_info=True)
-                    sleep(60)
+                    await asyncio.sleep(60)
             except KeyError as e:
                 log.debug("Key error by lru_cache bug wait 5s... \"{}\"".format(e))
-                sleep(5)
+                await asyncio.sleep(5)
             except Exception:
                 log.error("GeneratingError, wait60s", exc_info=True)
-                sleep(60)
+                await asyncio.sleep(60)
 
-    def proof_of_work(self):
+    async def proof_of_work(self):
         global mining_address
         spans_deque = deque(maxlen=8)
         request_num = 100
@@ -113,11 +113,11 @@ class Generate(Thread):
         while self.f_enable:
             # check start mining
             if previous_block is None or unconfirmed_txs is None:
-                sleep(0.1)
+                await asyncio.sleep(0.1)
                 continue
-            mining_block = create_mining_block(self.consensus)
+            mining_block = await create_mining_block(self.consensus)
             # throw task
-            new_span = generate_many_hash(executor, mining_block, request_num)
+            new_span = await generate_many_hash(executor, mining_block, request_num)
             spans_deque.append(new_span)
             # check block
             if previous_block is None or unconfirmed_txs is None:
@@ -129,7 +129,7 @@ class Generate(Thread):
                     log.debug("Not confirmed new block by \"proof of work unsatisfied\"")
             else:
                 # Mined yay!!!
-                confirmed_generating_block(mining_block)
+                await confirmed_generating_block(mining_block)
                 mining_address = None
             # generate next mining request_num
             try:
@@ -143,20 +143,20 @@ class Generate(Thread):
                                                                               "Up" if bias > 1 else "Down"))
             except ZeroDivisionError:
                 pass
-            sleep(sleep_span + random() - 0.5)
+            await asyncio.sleep(sleep_span + random() - 0.5)
         log.info("Close signal")
 
-    def proof_of_stake(self):
+    async def proof_of_stake(self):
         global staking_limit
         limit_deque = deque(maxlen=10)
         while self.f_enable:
             # check start mining
             if previous_block is None or unconfirmed_txs is None or unspents_txs is None:
-                sleep(0.1)
+                await asyncio.sleep(0.1)
                 continue
             if len(unspents_txs) == 0:
                 log.info("No unspents for staking, wait 180s")
-                sleep(180)
+                await asyncio.sleep(180)
                 continue
             start = time()
             # create staking block
@@ -187,11 +187,11 @@ class Generate(Thread):
                 # next check block
                 if previous_block is None or unconfirmed_txs is None or unspents_txs is None:
                     log.debug("Reset by \"nothing params found\"")
-                    sleep(1)
+                    await asyncio.sleep(1)
                     break
                 elif previous_block.hash != staking_block.previous_hash:
                     log.debug("Reset by \"Don't match previous_hash\"")
-                    sleep(1)
+                    await asyncio.sleep(1)
                     break
                 elif not stake_coin_check(
                         tx=proof_tx, previous_hash=previous_block.hash, target_hash=staking_block.target_hash):
@@ -205,9 +205,12 @@ class Generate(Thread):
                         staking_block.txs.pop()
                     staking_block.update_time(proof_tx.time)
                     staking_block.update_merkleroot()
-                    signature = sign_message_by_address(raw=staking_block.b, address=address)
+                    async with create_db(V.DB_ACCOUNT_PATH) as db:
+                        cur = await db.cursor()
+                        signature = await sign_message_by_address(
+                            raw=staking_block.b, address=address, cur=cur)
                     proof_tx.signature.append(signature)
-                    confirmed_generating_block(staking_block)
+                    await confirmed_generating_block(staking_block)
                     break
             else:
                 # check time
@@ -219,18 +222,18 @@ class Generate(Thread):
                 if int(time()) % 90 == 0:
                     log.info("Staking... margin={}% limit={}".format(round(remain * 100, 1), staking_limit))
                 self.hashrate = (calculate_nam, time())
-                sleep(max(0.0, remain + random() - 0.5))
+                await asyncio.sleep(max(0.0, remain + random() - 0.5))
         log.info("Close signal")
 
-    def proof_of_capacity(self):
+    async def proof_of_capacity(self):
         dir_path: str = self.config.get('path', os.path.join(V.DB_HOME_DIR, 'plots'))
         while self.f_enable:
             # check start mining
             if previous_block is None or unconfirmed_txs is None:
-                sleep(0.1)
+                await asyncio.sleep(0.1)
                 continue
             if not os.path.exists(dir_path):
-                sleep(30)
+                await asyncio.sleep(30)
                 continue
             s = time()
             previous_hash = previous_block.hash
@@ -248,16 +251,15 @@ class Generate(Thread):
                 count += int(m.group(3)) - int(m.group(2))
             if count < 1:
                 log.debug("not found plot file, wait 60 sec")
-                sleep(60)
+                await asyncio.sleep(60)
                 continue
 
             # let's seek files
-            nonce, work_hash, address = multi_seek(
-                dir=dir_path,
-                previous_hash=previous_hash,
-                target=target.to_bytes(32, 'little'),
-                time=block_time,
-                worker=os.cpu_count())
+            future: asyncio.Future = loop.run_in_executor(
+                None, multi_seek,
+                dir_path, previous_hash, target.to_bytes(32, 'big'), block_time, os.cpu_count())
+            await asyncio.wait_for(future, 60.0)
+            nonce, work_hash, address = future.result()
             if work_hash is None:
                 # return failed => (None, None, err-msg)
                 if int(s) % 300 == 0:
@@ -297,27 +299,30 @@ class Generate(Thread):
                 staked_block.update_time(staked_proof_tx.time)
                 staked_block.update_merkleroot()
                 staked_block.work_hash = work_hash
-                signature = sign_message_by_address(raw=staked_block.b, address=address)
+                async with create_db(V.DB_ACCOUNT_PATH) as db:
+                    cur = await db.cursor()
+                    signature = await sign_message_by_address(
+                        raw=staked_block.b, address=address, cur=cur)
                 staked_proof_tx.signature.append(signature)
-                confirmed_generating_block(staked_block)
+                await confirmed_generating_block(staked_block)
 
             # finish all
             used_time = time() - s
             self.hashrate = (count, time())
-            sleep(max(1 - used_time, 0))
+            await asyncio.sleep(max(1 - used_time, 0))
         log.info("Close signal")
 
 
-def create_mining_block(consensus):
+async def create_mining_block(consensus):
     global mining_address
     # setup mining address for PoW
-    with mining_address_lock:
+    async with mining_address_lock:
         if mining_address is None:
             if V.MINING_ADDRESS is None:
-                with create_db(V.DB_ACCOUNT_PATH) as db:
-                    cur = db.cursor()
-                    mining_address = generate_new_address_by_userid(C.ANT_UNKNOWN, cur)
-                    db.commit()
+                async with create_db(V.DB_ACCOUNT_PATH) as db:
+                    cur = await db.cursor()
+                    mining_address = await generate_new_address_by_userid(C.ANT_UNKNOWN, cur)
+                    await db.commit()
             else:
                 mining_address = V.MINING_ADDRESS
     if unconfirmed_txs is None:
@@ -361,14 +366,14 @@ def create_mining_block(consensus):
     return mining_block
 
 
-def confirmed_generating_block(new_block):
+async def confirmed_generating_block(new_block):
     log.info("Generate block yey!! {}".format(new_block))
     global previous_block, unconfirmed_txs, unspents_txs
     previous_block = None
     unconfirmed_txs = None
     unspents_txs = None
     # timeout: GeneBlock thread do not start?
-    output_que.put(new_block, timeout=60)
+    await asyncio.wait_for(output_que.put(new_block), 30.0)
 
 
 def update_previous_block(new_previous_block):
@@ -381,23 +386,24 @@ def update_unconfirmed_txs(new_unconfirmed_txs):
     unconfirmed_txs = new_unconfirmed_txs
 
 
-def update_unspents_txs(time_limit=0.2):
+async def update_unspents_txs(time_limit=0.2):
     global unspents_txs
     c = 100
     while previous_block is None:
         if c < 0:
             raise Exception('Timeout on update unspents')
-        sleep(0.1)
+        await asyncio.sleep(0.1)
         c -= 1
     s = time()
     previous_height = previous_block.height
     proof_txs = list()
     all_num = 0
-    with create_db(V.DB_ACCOUNT_PATH) as db:
-        cur = db.cursor()
-        for address, height, txhash, txindex, coin_id, amount in get_my_unspents_iter(cur):
+    async with create_db(V.DB_ACCOUNT_PATH) as db:
+        cur = await db.cursor()
+        for address, height, txhash, txindex, coin_id, amount in await get_my_unspents_iter(cur):
             if time() - s > time_limit:
                 break
+            await asyncio.sleep(0.0)
             if height is None:
                 continue
             if coin_id != 0:

@@ -22,7 +22,7 @@ async def getinfo(*args, **kwargs):
     bits, target = get_bits_by_hash(previous_hash=best_block.hash, consensus=consensus)
     difficulty = (0xffffffffffffffff // target) / 100000000
     # balance
-    users = user_account.get_balance(confirm=6)
+    users = await user_account.get_balance(confirm=6)
     return {
         "version": __version__,
         "protocolversion": __chain_version__,
@@ -55,9 +55,9 @@ async def validateaddress(*args, **kwargs):
     if len(args) == 0:
         raise ValueError('no argument found')
     address = args[0]
-    with create_db(V.DB_ACCOUNT_PATH) as db:
-        cur = db.cursor()
-        user_id = read_address2userid(address=address, cur=cur)
+    async with create_db(V.DB_ACCOUNT_PATH) as db:
+        cur = await db.cursor()
+        user_id = await read_address2userid(address=address, cur=cur)
         if user_id is None:
             return {
                 "isvalid": is_address(address, V.BECH32_HRP, 0),
@@ -68,9 +68,9 @@ async def validateaddress(*args, **kwargs):
                 "hdkeypath": None,
             }
         else:
-            account = read_userid2name(user=user_id, cur=cur)
+            account = await read_userid2name(user=user_id, cur=cur)
             account = "" if account == C.ANT_UNKNOWN else account
-            _, keypair, path = read_address2keypair(address=address, cur=cur)
+            _, keypair, path = await read_address2keypair(address=address, cur=cur)
             return {
                 "isvalid": is_address(address, V.BECH32_HRP, 0),
                 "address": address,

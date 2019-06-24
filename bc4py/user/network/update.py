@@ -2,62 +2,64 @@ from bc4py.config import C, V
 from bc4py.database.builder import chain_builder, tx_builder
 from bc4py.database.tools import is_usedindex
 from bc4py.user.generate import *
-from threading import Lock, Thread
 from typing import Dict
-from time import time, sleep
+from time import time
 from logging import getLogger
 from expiringdict import ExpiringDict
+import asyncio
 
+
+loop = asyncio.get_event_loop()
 log = getLogger('bc4py')
 update_count = 0
 failed_txs = ExpiringDict(max_len=1000, max_age_seconds=3600)
-block_lock = Lock()
-unspent_lock = Lock()
-unconfirmed_lock = Lock()
+block_lock = asyncio.Lock()
+unspent_lock = asyncio.Lock()
+unconfirmed_lock = asyncio.Lock()
 unconfirmed_depends_hash: bytes = b''
 unconfirmed_depends_cashe: Dict[bytes, tuple] = dict()
 
 
 def update_info_for_generate(u_block=True, u_unspent=True, u_unconfirmed=True):
 
-    def _updates():
+    async def updates(num):
         try:
             consensus = tuple(t.consensus for t in generating_threads)
             info = ''
             if u_block and not block_lock.locked():
-                info += _update_block_info()
+                info += await update_block_info()
             if u_unspent and (C.BLOCK_COIN_POS in consensus) and not unspent_lock.locked():
-                info += _update_unspent_info()
+                info += await update_unspent_info()
             if u_unconfirmed and not unconfirmed_lock.locked():
-                info += _update_unconfirmed_info()
+                info += await update_unconfirmed_info()
             if info:
-                log.debug("Update finish{}".format(info))
+                log.debug("{} update finish {}".format(num, info))
         except Exception:
             log.debug("update_info_for_generate exception", exc_info=True)
 
     global update_count
-    Thread(target=_updates, name='Update-{}'.format(update_count), daemon=True).start()
+    asyncio.ensure_future(updates(update_count))
     update_count += 1
 
 
-def _update_block_info():
-    with block_lock:
+async def update_block_info():
+    async with block_lock:
         while chain_builder.best_block is None:
-            sleep(0.2)
+            await asyncio.sleep(0.2)
         update_previous_block(chain_builder.best_block)
         return ',  height={}'.format(chain_builder.best_block.height + 1)
 
 
-def _update_unspent_info():
-    with unspent_lock:
+async def update_unspent_info():
+    async with unspent_lock:
         s = time()
-        all_num, next_num = update_unspents_txs()
+        all_num, next_num = await update_unspents_txs()
     return ',  unspents={}/{} {}mS'.format(next_num, all_num, int((time() - s) * 1000))
 
 
-def _update_unconfirmed_info():
+async def update_unconfirmed_info():
     global unconfirmed_depends_hash
-    with unconfirmed_lock:
+    async with unconfirmed_lock:
         s = time()
 
         # 1: update dependency cashe
@@ -161,6 +163,7 @@ def _update_unconfirmed_info():
                     # ERROR: already used outputs
                     unconfirmed_txs.remove(tx)
                     break
+            await asyncio.sleep(0.0)
 
         # 4. update unconfirmed txs
         update_unconfirmed_txs(unconfirmed_txs)

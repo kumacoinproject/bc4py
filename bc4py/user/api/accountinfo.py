@@ -12,11 +12,12 @@ from aiohttp import web
 async def list_balance(request):
     confirm = int(request.query.get('confirm', 6))
     data = dict()
-    with create_db(V.DB_ACCOUNT_PATH) as db:
-        cur = db.cursor()
-        users = user_account.get_balance(confirm=confirm, outer_cur=cur)
+    async with create_db(V.DB_ACCOUNT_PATH) as db:
+        cur = await db.cursor()
+        users = await user_account.get_balance(confirm=confirm, outer_cur=cur)
         for user, balance in users.items():
-            data[read_userid2name(user, cur)] = dict(balance)
+            name = await read_userid2name(user, cur)
+            data[name] = dict(balance)
     return utils.json_res(data)
 
 
@@ -26,7 +27,7 @@ async def list_transactions(request):
     data = list()
     f_next_page = False
     start = page * limit
-    for tx_dict in user_account.get_movement_iter(start=page, f_dict=True):
+    for tx_dict in await user_account.get_movement_iter(start=page, f_dict=True):
         if limit == 0:
             f_next_page = True
             break
@@ -73,9 +74,9 @@ async def list_unspents(request):
 async def list_private_unspents(request):
     data = list()
     best_height = chain_builder.best_block.height
-    with create_db(V.DB_ACCOUNT_PATH) as db:
-        cur = db.cursor()
-        for address, height, txhash, txindex, coin_id, amount in get_my_unspents_iter(cur):
+    async with create_db(V.DB_ACCOUNT_PATH) as db:
+        cur = await db.cursor()
+        for address, height, txhash, txindex, coin_id, amount in await get_my_unspents_iter(cur):
             data.append({
                 'address': address,
                 'height': height,
@@ -89,12 +90,12 @@ async def list_private_unspents(request):
 
 
 async def list_account_address(request):
-    with create_db(V.DB_ACCOUNT_PATH) as db:
+    async with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = db.cursor()
         user_name = request.query.get('account', C.account2name[C.ANT_UNKNOWN])
-        user_id = read_name2userid(user_name, cur)
+        user_id = await read_name2userid(user_name, cur)
         address_list = list()
-        for uuid, address, user in read_pooled_address_iter(cur):
+        for uuid, address, user in await read_pooled_address_iter(cur):
             if user_id == user:
                 address_list.append(address)
     return utils.json_res({'account': user_name, 'user_id': user_id, 'address': address_list})
@@ -108,12 +109,12 @@ async def move_one(request):
         coin_id = int(post.get('coin_id', 0))
         amount = int(post['amount'])
         coins = Balance(coin_id, amount)
-        with create_db(V.DB_ACCOUNT_PATH, f_strict=True) as db:
-            cur = db.cursor()
-            _from = read_name2userid(ant_from, cur)
-            _to = read_name2userid(ant_to, cur)
-            txhash = user_account.move_balance(_from, _to, coins, cur)
-            db.commit()
+        async with create_db(V.DB_ACCOUNT_PATH, strict=True) as db:
+            cur = await db.cursor()
+            _from = await read_name2userid(ant_from, cur)
+            _to = await read_name2userid(ant_to, cur)
+            txhash = await user_account.move_balance(_from, _to, coins, cur)
+            await db.commit()
         return utils.json_res({'txhash': txhash.hex(), 'from_id': _from, 'to_id': _to})
     except Exception:
         return utils.error_res()
@@ -127,24 +128,24 @@ async def move_many(request):
         coins = Balance()
         for k, v in post['coins'].items():
             coins[int(k)] += int(v)
-        with create_db(V.DB_ACCOUNT_PATH, f_strict=True) as db:
-            cur = db.cursor()
-            _from = read_name2userid(ant_from, cur)
-            _to = read_name2userid(ant_to, cur)
-            txhash = user_account.move_balance(_from, _to, coins, cur)
-            db.commit()
+        async with create_db(V.DB_ACCOUNT_PATH, strict=True) as db:
+            cur = await db.cursor()
+            _from = await read_name2userid(ant_from, cur)
+            _to = await read_name2userid(ant_to, cur)
+            txhash = await user_account.move_balance(_from, _to, coins, cur)
+            await db.commit()
         return utils.json_res({'txhash': txhash.hex(), 'from_id': _from, 'to_id': _to})
     except Exception as e:
         return web.Response(text=str(e), status=400)
 
 
 async def new_address(request):
-    with create_db(V.DB_ACCOUNT_PATH) as db:
-        cur = db.cursor()
+    async with create_db(V.DB_ACCOUNT_PATH) as db:
+        cur = await db.cursor()
         user_name = request.query.get('account', C.account2name[C.ANT_UNKNOWN])
-        user_id = read_name2userid(user_name, cur)
-        address = generate_new_address_by_userid(user_id, cur)
-        db.commit()
+        user_id = await read_name2userid(user_name, cur)
+        address = await generate_new_address_by_userid(user_id, cur)
+        await db.commit()
         ver_identifier = addr2bin(hrp=V.BECH32_HRP, ck=address)
     return utils.json_res({
         'account': user_name,
@@ -157,10 +158,10 @@ async def new_address(request):
 
 async def get_keypair(request):
     try:
-        with create_db(V.DB_ACCOUNT_PATH) as db:
+        async with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = db.cursor()
             address = request.query['address']
-            uuid, keypair, path = read_address2keypair(address, cur)
+            uuid, keypair, path = await read_address2keypair(address, cur)
             return utils.json_res({
                 'uuid': uuid,
                 'address': address,
