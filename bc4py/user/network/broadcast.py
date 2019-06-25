@@ -107,13 +107,13 @@ async def fill_newblock_info(data):
     return new_block
 
 
-async def broadcast_check(data):
+async def broadcast_check(user, data):
     if P.F_NOW_BOOTING:
         return False
     elif BroadcastCmd.NEW_BLOCK == data['cmd']:
-        result = BroadcastCmd.new_block(data=data['data'])
+        result = await BroadcastCmd.new_block(data=data['data'])
     elif BroadcastCmd.NEW_TX == data['cmd']:
-        result = BroadcastCmd.new_tx(data=data['data'])
+        result = await BroadcastCmd.new_tx(data=data['data'])
     else:
         return False
     # check failed count over

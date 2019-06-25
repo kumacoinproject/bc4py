@@ -47,12 +47,13 @@ class Generate(object):
         self.hashrate = (0, 0.0)  # [hash/s, update_time]
         self.f_enable = True
         self.config = kwargs
-        generating_threads.append(self)
-        # generate worker process (common)
+        # generate process executor
         global executor
         if executor is None:
             executor = get_executor_object()
+        generating_threads.append(self)
         asyncio.ensure_future(self.start_loop())
+        log.info(f"setup generating {C.consensus2name[consensus]}")
 
     def __repr__(self):
         hashrate, ntime = self.hashrate
@@ -74,7 +75,7 @@ class Generate(object):
             while P.F_NOW_BOOTING:
                 # wait for booting finish
                 await asyncio.sleep(1)
-            log.info("Start {} generating!".format(C.consensus2name[self.consensus]))
+            log.info(f"start generating {C.consensus2name[self.consensus]}!")
             try:
                 if self.consensus == C.BLOCK_COIN_POS:
                     await self.proof_of_stake()

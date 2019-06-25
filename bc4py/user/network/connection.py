@@ -19,7 +19,7 @@ async def set_good_node():
     pc = V.P2P_OBJ
     status_counter = Counter()
     f_all_booting = True  # flag: there is no stable node
-    for user in pc.core.user:
+    for user in pc.core.user.copy():
         try:
             dummy, r = await pc.send_direct_cmd(cmd=DirectCmd.best_info, data=None, user=user)
             if isinstance(r, str):
@@ -122,7 +122,8 @@ async def ask_all_nodes(cmd, data=None):
             await asyncio.sleep(30)
     if len(result) > 0:
         return result
-    raise BlockChainError('Cannot get any data. good={} bad={} cmd={}'.format(len(good_node), len(bad_node), cmd))
+    raise BlockChainError('Cannot get any data. good={} bad={} cmd={}'
+                          .format(len(good_node), len(bad_node), cmd.__name__))
 
 
 async def seek_nodes(cmd, data=None):
@@ -147,7 +148,7 @@ async def seek_nodes(cmd, data=None):
             log.warning("{}, wait 30sec".format(e))
             await asyncio.sleep(30)
     raise BlockChainError('Full seeked but cannot get any data. good={} bad={} cmd={}'
-                          .format(len(good_node), len(bad_node), cmd))
+                          .format(len(good_node), len(bad_node), cmd.__name__))
 
 
 async def get_best_conn_info():

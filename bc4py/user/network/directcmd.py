@@ -83,16 +83,17 @@ class DirectCmd(object):
                 'txs': list(tx_builder.unconfirmed.keys()),
             }
         except BlockChainError as e:
+            print("exception! unconfirmed", user, e)
             return str(e)
 
     @staticmethod
     def big_blocks(user, data):
         try:
-            index_height = data.get('data')
+            index_height = data.get('height')
+            if index_height is None:
+                return 'do not find key "height"'
             request_len = data.get('request_len', 20)
             request_len = max(0, min(100, request_len))
-            if data is None:
-                return 'do not find key "height"'
             if not isinstance(request_len, int):
                 return f"request_len is int! {request_len}"
             data = list()

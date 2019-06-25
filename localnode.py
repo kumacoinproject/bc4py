@@ -7,7 +7,7 @@ from bc4py.utils import set_database_path, set_blockchain_params, check_already_
 from bc4py.user.generate import *
 from bc4py.user.boot import *
 from bc4py.user.network import *
-from bc4py.user.api import create_rest_server
+from bc4py.user.api import setup_rest_server
 from bc4py.database.create import check_account_db
 from bc4py.database.builder import chain_builder
 from bc4py.chain.msgpack import default_hook, object_hook
@@ -42,7 +42,7 @@ def setup_client(port, sub_dir):
     chain_builder.set_database_path()
     copy_boot(port)
     import_keystone(passphrase='hello python')
-    check_account_db()
+    loop.run_until_complete(check_account_db())
     genesis_block, genesis_params, network_ver, connections = load_boot_file()
     set_blockchain_params(genesis_block, genesis_params)
     logging.info("Start p2p network-ver{} .".format(network_ver))
@@ -53,10 +53,11 @@ def setup_client(port, sub_dir):
     p2p.event.setup_events_from_class(DirectCmd)
     p2p.setup()
     V.P2P_OBJ = p2p
-    loop.run_until_complete(setup_chain(p2p, port, connections))
+    return connections
 
 
-async def setup_chain(p2p, port, connections):
+async def setup_chain(port, connections):
+    p2p = V.P2P_OBJ
     # for debug node
     if port != 2000 and await p2p.core.create_connection('127.0.0.1', 2000):
         logging.info("Connect!")
@@ -102,9 +103,13 @@ def main():
         set_logger(level=logging.DEBUG, path=path, f_remove=True)
         logging.info("\n{}\n=====\n{}, chain-ver={}\n{}\n"
                      .format(__logo__, __version__, __chain_version__, __message__))
-        setup_client(port=port, sub_dir=str(port))
         break
-    create_rest_server(user='user', pwd='password', port=port+1000)
+    connections = setup_client(port=port, sub_dir=str(port))
+    loop.run_until_complete(setup_chain(port, connections))
+    loop.run_until_complete(setup_rest_server(user='user', pwd='password', port=port + 1000))
+    import aiomonitor
+    aiomonitor.start_monitor(loop, port=port+2000, console_port=port+3000)
+    logging.warning(f"aiomonitor working! use by console `nc 127.0.0.1 {port+2000}`")
     try:
         loop.run_forever()
     except Exception:

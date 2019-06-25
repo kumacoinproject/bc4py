@@ -1,7 +1,6 @@
 from bc4py.config import C, BlockChainError
 from bc4py.database.builder import chain_builder, tx_builder
 from bc4py.database.account import read_all_pooled_address
-from time import sleep
 
 best_block_cashe = None
 best_chain_cashe = None
@@ -27,14 +26,9 @@ def _get_best_chain_all(best_block):
 
 def get_unspents_iter(target_address, best_block=None, best_chain=None):
     failed = 0
-    while failed < 20:
-        if best_chain is None:
-            best_chain = _get_best_chain_all(best_block)
-        if best_chain:
-            break
-        failed += 1
-        sleep(0.05)
-    else:
+    if best_chain is None:
+        best_chain = _get_best_chain_all(best_block)
+    if best_chain is None:
         raise BlockChainError('Cannot get best_chain by {}'.format(best_block))
     allow_mined_height = best_chain[0].height - C.MATURE_HEIGHT
     # DataBaseより

@@ -10,7 +10,7 @@ from bc4py.user.network.directcmd import DirectCmd
 from bc4py.database.create import create_db
 from bc4py.database.builder import chain_builder, tx_builder
 from logging import getLogger
-from time import sleep, time
+from time import time
 from typing import List
 import asyncio
 
@@ -39,10 +39,9 @@ async def get_block_from_stack(height):
                 del stack_dict[height]
                 stack_event.clear()
             return block
-        elif await asyncio.wait_for(stack_event.wait(), 10.0):
-            # event set!
-            continue
-        else:
+        try:
+            await asyncio.wait_for(stack_event.wait(), 10.0)
+        except asyncio.TimeoutError:
             # timeout?
             best_height_on_network, best_hash_on_network = await get_best_conn_info()
             if height < best_height_on_network:
@@ -88,7 +87,7 @@ async def back_sync_loop():
 
 async def main_sync_loop():
     while not P.F_STOP:
-        sleep(1)
+        await asyncio.sleep(1.0)
         if P.F_NOW_BOOTING is False:
             continue
         if chain_builder.best_block is None:
@@ -183,7 +182,7 @@ async def main_sync_loop():
 async def sync_chain_loop():
     assert V.P2P_OBJ is not None, "Need PeerClient start before"
     log.info("Start sync now {} connections".format(len(V.P2P_OBJ.core.user)))
-    check_network_connection()
+    await check_network_connection()
     asyncio.ensure_future(main_sync_loop())
     asyncio.ensure_future(back_sync_loop())
 

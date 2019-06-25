@@ -13,7 +13,6 @@ from bc4py.chain.msgpack import default_hook, object_hook
 from p2p_python.utils import setup_p2p_params
 from p2p_python.server import Peer2Peer
 from bc4py.for_debug import set_logger
-from time import sleep
 import logging
 import asyncio
 
@@ -27,7 +26,7 @@ def work(port, sub_dir=None):
     check_already_started()
     chain_builder.set_database_path()
     import_keystone(passphrase='hello python')
-    check_account_db()
+    loop.run_until_complete(check_account_db())
     genesis_block, genesis_params, network_ver, connections = load_boot_file()
     set_blockchain_params(genesis_block, genesis_params)
     logging.info("Start p2p network-ver{} .".format(network_ver))
@@ -61,7 +60,7 @@ async def setup_chain(p2p, connections):
     logging.info("Finished all initialize.")
 
     while P.F_NOW_BOOTING:
-        sleep(5)
+        await asyncio.sleep(5)
 
     # repair
     await repair_wallet()

@@ -86,7 +86,7 @@ class DataBase(object):
         self.batch = dict()
         for name in self.database_list:
             self.batch[name] = dict()
-        self.batch_task = asyncio.current_task()
+        self.batch_task = asyncio.Task.current_task()
         log.debug(":Create database batch")
 
     async def batch_commit(self):
@@ -108,7 +108,7 @@ class DataBase(object):
         log.debug("Rollback database")
 
     def is_batch_thread(self):
-        return self.batch and self.batch_task is asyncio.current_task()
+        return self.batch and self.batch_task is asyncio.Task.current_task()
 
     def read_block(self, blockhash):
         if self.is_batch_thread() and blockhash in self.batch['_block']:
@@ -350,7 +350,8 @@ class ChainBuilder(object):
 
     async def close(self):
         # require manual close
-        await self.db.batch_task
+        if self.db.batch_task:
+            await self.db.batch_task
         self.db.close()
 
     def set_database_path(self, **kwargs):
@@ -616,7 +617,7 @@ class ChainBuilder(object):
 
     def new_block(self, new_block):
         """insert new block, Block/TX format is already checked"""
-        if new_block.height <= self.root_block.height:
+        if self.root_block.height and new_block.height <= self.root_block.height:
             return
         # meet chain order: root_block < new_block
         self.chain[new_block.hash] = new_block
@@ -803,7 +804,7 @@ class UserAccount(object):
 
         async def _wrapper(cur):
             memory_sum = Accounting()
-            for move_log in await read_movelog_iter(cur):
+            async for move_log in read_movelog_iter(cur):
                 # logに記録されてもBlockに取り込まれていないならTXは存在せず
                 if chain_builder.db.read_tx(move_log.txhash):
                     memory_sum += move_log.movement
@@ -822,6 +823,7 @@ class UserAccount(object):
             async with create_db(V.DB_ACCOUNT_PATH) as db:
                 await _wrapper(await db.cursor())
                 await db.commit()
+            if f_delete:
                 log.warning(f"Delete user's old unconfirmed tx")
 
     async def get_balance(self, confirm=6, outer_cur=None):
@@ -887,9 +889,9 @@ class UserAccount(object):
                 await db.commit()
             return r
 
-    async def get_movement_iter(self, start=0, f_dict=False, outer_cur=None):
-
-        async def _wrapper(cur):
+    async def get_movement_iter(self, start=0, f_dict=False):
+        async with create_db(V.DB_ACCOUNT_PATH) as db:
+            cur = await db.cursor()
             count = 0
             # Unconfirmed
             for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time, reverse=True):
@@ -925,7 +927,7 @@ class UserAccount(object):
                                 yield move_log.get_tuple_data()
                         count += 1
             # DataBase
-            for move_log in await read_movelog_iter(cur, start - count):
+            async for move_log in read_movelog_iter(cur, start - count):
                 # TRANSFERなど はDBとMemoryの両方に存在する
                 if move_log.txhash in self.memory_movement:
                     continue
@@ -933,12 +935,6 @@ class UserAccount(object):
                     yield await move_log.get_dict_data(recode_flag='database', cur=cur)
                 else:
                     yield move_log.get_tuple_data()
-
-        if outer_cur:
-            return _wrapper(outer_cur)
-        else:
-            async with create_db(V.DB_ACCOUNT_PATH) as db:
-                return _wrapper(await db.cursor())
 
     async def new_batch_apply(self, batched_blocks, outer_cur=None):
 

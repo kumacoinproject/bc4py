@@ -55,7 +55,8 @@ class Block(object):
 
     def __repr__(self):
         return "<Block {} {} {} {} score={} txs={}>".format(
-            self.height, C.consensus2name[self.flag], "ORPHAN" if self.f_orphan else "",
+            self.height, C.consensus2name.get(self.flag, 'UNKNOWN'),
+            "ORPHAN" if self.f_orphan else "",
             self.hash.hex(), round(self.score, 4), len(self.txs))
 
     def __init__(self):

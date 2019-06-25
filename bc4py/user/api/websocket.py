@@ -12,6 +12,8 @@ loop = asyncio.get_event_loop()
 log = getLogger('bc4py')
 number = 0
 clients: List['WsClient'] = list()
+client_lock = asyncio.Lock()
+
 
 CMD_NEW_BLOCK = 'Block'
 CMD_NEW_TX = 'TX'
@@ -20,7 +22,7 @@ CMD_ERROR = 'Error'
 
 # TODO: fix error: "socket.send() raised exception"
 #  => https://github.com/aio-libs/aiohttp/issues/3448
-async def websocket_route(request: web.BaseRequest):
+async def websocket_route(request):
     if request.rel_url.path.startswith('/public/'):
         is_public = True
     elif request.rel_url.path.startswith('/private/'):
@@ -59,7 +61,6 @@ class WsClient(object):
         self.ws: WebSocketResponse = ws
         self.request = request
         self.is_public = is_public
-        clients.append(self)
 
     def __repr__(self):
         ws_type = 'Pub' if self.is_public else 'Pri'
@@ -68,10 +69,12 @@ class WsClient(object):
     async def close(self):
         if not self.ws.closed:
             await self.ws.close()
-        if self in clients:
-            clients.remove(self)
+        async with client_lock:
+            if self in clients:
+                clients.remove(self)
 
     async def send(self, data: str):
+        assert client_lock.locked()
         if self.ws.closed:
             clients.remove(self)
         else:
@@ -88,7 +91,10 @@ async def websocket_protocol_check(request, is_public):
         raise web.HTTPInternalServerError()
     await ws.prepare(request)
     log.debug(f"protocol upgrade to websocket {request.remote}")
-    return WsClient(ws, request, is_public)
+    client = WsClient(ws, request, is_public)
+    async with client_lock:
+        clients.append(client)
+    return client
 
 
 def get_json_format(cmd, data, status=True):
@@ -100,35 +106,31 @@ def get_json_format(cmd, data, status=True):
     return json.dumps(send_data)
 
 
-def broadcast_clients(cmd, data, status=True, is_public=False):
+async def broadcast_clients(cmd, data, status=True, is_public=False):
     """broadcast to all clients"""
     message = get_json_format(cmd=cmd, data=data, status=status)
     for client in clients:
         if is_public or not client.is_public:
-            loop.call_soon(client.send, message)
+            async with client_lock:
+                await client.send(message)
 
 
-async def websocket_reactive_stream():
-    while not P.F_STOP:
-        try:
-            data = await asyncio.wait_for(stream, 1.0)
-            if P.F_NOW_BOOTING:
-                pass
-            elif isinstance(data, Block):
-                broadcast_clients(cmd=CMD_NEW_BLOCK, data=data.getinfo(), is_public=True)
-            elif isinstance(data, TX):
-                broadcast_clients(cmd=CMD_NEW_TX, data=data.getinfo(), is_public=True)
-            else:
-                pass
-        except asyncio.TimeoutError:
-            pass
-        except Exception:
-            log.error("websocket_stream exception", exc_info=True)
-    log.info("close websocket reactive stream")
+def websocket_reactive_stream(data):
+    """receive Block/TX data from stream"""
+    if P.F_STOP:
+        pass
+    elif P.F_NOW_BOOTING:
+        pass
+    elif isinstance(data, Block):
+        asyncio.ensure_future(broadcast_clients(CMD_NEW_BLOCK, data.getinfo(), is_public=True))
+    elif isinstance(data, TX):
+        asyncio.ensure_future(broadcast_clients(CMD_NEW_TX, data.getinfo(), is_public=True))
+    else:
+        pass
 
 
 # get new Block/TX object from reactive stream
-asyncio.ensure_future(websocket_reactive_stream())
+stream.subscribe(on_next=websocket_reactive_stream, on_error=log.error)
 
 
 __all__ = [
