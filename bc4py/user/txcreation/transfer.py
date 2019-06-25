@@ -63,9 +63,9 @@ async def send_many(sender,
     # check enough balance account have
     for address, coin_id, amount in send_pairs:
         send_coins[coin_id] += amount
-    check_enough_amount(sender=sender, send_coins=send_coins, fee_coins=fee_coins, cur=cur)
+    await check_enough_amount(sender=sender, send_coins=send_coins, fee_coins=fee_coins, cur=cur)
     # replace dummy address
-    replace_redeem_dummy_address(tx, cur)
+    await replace_redeem_dummy_address(tx, cur)
     # setup signature
     tx.serialize()
     await add_sign_by_address(tx, input_address)

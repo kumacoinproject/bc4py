@@ -48,7 +48,9 @@ async def list_unspents(request):
         start = page * limit
         finish = (page+1) * limit - 1
         f_next_page = False
-        target_address = request.query['address']
+        target_address = request.query.get('address')
+        if target_address is None:
+            return utils.error_res('not found key "address"')
         unspents_iter = get_unspents_iter(target_address=set(target_address.split(',')))
         data = list()
         for index, (address, height, txhash, txindex, coin_id, amount) in enumerate(unspents_iter):
@@ -91,7 +93,7 @@ async def list_private_unspents(request):
 
 async def list_account_address(request):
     async with create_db(V.DB_ACCOUNT_PATH) as db:
-        cur = db.cursor()
+        cur = await db.cursor()
         user_name = request.query.get('account', C.account2name[C.ANT_UNKNOWN])
         user_id = await read_name2userid(user_name, cur)
         address_list = list()
@@ -159,8 +161,10 @@ async def new_address(request):
 async def get_keypair(request):
     try:
         async with create_db(V.DB_ACCOUNT_PATH) as db:
-            cur = db.cursor()
-            address = request.query['address']
+            cur = await db.cursor()
+            address = request.query.get('address')
+            if address is None:
+                return utils.error_res('not foud key "address"')
             uuid, keypair, path = await read_address2keypair(address, cur)
             return utils.json_res({
                 'uuid': uuid,

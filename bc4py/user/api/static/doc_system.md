@@ -293,74 +293,76 @@ get network info
 * Response
 ```json
 {
-    "p2p_ver": "2.0.0",
-    "status": {
-        "name": "Hook:50907",
-        "client_ver": "2.0.0",
-        "network_ver": 1309112980,
-        "p2p_accept": true,
-        "p2p_udp_accept": true,
-        "p2p_port": 2002,
-        "start_time": 1547908043,
-        "last_seen": 1547908294
-    },
+    "name": "Wall:92818",
+    "client_ver": "3.0.1",
+    "network_ver": 168376687,
+    "p2p_accept": true,
+    "p2p_udp_accept": true,
+    "p2p_port": 2002,
+    "start_time": 1561432283,
+    "last_seen": 1561432421,
     "networks": [
         {
             "number": 0,
+            "host_port": "127.0.0.1:2000",
             "neers": [
                 "127.0.0.1:2001",
                 "127.0.0.1:2003",
                 "127.0.0.1:2002"
             ],
-            "sock_type": "type/client",
-            "score": 2,
+            "sock_type": "client",
+            "score": 0,
             "warn": 0,
-            "name": "Drain:11276",
-            "client_ver": "2.0.0",
-            "network_ver": 1309112980,
-            "p2p_accept": true,
-            "p2p_udp_accept": true,
-            "p2p_port": 2000,
-            "start_time": 1547905862,
-            "last_seen": 1547908289
+            "header": {
+                "name": "Sheep:83661",
+                "client_ver": "3.0.1",
+                "network_ver": 168376687,
+                "p2p_accept": true,
+                "p2p_udp_accept": true,
+                "p2p_port": 2000,
+                "start_time": 1561428339,
+                "last_seen": 1561432403
+            }
         },
         {
             "number": 1,
-            "neers": [
-                "127.0.0.1:2000",
-                "127.0.0.1:2003",
-                "127.0.0.1:2002"
-            ],
-            "sock_type": "type/server",
-            "score": 4,
+            "host_port": "127.0.0.1:2001",
+            "neers": [],
+            "sock_type": "client",
+            "score": 0,
             "warn": 0,
-            "name": "Lock:18166",
-            "client_ver": "2.0.0",
-            "network_ver": 1309112980,
-            "p2p_accept": true,
-            "p2p_udp_accept": true,
-            "p2p_port": 2001,
-            "start_time": 1547905870,
-            "last_seen": 1547908276
+            "header": {
+                "name": "Ant:28004",
+                "client_ver": "3.0.1",
+                "network_ver": 168376687,
+                "p2p_accept": true,
+                "p2p_udp_accept": true,
+                "p2p_port": 2001,
+                "start_time": 1561428345,
+                "last_seen": 1561432304
+            }
         },
         {
-            "number": 3,
+            "number": 2,
+            "host_port": "127.0.0.1:2003",
             "neers": [
                 "127.0.0.1:2000",
                 "127.0.0.1:2001",
                 "127.0.0.1:2002"
             ],
-            "sock_type": "type/server",
-            "score": 3,
+            "sock_type": "server",
+            "score": 0,
             "warn": 0,
-            "name": "Blade:93563",
-            "client_ver": "2.0.0",
-            "network_ver": 1309112980,
-            "p2p_accept": true,
-            "p2p_udp_accept": true,
-            "p2p_port": 2003,
-            "start_time": 1547907675,
-            "last_seen": 1547908237
+            "header": {
+                "name": "Fork:93768",
+                "client_ver": "3.0.1",
+                "network_ver": 168376687,
+                "p2p_accept": true,
+                "p2p_udp_accept": true,
+                "p2p_port": 2003,
+                "start_time": 1561429971,
+                "last_seen": 1561432416
+            }
         }
     ]
 }
