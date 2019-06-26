@@ -225,3 +225,8 @@ class Block(object):
         hash_list = [tx.hash for tx in self.txs]
         self.merkleroot = merkleroot_hash(hash_list)
         self.serialize()
+
+
+__all__ = [
+    "Block",
+]

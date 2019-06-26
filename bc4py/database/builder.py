@@ -211,6 +211,15 @@ class DataBase(object):
         tx.R = R
         return tx
 
+    def have_tx(self, txhash) -> bool:
+        """return True if you have tx index data"""
+        # txhash -> height
+        if self.is_batch_thread() and txhash in self.batch['_tx_index']:
+            b = self.batch['_tx_index'][txhash]
+        else:
+            b = self._tx_index.get(txhash, default=None)
+        return b is not None
+
     def read_usedindex(self, txhash):
         if self.is_batch_thread() and txhash in self.batch['_used_index']:
             b = self.batch['_used_index'][txhash]
@@ -742,8 +751,11 @@ class TransactionBuilder(object):
                 return default
         return tx
 
-    def __contains__(self, item):
-        return bool(self.get_tx(item.hash))
+    def have_tx(self, txhash) -> bool:
+        return txhash in self.cashe or \
+               txhash in self.unconfirmed or \
+               txhash in self.chained_tx or \
+               chain_builder.db.have_tx(txhash)
 
     def affect_new_chain(self, old_best_sets, new_best_sets):
 
@@ -803,17 +815,19 @@ class UserAccount(object):
     async def init(self, f_delete=False, outer_cur=None):
 
         async def _wrapper(cur):
+            count = 0
             memory_sum = Accounting()
             async for move_log in read_movelog_iter(cur):
                 # logに記録されてもBlockに取り込まれていないならTXは存在せず
-                if chain_builder.db.read_tx(move_log.txhash):
-                    memory_sum += move_log.movement
-                elif move_log.type == C.TX_INNER:
+                if move_log.type == C.TX_INNER:
                     continue
+                elif chain_builder.db.read_tx(move_log.txhash):
+                    memory_sum += move_log.movement
                 else:
-                    log.debug("It's unknown log {}".format(move_log))
                     if f_delete:
                         await delete_movelog(move_log.txhash, cur)
+                    count += 1
+            log.info(f"{count} unknown move_logs")
             self.db_balance += memory_sum
 
         assert f_delete is False, 'Unsafe function!'

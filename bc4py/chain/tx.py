@@ -205,3 +205,8 @@ class TX(object):
         self.time = now - V.BLOCK_GENESIS_TIME
         self.deadline = now - V.BLOCK_GENESIS_TIME + retention
         self.serialize()
+
+
+__all__ = [
+    "TX",
+]
