@@ -84,17 +84,24 @@ async def sign_raw_tx(request):
             ck = get_address(pk=pk, hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER)
             other_pairs[ck] = (pk, r, s)
         tx = TX.from_binary(binary=binary)
-        for txhash, txindex in tx.inputs:
-            input_tx = tx_builder.get_tx(txhash)
-            address, coin_id, amount = input_tx.outputs[txindex]
-            try:
-                tx.signature.append(await sign_message_by_address(raw=tx.b, address=address))
-            except BlockChainError:
-                if address not in other_pairs:
-                    raise BlockChainError('Not found secret key "{}"'.format(address))
-                tx.signature.append(other_pairs[address])
+        async with create_db(V.DB_ACCOUNT_PATH) as db:
+            cur = await db.cursor()
+            for txhash, txindex in tx.inputs:
+                input_tx = tx_builder.get_tx(txhash)
+                address, coin_id, amount = input_tx.outputs[txindex]
+                try:
+                    sig = await sign_message_by_address(raw=tx.b, address=address, cur=cur)
+                    tx.signature.append(sig)
+                except BlockChainError:
+                    if address not in other_pairs:
+                        raise BlockChainError('Not found secret key "{}"'.format(address))
+                    tx.signature.append(other_pairs[address])
         data = tx.getinfo()
-        return utils.json_res({'hash': data['hash'], 'signature': data['signature'], 'hex': tx.b.hex()})
+        return utils.json_res({
+            'hash': data['hash'],
+            'signature': data['signature'],
+            'hex': tx.b.hex(),
+        })
     except Exception:
         return utils.error_res()
 
