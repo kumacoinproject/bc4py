@@ -18,7 +18,6 @@ from logging import getLogger
 from typing import Optional, List, AnyStr
 import traceback
 import asyncio
-import atexit
 import os
 import re
 
@@ -52,7 +51,7 @@ class Generate(object):
         if executor is None:
             executor = get_executor_object()
         generating_threads.append(self)
-        asyncio.ensure_future(self.start_loop())
+        self.task = asyncio.ensure_future(self.start_loop())
         log.info(f"setup generating {C.consensus2name[consensus]}")
 
     def __repr__(self):
@@ -69,6 +68,7 @@ class Generate(object):
 
     def close(self):
         self.f_enable = False
+        self.task.cancel()
 
     async def start_loop(self):
         while self.f_enable:
@@ -90,6 +90,9 @@ class Generate(object):
             except BlockChainError as e:
                 log.warning(e)
                 await asyncio.sleep(5)
+            except asyncio.CancelledError:
+                log.info(f"generate task canceled {C.consensus2name[self.consensus]}")
+                break
             except AttributeError:
                 if 'previous_block.' in str(traceback.format_exc()):
                     log.debug("attribute error of previous_block, passed")
@@ -447,9 +450,6 @@ def close_generate():
         log.info("close generate thread")
 
 
-atexit.register(close_generate)
-
-
 __all__ = [
     "generating_threads",
     "output_que",
@@ -460,4 +460,5 @@ __all__ = [
     "update_unconfirmed_txs",
     "update_unspents_txs",
     "FailedGenerateWarning",
+    "close_generate",
 ]

@@ -19,6 +19,9 @@ async def system_safe_exit():
         from bc4py.database.builder import chain_builder
         await chain_builder.close()
 
+        from bc4py.user.generate import close_generate
+        close_generate()
+
         if V.API_OBJ:
             await V.API_OBJ.shutdown()  # should be called before cleanup()
             await V.API_OBJ.cleanup()  # should be called after shutdown()
