@@ -2,6 +2,7 @@ from bc4py.config import V, P, BlockChainError
 from bc4py.chain.checking import new_insert_block, check_tx, check_tx_time
 from bc4py.user.network import BroadcastCmd
 from p2p_python.server import Peer2PeerCmd
+from p2p_python.config import PeerToPeerError
 from bc4py.database.builder import tx_builder, chain_builder
 from bc4py.user.network.update import update_info_for_generate
 from logging import getLogger
@@ -50,7 +51,9 @@ async def mined_newblock(que):
                 await V.P2P_OBJ.send_command(cmd=Peer2PeerCmd.BROADCAST, data=data)
                 log.info("Success broadcast new block {}".format(new_block))
                 update_info_for_generate()
-            except TimeoutError:
+            except PeerToPeerError as e:
+                log.debug(f"unstable network '{e}'")
+            except asyncio.TimeoutError:
                 log.warning("Failed broadcast new block, other nodes don\'t accept {}".format(new_block.getinfo()))
         except asyncio.TimeoutError:
             if V.P2P_OBJ.f_stop:

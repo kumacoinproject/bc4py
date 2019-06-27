@@ -1,5 +1,6 @@
 from bc4py.config import V, P, BlockChainError
 from bc4py.user.network.directcmd import DirectCmd
+from p2p_python.config import PeerToPeerError
 from collections import Counter
 from logging import getLogger
 import random
@@ -24,8 +25,7 @@ async def set_good_node():
             dummy, r = await pc.send_direct_cmd(cmd=DirectCmd.best_info, data=None, user=user)
             if isinstance(r, str):
                 continue
-        except asyncio.TimeoutError:
-            log.debug("timeout", exc_info=True)
+        except (asyncio.TimeoutError, PeerToPeerError):
             continue
         # success get best-info
         if not isinstance(r['height'], int):
@@ -91,7 +91,7 @@ async def ask_node(cmd, data=None, f_continue_asking=False):
                 await set_good_node()
         except asyncio.TimeoutError:
             pass
-        except UnstableNetworkError as e:
+        except (UnstableNetworkError, PeerToPeerError) as e:
             log.warning("{}, wait 30sec".format(e))
             await asyncio.sleep(30)
     raise BlockChainError('Too many retry ask_node. good={} bad={} failed={} cmd={}'.format(
@@ -117,7 +117,7 @@ async def ask_all_nodes(cmd, data=None):
                 await set_good_node()
         except asyncio.TimeoutError:
             pass
-        except UnstableNetworkError as e:
+        except (UnstableNetworkError, PeerToPeerError) as e:
             log.warning("{}, wait 30sec".format(e))
             await asyncio.sleep(30)
     if len(result) > 0:
@@ -144,7 +144,7 @@ async def seek_nodes(cmd, data=None):
                 await set_good_node()
         except asyncio.TimeoutError:
             pass
-        except UnstableNetworkError as e:
+        except (UnstableNetworkError, PeerToPeerError) as e:
             log.warning("{}, wait 30sec".format(e))
             await asyncio.sleep(30)
     raise BlockChainError('Full seeked but cannot get any data. good={} bad={} cmd={}'
