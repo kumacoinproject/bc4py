@@ -81,6 +81,10 @@ async def send_newtx(new_tx, exc_info=True):
         log.info("Success broadcast new tx {}".format(new_tx))
         update_info_for_generate(u_block=False, u_unspent=True, u_unconfirmed=True)
         return True
+    except ConnectionError as e:
+        log.warning(f"retry send_newtx after 1s '{e}'")
+        await asyncio.sleep(1.0)
+        return await send_newtx(new_tx=new_tx, exc_info=exc_info)
     except Exception as e:
         log.warning("Failed broadcast new tx, other nodes don\'t accept {}".format(new_tx.getinfo()))
         log.warning("Reason is \"{}\"".format(e))

@@ -9,6 +9,8 @@ from hashlib import sha256
 def inputs_origin_check(tx, include_block):
     # Blockに取り込まれているなら
     # TXのInputsも既に取り込まれているはずだ
+    if len(tx.inputs) != len(set(tx.inputs)):
+        raise BlockChainError(f"input has same origin {len(tx.inputs)}!={len(set(tx.inputs))}")
     limit_height = chain_builder.best_block.height - C.MATURE_HEIGHT
     for txhash, txindex in tx.inputs:
         input_tx = tx_builder.get_tx(txhash)
