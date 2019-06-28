@@ -91,15 +91,30 @@ class DataBase(object):
 
     async def batch_commit(self):
         assert self.batch, 'Not created batch'
+        success_batch = list()
         for name, memory in self.batch.items():
             batch = getattr(self, name).write_batch(sync=self.db_config['sync'])
-            for k, v in memory.items():
-                batch.put(k, v)
-            batch.write()
-        self.batch = None
-        self.batch_task = None
-        self.event.set()
-        log.debug("Commit database")
+            try:
+                for k, v in memory.items():
+                    if v is None:
+                        batch.delete(k)
+                    else:
+                        batch.put(k, v)
+                success_batch.append(batch)
+            except Exception as e:
+                self.batch = None
+                self.batch_task = None
+                self.event.set()
+                log.error(f"commit failed name={name} by '{e}'")
+                return False
+        else:
+            for batch in success_batch:
+                batch.write()
+            self.batch = None
+            self.batch_task = None
+            self.event.set()
+            log.debug("commit success")
+            return True
 
     def batch_rollback(self):
         self.batch = None
@@ -398,7 +413,10 @@ class ChainBuilder(object):
             self.best_chain = [genesis_block]
             self.best_block = genesis_block
             log.info("Set dummy block, genesisBlock={}".format(genesis_block))
-            await user_account.init()
+            async with create_db(V.DB_ACCOUNT_PATH) as db:
+                cur = await db.cursor()
+                await user_account.init(cur=cur)
+                await db.commit()
             return True
 
         async with create_db(V.DB_ACCOUNT_PATH) as db:
@@ -463,7 +481,7 @@ class ChainBuilder(object):
             self.best_chain = list(reversed(memorized_blocks))
             # UserAccount update
             await user_account.new_batch_apply(batched_blocks=batch_blocks, outer_cur=cur)
-            await user_account.init(outer_cur=cur)
+            await user_account.init(cur=cur)
             await db.commit()
         log.info("Init finished, last block is {} {}Sec".format(before_block, round(time() - t, 3)))
         return False
@@ -812,33 +830,23 @@ class UserAccount(object):
         # {txhash: (ntype, movement, ntime),..}
         self.memory_movement = dict()
 
-    async def init(self, f_delete=False, outer_cur=None):
-
-        async def _wrapper(cur):
-            count = 0
-            memory_sum = Accounting()
-            async for move_log in read_movelog_iter(cur):
-                # logに記録されてもBlockに取り込まれていないならTXは存在せず
-                if move_log.type == C.TX_INNER:
-                    continue
-                elif chain_builder.db.read_tx(move_log.txhash):
-                    memory_sum += move_log.movement
-                else:
-                    if f_delete:
-                        await delete_movelog(move_log.txhash, cur)
-                    count += 1
-            log.info(f"{count} unknown move_logs")
-            self.db_balance += memory_sum
-
-        assert f_delete is False, 'Unsafe function!'
-        if outer_cur:
-            await _wrapper(outer_cur)
-        else:
-            async with create_db(V.DB_ACCOUNT_PATH) as db:
-                await _wrapper(await db.cursor())
-                await db.commit()
-            if f_delete:
-                log.warning(f"Delete user's old unconfirmed tx")
+    async def init(self, cur=None, f_delete=False):
+        deleted = 0
+        ignored = 0
+        memory_sum = Accounting()
+        async for move_log in read_movelog_iter(cur):
+            # logに記録されてもBlockに取り込まれていないならTXは存在せず
+            if move_log.type == C.TX_INNER:
+                memory_sum += move_log.movement
+            elif chain_builder.db.have_tx(move_log.txhash):
+                memory_sum += move_log.movement
+            elif f_delete:
+                deleted += 1
+                await delete_movelog(move_log.txhash, cur)
+            else:
+                ignored += 1
+        log.info(f"move_logs ignored={ignored} deleted={deleted}")
+        self.db_balance += memory_sum
 
     async def get_balance(self, confirm=6, outer_cur=None):
 
@@ -883,25 +891,15 @@ class UserAccount(object):
             async with create_db(V.DB_ACCOUNT_PATH) as db:
                 return await _wrapper(await db.cursor())
 
-    async def move_balance(self, _from, _to, coins, outer_cur=None):
-
-        async def _wrapper(cur):
-            # DataBaseに即書き込む(Memoryに入れない)
-            movements = Accounting()
-            movements[_from] -= coins
-            movements[_to] += coins
-            txhash = await insert_movelog(movements, cur)
-            self.db_balance += movements
-            return txhash
-
+    async def move_balance(self, _from, _to, coins, cur):
         assert isinstance(coins, Balance), 'coins is Balance'
-        if outer_cur:
-            return await _wrapper(outer_cur)
-        else:
-            async with create_db(V.DB_ACCOUNT_PATH) as db:
-                r = await _wrapper(await db.cursor())
-                await db.commit()
-            return r
+        # DataBaseに即書き込む(Memoryに入れない)
+        movements = Accounting()
+        movements[_from] -= coins
+        movements[_to] += coins
+        txhash = await insert_movelog(movements, cur)
+        self.db_balance += movements
+        return txhash
 
     async def get_movement_iter(self, start=0, f_dict=False):
         async with create_db(V.DB_ACCOUNT_PATH) as db:
