@@ -390,25 +390,24 @@ def update_unconfirmed_txs(new_unconfirmed_txs):
     unconfirmed_txs = new_unconfirmed_txs
 
 
-async def update_unspents_txs(time_limit=0.2):
+async def update_unspents_txs():
     global unspents_txs
-    c = 100
     while previous_block is None:
-        if c < 0:
-            raise Exception('Timeout on update unspents')
         await asyncio.sleep(0.1)
-        c -= 1
     previous_height = previous_block.height
     proof_txs = list()
     all_num = 0
     async with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = await db.cursor()
         unspent_iter = await get_my_unspents_iter(cur)
-        s = time()
         async for address, height, txhash, txindex, coin_id, amount in unspent_iter:
-            if time() - s > time_limit:
-                break
             all_num += 1
+            if previous_block is None:
+                proof_txs.clear()
+                break  # new block detected
+            if previous_height != previous_block.height:
+                proof_txs.clear()
+                break  # new block detected
             if height is None:
                 continue
             if coin_id != 0:
