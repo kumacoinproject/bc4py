@@ -149,15 +149,16 @@ async def read_account_info(user, cur: Cursor):
     return name, description, ntime
 
 
-async def read_pooled_address_iter(cur: Cursor):
-    """iterate pooled addresses"""
-    await cur.execute("SELECT `id`,`ck`,`user` FROM `pool`")
-    return await cur.fetchall()
+async def read_pooled_address_list(user, cur: Cursor) -> list:
+    """get pooled address list"""
+    assert isinstance(user, int)
+    await cur.execute("SELECT `ck` FROM `pool` WHERE `user`=?", (user,))
+    return [ck for (ck,) in await cur.fetchall()]
 
 
-async def read_all_pooled_address(cur: Cursor) -> set:
+async def read_all_pooled_address_set(cur: Cursor, last_uuid=0) -> set:
     """get all pooled address"""
-    await cur.execute("SELECT `ck` FROM `pool`")
+    await cur.execute("SELECT `ck` FROM `pool` WHERE ?<`id`", (last_uuid,))
     return {addr for (addr,) in await cur.fetchall()}
 
 
@@ -325,8 +326,8 @@ __all__ = [
     "insert_keypair_from_outside",
     "read_keypair_last_index",
     "read_account_info",
-    "read_pooled_address_iter",
-    "read_all_pooled_address",
+    "read_pooled_address_list",
+    "read_all_pooled_address_set",
     "read_address2account",
     "read_name2userid",
     "read_userid2name",

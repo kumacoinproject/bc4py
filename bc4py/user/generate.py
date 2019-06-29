@@ -398,16 +398,17 @@ async def update_unspents_txs(time_limit=0.2):
             raise Exception('Timeout on update unspents')
         await asyncio.sleep(0.1)
         c -= 1
-    s = time()
     previous_height = previous_block.height
     proof_txs = list()
     all_num = 0
     async with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = await db.cursor()
-        for address, height, txhash, txindex, coin_id, amount in await get_my_unspents_iter(cur):
+        unspent_iter = await get_my_unspents_iter(cur)
+        s = time()
+        async for address, height, txhash, txindex, coin_id, amount in unspent_iter:
             if time() - s > time_limit:
                 break
-            await asyncio.sleep(0.0)
+            all_num += 1
             if height is None:
                 continue
             if coin_id != 0:
@@ -418,10 +419,9 @@ async def update_unspents_txs(time_limit=0.2):
                 continue
             if amount < 100000000:
                 continue
-            if staking_limit < all_num:
+            if staking_limit < len(proof_txs):
                 log.debug("Unspents limit reached, skip by {} limits".format(staking_limit))
                 break
-            all_num += 1
             proof_tx = TX.from_dict(
                 tx={
                     'type': C.TX_POS_REWARD,

@@ -6,6 +6,7 @@ from bc4py.database.builder import chain_builder, user_account
 from bc4py.database.create import create_db
 from bc4py.database.account import *
 from bc4py.database.tools import get_unspents_iter, get_my_unspents_iter
+from aioitertools import enumerate as aioenumerate
 from aiohttp import web
 
 
@@ -53,7 +54,7 @@ async def list_unspents(request):
             return utils.error_res('not found key "address"')
         unspents_iter = get_unspents_iter(target_address=set(target_address.split(',')))
         data = list()
-        for index, (address, height, txhash, txindex, coin_id, amount) in enumerate(unspents_iter):
+        async for index, (address, height, txhash, txindex, coin_id, amount) in aioenumerate(unspents_iter):
             if finish < index:
                 f_next_page = True
                 break
@@ -78,7 +79,8 @@ async def list_private_unspents(request):
     best_height = chain_builder.best_block.height
     async with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = await db.cursor()
-        for address, height, txhash, txindex, coin_id, amount in await get_my_unspents_iter(cur):
+        unspent_iter = await get_my_unspents_iter(cur)
+        async for address, height, txhash, txindex, coin_id, amount in unspent_iter:
             data.append({
                 'address': address,
                 'height': height,
@@ -96,11 +98,12 @@ async def list_account_address(request):
         cur = await db.cursor()
         user_name = request.query.get('account', C.account2name[C.ANT_UNKNOWN])
         user_id = await read_name2userid(user_name, cur)
-        address_list = list()
-        for uuid, address, user in await read_pooled_address_iter(cur):
-            if user_id == user:
-                address_list.append(address)
-    return utils.json_res({'account': user_name, 'user_id': user_id, 'address': address_list})
+        address_list = await read_pooled_address_list(user_id, cur)
+    return utils.json_res({
+        'account': user_name,
+        'user_id': user_id,
+        'address': address_list,
+    })
 
 
 async def move_one(request):

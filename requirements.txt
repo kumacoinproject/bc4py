@@ -13,3 +13,4 @@ setuptools-rust
 mnemonic
 aiosqlite
 asyncio-contextmanager
+aioitertools

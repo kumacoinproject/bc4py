@@ -54,7 +54,7 @@ async def fill_inputs_outputs(
         utxo_cashe = [cashe, utxo_iter]
     else:
         cashe, utxo_iter = utxo_cashe
-    for is_cashe, (address, height, txhash, txindex, coin_id, amount) in sum_utxo_iter(cashe, utxo_iter):
+    async for is_cashe, (address, height, txhash, txindex, coin_id, amount) in sum_utxo_iter(cashe, utxo_iter):
         if not is_cashe:
             cashe.append((address, height, txhash, txindex, coin_id, amount))
         if coin_id not in need_coins:
@@ -171,11 +171,11 @@ async def check_enough_amount(sender, send_coins, fee_coins, cur):
             .format(sender, from_coins, remain_coins))
 
 
-def sum_utxo_iter(cashe: list, utxo_iter):
+async def sum_utxo_iter(cashe: list, utxo_iter):
     """return with flag is_cashe"""
     for args in cashe:
         yield True, args
-    for args in utxo_iter:
+    async for args in utxo_iter:
         yield False, args
 
 
