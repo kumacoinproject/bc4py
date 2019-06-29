@@ -33,7 +33,7 @@ def update_info_for_generate(u_block=True, u_unspent=True, u_unconfirmed=True):
             if u_unconfirmed and not unconfirmed_lock.locked():
                 info += await update_unconfirmed_info()
             if info:
-                log.debug("{} update finish {}".format(num, info))
+                log.debug("{} update finish{}".format(num, info))
         except Exception:
             log.debug("update_info_for_generate exception", exc_info=True)
 

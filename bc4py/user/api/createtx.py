@@ -165,7 +165,7 @@ async def send_from_user(request):
                 'time': round(time() - start, 3)
             })
         except Exception as e:
-            db.rollback()
+            await db.rollback()
             return utils.error_res()
 
 

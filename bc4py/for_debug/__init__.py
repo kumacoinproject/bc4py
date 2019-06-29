@@ -1,8 +1,11 @@
-from bc4py.config import V, stream
+from bc4py.config import P, stream
 from logging import *
+from time import time
 import socket
+import asyncio
 import os
 
+loop = asyncio.get_event_loop()
 log = getLogger('bc4py')
 
 
@@ -53,8 +56,23 @@ def stream_printer():
     stream.subscribe(on_next=log.debug, on_error=log.error)
 
 
+async def slow_event_loop_detector(span=1.0, limit=0.1):
+    """find event loop delay and detect blocking"""
+    log.info(f"setup slow_event_loop_detector limit={limit}s")
+    while not P.F_STOP:
+        try:
+            s = time()
+            await asyncio.sleep(0.0)
+            if limit < time() - s:
+                log.debug(f"slow event loop {int((time()-s)*1000)}mS!")
+            await asyncio.sleep(span)
+        except Exception:
+            log.error("slow_event_loop_detector exception", exc_info=True)
+
+
 __all__ = [
     "f_already_bind",
     "set_logger",
     "stream_printer",
+    "slow_event_loop_detector",
 ]
