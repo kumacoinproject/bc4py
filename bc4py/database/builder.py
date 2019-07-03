@@ -474,6 +474,7 @@ class ChainBuilder(object):
                 batch_blocks.append(block)
                 self.chain[block.hash] = block
                 for tx in block.txs:
+                    await user_account.affect_new_tx(cur=cur, tx=tx)
                     if tx.hash not in tx_builder.chained_tx:
                         tx_builder.chained_tx[tx.hash] = tx
                     if tx.hash in tx_builder.unconfirmed:
