@@ -128,9 +128,8 @@ async def update_unconfirmed_info():
                 for depend_tx in unconfirmed_depends_cashe[tx.hash]:
                     if depend_tx not in unconfirmed_txs:
                         # not found depend in unconfirmed
-                        skip = True
-                        break
-                    if tx.create_time < depend_tx.create_time:
+                        continue
+                    if unconfirmed_txs.index(tx) < unconfirmed_txs.index(depend_tx):
                         # the tx' depends use newer input!
                         unconfirmed_txs.remove(tx)
                         skip = True
