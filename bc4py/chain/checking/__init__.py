@@ -1,7 +1,8 @@
-from bc4py.config import stream, BlockChainError
+from bc4py.config import V, stream, BlockChainError
 from bc4py.chain.checking.checkblock import check_block, check_block_time
 from bc4py.chain.checking.checktx import check_tx, check_tx_time
 from bc4py.chain.signature import fill_verified_addr_single
+from bc4py.database.create import create_db
 from bc4py.database.builder import chain_builder, user_account
 from logging import getLogger
 from time import time
@@ -28,8 +29,10 @@ async def new_insert_block(block, f_time=True, f_sign=True):
                     check_tx_time(tx)
             # Recode
             chain_builder.new_block(block)
-            for tx in block.txs:
-                await user_account.affect_new_tx(tx)
+            async with create_db(V.DB_ACCOUNT_PATH) as db:
+                cur = await db.cursor()
+                for tx in block.txs:
+                    await user_account.affect_new_tx(cur=cur, tx=tx)
             # insert database
             await chain_builder.batch_apply()
             # inner streaming

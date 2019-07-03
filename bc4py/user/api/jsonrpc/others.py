@@ -22,7 +22,9 @@ async def getinfo(*args, **kwargs):
     bits, target = get_bits_by_hash(previous_hash=best_block.hash, consensus=consensus)
     difficulty = (0xffffffffffffffff // target) / 100000000
     # balance
-    users = await user_account.get_balance(confirm=6)
+    async with create_db(V.DB_ACCOUNT_PATH) as db:
+        cur = await db.cursor()
+        users = await user_account.get_balance(cur=cur, confirm=6)
     return {
         "version": __version__,
         "protocolversion": __chain_version__,

@@ -168,7 +168,7 @@ async def main_sync_loop():
                 try:
                     check_tx_time(tx)
                     check_tx(tx, include_block=None)
-                    await tx_builder.put_unconfirmed(tx=tx, outer_cur=cur)
+                    await tx_builder.put_unconfirmed(cur=cur, tx=tx)
                 except BlockChainError as e:
                     log.debug("2: Failed get unconfirmed '{}'".format(e))
         # fast sync finish

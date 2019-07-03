@@ -3,6 +3,7 @@ from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.chain.checking import new_insert_block, check_tx, check_tx_time
 from bc4py.chain.signature import fill_verified_addr_tx
+from bc4py.database.create import create_db
 from bc4py.database.builder import chain_builder, tx_builder
 from bc4py.user.network.update import update_info_for_generate
 from bc4py.user.network.directcmd import DirectCmd
@@ -52,7 +53,9 @@ class BroadcastCmd:
             check_tx_time(new_tx)
             await fill_verified_addr_tx(new_tx)
             check_tx(tx=new_tx, include_block=None)
-            await tx_builder.put_unconfirmed(tx=new_tx)
+            async with create_db(V.DB_ACCOUNT_PATH) as db:
+                cur = await db.cursor()
+                await tx_builder.put_unconfirmed(cur=cur, tx=new_tx)
             log.info("Accept new tx {}".format(new_tx))
             update_info_for_generate(u_block=False, u_unspent=False, u_unconfirmed=True)
             return True
@@ -100,7 +103,9 @@ async def fill_newblock_info(data):
             tx: TX = r
             tx.height = None
             check_tx(tx, include_block=None)
-            await tx_builder.put_unconfirmed(tx)
+            async with create_db(V.DB_ACCOUNT_PATH) as db:
+                cur = await db.cursor()
+                await tx_builder.put_unconfirmed(cur=cur, tx=tx)
             log.debug("Success unknown tx download {}".format(tx))
         tx.height = new_height
         new_block.txs.append(tx)

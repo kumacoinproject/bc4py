@@ -15,7 +15,7 @@ async def list_balance(request):
     data = dict()
     async with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = await db.cursor()
-        users = await user_account.get_balance(confirm=confirm, outer_cur=cur)
+        users = await user_account.get_balance(cur=cur, confirm=confirm)
         for user, balance in users.items():
             name = await read_userid2name(user, cur)
             data[name] = dict(balance)
@@ -116,11 +116,15 @@ async def move_one(request):
         coins = Balance(coin_id, amount)
         async with create_db(V.DB_ACCOUNT_PATH, strict=True) as db:
             cur = await db.cursor()
-            _from = await read_name2userid(ant_from, cur)
-            _to = await read_name2userid(ant_to, cur)
-            txhash = await user_account.move_balance(_from, _to, coins, cur)
+            from_user = await read_name2userid(ant_from, cur)
+            to_user = await read_name2userid(ant_to, cur)
+            txhash = await user_account.move_balance(cur, from_user, to_user, coins)
             await db.commit()
-        return utils.json_res({'txhash': txhash.hex(), 'from_id': _from, 'to_id': _to})
+        return utils.json_res({
+            'txhash': txhash.hex(),
+            'from_id': from_user,
+            'to_id': to_user,
+        })
     except Exception:
         return utils.error_res()
 
@@ -135,11 +139,15 @@ async def move_many(request):
             coins[int(k)] += int(v)
         async with create_db(V.DB_ACCOUNT_PATH, strict=True) as db:
             cur = await db.cursor()
-            _from = await read_name2userid(ant_from, cur)
-            _to = await read_name2userid(ant_to, cur)
-            txhash = await user_account.move_balance(_from, _to, coins, cur)
+            from_user = await read_name2userid(ant_from, cur)
+            to_user = await read_name2userid(ant_to, cur)
+            txhash = await user_account.move_balance(cur, from_user, to_user, coins)
             await db.commit()
-        return utils.json_res({'txhash': txhash.hex(), 'from_id': _from, 'to_id': _to})
+        return utils.json_res({
+            'txhash': txhash.hex(),
+            'from_id': from_user,
+            'to_id': to_user,
+        })
     except Exception as e:
         return web.Response(text=str(e), status=400)
 
