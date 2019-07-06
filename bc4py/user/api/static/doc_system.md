@@ -310,7 +310,7 @@ get network info
                 "127.0.0.1:2003",
                 "127.0.0.1:2002"
             ],
-            "sock_type": "client",
+            "direction": "outbound",
             "score": 0,
             "warn": 0,
             "header": {
@@ -328,7 +328,7 @@ get network info
             "number": 1,
             "host_port": "127.0.0.1:2001",
             "neers": [],
-            "sock_type": "client",
+            "direction": "inbound",
             "score": 0,
             "warn": 0,
             "header": {
@@ -350,7 +350,7 @@ get network info
                 "127.0.0.1:2001",
                 "127.0.0.1:2002"
             ],
-            "sock_type": "server",
+            "direction": "outbound",
             "score": 0,
             "warn": 0,
             "header": {

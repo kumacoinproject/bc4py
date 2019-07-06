@@ -113,7 +113,7 @@ async def network_info(request):
                 'object': repr(user),
                 'host_port': "{}:{}".format(*user.get_host_port()),
                 'neers': ["{}:{}".format(*conn) for conn in user.neers],
-                'sock_type': user.sock_type,
+                'direction': getattr(user, 'sock_type', user.direction),
                 'score': user.score,
                 'warn': user.warn,
                 'header': user.header.getinfo()
