@@ -45,9 +45,10 @@ def blocking_run():
     """block and exit with system_safe_exit"""
     try:
         loop.run_forever()
-    finally:
+    except KeyboardInterrupt:
         log.info("stop blocking run!")
         loop.run_until_complete(system_safe_exit())
+    loop.close()
 
 
 __all__ = [
