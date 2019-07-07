@@ -22,7 +22,7 @@ async def get_mining_block(consensus):
     s = time()
     while True:
         try:
-            return create_mining_block(consensus=consensus)
+            return await create_mining_block(consensus=consensus)
         except FailedGenerateWarning:
             await asyncio.sleep(0.1)
         except Exception as e:
@@ -252,7 +252,7 @@ async def submitblock(*args, **kwargs):
         return 'Unknown input? -> {}'.format(block_hex_or_obj)
     mined_block.update_pow()
     if mined_block.pow_check():
-        confirmed_generating_block(mined_block)
+        await confirmed_generating_block(mined_block)
         return None  # accepted
     else:
         return 'not satisfied work'

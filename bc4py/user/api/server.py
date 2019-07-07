@@ -12,7 +12,6 @@ from .createtx import *
 from .jsonrpc import json_rpc
 from bc4py.config import V
 from bc4py.user.api import utils
-import threading
 import os
 import asyncio
 from ssl import SSLContext, PROTOCOL_SSLv23
@@ -75,7 +74,8 @@ def setup_ssl_context(cert, private, hostname=False):
     return ssl_context
 
 
-def create_rest_server(user='user', pwd='password', port=3000, host='127.0.0.1', ssl_context=None):
+async def setup_rest_server(
+        user='user', pwd='password', port=3000, host='127.0.0.1', ssl_context=None):
     """
     create REST server for API
     :param user: BasicAuth username
@@ -84,8 +84,6 @@ def create_rest_server(user='user', pwd='password', port=3000, host='127.0.0.1',
     :param host: REST bind host, "0.0.0.0" is global
     :param ssl_context: for SSL server
     """
-    assert not loop.is_running(), "setup before event loop start!"
-    threading.current_thread().setName("REST")
     app = web.Application()
 
     # System
@@ -141,9 +139,9 @@ def create_rest_server(user='user', pwd='password', port=3000, host='127.0.0.1',
     # Working
     # No blocking run https://docs.aiohttp.org/en/stable/web_advanced.html#application-runners
     runner = web.AppRunner(app)
-    loop.run_until_complete(runner.setup())
+    await runner.setup()
     site = web.TCPSite(runner, host=host, port=port, ssl_context=ssl_context)
-    loop.run_until_complete(site.start())
+    await site.start()
     log.info(f"API listen on {host}:{port}")
     V.API_OBJ = runner
 
@@ -191,5 +189,5 @@ __all__ = [
     "escape_cross_origin_block",
     "PrivateAccessStrategy",
     "setup_ssl_context",
-    "create_rest_server",
+    "setup_rest_server",
 ]

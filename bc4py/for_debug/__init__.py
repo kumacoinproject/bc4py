@@ -1,9 +1,11 @@
-from bc4py.config import V, stream
-from bc4py.database.create import create_db, sql_info
+from bc4py.config import P, stream
 from logging import *
+from time import time
 import socket
+import asyncio
 import os
 
+loop = asyncio.get_event_loop()
 log = getLogger('bc4py')
 
 
@@ -50,26 +52,27 @@ def set_logger(level=INFO, path=None, f_remove=False):
 
 
 def stream_printer():
-    stream.subscribe(on_next=print, on_error=log.error)
+    log.debug("register stream print")
+    stream.subscribe(on_next=log.debug, on_error=log.error)
 
 
-def debug_account(sql, explain=True):
-    with create_db(V.DB_ACCOUNT_PATH) as db:
-        db.set_trace_callback(sql_info)
-        cur = db.cursor()
-        f = cur.execute(('explain query plan ' if explain else '') + sql)
-        if explain:
-            print(f.fetchone()[-1])
-        else:
-            c = 0
-            for d in f.fetchall():
-                print(c, ':', ', '.join(map(str, d)))
-                c += 1
+async def slow_event_loop_detector(span=1.0, limit=0.1):
+    """find event loop delay and detect blocking"""
+    log.info(f"setup slow_event_loop_detector limit={limit}s")
+    while not P.F_STOP:
+        try:
+            s = time()
+            await asyncio.sleep(0.0)
+            if limit < time() - s:
+                log.debug(f"slow event loop {int((time()-s)*1000)}mS!")
+            await asyncio.sleep(span)
+        except Exception:
+            log.error("slow_event_loop_detector exception", exc_info=True)
 
 
 __all__ = [
     "f_already_bind",
     "set_logger",
     "stream_printer",
-    "debug_account",
+    "slow_event_loop_detector",
 ]

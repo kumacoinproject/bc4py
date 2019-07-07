@@ -11,20 +11,21 @@ import msgpack
 MINTCOIN_DUMMY_ADDRESS = dummy_address(b'MINTCOIN_DUMMY_ADDR_')
 
 
-def issue_mint_coin(name,
-                    unit,
-                    digit,
-                    amount,
-                    cur,
-                    description=None,
-                    image=None,
-                    additional_issue=True,
-                    change_address=True,
-                    gas_price=None,
-                    sender=C.ANT_UNKNOWN,
-                    retention=10800):
+async def issue_mint_coin(
+        name,
+        unit,
+        digit,
+        amount,
+        cur,
+        description=None,
+        image=None,
+        additional_issue=True,
+        change_address=True,
+        gas_price=None,
+        sender=C.ANT_UNKNOWN,
+        retention=10800):
     mint_id = get_new_coin_id()
-    mint_address = generate_new_address_by_userid(user=sender, cur=cur)
+    mint_address = await generate_new_address_by_userid(user=sender, cur=cur)
     params = {
         "name": name,
         "unit": unit,
@@ -55,18 +56,18 @@ def issue_mint_coin(name,
     tx.serialize()
     # fill unspents
     fee_coin_id = 0
-    input_address = fill_inputs_outputs(tx=tx, cur=cur, fee_coin_id=fee_coin_id, additional_gas=additional_gas)
+    input_address = await fill_inputs_outputs(tx=tx, cur=cur, fee_coin_id=fee_coin_id, additional_gas=additional_gas)
     # input_address.add(mint_address)
     fee_coins = Balance(coin_id=fee_coin_id, amount=tx.gas_price * tx.gas_amount)
     # check amount
-    check_enough_amount(sender=sender, send_coins=Balance(0, amount), fee_coins=fee_coins, cur=cur)
+    await check_enough_amount(sender=sender, send_coins=Balance(0, amount), fee_coins=fee_coins, cur=cur)
     # replace dummy address
-    replace_redeem_dummy_address(tx=tx, cur=cur)
+    await replace_redeem_dummy_address(tx=tx, cur=cur)
     # replace dummy mint_id
     replace_mint_dummy_address(tx=tx, mint_address=mint_address, mint_id=mint_id, f_raise=True)
     # setup signature
     tx.serialize()
-    setup_signature(tx=tx, input_address=input_address)
+    await add_sign_by_address(tx=tx, input_address=input_address)
     # movement
     movements = Accounting()
     minting_coins = Balance(mint_id, amount)
@@ -74,20 +75,21 @@ def issue_mint_coin(name,
     # movements[C.ANT_OUTSIDE] -= minting_coins
     movements[sender] -= fee_coins
     # movements[C.ANT_OUTSIDE] += fee_coins
-    insert_movelog(movements, cur, tx.type, tx.time, tx.hash)
+    await insert_movelog(movements, cur, tx.type, tx.time, tx.hash)
     return mint_id, tx
 
 
-def change_mint_coin(mint_id,
-                     cur,
-                     amount=None,
-                     description=None,
-                     image=None,
-                     setting=None,
-                     new_address=None,
-                     gas_price=None,
-                     sender=C.ANT_UNKNOWN,
-                     retention=10800):
+async def change_mint_coin(
+        mint_id,
+        cur,
+        amount=None,
+        description=None,
+        image=None,
+        setting=None,
+        new_address=None,
+        gas_price=None,
+        sender=C.ANT_UNKNOWN,
+        retention=10800):
     assert amount or description or image or setting or new_address
     params = dict()
     if description:
@@ -128,25 +130,25 @@ def change_mint_coin(mint_id,
     tx.serialize()
     # fill unspents
     fee_coin_id = 0
-    input_address = fill_inputs_outputs(tx=tx, cur=cur, fee_coin_id=fee_coin_id, additional_gas=additional_gas)
+    input_address = await fill_inputs_outputs(tx=tx, cur=cur, fee_coin_id=fee_coin_id, additional_gas=additional_gas)
     input_address.add(m_before.address)
     fee_coins = Balance(coin_id=fee_coin_id, amount=tx.gas_price * tx.gas_amount)
     # check amount
-    check_enough_amount(sender=sender, send_coins=send_coins, fee_coins=fee_coins, cur=cur)
+    await check_enough_amount(sender=sender, send_coins=send_coins, fee_coins=fee_coins, cur=cur)
     # replace dummy address
-    replace_redeem_dummy_address(tx=tx, cur=cur)
+    await replace_redeem_dummy_address(tx=tx, cur=cur)
     # replace dummy mint_id
     replace_mint_dummy_address(tx=tx, mint_address=m_before.address, mint_id=mint_id, f_raise=False)
     # setup signature
     tx.serialize()
-    setup_signature(tx=tx, input_address=input_address)
+    await add_sign_by_address(tx=tx, input_address=input_address)
     # movement
     movements = Accounting()
     movements[sender] += minting_coins
     # movements[C.ANT_OUTSIDE] -= minting_coins
     movements[sender] -= fee_coins
     # movements[C.ANT_OUTSIDE] += fee_coins
-    insert_movelog(movements, cur, tx.type, tx.time, tx.hash)
+    await insert_movelog(movements, cur, tx.type, tx.time, tx.hash)
     return tx
 
 

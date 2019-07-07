@@ -8,11 +8,14 @@ from bc4py.utils import set_database_path, set_blockchain_params
 from bc4py.chain.genesisblock import create_genesis_block
 from bc4py.database.create import check_account_db
 from bc4py.user.boot import create_boot_file, import_keystone
+import asyncio
+ 
+loop = asyncio.get_event_loop()
  
 # setup database path and initialize database
 set_database_path()
 import_keystone(passphrase='hello python')
-check_account_db()
+loop.run_until_complete(check_account_db())
  
 # consensus
 consensus = {

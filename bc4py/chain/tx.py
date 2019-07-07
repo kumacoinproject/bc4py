@@ -52,7 +52,8 @@ class TX(object):
         return hash(self.hash)
 
     def __repr__(self):
-        return "<TX {} {} {}>".format(self.height, C.txtype2name.get(self.type, None), self.hash.hex())
+        return "<TX {} {} {}>".format(
+            self.height, C.txtype2name.get(self.type, 'UNKNOWN'), self.hash.hex())
 
     def __init__(self):
         # data
@@ -204,3 +205,8 @@ class TX(object):
         self.time = now - V.BLOCK_GENESIS_TIME
         self.deadline = now - V.BLOCK_GENESIS_TIME + retention
         self.serialize()
+
+
+__all__ = [
+    "TX",
+]

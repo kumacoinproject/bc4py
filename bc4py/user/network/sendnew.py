@@ -1,22 +1,26 @@
-from bc4py.config import C, V, P, BlockChainError
+from bc4py.config import V, P, BlockChainError
 from bc4py.chain.checking import new_insert_block, check_tx, check_tx_time
 from bc4py.user.network import BroadcastCmd
 from p2p_python.server import Peer2PeerCmd
+from p2p_python.config import PeerToPeerError
+from bc4py.database.create import create_db
 from bc4py.database.builder import tx_builder, chain_builder
 from bc4py.user.network.update import update_info_for_generate
-from time import time
-import queue
 from logging import getLogger
+from time import time
+import asyncio
 
+loop = asyncio.get_event_loop()
 log = getLogger('bc4py')
 
 
-def mined_newblock(que):
+async def mined_newblock(que):
     """new thread, broadcast mined block to network"""
     assert V.P2P_OBJ, "PeerClient is None"
+    assert isinstance(que, asyncio.Queue)
     while not P.F_STOP:
         try:
-            new_block = que.get(timeout=1)
+            new_block = await asyncio.wait_for(que.get(), 1.0)
             new_block.create_time = int(time())
             if P.F_NOW_BOOTING:
                 log.debug("self reject, mined but now booting")
@@ -26,7 +30,7 @@ def mined_newblock(que):
                 continue
             else:
                 log.debug("Mined block check success")
-                if new_insert_block(new_block):
+                if await new_insert_block(new_block):
                     log.info("Mined new block {}".format(new_block.getinfo()))
                 else:
                     log.debug("self reject, cannot new insert")
@@ -45,22 +49,24 @@ def mined_newblock(que):
                 }
             }
             try:
-                V.P2P_OBJ.send_command(cmd=Peer2PeerCmd.BROADCAST, data=data)
+                await V.P2P_OBJ.send_command(cmd=Peer2PeerCmd.BROADCAST, data=data)
                 log.info("Success broadcast new block {}".format(new_block))
                 update_info_for_generate()
-            except TimeoutError:
+            except PeerToPeerError as e:
+                log.debug(f"unstable network '{e}'")
+            except asyncio.TimeoutError:
                 log.warning("Failed broadcast new block, other nodes don\'t accept {}".format(new_block.getinfo()))
-        except queue.Empty:
+        except asyncio.TimeoutError:
             if V.P2P_OBJ.f_stop:
                 log.debug("Mined new block closed")
                 break
         except BlockChainError as e:
             log.error('Failed mined new block "{}"'.format(e))
-        except Exception as e:
-            log.error("mined_newblock()", exc_info=True)
+        except Exception:
+            log.error("mined_newblock exception", exc_info=True)
 
 
-def send_newtx(new_tx, outer_cur=None, exc_info=True):
+async def send_newtx(new_tx, exc_info=True):
     assert V.P2P_OBJ, "PeerClient is None"
     try:
         check_tx_time(new_tx)
@@ -71,11 +77,17 @@ def send_newtx(new_tx, outer_cur=None, exc_info=True):
                 'tx': new_tx
             }
         }
-        V.P2P_OBJ.send_command(cmd=Peer2PeerCmd.BROADCAST, data=data)
-        tx_builder.put_unconfirmed(tx=new_tx)
+        await V.P2P_OBJ.send_command(cmd=Peer2PeerCmd.BROADCAST, data=data)
+        async with create_db(V.DB_ACCOUNT_PATH) as db:
+            cur = await db.cursor()
+            await tx_builder.put_unconfirmed(cur=cur, tx=new_tx)
         log.info("Success broadcast new tx {}".format(new_tx))
         update_info_for_generate(u_block=False, u_unspent=True, u_unconfirmed=True)
         return True
+    except ConnectionError as e:
+        log.warning(f"retry send_newtx after 1s '{e}'")
+        await asyncio.sleep(1.0)
+        return await send_newtx(new_tx=new_tx, exc_info=exc_info)
     except Exception as e:
         log.warning("Failed broadcast new tx, other nodes don\'t accept {}".format(new_tx.getinfo()))
         log.warning("Reason is \"{}\"".format(e))

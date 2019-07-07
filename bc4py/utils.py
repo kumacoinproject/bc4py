@@ -55,8 +55,13 @@ def check_already_started():
     if os.path.exists(pid_path):
         with open(pid_path, mode='r') as fp:
             pid = int(fp.read())
-        if psutil.pid_exists(pid):
-            raise RuntimeError('Already running blockchain-py pid={}'.format(pid))
+        try:
+            if psutil.pid_exists(pid):
+                if 'python' in psutil.Process(pid).exe():
+                    raise RuntimeError('Already running blockchain-py pid={}'.format(pid))
+        except Exception as e:
+            log.fatal(f"psutil exception '{e}', check pid and remove pid.lock if you think no problem")
+            exit(1)
     new_pid = os.getpid()
     with open(pid_path, mode='w') as fp:
         fp.write(str(new_pid))

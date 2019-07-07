@@ -105,23 +105,20 @@ async def system_private_info(request):
 
 async def network_info(request):
     try:
-        networks = list()
-        data = {
-            'p2p_ver': p2p_python.__version__,
-            'status': V.P2P_OBJ.core.get_server_header(),
-            'networks': networks
-        }
+        peers = list()
+        data = V.P2P_OBJ.core.get_my_user_header()
         for user in V.P2P_OBJ.core.user:
-            info = {
+            peers.append({
                 'number': user.number,
-                'endpoint': "{}:{}".format(*user.get_host_port()),
+                'object': repr(user),
+                'host_port': "{}:{}".format(*user.get_host_port()),
                 'neers': ["{}:{}".format(*conn) for conn in user.neers],
-                'sock_type': user.sock_type,
+                'direction': getattr(user, 'sock_type', user.direction),
                 'score': user.score,
-                'warn': user.warn
-            }
-            info.update(user.header.getinfo())
-            networks.append(info)
+                'warn': user.warn,
+                'header': user.header.getinfo()
+            })
+        data['peers'] = peers
         return utils.json_res(data)
     except Exception:
         return utils.error_res()

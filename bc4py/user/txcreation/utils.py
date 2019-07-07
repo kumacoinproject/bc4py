@@ -1,26 +1,30 @@
-from bc4py.config import C, BlockChainError
+from bc4py.config import C, V, BlockChainError
 from bc4py.bip32 import dummy_address
+from bc4py.database.create import create_db
 from bc4py.database.builder import user_account
 from bc4py.database.account import sign_message_by_address, generate_new_address_by_userid
 from bc4py.database.tools import get_my_unspents_iter, get_unspents_iter
 from bc4py.user import Balance
 from logging import getLogger
+import asyncio
 
+loop = asyncio.get_event_loop()
 log = getLogger('bc4py')
 
 DUMMY_REDEEM_ADDRESS = dummy_address(b'_DUMMY_REDEEM_ADDR__')
 MAX_RECURSIVE_DEPTH = 20
 
 
-def fill_inputs_outputs(tx,
-                        target_address=None,
-                        cur=None,
-                        signature_num=None,
-                        fee_coin_id=0,
-                        additional_gas=0,
-                        dust_percent=0.8,
-                        utxo_cashe=None,
-                        depth=0):
+async def fill_inputs_outputs(
+        tx,
+        target_address=None,
+        cur=None,
+        signature_num=None,
+        fee_coin_id=0,
+        additional_gas=0,
+        dust_percent=0.8,
+        utxo_cashe=None,
+        depth=0):
     if MAX_RECURSIVE_DEPTH < depth:
         raise BlockChainError('over max recursive depth on filling inputs_outputs!')
     # outputsの合計を取得
@@ -43,14 +47,14 @@ def fill_inputs_outputs(tx,
         if target_address:
             utxo_iter = get_unspents_iter(target_address=target_address)
         elif cur:
-            utxo_iter = get_my_unspents_iter(cur=cur)
+            utxo_iter = await get_my_unspents_iter(cur=cur)
         else:
             raise Exception('target_address and cur is None?')
         cashe = list()
         utxo_cashe = [cashe, utxo_iter]
     else:
         cashe, utxo_iter = utxo_cashe
-    for is_cashe, (address, height, txhash, txindex, coin_id, amount) in sum_utxo_iter(cashe, utxo_iter):
+    async for is_cashe, (address, height, txhash, txindex, coin_id, amount) in sum_utxo_iter(cashe, utxo_iter):
         if not is_cashe:
             cashe.append((address, height, txhash, txindex, coin_id, amount))
         if coin_id not in need_coins:
@@ -68,7 +72,7 @@ def fill_inputs_outputs(tx,
         if f_dust_skipped and dust_percent > 0.00001:
             new_dust_percent = round(dust_percent * 0.7, 6)
             log.debug("Retry by lower dust percent. {}=>{}".format(dust_percent, new_dust_percent))
-            return fill_inputs_outputs(
+            return await fill_inputs_outputs(
                 tx=tx,
                 target_address=target_address,
                 cur=cur,
@@ -113,7 +117,7 @@ def fill_inputs_outputs(tx,
         # retry insufficient gas
         log.info("retry calculate fee gasBefore={} gasNext={}".format(tx.gas_amount, need_gas_amount))
         tx.gas_amount = need_gas_amount
-        return fill_inputs_outputs(
+        return await fill_inputs_outputs(
             tx=tx,
             target_address=target_address,
             cur=cur,
@@ -128,14 +132,14 @@ def fill_inputs_outputs(tx,
         return input_address
 
 
-def replace_redeem_dummy_address(tx, cur=None, replace_by=None):
+async def replace_redeem_dummy_address(tx, cur=None, replace_by=None):
     assert cur or replace_by
     new_redeem_address = set()
     for index, (address, coin_id, amount) in enumerate(tx.outputs):
         if address != DUMMY_REDEEM_ADDRESS:
             continue
         if replace_by is None:
-            new_address = generate_new_address_by_userid(user=C.ANT_UNKNOWN, cur=cur, is_inner=True)
+            new_address = await generate_new_address_by_userid(user=C.ANT_UNKNOWN, cur=cur, is_inner=True)
         else:
             new_address = replace_by
         tx.outputs[index] = (new_address, coin_id, amount)
@@ -144,32 +148,34 @@ def replace_redeem_dummy_address(tx, cur=None, replace_by=None):
     return new_redeem_address
 
 
-def setup_signature(tx, input_address):
+async def add_sign_by_address(tx, input_address):
     # tx.signature.clear()
     count = 0
-    for address in input_address:
-        sign_pairs = sign_message_by_address(raw=tx.b, address=address)
-        if sign_pairs not in tx.signature:
-            tx.signature.append(sign_pairs)
-            tx.verified_list.append(address)
-            count += 1
+    async with create_db(V.DB_ACCOUNT_PATH) as db:
+        cur = await db.cursor()
+        for address in input_address:
+            sign_pairs = await sign_message_by_address(raw=tx.b, address=address, cur=cur)
+            if sign_pairs not in tx.signature:
+                tx.signature.append(sign_pairs)
+                tx.verified_list.append(address)
+                count += 1
     return count
 
 
-def check_enough_amount(sender, send_coins, fee_coins, cur):
+async def check_enough_amount(sender, send_coins, fee_coins, cur):
     assert isinstance(sender, int)
-    from_coins = user_account.get_balance(outer_cur=cur)[sender]
+    from_coins = (await user_account.get_balance(cur=cur, confirm=6))[sender]
     remain_coins = from_coins - send_coins - fee_coins
     if not remain_coins.is_all_plus_amount():
-        raise BlockChainError('Not enough balance in id={} balance={} remains={}request_num'.format(
-            sender, from_coins, remain_coins))
+        raise BlockChainError('Not enough balance in id={} balance={} remains={}request_num'
+            .format(sender, from_coins, remain_coins))
 
 
-def sum_utxo_iter(cashe: list, utxo_iter):
+async def sum_utxo_iter(cashe: list, utxo_iter):
     """return with flag is_cashe"""
     for args in cashe:
         yield True, args
-    for args in utxo_iter:
+    async for args in utxo_iter:
         yield False, args
 
 
@@ -177,6 +183,6 @@ __all__ = [
     "DUMMY_REDEEM_ADDRESS",
     "fill_inputs_outputs",
     "replace_redeem_dummy_address",
-    "setup_signature",
+    "add_sign_by_address",
     "check_enough_amount",
 ]

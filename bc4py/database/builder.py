@@ -1,5 +1,5 @@
 from bc4py.config import C, V, P, stream
-from bc4py.bip32 import is_address, addr2bin, bin2addr, ADDR_SIZE
+from bc4py.bip32 import addr2bin, ADDR_SIZE
 from bc4py.chain.utils import signature2bin, bin2signature
 from bc4py.chain.tx import TX
 from bc4py.chain.block import Block
@@ -9,7 +9,6 @@ from bc4py.database.account import *
 from bc4py.database.create import create_db
 from bc4py_extension import sha256d_hash
 from msgpack import unpackb, packb
-from threading import Thread, Event, current_thread
 from typing import Optional, Dict, List, MutableMapping
 from weakref import WeakValueDictionary
 from logging import getLogger, INFO
@@ -17,7 +16,10 @@ from time import time
 import struct
 import os
 import plyvel
+import asyncio
 
+
+loop = asyncio.get_event_loop()
 log = getLogger('bc4py')
 getLogger('plyvel').setLevel(INFO)
 
@@ -52,7 +54,7 @@ class DataBase(object):
         dirs = os.path.join(V.DB_HOME_DIR, 'db-ver{}'.format(DB_VERSION))
         self.dirs = dirs
         self.db_config.update(kwargs)  # extra settings
-        self.event = Event()
+        self.event = asyncio.Event()
         self.event.set()
         # already used => LevelDBError
         if os.path.exists(dirs):
@@ -69,7 +71,7 @@ class DataBase(object):
         self._address_index = plyvel.DB(os.path.join(dirs, 'address_index'), create_if_missing=f_create)
         self._coins = plyvel.DB(os.path.join(dirs, 'coins'), create_if_missing=f_create)
         self.batch: Optional[Dict[str, dict]] = None
-        self.batch_thread: Optional[Thread] = None
+        self.batch_task: Optional[asyncio.Task] = None
         log.debug(':create database connect path={}'.format(dirs.replace("\\", "/")))
 
     def close(self):
@@ -77,37 +79,51 @@ class DataBase(object):
             getattr(self, name).close()
         log.info("close database connection")
 
-    def batch_create(self):
+    async def batch_create(self):
         assert self.batch is None, 'batch is already start'
-        if not self.event.wait(timeout=self.db_config['timeout']):
-            raise TimeoutError('batch_create timeout')
+        await asyncio.wait_for(self.event.wait(), self.db_config['timeout'])
         self.event.clear()
         self.batch = dict()
         for name in self.database_list:
             self.batch[name] = dict()
-        self.batch_thread = current_thread()
+        self.batch_task = asyncio.Task.current_task()
         log.debug(":Create database batch")
 
-    def batch_commit(self):
+    async def batch_commit(self):
         assert self.batch, 'Not created batch'
+        success_batch = list()
         for name, memory in self.batch.items():
             batch = getattr(self, name).write_batch(sync=self.db_config['sync'])
-            for k, v in memory.items():
-                batch.put(k, v)
-            batch.write()
-        self.batch = None
-        self.batch_thread = None
-        self.event.set()
-        log.debug("Commit database")
+            try:
+                for k, v in memory.items():
+                    if v is None:
+                        batch.delete(k)
+                    else:
+                        batch.put(k, v)
+                success_batch.append(batch)
+            except Exception as e:
+                self.batch = None
+                self.batch_task = None
+                self.event.set()
+                log.error(f"commit failed name={name} by '{e}'")
+                return False
+        else:
+            for batch in success_batch:
+                batch.write()
+            self.batch = None
+            self.batch_task = None
+            self.event.set()
+            log.debug("commit success")
+            return True
 
     def batch_rollback(self):
         self.batch = None
-        self.batch_thread = None
+        self.batch_task = None
         self.event.set()
         log.debug("Rollback database")
 
     def is_batch_thread(self):
-        return self.batch and self.batch_thread is current_thread()
+        return self.batch and self.batch_task is asyncio.Task.current_task()
 
     def read_block(self, blockhash):
         if self.is_batch_thread() and blockhash in self.batch['_block']:
@@ -209,6 +225,15 @@ class DataBase(object):
         tx.signature = bin2signature(b_sign)
         tx.R = R
         return tx
+
+    def have_tx(self, txhash) -> bool:
+        """return True if you have tx index data"""
+        # txhash -> height
+        if self.is_batch_thread() and txhash in self.batch['_tx_index']:
+            b = self.batch['_tx_index'][txhash]
+        else:
+            b = self._tx_index.get(txhash, default=None)
+        return b is not None
 
     def read_usedindex(self, txhash):
         if self.is_batch_thread() and txhash in self.batch['_used_index']:
@@ -347,9 +372,10 @@ class ChainBuilder(object):
         self.best_block: Optional[Block] = None
         self.db: Optional[DataBase] = None
 
-    def close(self):
+    async def close(self):
         # require manual close
-        self.db.batch_create()
+        if self.db.batch_task:
+            await self.db.batch_task
         self.db.close()
 
     def set_database_path(self, **kwargs):
@@ -361,7 +387,7 @@ class ChainBuilder(object):
         except Exception:
             log.fatal("Failed connect database", exc_info=True)
 
-    def init(self, genesis_block: Block, batch_size=None):
+    async def init(self, genesis_block: Block, batch_size=None):
         assert self.db, 'Why database connection failed?'
         # return status
         # True  = Only genesisBlock, recommend to import bootstrap.dat.gz first
@@ -387,11 +413,14 @@ class ChainBuilder(object):
             self.best_chain = [genesis_block]
             self.best_block = genesis_block
             log.info("Set dummy block, genesisBlock={}".format(genesis_block))
-            user_account.init()
+            async with create_db(V.DB_ACCOUNT_PATH) as db:
+                cur = await db.cursor()
+                await user_account.init(cur=cur)
+                await db.commit()
             return True
 
-        with create_db(V.DB_ACCOUNT_PATH) as db:
-            cur = db.cursor()
+        async with create_db(V.DB_ACCOUNT_PATH) as db:
+            cur = await db.cursor()
             # 0HeightよりBlockを取得して確認
             before_block = genesis_block
             batch_blocks = list()
@@ -434,7 +463,7 @@ class ChainBuilder(object):
                 before_block = block
                 batch_blocks.append(block)
                 if len(batch_blocks) >= batch_size:
-                    user_account.new_batch_apply(batched_blocks=batch_blocks, outer_cur=cur)
+                    await user_account.new_batch_apply(cur=cur, batched_blocks=batch_blocks)
                     batch_blocks.clear()
                     log.debug("UserAccount batched at {} height".format(block.height))
             # load and rebuild memory section
@@ -445,15 +474,16 @@ class ChainBuilder(object):
                 batch_blocks.append(block)
                 self.chain[block.hash] = block
                 for tx in block.txs:
+                    await user_account.affect_new_tx(cur=cur, tx=tx)
                     if tx.hash not in tx_builder.chained_tx:
                         tx_builder.chained_tx[tx.hash] = tx
                     if tx.hash in tx_builder.unconfirmed:
                         del tx_builder.unconfirmed[tx.hash]
             self.best_chain = list(reversed(memorized_blocks))
             # UserAccount update
-            user_account.new_batch_apply(batched_blocks=batch_blocks, outer_cur=cur)
-            user_account.init(outer_cur=cur)
-            db.commit()
+            await user_account.new_batch_apply(cur=cur, batched_blocks=batch_blocks)
+            await user_account.init(cur=cur)
+            await db.commit()
         log.info("Init finished, last block is {} {}Sec".format(before_block, round(time() - t, 3)))
         return False
 
@@ -541,18 +571,18 @@ class ChainBuilder(object):
         best_chain = sorted(best_sets, key=lambda x: x.height, reverse=True)
         return best_block, best_chain
 
-    def batch_apply(self):
+    async def batch_apply(self):
         # 無チェックで挿入するから要注意
         if self.cashe_limit > len(self.chain):
             return list()
         # cashe許容量を上回っているので記録
-        self.db.batch_create()
+        await self.db.batch_create()
         log.debug("Start batch apply chain={}".format(len(self.chain)))
         best_chain = self.best_chain.copy()
         batch_count = self.batch_size
         batched_blocks = list()
-        with create_db(V.DB_ACCOUNT_PATH) as db:
-            cur = db.cursor()
+        async with create_db(V.DB_ACCOUNT_PATH) as db:
+            cur = await db.cursor()
             try:
                 block = None
                 while batch_count > 0 and len(best_chain) > 0:
@@ -573,13 +603,13 @@ class ChainBuilder(object):
                             input_tx = tx_builder.get_tx(txhash)
                             address, coin_id, amount = input_tx.outputs[txindex]
                             if chain_builder.db.db_config['addrindex'] or \
-                                    read_address2userid(address=address, cur=cur):
+                                    await read_address2userid(address=address, cur=cur):
                                 # 必要なAddressのみ
                                 self.db.write_address_idx(address, txhash, txindex, coin_id, amount, True)
                         # outputs
                         for index, (address, coin_id, amount) in enumerate(tx.outputs):
                             if chain_builder.db.db_config['addrindex'] or \
-                                    read_address2userid(address=address, cur=cur):
+                                    await read_address2userid(address=address, cur=cur):
                                 # 必要なAddressのみ
                                 self.db.write_address_idx(address, tx.hash, index, coin_id, amount, False)
                         # TXの種類による追加操作
@@ -598,15 +628,15 @@ class ChainBuilder(object):
                 # block挿入終了
                 self.best_chain = best_chain
                 self.root_block = block
-                self.db.batch_commit()
+                await self.db.batch_commit()
                 # root_blockよりHeightの小さいBlockを消す
                 for blockhash, block in self.chain.copy().items():
                     if self.root_block.height >= block.height:
                         del self.chain[blockhash]
                 log.debug("Success batch {} blocks, root={}".format(len(batched_blocks), self.root_block))
                 # アカウントへ反映↓
-                user_account.new_batch_apply(batched_blocks=batched_blocks, outer_cur=cur)
-                db.commit()
+                await user_account.new_batch_apply(cur=cur, batched_blocks=batched_blocks)
+                await db.commit()
                 return batched_blocks  # [<height=n>, <height=n+1>, .., <height=n+m>]
             except Exception as e:
                 self.db.batch_rollback()
@@ -615,7 +645,7 @@ class ChainBuilder(object):
 
     def new_block(self, new_block):
         """insert new block, Block/TX format is already checked"""
-        if new_block.height <= self.root_block.height:
+        if self.root_block.height and new_block.height <= self.root_block.height:
             return
         # meet chain order: root_block < new_block
         self.chain[new_block.hash] = new_block
@@ -692,7 +722,7 @@ class TransactionBuilder(object):
         # DataBase contains TXs
         self.cashe: MutableMapping[bytes, TX] = WeakValueDictionary()
 
-    def put_unconfirmed(self, tx, outer_cur=None):
+    async def put_unconfirmed(self, cur, tx):
         assert tx.height is None, 'Not unconfirmed tx {}'.format(tx)
         if tx.type in (C.TX_POW_REWARD, C.TX_POS_REWARD):
             return  # It is Reword tx
@@ -705,7 +735,7 @@ class TransactionBuilder(object):
         if tx.hash in self.chained_tx:
             log.debug('Already chained tx. {}'.format(tx))
             return
-        user_account.affect_new_tx(tx, outer_cur)
+        await user_account.affect_new_tx(cur=cur, tx=tx)
         if not stream.is_disposed:
             stream.on_next(tx)
 
@@ -740,8 +770,11 @@ class TransactionBuilder(object):
                 return default
         return tx
 
-    def __contains__(self, item):
-        return bool(self.get_tx(item.hash))
+    def have_tx(self, txhash) -> bool:
+        return txhash in self.cashe or \
+               txhash in self.unconfirmed or \
+               txhash in self.chained_tx or \
+               chain_builder.db.have_tx(txhash)
 
     def affect_new_chain(self, old_best_sets, new_best_sets):
 
@@ -798,102 +831,76 @@ class UserAccount(object):
         # {txhash: (ntype, movement, ntime),..}
         self.memory_movement = dict()
 
-    def init(self, f_delete=False, outer_cur=None):
+    async def init(self, cur, f_delete=False):
+        deleted = 0
+        ignored = 0
+        memory_sum = Accounting()
+        async for move_log in read_movelog_iter(cur):
+            # logに記録されてもBlockに取り込まれていないならTXは存在せず
+            if move_log.type == C.TX_INNER:
+                memory_sum += move_log.movement
+            elif chain_builder.db.have_tx(move_log.txhash):
+                memory_sum += move_log.movement
+            elif f_delete:
+                deleted += 1
+                await delete_movelog(move_log.txhash, cur)
+            else:
+                ignored += 1
+        log.info(f"move_logs ignored={ignored} deleted={deleted}")
+        self.db_balance += memory_sum
 
-        def _wrapper(cur):
-            memory_sum = Accounting()
-            for move_log in read_movelog_iter(cur):
-                # logに記録されてもBlockに取り込まれていないならTXは存在せず
-                if chain_builder.db.read_tx(move_log.txhash):
-                    memory_sum += move_log.movement
-                elif move_log.type == C.TX_INNER:
-                    continue
-                else:
-                    log.debug("It's unknown log {}".format(move_log))
-                    if f_delete:
-                        delete_movelog(move_log.txhash, cur)
-            self.db_balance += memory_sum
-
-        assert f_delete is False, 'Unsafe function!'
-        if outer_cur:
-            _wrapper(outer_cur)
-        else:
-            with create_db(V.DB_ACCOUNT_PATH) as db:
-                _wrapper(db.cursor())
-                if f_delete:
-                    log.warning("Delete user's old unconfirmed tx")
-                    db.commit()
-
-    def get_balance(self, confirm=6, outer_cur=None):
-
-        def _wrapper(cur):
-            # DataBase
-            account = self.db_balance.copy()
-            # Memory
-            limit_height = chain_builder.best_block.height - confirm
-            for block in chain_builder.best_chain:
-                for tx in block.txs:
-                    move_log = read_txhash2movelog(tx.hash, cur)
-                    if move_log is None:
-                        if tx.hash in self.memory_movement:
-                            move_log = self.memory_movement[tx.hash]
-                    if move_log:
-                        for user, coins in move_log.movement.items():
-                            for coin_id, amount in coins:
-                                if limit_height < block.height:
-                                    if amount < 0:
-                                        account[user][coin_id] += amount
-                                else:
-                                    # allow incoming balance
-                                    account[user][coin_id] += amount
-            # Unconfirmed
-            for tx in list(tx_builder.unconfirmed.values()):
-                move_log = read_txhash2movelog(tx.hash, cur)
+    async def get_balance(self, cur, confirm=6):
+        assert confirm < chain_builder.cashe_limit - chain_builder.batch_size
+        assert chain_builder.best_block, 'Not DataBase init'
+        # database
+        account = self.db_balance.copy()
+        # memory
+        limit_height = chain_builder.best_block.height - confirm
+        for block in chain_builder.best_chain:
+            for tx in block.txs:
+                move_log = await read_txhash2movelog(tx.hash, cur)
                 if move_log is None:
                     if tx.hash in self.memory_movement:
                         move_log = self.memory_movement[tx.hash]
                 if move_log:
                     for user, coins in move_log.movement.items():
                         for coin_id, amount in coins:
-                            if amount < 0:
+                            if limit_height < block.height:
+                                if amount < 0:
+                                    account[user][coin_id] += amount
+                            else:
+                                # allow incoming balance
                                 account[user][coin_id] += amount
-            return account
+        # unconfirmed
+        for tx in list(tx_builder.unconfirmed.values()):
+            move_log = await read_txhash2movelog(tx.hash, cur)
+            if move_log is None:
+                if tx.hash in self.memory_movement:
+                    move_log = self.memory_movement[tx.hash]
+            if move_log:
+                for user, coins in move_log.movement.items():
+                    for coin_id, amount in coins:
+                        if amount < 0:
+                            account[user][coin_id] += amount
+        return account
 
-        assert confirm < chain_builder.cashe_limit - chain_builder.batch_size, 'Too few cashe size'
-        assert chain_builder.best_block, 'Not DataBase init'
-        if outer_cur:
-            return _wrapper(outer_cur)
-        else:
-            with create_db(V.DB_ACCOUNT_PATH) as db:
-                return _wrapper(db.cursor())
-
-    def move_balance(self, _from, _to, coins, outer_cur=None):
-
-        def _wrapper(cur):
-            # DataBaseに即書き込む(Memoryに入れない)
-            movements = Accounting()
-            movements[_from] -= coins
-            movements[_to] += coins
-            txhash = insert_movelog(movements, cur)
-            self.db_balance += movements
-            return txhash
-
+    async def move_balance(self, cur, from_user, to_user, coins):
         assert isinstance(coins, Balance), 'coins is Balance'
-        if outer_cur:
-            return _wrapper(outer_cur)
-        else:
-            with create_db(V.DB_ACCOUNT_PATH) as db:
-                r = _wrapper(db.cursor())
-                db.commit()
-                return r
+        # DataBaseに即書き込む(Memoryに入れない)
+        movements = Accounting()
+        movements[from_user] -= coins
+        movements[to_user] += coins
+        txhash = await insert_movelog(movements, cur)
+        self.db_balance += movements
+        return txhash
 
-    def get_movement_iter(self, start=0, f_dict=False, outer_cur=None):
-
-        def _wrapper(cur):
+    async def get_movement_iter(self, start=0, f_dict=False):
+        async with create_db(V.DB_ACCOUNT_PATH) as db:
+            cur = await db.cursor()
             count = 0
             # Unconfirmed
             for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time, reverse=True):
-                move_log = read_txhash2movelog(tx.hash, cur)
+                move_log = await read_txhash2movelog(tx.hash, cur)
                 if move_log is None:
                     if tx.hash in self.memory_movement:
                         move_log = self.memory_movement[tx.hash]
@@ -903,14 +910,14 @@ class UserAccount(object):
                 if move_log:
                     if count >= start:
                         if f_dict:
-                            yield move_log.get_dict_data(recode_flag='unconfirmed', outer_cur=cur)
+                            yield await move_log.get_dict_data(recode_flag='unconfirmed', cur=cur)
                         else:
                             yield move_log.get_tuple_data()
                     count += 1
             # Memory
             for block in reversed(chain_builder.best_chain):
                 for tx in block.txs:
-                    move_log = read_txhash2movelog(tx.hash, cur)
+                    move_log = await read_txhash2movelog(tx.hash, cur)
                     if move_log is None:
                         if tx.hash in self.memory_movement:
                             move_log = self.memory_movement[tx.hash]
@@ -920,93 +927,70 @@ class UserAccount(object):
                     if move_log:
                         if count >= start:
                             if f_dict:
-                                yield move_log.get_dict_data(recode_flag='memory', outer_cur=cur)
+                                yield await move_log.get_dict_data(recode_flag='memory', cur=cur)
                             else:
                                 yield move_log.get_tuple_data()
                         count += 1
             # DataBase
-            for move_log in read_movelog_iter(cur, start - count):
+            async for move_log in read_movelog_iter(cur, start - count):
                 # TRANSFERなど はDBとMemoryの両方に存在する
                 if move_log.txhash in self.memory_movement:
                     continue
                 elif f_dict:
-                    yield move_log.get_dict_data(recode_flag='database', outer_cur=cur)
+                    yield await move_log.get_dict_data(recode_flag='database', cur=cur)
                 else:
                     yield move_log.get_tuple_data()
 
-        if outer_cur:
-            yield from _wrapper(outer_cur)
-        else:
-            with create_db(V.DB_ACCOUNT_PATH) as db:
-                yield from _wrapper(db.cursor())
-
-    def new_batch_apply(self, batched_blocks, outer_cur=None):
-
-        def _wrapper(cur):
-            for block in batched_blocks:
-                for tx in block.txs:
-                    move_log = read_txhash2movelog(tx.hash, cur)
-                    if move_log:
-                        # User操作の記録
-                        self.db_balance += move_log.movement
-                        if tx.hash in self.memory_movement:
-                            del self.memory_movement[tx.hash]
-                        # log.debug("Already recoded log {}".format(tx))
-                    elif tx.hash in self.memory_movement:
-                        # db_balanceに追加
-                        ntype, movement, ntime = self.memory_movement[tx.hash].get_tuple_data()
-                        self.db_balance += movement
-                        # memory_movementから削除
+    async def new_batch_apply(self, cur, batched_blocks):
+        for block in batched_blocks:
+            for tx in block.txs:
+                move_log = await read_txhash2movelog(tx.hash, cur)
+                if move_log:
+                    # User操作の記録
+                    self.db_balance += move_log.movement
+                    if tx.hash in self.memory_movement:
                         del self.memory_movement[tx.hash]
-                        # insert_log
-                        insert_movelog(movement, cur, ntype, ntime, tx.hash)
+                    # log.debug("Already recoded log {}".format(tx))
+                elif tx.hash in self.memory_movement:
+                    # db_balanceに追加
+                    ntype, movement, ntime = self.memory_movement[tx.hash].get_tuple_data()
+                    self.db_balance += movement
+                    # memory_movementから削除
+                    del self.memory_movement[tx.hash]
+                    # insert_log
+                    await insert_movelog(movement, cur, ntype, ntime, tx.hash)
 
-        if outer_cur:
-            _wrapper(outer_cur)
-        else:
-            with create_db(V.DB_ACCOUNT_PATH) as db:
-                _wrapper(db.cursor())
-                db.commit()
-
-    def affect_new_tx(self, tx, outer_cur=None):
-
-        def _wrapper(cur):
-            movement = Accounting()
-            # already registered by send_from_apply method
-            if tx.hash in self.memory_movement:
-                return
-            # add to memory_movement dict
-            for txhash, txindex in tx.inputs:
-                input_tx = tx_builder.get_tx(txhash)
-                address, coin_id, amount = input_tx.outputs[txindex]
-                user = read_address2userid(address, cur)
-                if user is not None:
-                    if tx.type == C.TX_POS_REWARD:
-                        # subtract staking reward from @Staked
-                        user = C.ANT_STAKED
-                    movement[user][coin_id] -= amount
-                    # movement[C.ANT_OUTSIDE] += balance
-            for address, coin_id, amount in tx.outputs:
-                user = read_address2userid(address, cur)
-                if user is not None:
-                    if tx.type == C.TX_POS_REWARD:
-                        # add staking reward to @Staked
-                        user = C.ANT_STAKED
-                    movement[user][coin_id] += amount
-                    # movement[C.ANT_OUTSIDE] -= balance
-            # check
-            movement.cleanup()
-            if len(movement) == 0:
-                return  # cannot find no movement to recode, skip
-            move_log = MoveLog(tx.hash, tx.type, movement, tx.time, tx)
-            self.memory_movement[tx.hash] = move_log
-            log.info("affected account by {}".format(tx))
-
-        if outer_cur:
-            _wrapper(outer_cur)
-        else:
-            with create_db(V.DB_ACCOUNT_PATH) as db:
-                _wrapper(db.cursor())
+    async def affect_new_tx(self, cur, tx):
+        movement = Accounting()
+        # already registered by send_from_apply method
+        if tx.hash in self.memory_movement:
+            return
+        # add to memory_movement dict
+        for txhash, txindex in tx.inputs:
+            input_tx = tx_builder.get_tx(txhash)
+            address, coin_id, amount = input_tx.outputs[txindex]
+            user = await read_address2userid(address, cur)
+            if user is not None:
+                if tx.type == C.TX_POS_REWARD:
+                    # subtract staking reward from @Staked
+                    user = C.ANT_STAKED
+                movement[user][coin_id] -= amount
+                # movement[C.ANT_OUTSIDE] += balance
+        for address, coin_id, amount in tx.outputs:
+            user = await read_address2userid(address, cur)
+            if user is not None:
+                if tx.type == C.TX_POS_REWARD:
+                    # add staking reward to @Staked
+                    user = C.ANT_STAKED
+                movement[user][coin_id] += amount
+                # movement[C.ANT_OUTSIDE] -= balance
+        # check
+        movement.cleanup()
+        if len(movement) == 0:
+            return  # cannot find no movement to recode, skip
+        move_log = MoveLog(tx.hash, tx.type, movement, tx.time, tx)
+        self.memory_movement[tx.hash] = move_log
+        log.info("affected account by {}".format(tx))
 
 
 class BlockBuilderError(Exception):

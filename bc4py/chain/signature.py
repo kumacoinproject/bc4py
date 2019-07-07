@@ -4,12 +4,14 @@ from multi_party_schnorr import verify_auto_multi
 from logging import getLogger
 from os import cpu_count
 from time import time
+import asyncio
 
+loop = asyncio.get_event_loop()
 log = getLogger('bc4py')
 n_workers = cpu_count()
 
 
-def fill_verified_addr_single(block):
+async def fill_verified_addr_single(block):
     # format check
     for tx in block.txs:
         for sign in tx.signature:
@@ -19,10 +21,10 @@ def fill_verified_addr_single(block):
     # throw task
     if len(tasks) == 0:
         return
-    throw_tasks(tasks, V.BECH32_HRP, C.ADDR_NORMAL_VER)
+    await throw_tasks(tasks, V.BECH32_HRP, C.ADDR_NORMAL_VER)
 
 
-def fill_verified_addr_many(blocks):
+async def fill_verified_addr_many(blocks):
     s = time()
     # format check
     tasks = dict()
@@ -35,11 +37,11 @@ def fill_verified_addr_many(blocks):
     # throw task
     if len(tasks) == 0:
         return
-    throw_tasks(tasks, V.BECH32_HRP, C.ADDR_NORMAL_VER)
+    await throw_tasks(tasks, V.BECH32_HRP, C.ADDR_NORMAL_VER)
     log.debug("verify {} signs by {}sec".format(len(tasks), round(time() - s, 3)))
 
 
-def fill_verified_addr_tx(tx):
+async def fill_verified_addr_tx(tx):
     assert tx.type != C.TX_POS_REWARD
     # format check
     for sign in tx.signature:
@@ -51,7 +53,7 @@ def fill_verified_addr_tx(tx):
     # throw task
     if len(tasks) == 0:
         return
-    throw_tasks(tasks, V.BECH32_HRP, C.ADDR_NORMAL_VER)
+    await throw_tasks(tasks, V.BECH32_HRP, C.ADDR_NORMAL_VER)
 
 
 def get_verify_tasks(block):
@@ -68,9 +70,12 @@ def get_verify_tasks(block):
     return tasks
 
 
-def throw_tasks(tasks, hrp, ver):
+async def throw_tasks(tasks, hrp, ver):
     task_list = list(tasks.keys())
-    result_list = verify_auto_multi(task_list, n_workers, False)
+    future: asyncio.Future = loop.run_in_executor(
+        None, verify_auto_multi, task_list, n_workers, False)
+    await asyncio.wait_for(future, 120.0)
+    result_list = future.result()
     # fill result
     for is_verify, key in zip(result_list, task_list):
         if not is_verify:

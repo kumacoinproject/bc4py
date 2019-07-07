@@ -1,10 +1,11 @@
 from bc4py.config import C, BlockChainError
 from bc4py.database.builder import chain_builder, tx_builder
-from bc4py.database.account import read_all_pooled_address
-from time import sleep
+from bc4py.database.account import read_all_pooled_address_set
+from typing import AsyncGenerator
 
 best_block_cashe = None
 best_chain_cashe = None
+target_address_cashe = set()
 
 
 def _get_best_chain_all(best_block):
@@ -25,16 +26,10 @@ def _get_best_chain_all(best_block):
         return best_chain
 
 
-def get_unspents_iter(target_address, best_block=None, best_chain=None):
-    failed = 0
-    while failed < 20:
-        if best_chain is None:
-            best_chain = _get_best_chain_all(best_block)
-        if best_chain:
-            break
-        failed += 1
-        sleep(0.05)
-    else:
+async def get_unspents_iter(target_address, best_block=None, best_chain=None) -> AsyncGenerator:
+    if best_chain is None:
+        best_chain = _get_best_chain_all(best_block)
+    if best_chain is None:
         raise BlockChainError('Cannot get best_chain by {}'.format(best_block))
     allow_mined_height = best_chain[0].height - C.MATURE_HEIGHT
     # DataBaseより
@@ -75,9 +70,10 @@ def get_unspents_iter(target_address, best_block=None, best_chain=None):
     # address, height, txhash, index, coin_id, amount
 
 
-def get_my_unspents_iter(cur, best_chain=None):
-    target_address = read_all_pooled_address(cur=cur)
-    yield from get_unspents_iter(target_address=target_address, best_block=None, best_chain=best_chain)
+async def get_my_unspents_iter(cur, best_chain=None) -> AsyncGenerator:
+    last_uuid = len(target_address_cashe)
+    target_address_cashe.update(await read_all_pooled_address_set(cur=cur, last_uuid=last_uuid))
+    return get_unspents_iter(target_address=target_address_cashe, best_block=None, best_chain=best_chain)
 
 
 def get_usedindex(txhash, best_block=None, best_chain=None):

@@ -10,15 +10,9 @@ return others => SUCCESS
 
 
 class DirectCmd(object):
-    BEST_INFO = 'cmd/v1/best-info'
-    BLOCK_BY_HEIGHT = 'cmd/v1/block-by-height'
-    BLOCK_BY_HASH = 'cmd/v1/block-by-hash'
-    TX_BY_HASH = 'cmd/v1/tx-by-hash'
-    UNCONFIRMED_TX = 'cmd/v1/unconfirmed-tx'
-    BIG_BLOCKS = 'cmd/v1/big-block'
 
     @staticmethod
-    def best_info(data):
+    def best_info(user, data):
         """return best info of chain"""
         try:
             if chain_builder.best_block:
@@ -37,7 +31,7 @@ class DirectCmd(object):
             return str(e)
 
     @staticmethod
-    def block_by_height(data):
+    def block_by_height(user, data):
         height = data.get('height')
         if height is None:
             return 'do not find key "height"'
@@ -53,7 +47,7 @@ class DirectCmd(object):
             return str(e)
 
     @staticmethod
-    def block_by_hash(data):
+    def block_by_hash(user, data):
         blockhash = data.get('blockhash')
         if blockhash is None:
             return 'do not find key "blockhash"'
@@ -68,7 +62,7 @@ class DirectCmd(object):
             return str(e)
 
     @staticmethod
-    def tx_by_hash(data):
+    def tx_by_hash(user, data):
         txhash = data.get('txhash')
         if txhash is None:
             return 'do not find key "txhash"'
@@ -83,21 +77,23 @@ class DirectCmd(object):
             return str(e)
 
     @staticmethod
-    def unconfirmed_tx(data):
+    def unconfirmed_tx(user, data):
         try:
             return {
                 'txs': list(tx_builder.unconfirmed.keys()),
             }
         except BlockChainError as e:
+            print("exception! unconfirmed", user, e)
             return str(e)
 
     @staticmethod
-    def big_blocks(data):
+    def big_blocks(user, data):
         try:
-            index_height = data.get('data')
-            request_len = data.get('request_len', 20)
-            if data is None:
+            index_height = data.get('height')
+            if index_height is None:
                 return 'do not find key "height"'
+            request_len = data.get('request_len', 20)
+            request_len = max(0, min(100, request_len))
             if not isinstance(request_len, int):
                 return f"request_len is int! {request_len}"
             data = list()
@@ -109,3 +105,8 @@ class DirectCmd(object):
             return data
         except BlockChainError as e:
             return str(e)
+
+
+__all__ = [
+    "DirectCmd",
+]

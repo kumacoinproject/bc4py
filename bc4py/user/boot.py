@@ -77,7 +77,7 @@ def load_boot_file(url=None):
     return genesis_block, params, network_ver, connections
 
 
-def load_bootstrap_file(boot_path=None):
+async def load_bootstrap_file(boot_path=None):
     boot_path = boot_path or os.path.join(V.DB_HOME_DIR, 'bootstrap-ver{}.dat.gz'.format(__chain_version__))
     if not os.path.exists(boot_path):
         log.warning("Not found, skip import bootstrap.dat.gz")
@@ -91,7 +91,8 @@ def load_bootstrap_file(boot_path=None):
             block._bias = _bias
             for tx in block.txs:
                 tx.height = block.height
-            new_insert_block(block=block, f_time=False, f_sign=True)
+            if not await new_insert_block(block=block, f_time=False, f_sign=True):
+                raise Exception('failed load bootstrap')
             if block.height % 1000 == 0:
                 print("Load block now {} height {}Sec".format(block.height, round(time() - s)))
     log.info("load bootstrap.dat.gz finished, last={} {}Minutes".format(block, (time() - s) // 60))

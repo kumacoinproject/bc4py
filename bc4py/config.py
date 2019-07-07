@@ -2,13 +2,12 @@ from p2p_python.server import Peer2Peer
 from aiohttp.web import AppRunner
 from rx.subjects import Subject
 from typing import Optional
-import atexit
 
 
 # internal stream by ReactiveX
+# close by `stream.dispose()`
 # doc: https://github.com/ReactiveX/RxPY/blob/develop/notebooks/Getting%20Started.ipynb
 stream = Subject()
-atexit.register(stream.dispose)
 
 
 class C:  # Constant

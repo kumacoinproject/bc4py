@@ -6,7 +6,7 @@ from bc4py.utils import AESCipher
 from multi_party_schnorr import PyKeyPair
 from weakref import ref
 from logging import getLogger
-from sqlite3 import Cursor
+from aiosqlite import Cursor
 from time import time
 import os
 
@@ -19,31 +19,32 @@ accounting methods
 """
 
 
-def read_txhash2movelog(txhash, cur):
+async def read_txhash2movelog(txhash, cur: Cursor):
     """read MoveLog by txhash"""
-    d = cur.execute("""
+    await cur.execute("""
         SELECT `type`,`user`,`coin_id`,`amount`,`time` FROM `log` WHERE `hash`=?
-    """, (txhash,)).fetchall()
-    if len(d) == 0:
+    """, (txhash,))
+    data = tuple(await cur.fetchall())
+    if len(data) == 0:
         return None
     movement = Accounting()
     ntype = ntime = None
-    for ntype, user, coin_id, amount, ntime in d:
+    for ntype, user, coin_id, amount, ntime in data:
         movement[user][coin_id] += amount
     return MoveLog(txhash, ntype, movement, ntime)
 
 
-def read_movelog_iter(cur, start=0):
+async def read_movelog_iter(cur: Cursor, start=0):
     """iterate all MoveLogs"""
-    d = cur.execute("SELECT DISTINCT `hash` FROM `log` ORDER BY `id` DESC").fetchall()
+    await cur.execute("SELECT DISTINCT `hash` FROM `log` ORDER BY `id` DESC")
     c = 0
-    for (txhash,) in d:
+    for (txhash,) in await cur.fetchall():
         if start <= c:
-            yield read_txhash2movelog(txhash, cur)
+            yield await read_txhash2movelog(txhash, cur)
         c += 1
 
 
-def insert_movelog(movements, cur, ntype=None, ntime=None, txhash=None):
+async def insert_movelog(movements, cur: Cursor, ntype=None, ntime=None, txhash=None):
     """recode account balance movement"""
     assert isinstance(movements, Accounting), 'movements is Accounting'
     ntype = ntype or C.TX_INNER
@@ -55,29 +56,30 @@ def insert_movelog(movements, cur, ntype=None, ntime=None, txhash=None):
         for coin_id, amount in coins:
             move.append((txhash, index, ntype, user, coin_id, amount, ntime))
             index += 1
-    cur.executemany(
+    await cur.executemany(
         """INSERT INTO `log` (`hash`,`index`,`type`,`user`,`coin_id`,
     `amount`,`time`) VALUES (?,?,?,?,?,?,?)""", move)
     return txhash
 
 
-def delete_movelog(txhash, cur):
+async def delete_movelog(txhash, cur: Cursor):
     """delete account balance movement"""
-    cur.execute("DELETE FROM `log` WHERE `hash`=?", (txhash,))
+    await cur.execute("DELETE FROM `log` WHERE `hash`=?", (txhash,))
 
 
-def read_address2keypair(address, cur):
+async def read_address2keypair(address, cur: Cursor):
     """get keypair by address or raise exception"""
     if V.EXTENDED_KEY_OBJ is None or V.EXTENDED_KEY_OBJ.secret is None:
         raise BlockChainError('You try to get keypair but secret extended key not found')
-    d = cur.execute("""
+    await cur.execute("""
         SELECT `id`,`sk`,`user`,`is_inner`,`index` FROM `pool` WHERE `ck`=?
-    """, (address,)).fetchone()
-    if d is None:
+    """, (address,))
+    data = await cur.fetchone()
+    if data is None:
         raise BlockChainError('Not found address {}'.format(address))
-    uuid, sk, user, is_inner, index = d
+    uuid, sk, user, is_inner, index = data
     if sk is None:
-        bip = read_bip_from_path(user=user, is_inner=is_inner, index=index, cur=cur)
+        bip = await read_bip_from_path(user=user, is_inner=is_inner, index=index, cur=cur)
         sk = bip.get_private_key()
         path = bip.path
     else:
@@ -87,27 +89,28 @@ def read_address2keypair(address, cur):
     return uuid, keypair, path
 
 
-def read_address2userid(address, cur):
+async def read_address2userid(address, cur: Cursor):
     """get userid by address"""
-    user = cur.execute("SELECT `user` FROM `pool` WHERE `ck`=?", (address,)).fetchone()
+    await cur.execute("SELECT `user` FROM `pool` WHERE `ck`=?", (address,))
+    user = await cur.fetchone()
     if user is None:
         return None
     return user[0]
 
 
-def insert_keypair_from_bip32(ck, user, is_inner, index, cur):
+async def insert_keypair_from_bip32(ck, user, is_inner, index, cur: Cursor):
     """recode keypair by generated from BIP fnc"""
     assert isinstance(ck, str)
     assert isinstance(user, int)
     assert isinstance(is_inner, bool)
     assert isinstance(index, int)
-    cur.execute(
-        """
-    INSERT OR IGNORE INTO `pool` (`ck`,`user`,`is_inner`,`index`,`time`) VALUES (?,?,?,?,?)
+    await cur.execute("""
+    INSERT OR IGNORE INTO `pool`
+    (`ck`,`user`,`is_inner`,`index`,`time`) VALUES (?,?,?,?,?)
     """, (ck, user, int(is_inner), index, int(time())))
 
 
-def insert_keypair_from_outside(sk, ck, user, cur):
+async def insert_keypair_from_outside(sk, ck, user, cur: Cursor):
     """recode keypair by generated from user's action"""
     assert isinstance(sk, bytes)
     assert isinstance(ck, str)
@@ -115,73 +118,79 @@ def insert_keypair_from_outside(sk, ck, user, cur):
     if V.EXTENDED_KEY_OBJ is None or V.EXTENDED_KEY_OBJ.secret is None:
         raise BlockChainError('You try to insert keypair but secret extended key not found')
     sk = AESCipher.encrypt(key=V.EXTENDED_KEY_OBJ.get_secret_key(), raw=sk)
-    cur.execute("""
-    INSERT OR IGNORE INTO `pool` (`sk`,`ck`,`user`,`time`) VALUES (?,?,?,?)
+    await cur.execute("""
+    INSERT OR IGNORE INTO `pool`
+    (`sk`,`ck`,`user`,`time`) VALUES (?,?,?,?)
     """, (sk, ck, user, int(time())))
 
 
-def read_keypair_last_index(user, is_inner, cur):
+async def read_keypair_last_index(user, is_inner, cur: Cursor):
     """get last recoded address index"""
     assert isinstance(user, int) and isinstance(is_inner, bool)
-    index = cur.execute("""
+    await cur.execute("""
     SELECT MAX(`index`) FROM `pool` WHERE `user`=? AND `is_inner`=?
-    """, (user, int(is_inner))).fetchone()[0]
+    """, (user, int(is_inner)))
+    index = (await cur.fetchone())[0]
     if index is None:
         return 0
     else:
         return index + 1
 
 
-def read_account_info(user, cur):
+async def read_account_info(user, cur: Cursor):
     """read account info (username, description, time)"""
-    d = cur.execute("""
+    await cur.execute("""
         SELECT `name`,`description`,`time` FROM `account` WHERE `id`=?
-    """, (user,)).fetchone()
-    if d is None:
+    """, (user,))
+    data = await cur.fetchone()
+    if data is None:
         return None
-    name, description, ntime = d
+    name, description, ntime = data
     return name, description, ntime
 
 
-def read_pooled_address_iter(cur):
-    """iterate pooled addresses"""
-    cur.execute("SELECT `id`,`ck`,`user` FROM `pool`")
-    return cur
+async def read_pooled_address_list(user, cur: Cursor) -> list:
+    """get pooled address list"""
+    assert isinstance(user, int)
+    await cur.execute("SELECT `ck` FROM `pool` WHERE `user`=?", (user,))
+    return [ck for (ck,) in await cur.fetchall()]
 
 
-def read_all_pooled_address(cur: Cursor) -> set:
+async def read_all_pooled_address_set(cur: Cursor, last_uuid=0) -> set:
     """get all pooled address"""
-    cur.execute("SELECT `ck` FROM `pool`")
-    return {addr for (addr,) in cur}
+    await cur.execute("SELECT `ck` FROM `pool` WHERE ?<`id`", (last_uuid,))
+    return {addr for (addr,) in await cur.fetchall()}
 
 
-def read_address2account(address, cur):
+async def read_address2account(address, cur: Cursor):
     """read account by address or raise exception"""
-    user = read_address2userid(address, cur)
+    user = await read_address2userid(address, cur)
     if user is None:
         raise BlockChainError('Not found account {}'.format(address))
-    return read_account_info(user, cur)
+    return await read_account_info(user, cur)
 
 
-def read_name2userid(name, cur):
+async def read_name2userid(name, cur: Cursor):
     """read userid from name"""
     assert isinstance(name, str)
-    d = cur.execute("SELECT `id` FROM `account` WHERE `name`=?", (name,)).fetchone()
-    if d is None:
-        return insert_new_account(name, cur)
-    return d[0]
+    await cur.execute("SELECT `id` FROM `account` WHERE `name`=?", (name,))
+    data = await cur.fetchone()
+    if data is None:
+        return await insert_new_account(name, cur)
+    return data[0]
 
 
-def read_userid2name(user, cur):
+async def read_userid2name(user, cur: Cursor):
     """read name from userid"""
     assert isinstance(user, int)
-    d = cur.execute("SELECT `name` FROM `account` WHERE `id`=?", (user,)).fetchone()
-    if d is None:
+    await cur.execute("SELECT `name` FROM `account` WHERE `id`=?", (user,))
+    data = await cur.fetchone()
+    if data is None:
         raise Exception('Not found user id. {}'.format(user))
-    return d[0]
+    return data[0]
 
 
-def insert_new_account(name, cur, description="", ntime=None):
+async def insert_new_account(name, cur: Cursor, description="", ntime=None):
     """create new account by name"""
     assert isinstance(name, str)
     if name.startswith('@'):
@@ -191,71 +200,73 @@ def insert_new_account(name, cur, description="", ntime=None):
     if V.EXTENDED_KEY_OBJ is None or V.EXTENDED_KEY_OBJ.secret is None:
         raise BlockChainError('you try to create account but not found secretKey')
     # get new account id
-    last_id = cur.execute("SELECT MAX(`id`) FROM `account`").fetchone()
-    new_id = 0 if (last_id is None or last_id[0] is None) else last_id[0] + 1
+    await cur.execute("SELECT MAX(`id`) FROM `account`")
+    last_id = (await cur.fetchone())[0]
+    new_id = 0 if last_id is None else last_id + 1
     # get extended public key
     extended_key = V.EXTENDED_KEY_OBJ.child_key(BIP32_HARDEN + new_id).extended_key(False)
-    cur.execute("""
-        INSERT INTO `account` (`name`,`extended_key`,`description`,`time`) VALUES (?,?,?,?)
+    await cur.execute("""
+        INSERT INTO `account`
+        (`name`,`extended_key`,`description`,`time`) VALUES (?,?,?,?)
     """, (name, extended_key, description, ntime))
     # check new inserted id
-    insert_id = cur.execute("SELECT last_insert_rowid()").fetchone()[0]
+    insert_id = cur.lastrowid
     assert insert_id == new_id, "insert={} new={}".format(insert_id, new_id)
     return insert_id
 
 
-def generate_new_address_by_userid(user, cur, is_inner=False):
+async def generate_new_address_by_userid(user, cur: Cursor, is_inner=False):
     """insert new address by userid"""
     assert isinstance(user, int)
     assert isinstance(is_inner, bool)
     # raise if unknown user_id
-    read_userid2name(user, cur)
+    await read_userid2name(user, cur)
     # get last_index
-    last_index = read_keypair_last_index(user=user, is_inner=is_inner, cur=cur)
-    bip = read_bip_from_path(user=user, is_inner=is_inner, index=last_index, cur=cur)
+    last_index = await read_keypair_last_index(user=user, is_inner=is_inner, cur=cur)
+    bip = await read_bip_from_path(user=user, is_inner=is_inner, index=last_index, cur=cur)
     ck = bip.get_address(hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER)
-    insert_keypair_from_bip32(ck=ck, user=user, is_inner=is_inner, index=last_index, cur=cur)
+    await insert_keypair_from_bip32(ck=ck, user=user, is_inner=is_inner, index=last_index, cur=cur)
     log.debug("generate new address {} path={}".format(ck, bip.path))
     return ck
 
 
-def read_account_address(user, cur, is_inner=False):
+async def read_account_address(user, cur: Cursor, is_inner=False):
     """get newest address of account (don't care about used/unused)"""
     assert isinstance(user, int) and isinstance(is_inner, bool)
     # raise if unknown user_id
-    read_userid2name(user, cur)
+    await read_userid2name(user, cur)
     # get last_index
-    index = cur.execute("""
+    await cur.execute("""
         SELECT MAX(`index`) FROM `pool` WHERE `user`=? AND `is_inner`=?
-        """, (user, int(is_inner))).fetchone()[0]
+        """, (user, int(is_inner)))
+    index = (await cur.fetchone())[0]
     if index is None:
-        return generate_new_address_by_userid(user=user, cur=cur, is_inner=is_inner)
+        return await generate_new_address_by_userid(user=user, cur=cur, is_inner=is_inner)
     else:
-        bip = read_bip_from_path(user=user, is_inner=is_inner, index=index, cur=cur)
+        bip = await read_bip_from_path(user=user, is_inner=is_inner, index=index, cur=cur)
         return bip.get_address(hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER)
 
 
-def sign_message_by_address(raw, address):
+async def sign_message_by_address(raw, address, cur: Cursor):
     """sign raw bytes by address"""
-    with create_db(V.DB_ACCOUNT_PATH) as db:
-        cur = db.cursor()
-        uuid, keypair, _ = read_address2keypair(address, cur)
+    uuid, keypair, _ = await read_address2keypair(address, cur)
     r, s = keypair.get_single_sign(raw)
     pk = keypair.get_public_key()
     return pk, r, s
 
 
-def read_bip_from_path(user, is_inner, index, cur):
+async def read_bip_from_path(user, is_inner, index, cur: Cursor):
     """read bip from path (m/44'/CoinType'/user'/is_inner/index) """
     # change: 0=outer、1=inner
     assert isinstance(user, int)
     assert isinstance(is_inner, bool) or is_inner == 0 or is_inner == 1
     if V.EXTENDED_KEY_OBJ is None or V.EXTENDED_KEY_OBJ.secret is None:
         # cannot get child key from public extracted key
-        d = cur.execute("SELECT `extended_key` FROM `account` WHERE `id`=?", user).fetchone()
-        if d is None:
+        await cur.execute("SELECT `extended_key` FROM `account` WHERE `id`=?", user)
+        data = await cur.fetchone()
+        if data is None:
             raise BlockChainError('Not found user id={}'.format(user))
-        bip = Bip32.from_extended_key(key=d[0], is_public=True)
+        bip = Bip32.from_extended_key(key=data[0], is_public=True)
     else:
         bip = V.EXTENDED_KEY_OBJ.child_key(user + BIP32_HARDEN)
     return bip.child_key(int(is_inner)).child_key(index)
@@ -277,10 +288,11 @@ class MoveLog(object):
     def __hash__(self):
         return hash(self.txhash)
 
-    def get_dict_data(self, recode_flag, outer_cur=None):
-        with create_db(V.DB_ACCOUNT_PATH) as db:
-            cur = outer_cur or db.cursor()
-            movement = {read_userid2name(user, cur): dict(balance) for user, balance in self.movement.items()}
+    async def get_dict_data(self, recode_flag, cur: Cursor):
+        movement = {
+            await read_userid2name(user, cur): dict(balance)
+            for user, balance in self.movement.items()
+        }
         return {
             'txhash': self.txhash.hex(),
             'height': self.height,
@@ -314,8 +326,8 @@ __all__ = [
     "insert_keypair_from_outside",
     "read_keypair_last_index",
     "read_account_info",
-    "read_pooled_address_iter",
-    "read_all_pooled_address",
+    "read_pooled_address_list",
+    "read_all_pooled_address_set",
     "read_address2account",
     "read_name2userid",
     "read_userid2name",
