@@ -30,7 +30,9 @@ async def system_safe_exit():
             V.P2P_OBJ.close()
 
         log.info("wait all tasks for max 15s..")
-        await asyncio.wait(asyncio.Task.all_tasks(), timeout=15.0)
+        all_task = asyncio.Task.all_tasks()
+        all_task.remove(asyncio.Task.current_task())
+        await asyncio.wait(all_task, timeout=15.0)
         log.info("stop waiting tasks and close after 1s")
         loop.call_later(1.0, loop.stop)
     except Exception:
@@ -39,6 +41,16 @@ async def system_safe_exit():
         log.info("success system stop process")
 
 
+def blocking_run():
+    """block and exit with system_safe_exit"""
+    try:
+        loop.run_forever()
+    finally:
+        log.info("stop blocking run!")
+        loop.run_until_complete(system_safe_exit())
+
+
 __all__ = [
     "system_safe_exit",
+    "blocking_run",
 ]

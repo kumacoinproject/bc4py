@@ -4,6 +4,7 @@
 from bc4py import __version__, __chain_version__, __block_version__, __message__, __logo__
 from bc4py.config import C, V
 from bc4py.utils import *
+from bc4py.exit import blocking_run
 from bc4py.user.generate import *
 from bc4py.user.boot import *
 from bc4py.user.network import *
@@ -84,12 +85,7 @@ def main():
         Generate(consensus=C.BLOCK_X16S_POW, power_limit=0.05)
         Generate(consensus=C.BLOCK_X11_POW, power_limit=0.05)
         Generate(consensus=C.BLOCK_CAP_POS, power_limit=0.3, path="E:\\plots")
-    try:
-
-        loop.run_forever()
-    except Exception:
-        pass
-    loop.close()
+    blocking_run()
 
 
 if __name__ == '__main__':

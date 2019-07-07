@@ -4,6 +4,7 @@
 from bc4py import __version__, __chain_version__, __message__, __logo__
 from bc4py.config import C, V
 from bc4py.utils import set_database_path, set_blockchain_params, check_already_started
+from bc4py.exit import blocking_run
 from bc4py.user.generate import *
 from bc4py.user.boot import *
 from bc4py.user.network import *
@@ -110,11 +111,7 @@ def main():
     import aiomonitor
     aiomonitor.start_monitor(loop, port=port+2000, console_port=port+3000)
     logging.warning(f"aiomonitor working! use by console `nc 127.0.0.1 {port+2000}`")
-    try:
-        loop.run_forever()
-    except Exception:
-        pass
-    loop.close()
+    blocking_run()
 
 
 if __name__ == '__main__':
