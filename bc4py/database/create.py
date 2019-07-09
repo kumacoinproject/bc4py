@@ -108,7 +108,7 @@ async def generate_wallet_db(cur: Cursor):
     CREATE TABLE IF NOT EXISTS `pool` (
     `id` INTEGER PRIMARY KEY,
     `sk` BINARY,
-    `ck` TEXT UNIQUE NOT NULL,
+    `ck` BLOB UNIQUE NOT NULL,
     `user` INTEGER NOT NULL,
     `is_inner` INTEGER,
     `index` INTEGER,
@@ -148,6 +148,22 @@ async def affect_new_change():
             await cur.execute('UPDATE `account` SET `name`=? WHERE `id`=?', (C.account2name[C.ANT_STAKED], uuid,))
             await db.commit()
             log.info("change user_name @Mining to @Staked")
+
+        # addr format TEXT to BLOB
+        await cur.execute("SELECT `ck` FROM `pool` LIMIT 1")
+        sample = (await cur.fetchone())[0]
+        if isinstance(sample, str):
+            from bc4py_extension import PyAddress
+            await cur.execute("SELECT * FROM `pool`")
+            data_list = await cur.fetchall()
+            await cur.execute("DROP TABLE `pool`")
+            await generate_wallet_db(cur)
+            for data in data_list:
+                addr: PyAddress = PyAddress.from_string(data[2])
+                await cur.execute("INSERT INTO `pool` VALUES (?,?,?,?,?,?,?)",
+                                  data[:2] + (addr.binary(),) + data[3:])
+            await db.commit()
+            log.info("change address format TEXT to BLOB")
 
 
 async def recreate_wallet_db(db):

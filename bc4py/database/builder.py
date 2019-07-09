@@ -1,5 +1,5 @@
 from bc4py.config import C, V, P, stream
-from bc4py.bip32 import addr2bin, ADDR_SIZE
+from bc4py.bip32 import ADDR_SIZE
 from bc4py.chain.utils import signature2bin, bin2signature
 from bc4py.chain.tx import TX
 from bc4py.chain.block import Block
@@ -7,7 +7,7 @@ import bc4py.chain.msgpack as bc4py_msgpack
 from bc4py.user import Balance, Accounting
 from bc4py.database.account import *
 from bc4py.database.create import create_db
-from bc4py_extension import sha256d_hash
+from bc4py_extension import sha256d_hash, PyAddress
 from msgpack import unpackb, packb
 from typing import Optional, Dict, List, MutableMapping
 from weakref import WeakValueDictionary
@@ -245,8 +245,8 @@ class DataBase(object):
         else:
             return set(b)
 
-    def read_address_idx(self, address, txhash, index):
-        k = addr2bin(ck=address, hrp=V.BECH32_HRP) + txhash + index.to_bytes(1, ITER_ORDER)
+    def read_address_idx(self, address: PyAddress, txhash, index):
+        k = address.binary() + txhash + index.to_bytes(1, ITER_ORDER)
         if self.is_batch_thread() and k in self.batch['_address_index']:
             b = self.batch['_address_index'][k]
         else:
@@ -257,10 +257,10 @@ class DataBase(object):
         # coin_id, amount, f_used
         return struct_address_idx.unpack(b)
 
-    def read_address_idx_iter(self, address):
+    def read_address_idx_iter(self, address: PyAddress):
         f_batch = self.is_batch_thread()
         batch_copy = self.batch['_address_index'].copy() if self.batch else dict()
-        b_address = addr2bin(ck=address, hrp=V.BECH32_HRP)
+        b_address = address.binary()
         start = b_address + b'\x00' * (32+1)
         stop = b_address + b'\xff' * (32+1)
         address_iter = self._address_index.iterator(start=start, stop=stop)
@@ -329,9 +329,9 @@ class DataBase(object):
         assert isinstance(usedindex, set), 'Unsedindex is set'
         self.batch['_used_index'][txhash] = bytes(sorted(usedindex))
 
-    def write_address_idx(self, address, txhash, index, coin_id, amount, f_used):
+    def write_address_idx(self, address: PyAddress, txhash, index, coin_id, amount, f_used):
         assert self.is_batch_thread(), 'Not created batch'
-        k = addr2bin(ck=address, hrp=V.BECH32_HRP) + txhash + index.to_bytes(1, ITER_ORDER)
+        k = address.binary() + txhash + index.to_bytes(1, ITER_ORDER)
         v = struct_address_idx.pack(coin_id, amount, f_used)
         self.batch['_address_index'][k] = v
         log.debug("Insert new address idx {}".format(address))

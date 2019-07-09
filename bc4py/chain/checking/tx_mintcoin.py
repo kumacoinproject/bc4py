@@ -3,6 +3,7 @@ from bc4py.chain.signature import *
 from bc4py.database.mintcoin import *
 from bc4py.database.builder import tx_builder
 from bc4py.user import Balance
+from bc4py_extension import PyAddress
 
 
 def check_tx_mint_coin(tx, include_block):
@@ -27,9 +28,8 @@ def check_tx_mint_coin(tx, include_block):
         raise BlockChainError('Failed check mintcoin block={}: {}'.format(include_block, result))
     # signature check
     require_cks, coins = input_output_digest(tx=tx)
-    owner_address = m_before.address
-    if owner_address:
-        require_cks.add(owner_address)
+    if m_before.address:
+        require_cks.add(PyAddress.from_string(m_before.address))
     signed_cks = set(tx.verified_list)
     if signed_cks != require_cks:
         raise BlockChainError('Signature check failed. signed={} require={} lack={}'.format(

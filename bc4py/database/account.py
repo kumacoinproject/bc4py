@@ -1,9 +1,10 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.bip32 import Bip32, BIP32_HARDEN
 from bc4py.user import Accounting
-from bc4py.database.create import create_db
 from bc4py.utils import AESCipher
+from bc4py_extension import PyAddress
 from multi_party_schnorr import PyKeyPair
+from typing import List, Set
 from weakref import ref
 from logging import getLogger
 from aiosqlite import Cursor
@@ -67,13 +68,13 @@ async def delete_movelog(txhash, cur: Cursor):
     await cur.execute("DELETE FROM `log` WHERE `hash`=?", (txhash,))
 
 
-async def read_address2keypair(address, cur: Cursor):
+async def read_address2keypair(address: PyAddress, cur: Cursor):
     """get keypair by address or raise exception"""
     if V.EXTENDED_KEY_OBJ is None or V.EXTENDED_KEY_OBJ.secret is None:
         raise BlockChainError('You try to get keypair but secret extended key not found')
     await cur.execute("""
         SELECT `id`,`sk`,`user`,`is_inner`,`index` FROM `pool` WHERE `ck`=?
-    """, (address,))
+    """, (address.binary(),))
     data = await cur.fetchone()
     if data is None:
         raise BlockChainError('Not found address {}'.format(address))
@@ -89,9 +90,10 @@ async def read_address2keypair(address, cur: Cursor):
     return uuid, keypair, path
 
 
-async def read_address2userid(address, cur: Cursor):
+async def read_address2userid(address: PyAddress, cur: Cursor):
     """get userid by address"""
-    await cur.execute("SELECT `user` FROM `pool` WHERE `ck`=?", (address,))
+    await cur.execute("SELECT `user` FROM `pool` WHERE `ck`=?",
+                      (address.binary(),))
     user = await cur.fetchone()
     if user is None:
         return None
@@ -100,20 +102,20 @@ async def read_address2userid(address, cur: Cursor):
 
 async def insert_keypair_from_bip32(ck, user, is_inner, index, cur: Cursor):
     """recode keypair by generated from BIP fnc"""
-    assert isinstance(ck, str)
+    assert isinstance(ck, PyAddress)
     assert isinstance(user, int)
     assert isinstance(is_inner, bool)
     assert isinstance(index, int)
     await cur.execute("""
     INSERT OR IGNORE INTO `pool`
     (`ck`,`user`,`is_inner`,`index`,`time`) VALUES (?,?,?,?,?)
-    """, (ck, user, int(is_inner), index, int(time())))
+    """, (ck.binary(), user, int(is_inner), index, int(time())))
 
 
 async def insert_keypair_from_outside(sk, ck, user, cur: Cursor):
     """recode keypair by generated from user's action"""
     assert isinstance(sk, bytes)
-    assert isinstance(ck, str)
+    assert isinstance(ck, PyAddress)
     assert isinstance(user, int)
     if V.EXTENDED_KEY_OBJ is None or V.EXTENDED_KEY_OBJ.secret is None:
         raise BlockChainError('You try to insert keypair but secret extended key not found')
@@ -121,7 +123,7 @@ async def insert_keypair_from_outside(sk, ck, user, cur: Cursor):
     await cur.execute("""
     INSERT OR IGNORE INTO `pool`
     (`sk`,`ck`,`user`,`time`) VALUES (?,?,?,?)
-    """, (sk, ck, user, int(time())))
+    """, (sk, ck.binary(), user, int(time())))
 
 
 async def read_keypair_last_index(user, is_inner, cur: Cursor):
@@ -149,20 +151,20 @@ async def read_account_info(user, cur: Cursor):
     return name, description, ntime
 
 
-async def read_pooled_address_list(user, cur: Cursor) -> list:
+async def read_pooled_address_list(user, cur: Cursor) -> List[PyAddress]:
     """get pooled address list"""
     assert isinstance(user, int)
     await cur.execute("SELECT `ck` FROM `pool` WHERE `user`=?", (user,))
-    return [ck for (ck,) in await cur.fetchall()]
+    return [PyAddress.from_binary(V.BECH32_HRP, ck) for (ck,) in await cur.fetchall()]
 
 
-async def read_all_pooled_address_set(cur: Cursor, last_uuid=0) -> set:
+async def read_all_pooled_address_set(cur: Cursor, last_uuid=0) -> Set[PyAddress]:
     """get all pooled address"""
     await cur.execute("SELECT `ck` FROM `pool` WHERE ?<`id`", (last_uuid,))
-    return {addr for (addr,) in await cur.fetchall()}
+    return {PyAddress.from_binary(V.BECH32_HRP, ck) for (ck,) in await cur.fetchall()}
 
 
-async def read_address2account(address, cur: Cursor):
+async def read_address2account(address: PyAddress, cur: Cursor):
     """read account by address or raise exception"""
     user = await read_address2userid(address, cur)
     if user is None:
@@ -215,7 +217,7 @@ async def insert_new_account(name, cur: Cursor, description="", ntime=None):
     return insert_id
 
 
-async def generate_new_address_by_userid(user, cur: Cursor, is_inner=False):
+async def generate_new_address_by_userid(user, cur: Cursor, is_inner=False) -> PyAddress:
     """insert new address by userid"""
     assert isinstance(user, int)
     assert isinstance(is_inner, bool)
@@ -230,7 +232,7 @@ async def generate_new_address_by_userid(user, cur: Cursor, is_inner=False):
     return ck
 
 
-async def read_account_address(user, cur: Cursor, is_inner=False):
+async def read_account_address(user, cur: Cursor, is_inner=False) -> PyAddress:
     """get newest address of account (don't care about used/unused)"""
     assert isinstance(user, int) and isinstance(is_inner, bool)
     # raise if unknown user_id
@@ -247,7 +249,7 @@ async def read_account_address(user, cur: Cursor, is_inner=False):
         return bip.get_address(hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER)
 
 
-async def sign_message_by_address(raw, address, cur: Cursor):
+async def sign_message_by_address(raw, address: PyAddress, cur: Cursor):
     """sign raw bytes by address"""
     uuid, keypair, _ = await read_address2keypair(address, cur)
     r, s = keypair.get_single_sign(raw)

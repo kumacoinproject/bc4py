@@ -1,46 +1,33 @@
-from bc4py_extension import bech2address, address2bech
+from bc4py_extension import PyAddress
 import hashlib
 
 
-def is_address(ck, hrp, ver):
+def is_address(ck: PyAddress, hrp, ver):
     """check bech32 format and version"""
     try:
-        n_hrp, n_ver, n_id = address2bech(ck)
-        if n_hrp != hrp:
+        if ck.hrp != hrp:
             return False
-        if n_ver != ver:
+        if ck.version != ver:
             return False
     except ValueError:
         return False
     return True
 
 
-def get_address(pk, hrp, ver):
+def get_address(pk, hrp, ver) -> PyAddress:
     """get address from public key"""
     identifier = hashlib.new('ripemd160', hashlib.sha256(pk).digest()).digest()
-    return bech2address(hrp, ver, identifier)
+    return PyAddress.from_param(hrp, ver, identifier)
 
 
-def convert_address(ck, hrp, ver):
+def convert_address(ck: PyAddress, hrp, ver) -> PyAddress:
     """convert address's version"""
-    n_hrp, n_ver, n_id = address2bech(ck)
-    return bech2address(hrp, ver, n_id)
+    return PyAddress.from_param(hrp, ver, ck.identifier())
 
 
-def dummy_address(dummy_identifier):
+def dummy_address(dummy_identifier) -> PyAddress:
     assert len(dummy_identifier) == 20
-    return bech2address('dummy', 0, dummy_identifier)
-
-
-def addr2bin(ck, hrp):
-    n_hrp, n_ver, n_id = address2bech(ck)
-    assert n_hrp == 'dummy' or n_hrp == hrp
-    return n_ver.to_bytes(1, 'big') + n_id
-
-
-def bin2addr(b, hrp):
-    ver, identifier = b[0], b[1:]
-    return bech2address(hrp, ver, identifier)
+    return PyAddress.from_param('dummy', 0, dummy_identifier)
 
 
 __all__ = [
@@ -48,6 +35,4 @@ __all__ = [
     "get_address",
     "convert_address",
     "dummy_address",
-    "addr2bin",
-    "bin2addr",
 ]

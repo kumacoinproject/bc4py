@@ -16,6 +16,4 @@ __all__ = [
     "get_address",
     "convert_address",
     "dummy_address",
-    "addr2bin",
-    "bin2addr",
 ]

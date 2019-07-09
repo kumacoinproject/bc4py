@@ -5,6 +5,7 @@ from bc4py.database.mintcoin import *
 from bc4py.database.account import generate_new_address_by_userid, insert_movelog
 from bc4py.user import Balance, Accounting
 from bc4py.user.txcreation.utils import *
+from bc4py_extension import PyAddress
 import random
 import msgpack
 
@@ -30,7 +31,7 @@ async def issue_mint_coin(
         "name": name,
         "unit": unit,
         "digit": digit,
-        "address": mint_address,
+        "address": mint_address.string,
         "description": description,
         "image": image
     }
@@ -91,6 +92,7 @@ async def change_mint_coin(
         sender=C.ANT_UNKNOWN,
         retention=10800):
     assert amount or description or image or setting or new_address
+    assert new_address is None or isinstance(new_address, str)
     params = dict()
     if description:
         params['description'] = description
@@ -131,14 +133,15 @@ async def change_mint_coin(
     # fill unspents
     fee_coin_id = 0
     input_address = await fill_inputs_outputs(tx=tx, cur=cur, fee_coin_id=fee_coin_id, additional_gas=additional_gas)
-    input_address.add(m_before.address)
+    mint_address = PyAddress.from_string(m_before.address)
+    input_address.add(mint_address)
     fee_coins = Balance(coin_id=fee_coin_id, amount=tx.gas_price * tx.gas_amount)
     # check amount
     await check_enough_amount(sender=sender, send_coins=send_coins, fee_coins=fee_coins, cur=cur)
     # replace dummy address
     await replace_redeem_dummy_address(tx=tx, cur=cur)
     # replace dummy mint_id
-    replace_mint_dummy_address(tx=tx, mint_address=m_before.address, mint_id=mint_id, f_raise=False)
+    replace_mint_dummy_address(tx=tx, mint_address=mint_address, mint_id=mint_id, f_raise=False)
     # setup signature
     tx.serialize()
     await add_sign_by_address(tx=tx, input_address=input_address)
@@ -160,6 +163,7 @@ def get_new_coin_id():
 
 
 def replace_mint_dummy_address(tx, mint_address, mint_id, f_raise):
+    assert isinstance(mint_address, PyAddress)
     for index, (address, coin_id, amount) in enumerate(tx.outputs):
         if address == MINTCOIN_DUMMY_ADDRESS:
             tx.outputs[index] = (mint_address, mint_id, amount)

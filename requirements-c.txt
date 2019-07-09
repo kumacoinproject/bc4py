@@ -1,7 +1,7 @@
 http-basic-auth  # need for aiohttp-basicauth-middleware
 git+https://github.com/namuyan/yespower-python
 multi-party-schnorr==0.1.7
-bc4py_extension==0.1.4
+bc4py_extension==0.1.6
 x11_hash
 git+https://github.com/namuyan/shield-x16s-hash
 plyvel  # leveldb wrapper

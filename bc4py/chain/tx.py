@@ -1,7 +1,7 @@
 from bc4py import __chain_version__
 from bc4py.config import C, V, BlockChainError
-from bc4py.bip32 import ADDR_SIZE, addr2bin, bin2addr
-from bc4py_extension import sha256d_hash
+from bc4py.bip32 import ADDR_SIZE
+from bc4py_extension import sha256d_hash, PyAddress
 from typing import Optional, List
 from time import time
 from logging import getLogger
@@ -64,7 +64,7 @@ class TX(object):
         self.time: Optional[int] = None
         self.deadline: Optional[int] = None
         self.inputs: Optional[List[(bytes, int)]] = None
-        self.outputs: Optional[List[(str, int, int)]] = None
+        self.outputs: Optional[List[(PyAddress, int, int)]] = None
         self.gas_price: Optional[int] = None
         self.gas_amount: Optional[int] = None
         self.message_type: Optional[int] = None
@@ -118,7 +118,7 @@ class TX(object):
             self.b += struct_inputs.pack(txhash, txindex)
         # outputs
         for address, coin_id, amount in self.outputs:
-            self.b += struct_outputs.pack(addr2bin(ck=address, hrp=V.BECH32_HRP), coin_id, amount)
+            self.b += struct_outputs.pack(address.binary(), coin_id, amount)
         # message
         self.b += self.message
         # txhash
@@ -137,7 +137,7 @@ class TX(object):
         self.outputs = list()
         for i in range(outputs_len):
             b_address, coin_id, amount = struct_outputs.unpack_from(self.b, pos)
-            self.outputs.append((bin2addr(b=b_address, hrp=V.BECH32_HRP), coin_id, amount))
+            self.outputs.append((PyAddress.from_binary(V.BECH32_HRP, b_address), coin_id, amount))
             pos += struct_outputs.size
         # msg
         self.message = self.b[pos:pos + msg_len]
@@ -159,7 +159,7 @@ class TX(object):
         r['time'] = self.time + V.BLOCK_GENESIS_TIME
         r['deadline'] = self.deadline + V.BLOCK_GENESIS_TIME
         r['inputs'] = [(txhash.hex(), txindex) for txhash, txindex in self.inputs]
-        r['outputs'] = self.outputs
+        r['outputs'] = [(addr.string, ver, id) for addr, ver, id in self.outputs]
         r['gas_price'] = self.gas_price
         r['gas_amount'] = self.gas_amount
         r['message_type'] = C.msg_type2name.get(self.message_type) or self.message_type

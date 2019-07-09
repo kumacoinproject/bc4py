@@ -1,11 +1,11 @@
 from bc4py.config import C, V, BlockChainError
-from bc4py.bip32 import convert_address, addr2bin
 from bc4py.user import Balance
 from bc4py.user.api import utils
 from bc4py.database.builder import chain_builder, user_account
 from bc4py.database.create import create_db
 from bc4py.database.account import *
 from bc4py.database.tools import get_unspents_iter, get_my_unspents_iter
+from bc4py_extension import PyAddress
 from aioitertools import enumerate as aioenumerate
 from aiohttp import web
 
@@ -52,7 +52,8 @@ async def list_unspents(request):
         target_address = request.query.get('address')
         if target_address is None:
             return utils.error_res('not found key "address"')
-        unspents_iter = get_unspents_iter(target_address=set(target_address.split(',')))
+        target_address = set(map(lambda x: PyAddress.from_string(x), target_address.split(',')))
+        unspents_iter = get_unspents_iter(target_address=target_address)
         data = list()
         async for index, (address, height, txhash, txindex, coin_id, amount) in aioenumerate(unspents_iter):
             if finish < index:
@@ -61,7 +62,7 @@ async def list_unspents(request):
             if index < start:
                 continue
             data.append({
-                'address': address,
+                'address': address.string,
                 'height': height,
                 'confirmed': None if height is None else best_height - height,
                 'txhash': txhash.hex(),
@@ -82,7 +83,7 @@ async def list_private_unspents(request):
         unspent_iter = await get_my_unspents_iter(cur)
         async for address, height, txhash, txindex, coin_id, amount in unspent_iter:
             data.append({
-                'address': address,
+                'address': address.string,
                 'height': height,
                 'confirmed': None if height is None else best_height - height,
                 'txhash': txhash.hex(),
@@ -102,7 +103,7 @@ async def list_account_address(request):
     return utils.json_res({
         'account': user_name,
         'user_id': user_id,
-        'address': address_list,
+        'address': [addr.string for addr in address_list],
     })
 
 
@@ -157,15 +158,14 @@ async def new_address(request):
         cur = await db.cursor()
         user_name = request.query.get('account', C.account2name[C.ANT_UNKNOWN])
         user_id = await read_name2userid(user_name, cur)
-        address = await generate_new_address_by_userid(user_id, cur)
+        addr: PyAddress = await generate_new_address_by_userid(user_id, cur)
         await db.commit()
-        ver_identifier = addr2bin(hrp=V.BECH32_HRP, ck=address)
     return utils.json_res({
         'account': user_name,
         'user_id': user_id,
-        'address': address,
-        'version': ver_identifier[0],
-        'identifier': ver_identifier[1:].hex(),
+        'address': addr.string,
+        'version': addr.version,
+        'identifier': addr.identifier().hex(),
     })
 
 
@@ -176,7 +176,7 @@ async def get_keypair(request):
             address = request.query.get('address')
             if address is None:
                 return utils.error_res('not foud key "address"')
-            uuid, keypair, path = await read_address2keypair(address, cur)
+            uuid, keypair, path = await read_address2keypair(PyAddress.from_string(address), cur)
             return utils.json_res({
                 'uuid': uuid,
                 'address': address,

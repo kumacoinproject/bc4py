@@ -9,6 +9,7 @@ from bc4py.database.create import create_db
 from bc4py.user.network.sendnew import send_newtx
 from bc4py.user.api import utils
 from bc4py.chain.tx import TX
+from bc4py_extension import PyAddress
 from multi_party_schnorr import PyKeyPair
 from aiohttp import web
 from binascii import a2b_hex
@@ -50,6 +51,9 @@ async def create_raw_tx(request):
             input_tx = tx_builder.get_tx(txhash)
             address, coin_id, amount = input_tx.outputs[txindex]
             input_address.add(address)
+        outputs = list()
+        for address, coin_id, amount in post.get('outputs', list()):
+            outputs.append((PyAddress.from_string(address), coin_id, amount))
         tx = TX.from_dict(
             tx={
                 'version': post.get('version', __chain_version__),
@@ -57,7 +61,7 @@ async def create_raw_tx(request):
                 'time': publish_time,
                 'deadline': deadline_time,
                 'inputs': inputs,
-                'outputs': post.get('outputs', list()),
+                'outputs': outputs,
                 'gas_price': post.get('gas_price', V.COIN_MINIMUM_PRICE),
                 'gas_amount': 0,
                 'message_type': message_type,
@@ -138,7 +142,7 @@ async def send_from_user(request):
         try:
             from_name = post.get('from', C.account2name[C.ANT_UNKNOWN])
             from_id = await read_name2userid(from_name, cur)
-            to_address = post['address']
+            to_address = PyAddress.from_string(post['address'])
             coin_id = int(post.get('coin_id', 0))
             amount = int(post['amount'])
             coins = Balance(coin_id, amount)
@@ -181,7 +185,7 @@ async def send_many_user(request):
             user_id = await read_name2userid(user_name, cur)
             send_pairs = list()
             for address, coin_id, amount in post['pairs']:
-                send_pairs.append((address, int(coin_id), int(amount)))
+                send_pairs.append((PyAddress.from_string(address), int(coin_id), int(amount)))
             if 'hex' in post:
                 msg_type = C.MSG_BYTE
                 msg_body = a2b_hex(post['hex'])

@@ -4,6 +4,7 @@ from bc4py.chain.tx import TX
 from bc4py.database.account import insert_movelog, read_address2userid
 from bc4py.user import Balance, Accounting
 from bc4py.user.txcreation.utils import *
+from bc4py_extension import PyAddress
 from time import time
 
 
@@ -24,7 +25,7 @@ async def send_many(sender,
     outputs = list()
     coins = Balance()
     for address, coin_id, amount in send_pairs:
-        assert isinstance(address, str)
+        assert isinstance(address, PyAddress)
         assert isinstance(coin_id, int) and isinstance(amount, int), 'CoinID, amount is int'
         coins[coin_id] += amount
         outputs.append((address, coin_id, amount))
@@ -87,6 +88,7 @@ async def send_from(
         subtract_fee_amount=False,
         retention=10800):
     assert isinstance(coins, Balance)
+    assert isinstance(address, PyAddress)
     send_pairs = list()
     for coin_id, amount in coins:
         send_pairs.append((address, coin_id, amount))

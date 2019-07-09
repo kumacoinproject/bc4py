@@ -6,6 +6,7 @@ from bc4py.database.create import create_db
 from bc4py.database.account import read_address2userid, read_userid2name, read_address2keypair
 from bc4py.database.builder import chain_builder, user_account
 from bc4py.chain.difficulty import get_bits_by_hash
+from bc4py_extension import PyAddress
 from logging import getLogger
 
 
@@ -56,14 +57,14 @@ async def validateaddress(*args, **kwargs):
     """
     if len(args) == 0:
         raise ValueError('no argument found')
-    address = args[0]
+    addr: PyAddress = PyAddress.from_string(args[0])
     async with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = await db.cursor()
-        user_id = await read_address2userid(address=address, cur=cur)
+        user_id = await read_address2userid(address=addr, cur=cur)
         if user_id is None:
             return {
-                "isvalid": is_address(address, V.BECH32_HRP, 0),
-                "address": address,
+                "isvalid": is_address(addr, V.BECH32_HRP, 0),
+                "address": addr.string,
                 "ismine": False,
                 "pubkey": None,
                 "account": None,
@@ -72,10 +73,10 @@ async def validateaddress(*args, **kwargs):
         else:
             account = await read_userid2name(user=user_id, cur=cur)
             account = "" if account == C.ANT_UNKNOWN else account
-            _, keypair, path = await read_address2keypair(address=address, cur=cur)
+            _, keypair, path = await read_address2keypair(address=addr, cur=cur)
             return {
-                "isvalid": is_address(address, V.BECH32_HRP, 0),
-                "address": address,
+                "isvalid": is_address(addr, V.BECH32_HRP, 0),
+                "address": addr.string,
                 "ismine": True,
                 "pubkey": keypair.get_public_key().hex(),
                 "account": account,

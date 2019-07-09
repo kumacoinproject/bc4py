@@ -5,6 +5,7 @@ from bc4py.database.account import read_name2userid, read_account_address
 from bc4py.user import Balance
 from bc4py.user.txcreation.transfer import send_from, send_many
 from bc4py.user.network.sendnew import send_newtx
+from bc4py_extension import PyAddress
 from logging import getLogger
 
 
@@ -31,7 +32,8 @@ async def sendtoaddress(*args, **kwargs):
     """
     if len(args) < 2:
         raise ValueError('too few arguments num={}'.format(len(args)))
-    address, amount, *options = args
+    _address, amount, *options = args
+    address: PyAddress = PyAddress.from_string(_address)
     if not is_address(address, V.BECH32_HRP, 0):
         raise ValueError('address is invalid')
     amount = int(amount * pow(10, V.COIN_DIGIT))
@@ -99,7 +101,7 @@ async def sendmany(*args, **kwargs):
             send_pairs = list()
             multiple = pow(10, V.COIN_DIGIT)
             for address, amount in pairs.items():
-                send_pairs.append((address, 0, int(amount * multiple)))
+                send_pairs.append((PyAddress.from_string(address), 0, int(amount * multiple)))
             new_tx = await send_many(user_id, send_pairs, cur)
             if await send_newtx(new_tx=new_tx):
                 await db.commit()
@@ -137,7 +139,7 @@ async def getaccountaddress(*args, **kwargs):
         user_id = await read_name2userid(user_name, cur)
         address = await read_account_address(user_id, cur)
         await db.commit()
-    return address
+    return address.string
 
 
 __all__ = [
