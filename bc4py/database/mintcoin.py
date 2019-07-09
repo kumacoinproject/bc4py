@@ -23,7 +23,7 @@ class MintCoin(object):
         self.description = None
         self.image = None
         self.txhash = None
-        self.version = -1
+        self.version = 0
         self.setting = setting_template.copy()
 
     def __repr__(self):
@@ -31,7 +31,7 @@ class MintCoin(object):
 
     @property
     def info(self):
-        if self.version == -1:
+        if self.version == 0:
             return None
         return {
             "version": self.version,
@@ -47,7 +47,7 @@ class MintCoin(object):
         }
 
     def update(self, params, setting, txhash):
-        if self.version == -1:
+        if self.version == 0:
             self.name = params['name']
             self.unit = params['unit']
             self.digit = params['digit']
@@ -94,9 +94,9 @@ def decode(b):
 
 
 def fill_mintcoin_status(m, best_block=None, best_chain=None, stop_txhash=None):
-    assert m.version == -1, 'Already updated'
+    assert m.version == 0, 'Already updated'
     # database
-    for index, txhash, params, setting in chain_builder.db.read_coins_iter(coin_id=m.coin_id):
+    for _, _, txhash, params, setting in chain_builder.db.read_coins_iter(coin_id=m.coin_id):
         if txhash == stop_txhash:
             return
         m.update(params=params, setting=setting, txhash=txhash)
@@ -172,7 +172,7 @@ def check_mintcoin_new_format(m_before, new_params, new_setting):
         return "setting is None or dict. {}".format(type(new_setting))
     # check new params
     if isinstance(new_params, dict):
-        if m_before.version == -1:
+        if m_before.version == 0:
             require_set = {'name', 'unit', 'digit', 'address'}
             new_params_set = set(new_params.keys())
             if len(require_set - new_params_set) > 0:

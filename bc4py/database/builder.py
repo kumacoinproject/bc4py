@@ -27,7 +27,7 @@ struct_block = struct.Struct('>I32s80sBI')
 struct_tx = struct.Struct('>2IB')
 struct_address = struct.Struct('>{}s32sB'.format(ADDR_SIZE))
 struct_address_idx = struct.Struct('>IQ?')
-struct_coins = struct.Struct('>II')
+struct_coins = struct.Struct('>III')
 
 # constant
 ITER_ORDER = 'big'
@@ -47,7 +47,7 @@ class DataBase(object):
         "_used_index",  # [txhash] -> [used_bin]
         "_block_index",  # [height] -> [blockhash]
         "_address_index",  # [address][txhash][index] -> [coin_id, amount, f_used]
-        "_coins",  # [coin_id][index] -> [txhash][params, setting]
+        "_coins",  # [coin_id][height][index] -> [txhash][params, setting]
     ]
 
     def __init__(self, **kwargs):
@@ -280,24 +280,24 @@ class DataBase(object):
         f_batch = self.is_batch_thread()
         batch_copy = self.batch['_coins'].copy() if self.batch else dict()
         b_coin_id = coin_id.to_bytes(4, ITER_ORDER)
-        start = b_coin_id + b'\x00'*4
-        stop = b_coin_id + b'\xff'*4
+        start = b_coin_id + b'\x00'*8
+        stop = b_coin_id + b'\xff'*8
         coins_iter = self._coins.iterator(start=start, stop=stop)
         for k, v in coins_iter:
             k, v = bytes(k), bytes(v)
-            # coin_id, index, txhash
+            # coin_id, txindex, txhash
             if f_batch and k in batch_copy and start <= k <= stop:
                 v = batch_copy[k]
                 del batch_copy[k]
-            dummy, index = struct_coins.unpack(k)
+            _, height, index = struct_coins.unpack(k)
             txhash, (params, setting) = v[:32], unpackb(v[32:], raw=True, use_list=False, encoding='utf8')
-            yield index, txhash, params, setting
+            yield height, index, txhash, params, setting
         if f_batch:
             for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
                 if k.startswith(b_coin_id) and start <= k <= stop:
-                    dummy, index = struct_coins.unpack(k)
+                    _, height, index = struct_coins.unpack(k)
                     txhash, (params, setting) = v[:32], unpackb(v[32:], raw=True, use_list=False, encoding='utf8')
-                    yield index, txhash, params, setting
+                    yield height, index, txhash, params, setting
 
     def write_block(self, block):
         assert self.is_batch_thread(), 'Not created batch'
@@ -336,13 +336,9 @@ class DataBase(object):
         self.batch['_address_index'][k] = v
         log.debug("Insert new address idx {}".format(address))
 
-    def write_coins(self, coin_id, txhash, params, setting):
+    def write_coins(self, coin_id, height, index, txhash, params, setting):
         assert self.is_batch_thread(), 'Not created batch'
-        index = -1
-        for index, *dummy in self.read_coins_iter(coin_id=coin_id):
-            pass
-        index += 1
-        k = coin_id.to_bytes(4, ITER_ORDER) + index.to_bytes(4, ITER_ORDER)
+        k = struct_coins.pack(coin_id, height, index)
         v = txhash + packb((params, setting), use_bin_type=True)
         self.batch['_coins'][k] = v
         log.debug("Insert new coins id={}".format(coin_id))
@@ -623,7 +619,10 @@ class ChainBuilder(object):
                             pass
                         elif tx.type == C.TX_MINT_COIN:
                             mint_id, params, setting = tx.encoded_message()
-                            self.db.write_coins(coin_id=mint_id, txhash=tx.hash, params=params, setting=setting)
+                            self.db.write_coins(
+                                coin_id=mint_id, height=block.height,
+                                index=block.txs.index(tx), txhash=tx.hash,
+                                params=params, setting=setting)
 
                 # block挿入終了
                 self.best_chain = best_chain
