@@ -9,7 +9,7 @@ from bc4py.database.account import *
 from bc4py.database.create import create_db
 from bc4py_extension import sha256d_hash, PyAddress
 from msgpack import unpackb, packb
-from typing import Optional, Dict, List, MutableMapping
+from typing import Optional, Dict, List, Tuple, MutableMapping
 from weakref import WeakValueDictionary
 from logging import getLogger, INFO
 from time import time
@@ -25,6 +25,7 @@ getLogger('plyvel').setLevel(INFO)
 
 struct_block = struct.Struct('>I32s80sBI')
 struct_tx = struct.Struct('>2IB')
+struct_unused_idx = struct.Struct('>{}sIQ'.format(ADDR_SIZE))
 struct_address = struct.Struct('>{}s32sB'.format(ADDR_SIZE))
 struct_address_idx = struct.Struct('>IQ?')
 struct_coins = struct.Struct('>III')
@@ -44,7 +45,7 @@ class DataBase(object):
     database_list = [
         "_block",  # [blockhash] -> [height, time, work, b_block, flag, tx_len][txhash0]..[txhashN]
         "_tx_index",  # [txhash] -> [height][offset]
-        "_used_index",  # [txhash] -> [used_bin]
+        "_unused_index",  # [txhash][txindex] -> [address][coin_id][amount]
         "_block_index",  # [height] -> [blockhash]
         "_address_index",  # [address][txhash][index] -> [coin_id, amount, f_used]
         "_coins",  # [coin_id][height][index] -> [txhash][params, setting]
@@ -66,7 +67,7 @@ class DataBase(object):
         self._block = plyvel.DB(os.path.join(dirs, 'block'), create_if_missing=f_create)
         if self.db_config['txindex']:
             self._tx_index = plyvel.DB(os.path.join(dirs, 'tx_index'), create_if_missing=f_create)
-        self._used_index = plyvel.DB(os.path.join(dirs, 'used_index'), create_if_missing=f_create)
+        self._unused_index = plyvel.DB(os.path.join(dirs, 'unused_index'), create_if_missing=f_create)
         self._block_index = plyvel.DB(os.path.join(dirs, 'block_index'), create_if_missing=f_create)
         self._address_index = plyvel.DB(os.path.join(dirs, 'address_index'), create_if_missing=f_create)
         self._coins = plyvel.DB(os.path.join(dirs, 'coins'), create_if_missing=f_create)
@@ -235,15 +236,20 @@ class DataBase(object):
             b = self._tx_index.get(txhash, default=None)
         return b is not None
 
-    def read_usedindex(self, txhash):
-        if self.is_batch_thread() and txhash in self.batch['_used_index']:
-            b = self.batch['_used_index'][txhash]
+    def read_unused_index(self, txhash, txindex) -> Optional[Tuple[PyAddress, int, int]]:
+        """return unused outputs info"""
+        key = txhash + txindex.to_bytes(1, ITER_ORDER)
+        if self.is_batch_thread() and key in self.batch['_unused_index']:
+            b = self.batch['_unused_index'][key]
         else:
-            b = self._used_index.get(txhash, default=None)
+            b = self._unused_index.get(key, default=None)
+        # return None -> not found or already used
+        # return tuple -> unused
         if b is None:
-            return set()
+            return None
         else:
-            return set(b)
+            b_address, coin_id, amount = struct_unused_idx.unpack(b)
+            return PyAddress.from_binary(V.BECH32_HRP, b_address), coin_id, amount
 
     def read_address_idx(self, address: PyAddress, txhash, index):
         k = address.binary() + txhash + index.to_bytes(1, ITER_ORDER)
@@ -324,10 +330,17 @@ class DataBase(object):
         self.batch['_block_index'][b_height] = block.hash
         log.debug("Insert new block {}".format(block))
 
-    def write_usedindex(self, txhash, usedindex):
+    def write_unused_index(self, txhash, txindex, address, coin_id, amount):
         assert self.is_batch_thread(), 'Not created batch'
-        assert isinstance(usedindex, set), 'Unsedindex is set'
-        self.batch['_used_index'][txhash] = bytes(sorted(usedindex))
+        assert isinstance(address, PyAddress)
+        k = txhash + txindex.to_bytes(1, ITER_ORDER)
+        v = struct_unused_idx.pack(address.binary(), coin_id, amount)
+        self.batch['_unused_index'][k] = v
+
+    def remove_unused_index(self, txhash, txindex):
+        assert self.is_batch_thread(), 'Not created batch'
+        k = txhash + txindex.to_bytes(1, ITER_ORDER)
+        self.batch['_unused_index'][k] = None
 
     def write_address_idx(self, address: PyAddress, txhash, index, coin_id, amount, f_used):
         assert self.is_batch_thread(), 'Not created batch'
@@ -429,32 +442,35 @@ class ChainBuilder(object):
                 elif height != before_block.height + 1:
                     raise BlockBuilderError("DBHeight != BeforeHeight+1 [{}!={}+1]".format(
                         height, before_block.height))
-                for tx in block.txs:
-                    if tx.height != height:
-                        raise BlockBuilderError("TXHeight != BlockHeight [{}!{}]".format(tx.height, height))
-                    # inputs
-                    for txhash, txindex in tx.inputs:
-                        input_tx = self.db.read_tx(txhash)
-                        address, coin_id, amount = input_tx.outputs[txindex]
-                        _coin_id, _amount, f_used = self.db.read_address_idx(address, txhash, txindex)
-                        usedindex = self.db.read_usedindex(txhash)
-                        if coin_id != _coin_id or amount != _amount:
-                            raise BlockBuilderError(
-                                "Inputs, coin_id != _coin_id or amount != _amount [{}!{}] [{}!={}]".format(
-                                    coin_id, _coin_id, amount, _amount))
-                        elif txindex not in usedindex:
-                            raise BlockBuilderError("Already used but unused. [{} not in {}]".format(
-                                txindex, usedindex))
-                        elif not f_used:
-                            raise BlockBuilderError("Already used but unused flag. [{}:{}]".format(
-                                input_tx, txindex))
-                    # outputs
-                    for index, (address, coin_id, amount) in enumerate(tx.outputs):
-                        _coin_id, _amount, f_used = self.db.read_address_idx(address, tx.hash, index)
-                        if coin_id != _coin_id or amount != _amount:
-                            raise BlockBuilderError(
-                                "Outputs, coin_id != _coin_id or amount != _amount [{}!{}] [{}!={}]".format(
-                                    coin_id, _coin_id, amount, _amount))
+
+                # check tx include by block (will be removed)
+                # for tx in block.txs:
+                #    if tx.height != height:
+                #        raise BlockBuilderError("TXHeight != BlockHeight [{}!{}]".format(tx.height, height))
+                #    # inputs
+                #    for txhash, txindex in tx.inputs:
+                #        input_tx = self.db.read_tx(txhash)
+                #        address, coin_id, amount = input_tx.outputs[txindex]
+                #        _coin_id, _amount, f_used = self.db.read_address_idx(address, txhash, txindex)
+                #        usedindex = self.db.read_usedindex(txhash)
+                #        if coin_id != _coin_id or amount != _amount:
+                #            raise BlockBuilderError(
+                #                "Inputs, coin_id != _coin_id or amount != _amount [{}!{}] [{}!={}]".format(
+                #                    coin_id, _coin_id, amount, _amount))
+                #        elif txindex not in usedindex:
+                #            raise BlockBuilderError("Already used but unused. [{} not in {}]".format(
+                #                txindex, usedindex))
+                #        elif not f_used:
+                #            raise BlockBuilderError("Already used but unused flag. [{}:{}]".format(
+                #                input_tx, txindex))
+                #    # outputs
+                #    for index, (address, coin_id, amount) in enumerate(tx.outputs):
+                #        _coin_id, _amount, f_used = self.db.read_address_idx(address, tx.hash, index)
+                #        if coin_id != _coin_id or amount != _amount:
+                #            raise BlockBuilderError(
+                #                "Outputs, coin_id != _coin_id or amount != _amount [{}!{}] [{}!={}]".format(
+                #                    coin_id, _coin_id, amount, _amount))
+
                 # Block確認終了
                 before_block = block
                 batch_blocks.append(block)
@@ -587,27 +603,27 @@ class ChainBuilder(object):
                     batched_blocks.append(block)
                     self.db.write_block(block)  # Block
                     assert len(block.txs) > 0, "found no tx in {}".format(block)
+
                     for tx in block.txs:
                         # inputs
                         for index, (txhash, txindex) in enumerate(tx.inputs):
-                            # DataBase内でのみのUsedIndexを取得
-                            usedindex = self.db.read_usedindex(txhash)
-                            if txindex in usedindex:
-                                raise BlockBuilderError('Already used index? {}:{}'.format(txhash.hex(), txindex))
-                            usedindex.add(txindex)
-                            self.db.write_usedindex(txhash, usedindex)  # UsedIndex update
-                            input_tx = tx_builder.get_tx(txhash)
-                            address, coin_id, amount = input_tx.outputs[txindex]
+                            address, coin_id, amount = self.db.read_unused_index(txhash, txindex)
+                            # add address index only you need or add all index
                             if chain_builder.db.db_config['addrindex'] or \
                                     await read_address2userid(address=address, cur=cur):
-                                # 必要なAddressのみ
                                 self.db.write_address_idx(address, txhash, txindex, coin_id, amount, True)
+                            # remove unused output index
+                            self.db.remove_unused_index(txhash, txindex)
+
                         # outputs
                         for index, (address, coin_id, amount) in enumerate(tx.outputs):
+                            # add address index only you need or add all index
                             if chain_builder.db.db_config['addrindex'] or \
                                     await read_address2userid(address=address, cur=cur):
-                                # 必要なAddressのみ
                                 self.db.write_address_idx(address, tx.hash, index, coin_id, amount, False)
+                            # add unused output index
+                            self.db.write_unused_index(tx.hash, index, address, coin_id, amount)
+
                         # TXの種類による追加操作
                         if tx.type == C.TX_GENESIS:
                             pass
@@ -739,24 +755,20 @@ class TransactionBuilder(object):
             stream.on_next(tx)
 
     def get_tx(self, txhash, default=None):
-        if txhash in self.cashe:
-            try:
-                return self.cashe[txhash]
-            except KeyError:
-                # flashed WeakValueDictionary, need to retry
-                return self.get_tx(txhash=txhash, default=default)
+        # warning: WeakValueDictionary delete when out of reference
+        cashed_tx = self.cashe.get(txhash)
+        chain_tx = self.chained_tx.get(txhash)
+
+        if cashed_tx is not None:
+            tx = cashed_tx
         elif txhash in self.unconfirmed:
             # unconfirmedより
             tx = self.unconfirmed[txhash]
             tx.recode_flag = 'unconfirmed'
             if tx.height is not None: log.warning("Not unconfirmed. {}".format(tx))
-        elif txhash in self.chained_tx:
+        elif chain_tx is not None:
             # Memoryより
-            try:
-                tx = self.chained_tx[txhash]
-            except KeyError:
-                # flashed WeakValueDictionary, need to retry
-                return self.get_tx(txhash=txhash, default=default)
+            tx = chain_tx
             tx.recode_flag = 'memory'
             if tx.height is None: log.warning("Is unconfirmed. {}".format(tx))
         else:
@@ -776,13 +788,6 @@ class TransactionBuilder(object):
                chain_builder.db.have_tx(txhash)
 
     def affect_new_chain(self, old_best_sets, new_best_sets):
-
-        def input_check(_tx):
-            for input_hash, input_index in _tx.inputs:
-                if input_index in chain_builder.db.read_usedindex(input_hash):
-                    return True
-            return False
-
         # 状態を戻す
         for block in old_best_sets:
             for tx in block.txs:
@@ -814,13 +819,13 @@ class TransactionBuilder(object):
                 log.debug("Remove unconfirmed 'include on chain' {}".format(tx))
                 del self.unconfirmed[txhash]
                 continue
-            # check inputs usedindex on database (not memory, not unconfirmed)
-            if input_check(tx):
-                log.debug("Remove unconfirmed 'use used inputs' {}".format(tx))
-                del self.unconfirmed[txhash]
-                continue
+            # note: It is better to wait for expire the TX
+            # if is_used_inputs(tx):
+            #    log.debug("Remove unconfirmed 'use used inputs' {}".format(tx))
+            #    del self.unconfirmed[txhash]
+            #    continue
         if before_num != len(self.unconfirmed):
-            log.warning("Removed {} unconfirmed txs".format(len(self.unconfirmed) - before_num))
+            log.warning("Removed {} unconfirmed txs".format(before_num - len(self.unconfirmed)))
 
 
 class UserAccount(object):

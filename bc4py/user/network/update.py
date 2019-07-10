@@ -1,6 +1,6 @@
 from bc4py.config import C, V
 from bc4py.database.builder import chain_builder, tx_builder
-from bc4py.database.tools import is_usedindex
+from bc4py.database.tools import is_unused_index_except_me
 from bc4py.user.generate import *
 from typing import Dict
 from time import time
@@ -153,10 +153,10 @@ async def update_unconfirmed_info():
                         # too young generated outputs
                         unconfirmed_txs.remove(tx)
                         break
-                if is_usedindex(
-                        txhash=txhash,
-                        txindex=txindex,
-                        except_txhash=tx.hash,
+                if not is_unused_index_except_me(
+                        input_hash=txhash,
+                        input_index=txindex,
+                        except_hash=tx.hash,
                         best_block=best_block,
                         best_chain=best_chain):
                     # ERROR: already used outputs

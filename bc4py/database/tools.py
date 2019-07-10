@@ -36,8 +36,8 @@ async def get_unspents_iter(target_address, best_block=None, best_chain=None) ->
     for address in target_address:
         for dummy, txhash, txindex, coin_id, amount, f_used in chain_builder.db.read_address_idx_iter(address):
             if f_used is False:
-                if txindex in get_usedindex(txhash=txhash, best_block=best_block, best_chain=best_chain):
-                    continue  # Used
+                if not is_unused_index(input_hash=txhash, input_index=txindex, best_block=best_block, best_chain=best_chain):
+                    continue  # used
                 tx = tx_builder.get_tx(txhash)
                 if tx.type in (C.TX_POW_REWARD, C.TX_POS_REWARD):
                     if tx.height is not None and tx.height < allow_mined_height:
@@ -47,10 +47,9 @@ async def get_unspents_iter(target_address, best_block=None, best_chain=None) ->
     # Memoryより
     for block in reversed(best_chain):
         for tx in block.txs:
-            used_index = get_usedindex(txhash=tx.hash, best_block=best_block, best_chain=best_chain)
             for index, (address, coin_id, amount) in enumerate(tx.outputs):
-                if index in used_index:
-                    continue  # Used
+                if not is_unused_index(input_hash=tx.hash, input_index=index, best_block=best_block, best_chain=best_chain):
+                    continue  # used
                 elif address in target_address:
                     if tx.type in (C.TX_POW_REWARD, C.TX_POS_REWARD):
                         if tx.height is not None and tx.height < allow_mined_height:
@@ -60,10 +59,9 @@ async def get_unspents_iter(target_address, best_block=None, best_chain=None) ->
     # Unconfirmedより
     if best_block is None:
         for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time):
-            used_index = get_usedindex(txhash=tx.hash, best_block=best_block, best_chain=best_chain)
             for index, (address, coin_id, amount) in enumerate(tx.outputs):
-                if index in used_index:
-                    continue  # Used
+                if not is_unused_index(input_hash=tx.hash, input_index=index, best_block=best_block, best_chain=best_chain):
+                    continue  # used
                 elif address in target_address:
                     yield address, None, tx.hash, index, coin_id, amount
     # 返り値
@@ -76,59 +74,84 @@ async def get_my_unspents_iter(cur, best_chain=None) -> AsyncGenerator:
     return get_unspents_iter(target_address=target_address_cashe, best_block=None, best_chain=best_chain)
 
 
-def get_usedindex(txhash, best_block=None, best_chain=None):
+def is_unused_index(input_hash, input_index, best_block=None, best_chain=None) -> bool:
+    """check inputs is unused(True) or not(False)"""
     assert chain_builder.best_block, 'Not DataBase init'
     if best_chain is None:
         best_chain = _get_best_chain_all(best_block)
-    # Memoryより
-    usedindex = set()
+    is_unused = False
+
+    # check database
+    if chain_builder.db.read_unused_index(input_hash, input_index) is not None:
+        is_unused = True
+
+    # check memory
     for block in best_chain:
         if best_block and block == best_block:
-            continue
+            continue  # do not check best_block when specified
         for tx in block.txs:
-            for _txhash, _txindex in tx.inputs:
-                if _txhash == txhash:
-                    usedindex.add(_txindex)
-    # DataBaseより
-    usedindex.update(chain_builder.db.read_usedindex(txhash))
-    # unconfirmedより
+            if tx.hash == input_hash:
+                if input_index < len(tx.outputs):
+                    is_unused = True
+            for txhash, txindex in tx.inputs:
+                if txhash == input_hash and txindex == input_index:
+                    return False
+
+    # check unconfirmed
     if best_block is None:
         for tx in list(tx_builder.unconfirmed.values()):
-            for _txhash, _txindex in tx.inputs:
-                if _txhash == txhash:
-                    usedindex.add(_txindex)
-    return usedindex
+            if tx.hash == input_hash:
+                if input_index < len(tx.outputs):
+                    is_unused = True
+            for txhash, txindex in tx.inputs:
+                if txhash == input_hash and txindex == input_index:
+                    return False
+
+    # all check passed
+    return is_unused
 
 
-def is_usedindex(txhash, txindex, except_txhash, best_block=None, best_chain=None):
+def is_unused_index_except_me(input_hash, input_index, except_hash, best_block, best_chain) -> bool:
+    """check inputs is unused(True) or not(False)
+    WARNING: except hash work on memory or unconfirmed status
+    """
     assert chain_builder.best_block, 'Not DataBase init'
-    if best_chain is None:
-        best_chain = _get_best_chain_all(best_block)
-    # Memoryより
+    is_unused = False
+
+    # check database
+    if chain_builder.db.read_unused_index(input_hash, input_index) is not None:
+        is_unused = True
+
+    # check memory
     for block in best_chain:
+        if block == best_block:
+            continue
         for tx in block.txs:
-            if tx.hash == except_txhash:
+            if tx.hash == except_hash:
                 continue
-            for _txhash, _txindex in tx.inputs:
-                if _txhash == txhash and _txindex == txindex:
-                    return True
-    # DataBaseより
-    if txindex in chain_builder.db.read_usedindex(txhash):
-        return True
-    # unconfirmedより
-    if best_block is None:
-        for tx in tx_builder.unconfirmed.values():
-            if tx.hash == except_txhash:
-                continue
-            for _txhash, _txindex in tx.inputs:
-                if _txhash == txhash and _txindex == txindex:
-                    return True
-    return False
+            if input_index < len(tx.outputs):
+                is_unused = True
+            for txhash, txindex in tx.inputs:
+                if txhash == input_hash and txindex == input_index:
+                    return False
+
+    # check unconfirmed
+    for tx in list(tx_builder.unconfirmed.values()):
+        if tx.hash == except_hash:
+            continue
+        if input_index < len(tx.outputs):
+            is_unused = True
+        for txhash, txindex in tx.inputs:
+            if txhash == input_hash and txindex == input_index:
+                return False
+
+    # all check passed
+    return is_unused
 
 
 __all__ = [
     "get_unspents_iter",
     "get_my_unspents_iter",
-    "get_usedindex",
-    "is_usedindex",
+    "is_unused_index",
+    "is_unused_index_except_me",
 ]

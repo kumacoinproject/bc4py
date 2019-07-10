@@ -1,7 +1,7 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.bip32 import is_address
 from bc4py.database.builder import chain_builder, tx_builder
-from bc4py.database.tools import get_usedindex
+from bc4py.database.tools import is_unused_index
 from bc4py.user import Balance
 from hashlib import sha256
 
@@ -32,7 +32,7 @@ def inputs_origin_check(tx, include_block):
             # InputのOriginは既に取り込まれている
             pass  # OK
         # 使用済みかチェック
-        if txindex in get_usedindex(txhash=txhash, best_block=include_block):
+        if not is_unused_index(input_hash=txhash, input_index=txindex, best_block=include_block):
             raise BlockChainError('1 Input of {} is already used! {}:{}'.format(tx, txhash.hex(), txindex))
         # 同一Block内で使用されていないかチェック
         if include_block:
