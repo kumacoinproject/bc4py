@@ -32,7 +32,7 @@ struct_coins = struct.Struct('>III')
 
 # constant
 ITER_ORDER = 'big'
-DB_VERSION = 0  # increase if you change database structure
+DB_VERSION = 1  # increase if you change database structure
 
 
 class DataBase(object):
@@ -55,8 +55,6 @@ class DataBase(object):
         dirs = os.path.join(V.DB_HOME_DIR, 'db-ver{}'.format(DB_VERSION))
         self.dirs = dirs
         self.db_config.update(kwargs)  # extra settings
-        self.event = asyncio.Event()
-        self.event.set()
         # already used => LevelDBError
         if os.path.exists(dirs):
             f_create = False
@@ -65,14 +63,17 @@ class DataBase(object):
             os.mkdir(dirs)
             f_create = True
         self._block = plyvel.DB(os.path.join(dirs, 'block'), create_if_missing=f_create)
-        if self.db_config['txindex']:
-            self._tx_index = plyvel.DB(os.path.join(dirs, 'tx_index'), create_if_missing=f_create)
+        self._tx_index = plyvel.DB(os.path.join(dirs, 'tx_index'), create_if_missing=f_create)
         self._unused_index = plyvel.DB(os.path.join(dirs, 'unused_index'), create_if_missing=f_create)
         self._block_index = plyvel.DB(os.path.join(dirs, 'block_index'), create_if_missing=f_create)
         self._address_index = plyvel.DB(os.path.join(dirs, 'address_index'), create_if_missing=f_create)
         self._coins = plyvel.DB(os.path.join(dirs, 'coins'), create_if_missing=f_create)
-        self.batch: Optional[Dict[str, dict]] = None
+        # batch objects
+        self.event = asyncio.Event()
+        self.event.set()
+        self.batch: Dict[str, plyvel._plyvel.WriteBatch] = dict()
         self.batch_task: Optional[asyncio.Task] = None
+        self.batch_time = time()
         log.debug(':create database connect path={}'.format(dirs.replace("\\", "/")))
 
     def close(self):
@@ -81,56 +82,37 @@ class DataBase(object):
         log.info("close database connection")
 
     async def batch_create(self):
-        assert self.batch is None, 'batch is already start'
+        assert len(self.batch) == 0, 'batch is already start'
         await asyncio.wait_for(self.event.wait(), self.db_config['timeout'])
         self.event.clear()
-        self.batch = dict()
+        self.batch_time = time()
         for name in self.database_list:
-            self.batch[name] = dict()
+            self.batch[name] = getattr(self, name).write_batch(sync=self.db_config['sync'])
         self.batch_task = asyncio.Task.current_task()
         log.debug(":Create database batch")
 
     async def batch_commit(self):
         assert self.batch, 'Not created batch'
-        success_batch = list()
-        for name, memory in self.batch.items():
-            batch = getattr(self, name).write_batch(sync=self.db_config['sync'])
-            try:
-                for k, v in memory.items():
-                    if v is None:
-                        batch.delete(k)
-                    else:
-                        batch.put(k, v)
-                success_batch.append(batch)
-            except Exception as e:
-                self.batch = None
-                self.batch_task = None
-                self.event.set()
-                log.error(f"commit failed name={name} by '{e}'")
-                return False
-        else:
-            for batch in success_batch:
-                batch.write()
-            self.batch = None
-            self.batch_task = None
-            self.event.set()
-            log.debug("commit success")
-            return True
+        for batch in self.batch.values():
+            batch.write()
+        self.batch.clear()
+        self.batch_task = None
+        self.event.set()
+        log.debug(f"commit success {int((time()-self.batch_time)*1000)}mS")
 
     def batch_rollback(self):
-        self.batch = None
+        for batch in self.batch.values():
+            batch.clear()
+        self.batch.clear()
         self.batch_task = None
         self.event.set()
         log.debug("Rollback database")
 
     def is_batch_thread(self):
-        return self.batch and self.batch_task is asyncio.Task.current_task()
+        return 0 < len(self.batch) and self.batch_task is asyncio.Task.current_task()
 
     def read_block(self, blockhash):
-        if self.is_batch_thread() and blockhash in self.batch['_block']:
-            b = self.batch['_block'][blockhash]
-        else:
-            b = self._block.get(blockhash, default=None)
+        b = self._block.get(blockhash, default=None)
         if b is None:
             return None
         b = bytes(b)
@@ -160,8 +142,6 @@ class DataBase(object):
 
     def read_block_hash(self, height):
         b_height = height.to_bytes(4, ITER_ORDER)
-        if self.is_batch_thread() and b_height in self.batch['_block_index']:
-            return self.batch['_block_index'][b_height]
         b = self._block_index.get(b_height, default=None)
         if b is None:
             return None
@@ -169,45 +149,28 @@ class DataBase(object):
             return bytes(b)
 
     def read_block_hash_iter(self, start_height=0):
-        f_batch = self.is_batch_thread()
-        batch_copy = self.batch['_block_index'].copy() if self.batch else dict()
         start = start_height.to_bytes(4, ITER_ORDER)
         block_iter = self._block_index.iterator(start=start)
         for b_height, blockhash in block_iter:
             # height, blockhash
             b_height = bytes(b_height)
             blockhash = bytes(blockhash)
-            if f_batch and b_height in batch_copy:
-                blockhash = batch_copy[b_height]
-                del batch_copy[b_height]
             yield int.from_bytes(b_height, ITER_ORDER), blockhash
-        if f_batch:
-            for b_height, blockhash in sorted(batch_copy.items(), key=lambda x: x[0]):
-                yield int.from_bytes(b_height, ITER_ORDER), blockhash
 
     def read_tx(self, txhash):
         if not self.db_config['txindex']:
             raise BlockBuilderError('"txindex" is false, you cannot find tx by hash')
         # txhash -> height
-        if self.is_batch_thread() and txhash in self.batch['_tx_index']:
-            b = self.batch['_tx_index'][txhash]
-        else:
-            b = self._tx_index.get(txhash, default=None)
+        b = self._tx_index.get(txhash, default=None)
         if b is None:
             return None
         b_height, offset = struct.unpack('>4sI', b)
         # height -> blockhash
-        if self.is_batch_thread() and b_height in self.batch['_block_index']:
-            blockhash = self.batch['_block_index'][b_height]
-        else:
-            blockhash = self._block_index.get(b_height, default=None)
+        blockhash = self._block_index.get(b_height, default=None)
         if blockhash is None:
             return None
         # blockhash -> block_bin
-        if self.is_batch_thread() and blockhash in self.batch['_block']:
-            b = self.batch['_block'][blockhash]
-        else:
-            b = self._block.get(blockhash, default=None)
+        b = self._block.get(blockhash, default=None)
         if b is None:
             return None
         # block_bin -> tx
@@ -230,19 +193,13 @@ class DataBase(object):
     def have_tx(self, txhash) -> bool:
         """return True if you have tx index data"""
         # txhash -> height
-        if self.is_batch_thread() and txhash in self.batch['_tx_index']:
-            b = self.batch['_tx_index'][txhash]
-        else:
-            b = self._tx_index.get(txhash, default=None)
+        b = self._tx_index.get(txhash, default=None)
         return b is not None
 
     def read_unused_index(self, txhash, txindex) -> Optional[Tuple[PyAddress, int, int]]:
         """return unused outputs info"""
         key = txhash + txindex.to_bytes(1, ITER_ORDER)
-        if self.is_batch_thread() and key in self.batch['_unused_index']:
-            b = self.batch['_unused_index'][key]
-        else:
-            b = self._unused_index.get(key, default=None)
+        b = self._unused_index.get(key, default=None)
         # return None -> not found or already used
         # return tuple -> unused
         if b is None:
@@ -253,10 +210,7 @@ class DataBase(object):
 
     def read_address_idx(self, address: PyAddress, txhash, index):
         k = address.binary() + txhash + index.to_bytes(1, ITER_ORDER)
-        if self.is_batch_thread() and k in self.batch['_address_index']:
-            b = self.batch['_address_index'][k]
-        else:
-            b = self._address_index.get(k, default=None)
+        b = self._address_index.get(k, default=None)
         if b is None:
             return None
         b = bytes(b)
@@ -264,8 +218,6 @@ class DataBase(object):
         return struct_address_idx.unpack(b)
 
     def read_address_idx_iter(self, address: PyAddress):
-        f_batch = self.is_batch_thread()
-        batch_copy = self.batch['_address_index'].copy() if self.batch else dict()
         b_address = address.binary()
         start = b_address + b'\x00' * (32+1)
         stop = b_address + b'\xff' * (32+1)
@@ -273,40 +225,23 @@ class DataBase(object):
         for k, v in address_iter:
             k, v = bytes(k), bytes(v)
             # address, txhash, index, coin_id, amount, f_used
-            if f_batch and k in batch_copy and start <= k <= stop:
-                v = batch_copy[k]
-                del batch_copy[k]
             yield struct_address.unpack(k) + struct_address_idx.unpack(v)
-        if f_batch:
-            for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
-                if k.startswith(b_address) and start <= k <= stop:
-                    yield struct_address.unpack(k) + struct_address_idx.unpack(v)
 
     def read_coins_iter(self, coin_id):
-        f_batch = self.is_batch_thread()
-        batch_copy = self.batch['_coins'].copy() if self.batch else dict()
         b_coin_id = coin_id.to_bytes(4, ITER_ORDER)
         start = b_coin_id + b'\x00'*8
         stop = b_coin_id + b'\xff'*8
         coins_iter = self._coins.iterator(start=start, stop=stop)
         for k, v in coins_iter:
-            k, v = bytes(k), bytes(v)
+            k = bytes(k)
+            v = bytes(v)
             # coin_id, txindex, txhash
-            if f_batch and k in batch_copy and start <= k <= stop:
-                v = batch_copy[k]
-                del batch_copy[k]
             _, height, index = struct_coins.unpack(k)
             txhash, (params, setting) = v[:32], unpackb(v[32:], raw=True, use_list=False, encoding='utf8')
             yield height, index, txhash, params, setting
-        if f_batch:
-            for k, v in sorted(batch_copy.items(), key=lambda x: x[0]):
-                if k.startswith(b_coin_id) and start <= k <= stop:
-                    _, height, index = struct_coins.unpack(k)
-                    txhash, (params, setting) = v[:32], unpackb(v[32:], raw=True, use_list=False, encoding='utf8')
-                    yield height, index, txhash, params, setting
 
     def write_block(self, block):
-        assert self.is_batch_thread(), 'Not created batch'
+        assert self.is_batch_thread()
         tx_len = len(block.txs)
         if block.work_hash is None:
             block.update_pow()
@@ -316,7 +251,7 @@ class DataBase(object):
         b_height = block.height.to_bytes(4, ITER_ORDER)
         for tx in block.txs:
             if self.db_config['txindex']:
-                self.batch['_tx_index'][tx.hash] = b_height + len(b).to_bytes(4, ITER_ORDER)
+                self.batch['_tx_index'].put(tx.hash, b_height + len(b).to_bytes(4, ITER_ORDER))
             bin_len = len(tx.b)
             b_sign = signature2bin(tx.signature)
             sign_len = len(b_sign)
@@ -326,34 +261,34 @@ class DataBase(object):
             b += b_sign
             b += tx.R
             log.debug("Insert new tx {}".format(tx))
-        self.batch['_block'][block.hash] = b
-        self.batch['_block_index'][b_height] = block.hash
+        self.batch['_block'].put(block.hash, b)
+        self.batch['_block_index'].put(b_height, block.hash)
         log.debug("Insert new block {}".format(block))
 
     def write_unused_index(self, txhash, txindex, address, coin_id, amount):
-        assert self.is_batch_thread(), 'Not created batch'
+        assert self.is_batch_thread()
         assert isinstance(address, PyAddress)
         k = txhash + txindex.to_bytes(1, ITER_ORDER)
         v = struct_unused_idx.pack(address.binary(), coin_id, amount)
-        self.batch['_unused_index'][k] = v
+        self.batch['_unused_index'].put(k, v)
 
     def remove_unused_index(self, txhash, txindex):
-        assert self.is_batch_thread(), 'Not created batch'
+        assert self.is_batch_thread()
         k = txhash + txindex.to_bytes(1, ITER_ORDER)
-        self.batch['_unused_index'][k] = None
+        self.batch['_unused_index'].delete(k)
 
     def write_address_idx(self, address: PyAddress, txhash, index, coin_id, amount, f_used):
-        assert self.is_batch_thread(), 'Not created batch'
+        assert self.is_batch_thread()
         k = address.binary() + txhash + index.to_bytes(1, ITER_ORDER)
         v = struct_address_idx.pack(coin_id, amount, f_used)
-        self.batch['_address_index'][k] = v
+        self.batch['_address_index'].put(k, v)
         log.debug("Insert new address idx {}".format(address))
 
     def write_coins(self, coin_id, height, index, txhash, params, setting):
-        assert self.is_batch_thread(), 'Not created batch'
+        assert self.is_batch_thread()
         k = struct_coins.pack(coin_id, height, index)
         v = txhash + packb((params, setting), use_bin_type=True)
-        self.batch['_coins'][k] = v
+        self.batch['_coins'].put(k, v)
         log.debug("Insert new coins id={}".format(coin_id))
 
 
@@ -593,6 +528,7 @@ class ChainBuilder(object):
         best_chain = self.best_chain.copy()
         batch_count = self.batch_size
         batched_blocks = list()
+        unused_index_cashe = dict()
         async with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = await db.cursor()
             try:
@@ -606,8 +542,12 @@ class ChainBuilder(object):
 
                     for tx in block.txs:
                         # inputs
-                        for index, (txhash, txindex) in enumerate(tx.inputs):
-                            address, coin_id, amount = self.db.read_unused_index(txhash, txindex)
+                        for index, pair in enumerate(tx.inputs):
+                            txhash, txindex = pair
+                            if pair in unused_index_cashe:
+                                address, coin_id, amount = unused_index_cashe.pop(pair)
+                            else:
+                                address, coin_id, amount = self.db.read_unused_index(txhash, txindex)
                             # add address index only you need or add all index
                             if chain_builder.db.db_config['addrindex'] or \
                                     await read_address2userid(address=address, cur=cur):
@@ -623,6 +563,7 @@ class ChainBuilder(object):
                                 self.db.write_address_idx(address, tx.hash, index, coin_id, amount, False)
                             # add unused output index
                             self.db.write_unused_index(tx.hash, index, address, coin_id, amount)
+                            unused_index_cashe[(tx.hash, index)] = (address, coin_id, amount)
 
                         # TXの種類による追加操作
                         if tx.type == C.TX_GENESIS:
