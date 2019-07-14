@@ -108,16 +108,7 @@ async def network_info(request):
         peers = list()
         data = V.P2P_OBJ.core.get_my_user_header()
         for user in V.P2P_OBJ.core.user:
-            peers.append({
-                'number': user.number,
-                'object': repr(user),
-                'host_port': "{}:{}".format(*user.get_host_port()),
-                'neers': ["{}:{}".format(*conn) for conn in user.neers],
-                'direction': getattr(user, 'sock_type', user.direction),
-                'score': user.score,
-                'warn': user.warn,
-                'header': user.header.getinfo()
-            })
+            peers.append(user.getinfo())
         data['peers'] = peers
         return utils.json_res(data)
     except Exception:
