@@ -32,7 +32,7 @@ struct_coins = struct.Struct('>III')
 
 # constant
 ITER_ORDER = 'big'
-DB_VERSION = 1  # increase if you change database structure
+DB_VERSION = 0  # increase if you change database structure
 
 
 class DataBase(object):
@@ -52,9 +52,10 @@ class DataBase(object):
     ]
 
     def __init__(self, **kwargs):
-        dirs = os.path.join(V.DB_HOME_DIR, 'db-ver{}'.format(DB_VERSION))
-        self.dirs = dirs
         self.db_config.update(kwargs)  # extra settings
+        dir_name = f"db-tx{int(self.db_config['txindex'])}-addr{int(self.db_config['addrindex'])}-ver{DB_VERSION}"
+        dirs = os.path.join(V.DB_HOME_DIR, dir_name)
+        self.dirs = dirs
         # already used => LevelDBError
         if os.path.exists(dirs):
             f_create = False
@@ -158,8 +159,6 @@ class DataBase(object):
             yield int.from_bytes(b_height, ITER_ORDER), blockhash
 
     def read_tx(self, txhash):
-        if not self.db_config['txindex']:
-            raise BlockBuilderError('"txindex" is false, you cannot find tx by hash')
         # txhash -> height
         b = self._tx_index.get(txhash, default=None)
         if b is None:
@@ -240,7 +239,7 @@ class DataBase(object):
             txhash, (params, setting) = v[:32], unpackb(v[32:], raw=True, use_list=False, encoding='utf8')
             yield height, index, txhash, params, setting
 
-    def write_block(self, block):
+    def write_block(self, block, account_tx):
         assert self.is_batch_thread()
         tx_len = len(block.txs)
         if block.work_hash is None:
@@ -250,7 +249,8 @@ class DataBase(object):
         # write txs data
         b_height = block.height.to_bytes(4, ITER_ORDER)
         for tx in block.txs:
-            if self.db_config['txindex']:
+            # recode only account tx's index
+            if tx in account_tx:
                 self.batch['_tx_index'].put(tx.hash, b_height + len(b).to_bytes(4, ITER_ORDER))
             bin_len = len(tx.b)
             b_sign = signature2bin(tx.signature)
@@ -537,10 +537,11 @@ class ChainBuilder(object):
                     batch_count -= 1
                     block = best_chain.pop()  # 古いものから順に
                     batched_blocks.append(block)
-                    self.db.write_block(block)  # Block
                     assert len(block.txs) > 0, "found no tx in {}".format(block)
 
+                    account_tx = set()
                     for tx in block.txs:
+
                         # inputs
                         for index, pair in enumerate(tx.inputs):
                             txhash, txindex = pair
@@ -549,18 +550,22 @@ class ChainBuilder(object):
                             else:
                                 address, coin_id, amount = self.db.read_unused_index(txhash, txindex)
                             # add address index only you need or add all index
-                            if chain_builder.db.db_config['addrindex'] or \
-                                    await read_address2userid(address=address, cur=cur):
+                            is_account_tx = (await read_address2userid(address=address, cur=cur)) is not None
+                            if is_account_tx or chain_builder.db.db_config['addrindex']:
                                 self.db.write_address_idx(address, txhash, txindex, coin_id, amount, True)
+                            if is_account_tx or chain_builder.db.db_config['txindex']:
+                                account_tx.add(tx)
                             # remove unused output index
                             self.db.remove_unused_index(txhash, txindex)
 
                         # outputs
                         for index, (address, coin_id, amount) in enumerate(tx.outputs):
                             # add address index only you need or add all index
-                            if chain_builder.db.db_config['addrindex'] or \
-                                    await read_address2userid(address=address, cur=cur):
+                            is_account_tx = (await read_address2userid(address=address, cur=cur)) is not None
+                            if is_account_tx or chain_builder.db.db_config['addrindex']:
                                 self.db.write_address_idx(address, tx.hash, index, coin_id, amount, False)
+                            if is_account_tx or chain_builder.db.db_config['txindex']:
+                                account_tx.add(tx)
                             # add unused output index
                             self.db.write_unused_index(tx.hash, index, address, coin_id, amount)
                             unused_index_cashe[(tx.hash, index)] = (address, coin_id, amount)
@@ -580,6 +585,9 @@ class ChainBuilder(object):
                                 coin_id=mint_id, height=block.height,
                                 index=block.txs.index(tx), txhash=tx.hash,
                                 params=params, setting=setting)
+
+                    # write block with txindex
+                    self.db.write_block(block, account_tx)
 
                 # block挿入終了
                 self.best_chain = best_chain
@@ -696,6 +704,8 @@ class TransactionBuilder(object):
             stream.on_next(tx)
 
     def get_tx(self, txhash, default=None):
+        """get memory or unconfirmed or accounted txs"""
+
         # warning: WeakValueDictionary delete when out of reference
         cashed_tx = self.cashe.get(txhash)
         chain_tx = self.chained_tx.get(txhash)
@@ -722,11 +732,19 @@ class TransactionBuilder(object):
                 return default
         return tx
 
-    def have_tx(self, txhash) -> bool:
-        return txhash in self.cashe or \
-               txhash in self.unconfirmed or \
-               txhash in self.chained_tx or \
-               chain_builder.db.have_tx(txhash)
+    def get_memorized_tx(self, txhash, default=None):
+        """get memorized tx (memory or unconfirmed)"""
+        if txhash in self.chained_tx or txhash in self.unconfirmed:
+            return self.get_tx(txhash, default)
+        else:
+            return default
+
+    def get_account_tx(self, txhash):
+        """get account tx"""
+        if txhash in user_account.memory_movement or chain_builder.db.have_tx(txhash):
+            return self.get_tx(txhash)
+        else:
+            return None
 
     def affect_new_chain(self, old_best_sets, new_best_sets):
         # 状態を戻す
@@ -912,7 +930,9 @@ class UserAccount(object):
             return
         # add to memory_movement dict
         for txhash, txindex in tx.inputs:
-            input_tx = tx_builder.get_tx(txhash)
+            input_tx = tx_builder.get_account_tx(txhash)
+            if input_tx is None:
+                continue  # no relations
             address, coin_id, amount = input_tx.outputs[txindex]
             user = await read_address2userid(address, cur)
             if user is not None:

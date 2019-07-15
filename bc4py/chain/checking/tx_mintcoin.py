@@ -1,7 +1,6 @@
 from bc4py.config import C, BlockChainError
-from bc4py.chain.signature import *
 from bc4py.database.mintcoin import *
-from bc4py.database.builder import tx_builder
+from bc4py.database.tools import get_output_from_input
 from bc4py.user import Balance
 from bc4py_extension import PyAddress
 
@@ -69,10 +68,10 @@ def input_output_digest(tx):
     coins = Balance()
     # inputs
     for txhash, txindex in tx.inputs:
-        input_tx = tx_builder.get_tx(txhash=txhash)
-        if input_tx is None:
+        pair = get_output_from_input(txhash, txindex)
+        if pair is None:
             raise BlockChainError('input tx is None. {}:{}'.format(txhash.hex(), txindex))
-        address, coin_id, amount = input_tx.outputs[txindex]
+        address, coin_id, amount = pair
         require_cks.add(address)
         coins[coin_id] += amount
     # outputs

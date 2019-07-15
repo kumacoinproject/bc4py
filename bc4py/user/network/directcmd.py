@@ -69,7 +69,7 @@ class DirectCmd(object):
         elif not isinstance(txhash, bytes):
             return f"txhash is not bytes! {txhash}"
         try:
-            tx = tx_builder.get_tx(txhash=txhash)
+            tx = tx_builder.get_memorized_tx(txhash)
             if tx is None:
                 return f"Not found tx {txhash.hex()}"
             return tx

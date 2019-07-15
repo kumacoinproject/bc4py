@@ -38,7 +38,7 @@ async def get_unspents_iter(target_address, best_block=None, best_chain=None) ->
             if f_used is False:
                 if not is_unused_index(input_hash=txhash, input_index=txindex, best_block=best_block, best_chain=best_chain):
                     continue  # used
-                tx = tx_builder.get_tx(txhash)
+                tx = tx_builder.get_account_tx(txhash)
                 if tx.type in (C.TX_POW_REWARD, C.TX_POS_REWARD):
                     if tx.height is not None and tx.height < allow_mined_height:
                         yield address, tx.height, txhash, txindex, coin_id, amount
@@ -72,6 +72,35 @@ async def get_my_unspents_iter(cur, best_chain=None) -> AsyncGenerator:
     last_uuid = len(target_address_cashe)
     target_address_cashe.update(await read_all_pooled_address_set(cur=cur, last_uuid=last_uuid))
     return get_unspents_iter(target_address=target_address_cashe, best_block=None, best_chain=best_chain)
+
+
+def get_output_from_input(input_hash, input_index, best_block=None, best_chain=None):
+    """get OutputType from InputType"""
+    assert chain_builder.best_block, 'Not DataBase init'
+    if best_chain is None:
+        best_chain = _get_best_chain_all(best_block)
+
+    # check database
+    pair = chain_builder.db.read_unused_index(input_hash, input_index)
+    if pair is not None:
+        return pair
+
+    # check memory
+    for block in best_chain:
+        for tx in block.txs:
+            if tx.hash == input_hash:
+                if input_index < len(tx.outputs):
+                    return tx.outputs[input_index]
+
+    # check unconfirmed
+    if best_block is None:
+        for tx in list(tx_builder.unconfirmed.values()):
+            if tx.hash == input_hash:
+                if input_index < len(tx.outputs):
+                    return tx.outputs[input_index]
+
+    # not found
+    return None
 
 
 def is_unused_index(input_hash, input_index, best_block=None, best_chain=None) -> bool:
@@ -152,6 +181,7 @@ def is_unused_index_except_me(input_hash, input_index, except_hash, best_block, 
 __all__ = [
     "get_unspents_iter",
     "get_my_unspents_iter",
+    "get_output_from_input",
     "is_unused_index",
     "is_unused_index_except_me",
 ]

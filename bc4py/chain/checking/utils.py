@@ -1,40 +1,41 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.bip32 import is_address
 from bc4py.database.builder import chain_builder, tx_builder
-from bc4py.database.tools import is_unused_index
+from bc4py.database.tools import is_unused_index, get_output_from_input
 from bc4py.user import Balance
 from hashlib import sha256
 
 
 def inputs_origin_check(tx, include_block):
-    # Blockに取り込まれているなら
-    # TXのInputsも既に取り込まれているはずだ
+    """check the TX inputs for inconsistencies"""
+    # check if the same input is used in same tx
     if len(tx.inputs) != len(set(tx.inputs)):
         raise BlockChainError(f"input has same origin {len(tx.inputs)}!={len(set(tx.inputs))}")
+
     limit_height = chain_builder.best_block.height - C.MATURE_HEIGHT
     for txhash, txindex in tx.inputs:
-        input_tx = tx_builder.get_tx(txhash)
-        if input_tx is None:
-            # InputのOriginが存在しない
+        pair = get_output_from_input(input_hash=txhash, input_index=txindex, best_block=include_block)
+        if pair is None:
             raise BlockChainError('Not found input tx. {}:{}'.format(txhash.hex(), txindex))
-        elif input_tx.height is None:
-            # InputのOriginはUnconfirmed
-            if include_block:
-                raise BlockChainError('TX {} is include'
-                                      ', but input origin {} is unconfirmed'.format(tx, input_tx))
-            else:
-                # UnconfirmedTXの受け入れなので、txもinput_txもUnconfirmed
-                pass  # OK
-        elif input_tx.type in (C.TX_POS_REWARD, C.TX_POW_REWARD) and \
-                input_tx.height > limit_height:
-            raise BlockChainError('input origin is proof tx, {}>{}'.format(input_tx.height, limit_height))
-        else:
-            # InputのOriginは既に取り込まれている
-            pass  # OK
-        # 使用済みかチェック
+
+        if txhash in tx_builder.unconfirmed:
+            # input of tx is not unconfirmed because the tx is already included in Block
+            if include_block is not None:
+                raise BlockChainError('TX is include but input is unconfirmed {} {}'.format(tx, txhash.hex()))
+
+        # mined output is must mature the height
+        if not is_mature_input(base_hash=txhash, limit_height=limit_height):
+            check_tx = tx_builder.get_memorized_tx(txhash)
+            if check_tx is None:
+                raise Exception('cannot get tx, memory block number is too few')
+            if check_tx.type in (C.TX_POS_REWARD, C.TX_POW_REWARD):
+                raise BlockChainError('input origin is proof tx, {}>{}'.format(check_tx.height, limit_height))
+
+        # check unused input
         if not is_unused_index(input_hash=txhash, input_index=txindex, best_block=include_block):
             raise BlockChainError('1 Input of {} is already used! {}:{}'.format(tx, txhash.hex(), txindex))
-        # 同一Block内で使用されていないかチェック
+
+        # check if the same input is used by another tx in block
         if include_block:
             for input_tx in include_block.txs:
                 if input_tx is tx:
@@ -44,14 +45,15 @@ def inputs_origin_check(tx, include_block):
                         raise BlockChainError('2 Input of {} is already used by {}'.format(tx, input_tx))
 
 
-def amount_check(tx, payfee_coin_id):
+def amount_check(tx, payfee_coin_id, include_block):
+    """check tx sum of inputs and outputs amount"""
     # Inputs
     input_coins = Balance()
     for txhash, txindex in tx.inputs:
-        input_tx = tx_builder.get_tx(txhash)
-        if input_tx is None:
+        pair = get_output_from_input(input_hash=txhash, input_index=txindex, best_block=include_block)
+        if pair is None:
             raise BlockChainError('Not found input tx {}'.format(txhash.hex()))
-        address, coin_id, amount = input_tx.outputs[txindex]
+        address, coin_id, amount = pair
         input_coins[coin_id] += amount
 
     # Outputs
@@ -76,12 +78,10 @@ def signature_check(tx, include_block):
     checked_cks = set()
     signed_cks = set(tx.verified_list)
     for txhash, txindex in tx.inputs:
-        input_tx = tx_builder.get_tx(txhash)
-        if input_tx is None:
+        pair = get_output_from_input(txhash, txindex, best_block=include_block)
+        if pair is None:
             raise BlockChainError('Not found input tx {}'.format(txhash.hex()))
-        if len(input_tx.outputs) <= txindex:
-            raise BlockChainError('txindex is over range {}<={}'.format(len(input_tx.outputs), txindex))
-        address, coin_id, amount = input_tx.outputs[txindex]
+        address, coin_id, amount = pair
         if address in checked_cks:
             continue
         elif is_address(ck=address, hrp=V.BECH32_HRP, ver=C.ADDR_NORMAL_VER):
@@ -106,9 +106,37 @@ def stake_coin_check(tx, previous_hash, target_hash):
     return work < int.from_bytes(target_hash, 'little')
 
 
+def is_mature_input(base_hash, limit_height) -> bool:
+    """proof of stake input must mature same height"""
+    # from unconfirmed
+    for tx in tx_builder.unconfirmed.values():
+        if tx.hash == base_hash:
+            return False
+
+    # from memory
+    for block in chain_builder.best_chain:
+        if block.height < limit_height:
+            return True
+        for tx in block.txs:
+            if tx.hash == base_hash:
+                return False
+
+    # from database
+    height = chain_builder.root_block.height
+    while limit_height < height:
+        block = chain_builder.get_block(height=height)
+        for tx in block.txs:
+            if tx.hash == base_hash:
+                return False
+
+    # too big limit
+    return False
+
+
 __all__ = [
     "inputs_origin_check",
     "amount_check",
     "signature_check",
     "stake_coin_check",
+    "is_mature_input",
 ]

@@ -3,9 +3,9 @@ from bc4py.config import C, V, P, BlockChainError
 from bc4py.bip32 import get_address
 from bc4py.user import Balance
 from bc4py.user.txcreation import *
-from bc4py.database.builder import tx_builder
 from bc4py.database.account import *
 from bc4py.database.create import create_db
+from bc4py.database.tools import get_output_from_input
 from bc4py.user.network.sendnew import send_newtx
 from bc4py.user.api import utils
 from bc4py.chain.tx import TX
@@ -48,8 +48,10 @@ async def create_raw_tx(request):
         for txhash, txindex in post.get('inputs', list()):
             txhash = a2b_hex(txhash)
             inputs.append((txhash, txindex))
-            input_tx = tx_builder.get_tx(txhash)
-            address, coin_id, amount = input_tx.outputs[txindex]
+            pair = get_output_from_input(txhash, txindex)
+            if pair is None:
+                return web.Response(text="input is unknown or already used", status=400)
+            address, coin_id, amount = pair
             input_address.add(address)
         outputs = list()
         for address, coin_id, amount in post.get('outputs', list()):
@@ -91,8 +93,10 @@ async def sign_raw_tx(request):
         async with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = await db.cursor()
             for txhash, txindex in tx.inputs:
-                input_tx = tx_builder.get_tx(txhash)
-                address, coin_id, amount = input_tx.outputs[txindex]
+                pair = get_output_from_input(txhash, txindex)
+                if pair is None:
+                    return web.Response(text="input is unknown or already used", status=400)
+                address, coin_id, amount = pair
                 try:
                     sig = await sign_message_by_address(raw=tx.b, address=address, cur=cur)
                     tx.signature.append(sig)

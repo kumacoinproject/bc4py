@@ -139,7 +139,7 @@ async def update_unconfirmed_info():
 
             # tx's inputs check
             for txhash, txindex in tx.inputs:
-                input_tx = tx_builder.get_tx(txhash=txhash)
+                input_tx = tx_builder.get_account_tx(txhash)
                 if input_tx is None:
                     # not found input tx
                     unconfirmed_txs.remove(tx)

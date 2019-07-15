@@ -93,7 +93,7 @@ async def fill_newblock_info(data):
         raise BlockChainError('Proof of work is not satisfied')
     # Append general txs
     for txhash in data['txs'][1:]:
-        tx = tx_builder.get_tx(txhash)
+        tx = tx_builder.get_memorized_tx(txhash)
         if tx is None:
             new_block.inner_score *= 0.75  # unknown tx, score down
             log.debug("Unknown tx, try to download")

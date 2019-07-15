@@ -64,7 +64,7 @@ async def repair_wallet(gap_user=10, gap_limit=20):
             for tx in block.txs:
                 is_related = False
                 for txhash, txindex in tx.inputs:
-                    input_tx = tx_builder.get_tx(txhash)
+                    input_tx = tx_builder.get_account_tx(txhash)
                     address, coin_id, amount = input_tx.outputs[txindex]
                     if address in search:
                         await search.recode(address)
@@ -88,7 +88,7 @@ async def repair_wallet(gap_user=10, gap_limit=20):
                         continue
                     movement = Accounting()
                     for txhash, txindex in tx.inputs:
-                        input_tx = tx_builder.get_tx(txhash)
+                        input_tx = tx_builder.get_account_tx(txhash)
                         address, coin_id, amount = input_tx.outputs[txindex]
                         user = await read_address2userid(address=address, cur=cur)
                         if user is not None:

@@ -51,12 +51,12 @@ def update_work_hash(block):
     elif block.flag == C.BLOCK_COIN_POS:
         proof_tx = block.txs[0]
         if proof_tx.pos_amount is None:
-            from bc4py.database.builder import tx_builder
+            from bc4py.database.tools import get_output_from_input
             txhash, txindex = proof_tx.inputs[0]
-            output_tx = tx_builder.get_tx(txhash)
-            if output_tx is None:
+            pair = get_output_from_input(input_hash=txhash, input_index=txindex, best_block=block)
+            if pair is None:
                 raise BlockChainError('Not found output {} of {}'.format(proof_tx, block))
-            address, coin_id, amount = output_tx.outputs[txindex]
+            address, coin_id, amount = pair
             proof_tx.pos_amount = amount
         block.work_hash = get_stake_coin_hash(tx=proof_tx, previous_hash=block.previous_hash)
     elif block.flag == C.BLOCK_CAP_POS:

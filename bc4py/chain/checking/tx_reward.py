@@ -2,8 +2,8 @@ from bc4py import __chain_version__
 from bc4py.config import C, BlockChainError
 from bc4py_extension import poc_hash, poc_work, scope_index
 from bc4py.chain.utils import GompertzCurve
-from bc4py.chain.checking.utils import stake_coin_check
-from bc4py.database.builder import tx_builder
+from bc4py.chain.checking.utils import stake_coin_check, is_mature_input
+from bc4py.database.tools import get_output_from_input
 
 
 def check_tx_pow_reward(tx, include_block):
@@ -56,11 +56,12 @@ def check_tx_pos_reward(tx, include_block):
         raise BlockChainError('Pos msg is None type. [{},{}]'.format(tx.message_type, tx.message))
 
     txhash, txindex = tx.inputs[0]
-    base_tx = tx_builder.get_tx(txhash)
-    if base_tx is None:
-        print(list(tx_builder.chained_tx.values()))
+    if not is_mature_input(base_hash=txhash, limit_height=include_block.height - C.MATURE_HEIGHT):
+        raise BlockChainError('Source is not mature, {} {}'.format(include_block.height, txhash.hex()))
+    base_pair = get_output_from_input(txhash, txindex, best_block=include_block)
+    if base_pair is None:
         raise BlockChainError('Not found PosBaseTX:{} of {}'.format(txhash.hex(), tx))
-    input_address, input_coin_id, input_amount = base_tx.outputs[txindex]
+    input_address, input_coin_id, input_amount = base_pair
     tx.pos_amount = input_amount
     output_address, output_coin_id, output_amount = tx.outputs[0]
     reward = GompertzCurve.calc_block_reward(include_block.height)
@@ -75,11 +76,6 @@ def check_tx_pos_reward(tx, include_block):
         raise BlockChainError('Inout amount wrong [{}+{}!={}]'.format(input_amount, reward, output_amount))
     elif tx.version != __chain_version__ or tx.message_type != C.MSG_NONE:
         raise BlockChainError('Not correct tx version or msg_type')
-    elif base_tx.height is None:
-        raise BlockChainError('Source TX is unconfirmed. {}'.format(base_tx))
-    elif not (include_block.height > base_tx.height + C.MATURE_HEIGHT):
-        raise BlockChainError('Source TX height is too young. [{}>{}+{}]'.format(
-            include_block.height, base_tx.height, C.MATURE_HEIGHT))
     elif not (include_block.time == tx.time == tx.deadline - 10800):
         raise BlockChainError('TX time is wrong 1. [{}={}={}-10800]'.format(include_block.time, tx.time,
                                                                             tx.deadline))

@@ -42,9 +42,15 @@ async def get_tx_by_hash(request):
     try:
         txhash = request.query.get('hash')
         txhash = a2b_hex(txhash)
+        # if you cannot get TX, please check DB config `txindex`
         tx = tx_builder.get_tx(txhash)
         if tx is None:
-            return web.Response(text="Not found tx", status=400)
+            if chain_builder.db.db_config['txindex']:
+                return web.Response(text="not found tx", status=400)
+            else:
+                return web.Response(
+                    text='not found tx, please set `txindex` true if you want full indexed',
+                    status=400)
         data = tx.getinfo()
         data['hex'] = tx.b.hex()
         return utils.json_res(data)

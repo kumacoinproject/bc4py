@@ -80,7 +80,7 @@ def check_tx(tx, include_block):
 
     # 残高移動チェック
     if f_amount_check:
-        amount_check(tx=tx, payfee_coin_id=payfee_coin_id)
+        amount_check(tx=tx, payfee_coin_id=payfee_coin_id, include_block=include_block)
 
     # 署名チェック
     if f_signature_check:

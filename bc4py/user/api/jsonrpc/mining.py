@@ -237,7 +237,7 @@ async def submitblock(*args, **kwargs):
             if tx.version != __chain_version__:
                 return 'tx_ver do not match [{}!={}]'.format(tx.version, __chain_version__)
             pos += len(tx.b)
-            mined_block.txs.append(tx_builder.get_tx(txhash=tx.hash, default=tx))
+            mined_block.txs.append(tx_builder.get_memorized_tx(txhash=tx.hash, default=tx))
         # check format
         if tx_len != len(mined_block.txs):
             return 'Do not match txlen [{}!={}]'.format(tx_len, len(mined_block.txs))
