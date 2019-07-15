@@ -4,6 +4,7 @@ from bc4py.database.builder import chain_builder, tx_builder
 from bc4py.user.generate import create_mining_block, confirmed_generating_block, FailedGenerateWarning
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
+from bc4py.chain.workhash import update_work_hash
 from binascii import a2b_hex
 from time import time
 from expiringdict import ExpiringDict
@@ -250,7 +251,7 @@ async def submitblock(*args, **kwargs):
         mined_block.flag = int(kwargs['password'])
     else:
         return 'Unknown input? -> {}'.format(block_hex_or_obj)
-    mined_block.update_pow()
+    update_work_hash(mined_block)
     if mined_block.pow_check():
         await confirmed_generating_block(mined_block)
         return None  # accepted

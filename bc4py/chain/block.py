@@ -1,7 +1,6 @@
 from bc4py import __block_version__
 from bc4py.config import C, V
 from bc4py.chain.utils import DEFAULT_TARGET, bits2target
-from bc4py.chain.workhash import update_work_hash
 from bc4py_extension import sha256d_hash, merkleroot_hash
 from logging import getLogger
 from typing import Optional
@@ -124,14 +123,10 @@ class Block(object):
     def getinfo(self, f_with_tx_info=False):
         r = dict()
         r['hash'] = self.hash.hex() if self.hash else None
-        try:
-            if self.work_hash is None:
-                update_work_hash(self)
-            r['work_hash'] = self.work_hash.hex()
-        except Exception as e:
-            traceback.print_exc()
-            print(e)
+        if self.work_hash is None:
             r['work_hash'] = None
+        else:
+            r['work_hash'] = self.work_hash.hex()
         r['previous_hash'] = self.previous_hash.hex() if self.previous_hash else None
         r['next_hash'] = self.next_hash.hex() if self.next_hash else None
         r['f_orphan'] = self.f_orphan
@@ -190,9 +185,6 @@ class Block(object):
         self.time = blocktime
         self.serialize()
 
-    def update_pow(self):
-        update_work_hash(self)
-
     def diff2targets(self, difficulty=None):
         difficulty = difficulty if difficulty else self.difficulty
         return int(DEFAULT_TARGET / difficulty).to_bytes(32, 'little')
@@ -217,8 +209,7 @@ class Block(object):
             if not self.target_hash:
                 self.bits2target()
             target_int = int.from_bytes(self.target_hash, 'little')
-        if not self.work_hash:
-            update_work_hash(self)
+        assert self.work_hash
         return target_int > int.from_bytes(self.work_hash, 'little')
 
     def update_merkleroot(self):

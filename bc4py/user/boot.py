@@ -3,6 +3,7 @@ from bc4py.config import C, V
 from bc4py.chain import msgpack
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
+from bc4py.chain.workhash import update_work_hash
 from bc4py.bip32 import Bip32, BIP32_HARDEN
 from bc4py.chain.checking import new_insert_block
 from random import randint
@@ -63,6 +64,7 @@ def load_boot_file(url=None):
         assert tx.hash == a2b_hex(tx_dct['hash'])
         tx.height = 0
         genesis_block.txs.append(tx)
+    update_work_hash(genesis_block)
     connections = data['connections']
     network_ver = data['network_ver']
     if isinstance(data['params'], dict):

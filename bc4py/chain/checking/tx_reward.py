@@ -34,12 +34,6 @@ def check_tx_pow_reward(tx, include_block):
     elif total_output_amount > reward + income_fee - extra_output_fee:
         raise BlockChainError('Input and output is wrong [{}<{}+{}-{}]'
                               .format(total_output_amount, reward, income_fee, extra_output_fee))
-    elif not include_block.pow_check():
-        include_block.work2diff()
-        include_block.target2diff()
-        print(include_block.getinfo())
-        raise BlockChainError('Proof of work check is failed. [{}<{}]'.format(include_block.difficulty,
-                                                                              include_block.work_difficulty))
 
 
 def check_tx_pos_reward(tx, include_block):

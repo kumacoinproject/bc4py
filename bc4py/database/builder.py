@@ -242,8 +242,6 @@ class DataBase(object):
     def write_block(self, block, account_tx):
         assert self.is_batch_thread()
         tx_len = len(block.txs)
-        if block.work_hash is None:
-            block.update_pow()
         # write static block data
         b = struct_block.pack(block.height, block.work_hash, block.b, block.flag, tx_len)
         # write txs data
@@ -442,12 +440,12 @@ class ChainBuilder(object):
                 # clear
                 with open(path, mode='bw') as fp:
                     for block in reversed(self.best_chain):
-                        bc4py_msgpack.dump(block, fp)
+                        bc4py_msgpack.dump((block, block.work_hash), fp)
                 log.debug(f"refresh memory_file height={new_block.height}")
             else:
                 # append
                 with open(path, mode='ba') as fp:
-                    bc4py_msgpack.dump(new_block, fp)
+                    bc4py_msgpack.dump((new_block, new_block.work_hash), fp)
         except Exception as e:
             log.warning(f"failed to recode memory block by '{str(e)}'")
 
@@ -461,7 +459,8 @@ class ChainBuilder(object):
         try:
             with open(path, mode='br') as fp:
                 block_list: List[Block] = list()
-                for block in reversed(tuple(bc4py_msgpack.stream_unpacker(fp))):
+                for block, work_hash in reversed(tuple(bc4py_msgpack.stream_unpacker(fp))):
+                    block.work_hash = work_hash
                     if len(block_list) == 0 or block.hash == block_list[0].previous_hash:
                         block_list.insert(0, block)
                 for block in block_list:
@@ -609,6 +608,7 @@ class ChainBuilder(object):
 
     def new_block(self, new_block):
         """insert new block, Block/TX format is already checked"""
+        assert new_block.work_hash, new_block
         if self.root_block.height and new_block.height <= self.root_block.height:
             return
         # meet chain order: root_block < new_block

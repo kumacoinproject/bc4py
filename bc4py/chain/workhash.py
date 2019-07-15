@@ -1,5 +1,6 @@
 from bc4py.config import C, BlockChainError
 from bc4py_extension import poc_hash, poc_work, scope_index
+from bc4py.database.tools import get_output_from_input
 from concurrent.futures import ProcessPoolExecutor
 from yespower import hash as yespower_hash  # for CPU
 from x11_hash import getPoWHash as x11_hash  # for ASIC
@@ -51,7 +52,6 @@ def update_work_hash(block):
     elif block.flag == C.BLOCK_COIN_POS:
         proof_tx = block.txs[0]
         if proof_tx.pos_amount is None:
-            from bc4py.database.tools import get_output_from_input
             txhash, txindex = proof_tx.inputs[0]
             pair = get_output_from_input(input_hash=txhash, input_index=txindex, best_block=block)
             if pair is None:

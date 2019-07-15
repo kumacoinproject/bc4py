@@ -3,6 +3,7 @@ from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.chain.checking import new_insert_block, check_tx, check_tx_time
 from bc4py.chain.signature import fill_verified_addr_tx
+from bc4py.chain.workhash import update_work_hash
 from bc4py.database.create import create_db
 from bc4py.database.builder import chain_builder, tx_builder
 from bc4py.user.network.update import update_info_for_generate
@@ -89,6 +90,7 @@ async def fill_newblock_info(data):
     new_block.height = new_height
     # work check
     # TODO: correct position?
+    update_work_hash(new_block)
     if not new_block.pow_check():
         raise BlockChainError('Proof of work is not satisfied')
     # Append general txs
@@ -145,6 +147,7 @@ async def make_block_by_node(blockhash, depth):
     block.inner_score *= 0.70
     for tx in block.txs:
         tx.height = height
+    update_work_hash(block)
     if not await new_insert_block(block=block, f_time=False, f_sign=True):
         raise BlockChainError('Failed insert beforeBlock {}'.format(before_block))
     return block

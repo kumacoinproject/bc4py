@@ -18,6 +18,12 @@ async def new_insert_block(block, f_time=True, f_sign=True):
         fixed_delay = time() - t
         try:
             # Check
+            if not block.pow_check():
+                block.work2diff()
+                block.target2diff()
+                log.debug('reject, work check is failed. [{}<{}]'
+                          .format(block.difficulty, block.work_difficulty))
+                return False
             if f_time:
                 check_block_time(block, fixed_delay)
             check_block(block)

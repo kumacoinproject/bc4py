@@ -2,7 +2,7 @@ from bc4py.config import C, V, P, BlockChainError
 from bc4py.bip32 import is_address
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
-from bc4py.chain.workhash import generate_many_hash, get_executor_object
+from bc4py.chain.workhash import generate_many_hash, get_executor_object, update_work_hash
 from bc4py.chain.difficulty import get_bits_by_hash
 from bc4py.chain.utils import GompertzCurve
 from bc4py.chain.checking.utils import stake_coin_check
@@ -124,6 +124,7 @@ class Generate(object):
             new_span = await generate_many_hash(executor, mining_block, request_num)
             spans_deque.append(new_span)
             # check block
+            update_work_hash(mining_block)
             if previous_block is None or unconfirmed_txs is None:
                 log.debug("Not confirmed new block by \"nothing params\"")
             elif previous_block.hash != mining_block.previous_hash:
@@ -214,6 +215,7 @@ class Generate(object):
                         signature = await sign_message_by_address(
                             raw=staking_block.b, address=address, cur=cur)
                     proof_tx.signature.append(signature)
+                    update_work_hash(staking_block)
                     await confirmed_generating_block(staking_block)
                     break
             else:
@@ -371,6 +373,7 @@ async def create_mining_block(consensus):
 
 
 async def confirmed_generating_block(new_block):
+    assert new_block.work_hash is not None, new_block
     log.info("Generate block yey!! {}".format(new_block))
     global previous_block, unconfirmed_txs, unspents_txs
     previous_block = None

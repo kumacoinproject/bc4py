@@ -2,7 +2,7 @@ from bc4py.config import C, V, P, BlockChainError
 from bc4py.chain.tx import TX
 from bc4py.chain.block import Block
 from bc4py.chain.signature import fill_verified_addr_many, fill_verified_addr_tx
-from bc4py.chain.workhash import get_workhash_fnc
+from bc4py.chain.workhash import get_workhash_fnc, update_work_hash
 from bc4py.chain.checking import new_insert_block, check_tx, check_tx_time
 from bc4py.user.network.connection import *
 from bc4py.user.network.update import update_info_for_generate
@@ -122,6 +122,13 @@ async def main_sync_loop():
                 continue
             if len(new_block.txs) <= 0:
                 log.debug("something wrong?, rollback to {}".format(my_best_block.height-1))
+                my_best_block = chain_builder.get_block(blockhash=my_best_block.previous_hash)
+                await back_que.put(my_best_block.height + 1)
+                continue
+            if new_block.work_hash is None:
+                update_work_hash(new_block)
+            if not new_block.pow_check():
+                log.debug("unsatisfied work?, rollback to {}".format(my_best_block.height - 1))
                 my_best_block = chain_builder.get_block(blockhash=my_best_block.previous_hash)
                 await back_que.put(my_best_block.height + 1)
                 continue
