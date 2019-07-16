@@ -1,6 +1,6 @@
-aiohttp>=3.0.0b0 # ver3 required
-aiohttp_cors
-aiohttp-basicauth-middleware==1.1.2
+aiohttp>=3.0.0 # ver3 required
+aiohttp_cors>=0.7.0
+aiohttp-basicauth-middleware>=1.1.2
 pycryptodomex
 p2p_python==3.0.2
 psutil

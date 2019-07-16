@@ -2,10 +2,8 @@ from bc4py.config import C, BlockChainError
 from bc4py_extension import poc_hash, poc_work, scope_index
 from bc4py.database.tools import get_output_from_input
 from concurrent.futures import ProcessPoolExecutor
-from yespower import hash as yespower_hash  # for CPU
+from bell_yespower import getPoWHash as yespower_hash  # for CPU
 from x11_hash import getPoWHash as x11_hash  # for ASIC
-from hmq_hash import getPoWHash as hmq_hash  # for GPU
-from litecoin_scrypt import getPoWHash as ltc_hash  # for ASIC
 from shield_x16s_hash import getPoWHash as x16s_hash  # for GPU
 from logging import getLogger
 from hashlib import sha256
@@ -26,9 +24,9 @@ def get_workhash_fnc(flag):
     elif flag == C.BLOCK_X11_POW:
         return x11_hash
     elif flag == C.BLOCK_HMQ_POW:
-        return hmq_hash
+        raise NotImplementedError
     elif flag == C.BLOCK_LTC_POW:
-        return ltc_hash
+        raise NotImplementedError
     elif flag == C.BLOCK_X16S_POW:
         return x16s_hash
     elif flag in C.consensus2name:

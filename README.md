@@ -12,25 +12,23 @@ Function
 Requirement
 ----
 * Windows/Linux
-* **Python3.6** or more
-* **Rust nightly** for extension
-* [nem-ed25519](https://github.com/namuyan/nem-ed25519)
+* **Python3.6+**
+* **Rust nightly**
 * [p2p-python](https://github.com/namuyan/p2p-python)
 * LevelDB
 * hash function
     * [yespower-python](https://github.com/namuyan/yespower-python)  For CPU
-    * [hmq-hash](https://github.com/namuyan/hmq-hash) for GPU
     * [x16s-hash](https://pypi.org/project/shield-x16s-hash/) for GPU
     * [x11_hash](https://pypi.org/project/x11_hash/) For ASIC
-    * [litecoin_scrypt](https://pypi.org/project/litecoin_scrypt/) For ASIC
 * Python extension [bc4py-extension](https://github.com/namuyan/bc4py_extension)
 * plotting tool [bc4py-plotter](https://github.com/namuyan/bc4py_plotter)
-    
+
 Install
 ----
 ```commandline
 cd ~
 git clone https://github.com/namuyan/bc4py
+rm -r doc tests
 mv bc4py blockchain-py
 cd blockchain-py
 pip3 install --user -r requirements.txt
@@ -42,7 +40,6 @@ Start node
 ----
 * `python3 localnode.py` Node working on local env, for debug.
 * `python3 publicnode.py` Node with mining/staking.
-* `python3 repairwallet.py` Fix wallet data.
 
 Documents
 ----
