@@ -118,6 +118,7 @@ def console_args_parser():
 
 
 def check_process_status(f_daemon):
+    assert sys.version_info.major == 3, 'please use Python3.6+, not Python{}'.format(sys.version_info.major)
     if sys.platform == 'win32':
         # windows
         if f_daemon:

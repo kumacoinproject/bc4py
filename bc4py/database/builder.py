@@ -258,7 +258,7 @@ class DataBase(object):
             b += tx.b
             b += b_sign
             b += tx.R
-            log.debug("Insert new tx {}".format(tx))
+            # log.debug("Insert new tx {}".format(tx))
         self.batch['_block'].put(block.hash, b)
         self.batch['_block_index'].put(b_height, block.hash)
         log.debug("Insert new block {}".format(block))
