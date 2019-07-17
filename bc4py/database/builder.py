@@ -320,7 +320,7 @@ class ChainBuilder(object):
             await self.db.batch_task
         self.db.close()
 
-    def set_database_path(self, **kwargs):
+    def set_database_object(self, **kwargs):
         try:
             self.db = DataBase(**kwargs)
             log.info("Connect database")

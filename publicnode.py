@@ -26,7 +26,7 @@ def setup_client(p2p_port, sub_dir=None):
     # BlockChain setup
     set_database_path(sub_dir=sub_dir)
     check_already_started()
-    chain_builder.set_database_path()
+    chain_builder.set_database_object()
     import_keystone(passphrase='hello python')
     loop.run_until_complete(check_account_db())
     genesis_block, genesis_params, network_ver, connections = load_boot_file()

@@ -40,7 +40,7 @@ def setup_client(port, sub_dir):
     # BlockChain setup
     set_database_path(sub_dir=sub_dir)
     check_already_started()
-    chain_builder.set_database_path()
+    chain_builder.set_database_object()
     copy_boot(port)
     import_keystone(passphrase='hello python')
     loop.run_until_complete(check_account_db())
