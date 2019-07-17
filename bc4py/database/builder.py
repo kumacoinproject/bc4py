@@ -540,6 +540,12 @@ class ChainBuilder(object):
 
                     account_tx = set()
                     for tx in block.txs:
+                        # if false, the tx is not account_tx
+                        is_account_tx = tx.hash in user_account.memory_movement
+
+                        # add txindex
+                        if is_account_tx or chain_builder.db.db_config['txindex']:
+                            account_tx.add(tx)
 
                         # inputs
                         for index, pair in enumerate(tx.inputs):
@@ -549,22 +555,24 @@ class ChainBuilder(object):
                             else:
                                 address, coin_id, amount = self.db.read_unused_index(txhash, txindex)
                             # add address index only you need or add all index
-                            is_account_tx = (await read_address2userid(address=address, cur=cur)) is not None
-                            if is_account_tx or chain_builder.db.db_config['addrindex']:
+                            if is_account_tx:
+                                is_account_input = (await read_address2userid(address=address, cur=cur)) is not None
+                            else:
+                                is_account_input = False
+                            if is_account_input or chain_builder.db.db_config['addrindex']:
                                 self.db.write_address_idx(address, txhash, txindex, coin_id, amount, True)
-                            if is_account_tx or chain_builder.db.db_config['txindex']:
-                                account_tx.add(tx)
                             # remove unused output index
                             self.db.remove_unused_index(txhash, txindex)
 
                         # outputs
                         for index, (address, coin_id, amount) in enumerate(tx.outputs):
                             # add address index only you need or add all index
-                            is_account_tx = (await read_address2userid(address=address, cur=cur)) is not None
-                            if is_account_tx or chain_builder.db.db_config['addrindex']:
+                            if is_account_tx:
+                                is_account_output = (await read_address2userid(address=address, cur=cur)) is not None
+                            else:
+                                is_account_output = False
+                            if is_account_output or chain_builder.db.db_config['addrindex']:
                                 self.db.write_address_idx(address, tx.hash, index, coin_id, amount, False)
-                            if is_account_tx or chain_builder.db.db_config['txindex']:
-                                account_tx.add(tx)
                             # add unused output index
                             self.db.write_unused_index(tx.hash, index, address, coin_id, amount)
                             unused_index_cashe[(tx.hash, index)] = (address, coin_id, amount)
