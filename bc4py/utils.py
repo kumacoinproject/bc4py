@@ -114,6 +114,15 @@ def console_args_parser():
     p.add_argument('--solo-mining',
                    help='solo mining for debug or testnet',
                    action='store_true')
+    p.add_argument('--console',
+                   help='console monitor for debug',
+                   action='store_true')
+    p.add_argument('--txindex',
+                   help='index tx for `/public/gettxbyhash`',
+                   action='store_true')
+    p.add_argument('--addrindex',
+                   help='index addr for `/public/listunspents`',
+                   action='store_true')
     return p.parse_args()
 
 

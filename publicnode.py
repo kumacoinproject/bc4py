@@ -22,26 +22,6 @@ import logging
 loop = asyncio.get_event_loop()
 
 
-def setup_client(p2p_port, sub_dir=None):
-    # BlockChain setup
-    set_database_path(sub_dir=sub_dir)
-    check_already_started()
-    chain_builder.set_database_object()
-    import_keystone(passphrase='hello python')
-    loop.run_until_complete(check_account_db())
-    genesis_block, genesis_params, network_ver, connections = load_boot_file()
-    set_blockchain_params(genesis_block, genesis_params)
-    logging.info("Start p2p network-ver{} .".format(network_ver))
-
-    # P2P network setup
-    setup_p2p_params(network_ver=network_ver, p2p_port=p2p_port, sub_dir=sub_dir)
-    p2p = Peer2Peer(default_hook=default_hook, object_hook=object_hook)
-    p2p.event.setup_events_from_class(DirectCmd)
-    p2p.setup()
-    V.P2P_OBJ = p2p
-    return connections
-
-
 async def setup_chain(connections):
     p2p = V.P2P_OBJ
     if await p2p.core.create_connection('tipnem.tk', 2000):
@@ -75,9 +55,31 @@ def main():
     set_logger(level=logging.getLevelName(p.log_level), path=p.log_path, f_remove=p.remove_log)
     logging.info(f"\n{__logo__}\n====\nsystem (str) = {__version__}\nchain (int) = {__chain_version__}\n"
                  f"block (int) = {__block_version__}\nmessage = {__message__}")
-    connections = setup_client(p2p_port=p.p2p, sub_dir=p.sub_dir)
+
+    # environment
+    set_database_path(sub_dir=p.sub_dir)
+    check_already_started()
+    chain_builder.set_database_object(txindex=p.txindex, addrindex=p.addrindex)
+    import_keystone(passphrase='hello python')
+    loop.run_until_complete(check_account_db())
+    genesis_block, genesis_params, network_ver, connections = load_boot_file()
+    set_blockchain_params(genesis_block, genesis_params)
+    logging.info("Start p2p network-ver{} .".format(network_ver))
+
+    # P2P network setup
+    setup_p2p_params(network_ver=network_ver, p2p_port=p.p2p, sub_dir=p.sub_dir)
+    p2p = Peer2Peer(default_hook=default_hook, object_hook=object_hook)
+    p2p.event.setup_events_from_class(DirectCmd)
+    p2p.setup()
+    V.P2P_OBJ = p2p
+
+    # setup blockchain
     loop.run_until_complete(setup_chain(connections))
+
+    # setup rest server
     loop.run_until_complete(setup_rest_server(user=p.user, pwd=p.password, port=p.rest, host=p.host))
+
+    # generate (option)
     if p.staking:
         Generate(consensus=C.BLOCK_COIN_POS, power_limit=0.3)
     if p.solo_mining:
@@ -85,7 +87,19 @@ def main():
         Generate(consensus=C.BLOCK_X16S_POW, power_limit=0.05)
         Generate(consensus=C.BLOCK_X11_POW, power_limit=0.05)
         Generate(consensus=C.BLOCK_CAP_POS, power_limit=0.3, path="E:\\plots")
+
+    # setup monitor (option)
+    if p.console:
+        try:
+            import aiomonitor
+            aiomonitor.start_monitor(loop, port=10010, console_port=10011)
+            logging.info("netcat console on 127.0.0.1:10010")
+        except ImportError:
+            pass
+
+    # blocking loop
     blocking_run()
+    # auto safe exit
 
 
 if __name__ == '__main__':
