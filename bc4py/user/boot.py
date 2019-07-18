@@ -16,6 +16,10 @@ import msgpack as original_mpk
 import json
 import gzip
 import os
+import asyncio
+import aiohttp
+import zlib
+
 
 log = getLogger('bc4py')
 language = 'english'
@@ -100,6 +104,75 @@ async def load_bootstrap_file(boot_path=None):
     log.info("load bootstrap.dat.gz finished, last={} {}Minutes".format(block, (time() - s) // 60))
 
 
+async def load_bootstrap_online(boot_url):
+    """download and write block data"""
+    s = time()
+    log.info("start download bootstrap from `{}`".format(boot_url))
+    async with aiohttp.ClientSession() as session:
+        async with session.get(boot_url) as resp:
+            decompressor = zlib.decompressobj(wbits=zlib.MAX_WBITS | 16)
+            unpacker = msgpack.stream_unpacker(None)
+            all_received = False
+            total = 0.0  # MB
+
+            if resp.status != 200:
+                log.debug("http status {}".format(resp.status))
+                return
+
+            while True:
+                try:
+                    response = await resp.content.read(16384)
+                    total += len(response) / 1000000
+                    log.debug('READ "%s"', len(response))
+                except asyncio.TimeoutError:
+                    await asyncio.sleep(1.0)
+                    continue
+                except aiohttp.ClientPayloadError as e:
+                    log.warning("client error by `{}`".format(e))
+                    break
+
+                if response:
+                    # include unconsumed data to enter into decompressor
+                    to_decompress = decompressor.unconsumed_tail + response
+                    while to_decompress:
+                        decompressed = decompressor.decompress(to_decompress)
+                        if decompressed:
+                            log.debug('DECOMPRESSED "%s"', len(decompressed))
+                            unpacker.feed(decompressed)
+                            # find data not consumed by overflow
+                            to_decompress = decompressor.unconsumed_tail
+                        else:
+                            log.debug('BUFFERING')
+                            to_decompress = None
+
+                    # handle data remaining in buffer
+                    remainder = decompressor.flush()
+                    if remainder:
+                        log.debug('FLUSHED "%s"', len(remainder))
+                        unpacker.feed(remainder)
+                else:
+                    all_received = True
+
+                # try to unpack
+                try:
+                    while True:
+                        block, work_hash, _bias = unpacker.unpack()
+                        update_work_hash(block)
+                        assert block.work_hash == work_hash
+                        block._bias = _bias
+                        for tx in block.txs:
+                            tx.height = block.height
+                        if not await new_insert_block(block=block, f_time=False, f_sign=True):
+                            raise Exception('failed load bootstrap')
+                        if block.height % 1000 == 0:
+                            print("Load block now {} height {}Mb {}Sec"
+                                  .format(block.height, round(total, 3), round(time() - s)))
+                except original_mpk.OutOfData:
+                    if all_received:
+                        break
+    log.info("finish download bootstrap from {}Sec passed".format(int(time()-s)))
+
+
 def import_keystone(passphrase='', auto_create=True):
     if V.EXTENDED_KEY_OBJ is not None:
         raise Exception('keystone is already imported')
@@ -159,5 +232,6 @@ __all__ = [
     "create_boot_file",
     "load_boot_file",
     "load_bootstrap_file",
+    "load_bootstrap_online",
     "import_keystone",
 ]
