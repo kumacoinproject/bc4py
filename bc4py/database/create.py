@@ -74,14 +74,14 @@ async def check_account_db():
             else:
                 raise Exception('already exist wallet, check failed db={} stone={}'
                                 .format(db_extended_key, stone_extended_key))
+        # small update
+        await affect_new_change()
     else:
         async with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = await db.cursor()
             await generate_wallet_db(cur)
             await db.commit()
         log.info("generate wallet success")
-    # small update
-    await affect_new_change()
 
 
 async def generate_wallet_db(cur: Cursor):
@@ -151,8 +151,8 @@ async def affect_new_change():
 
         # addr format TEXT to BLOB
         await cur.execute("SELECT `ck` FROM `pool` LIMIT 1")
-        sample = (await cur.fetchone())[0]
-        if isinstance(sample, str):
+        sample = await cur.fetchone()
+        if sample is not None and isinstance(sample[0], str):
             from bc4py_extension import PyAddress
             await cur.execute("SELECT * FROM `pool`")
             data_list = await cur.fetchall()
