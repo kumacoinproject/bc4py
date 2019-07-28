@@ -39,6 +39,7 @@ async def new_insert_block(block, f_time=True, f_sign=True):
                 cur = await db.cursor()
                 for tx in block.txs:
                     await user_account.affect_new_tx(cur=cur, tx=tx)
+                await db.commit()
             # insert database
             await chain_builder.batch_apply()
             # inner streaming

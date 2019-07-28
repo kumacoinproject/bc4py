@@ -92,6 +92,10 @@ class C:  # Constant
         ANT_STAKED: '@Staked',
     }
 
+    # hierarchical wallet
+    GAP_ADDR_LIMIT = 20  # address gap limit
+    GAP_USER_LIMIT = 5  # account gap limit
+
     # Block/TX/Fee limit
     SIZE_BLOCK_LIMIT = 300 * 1000  # 300kb block
     SIZE_TX_LIMIT = 100 * 1000  # 100kb tx

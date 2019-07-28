@@ -2,7 +2,7 @@ from bc4py import __version__, __chain_version__, __message__
 from bc4py.config import C, V, P
 from bc4py.chain.utils import GompertzCurve, DEFAULT_TARGET
 from bc4py.chain.difficulty import get_bits_by_hash, get_bias_by_hash
-from bc4py.database.builder import chain_builder, tx_builder
+from bc4py.database.builder import chain_builder, tx_builder, user_account
 from bc4py.user.api import utils
 from bc4py.user.generate import generating_threads
 from time import time
@@ -72,10 +72,10 @@ async def system_info(request):
         'system_ver': __version__,
         'api_ver': __api_version__,
         'chain_ver': __chain_version__,
-        'branch': V.BRANCH_NAME,
+        'p2p_ver': p2p_python.__version__,
+        'message': __message__,
         'booting': P.F_NOW_BOOTING,
         'connections': len(V.P2P_OBJ.core.user),
-        'unconfirmed': [txhash.hex() for txhash in tx_builder.unconfirmed.keys()],
         'access_time': int(time()),
         'start_time': start_time
     }
@@ -85,18 +85,12 @@ async def system_info(request):
 async def system_private_info(request):
     try:
         data = {
-            'system_ver': __version__,
-            'api_ver': __api_version__,
-            'chain_ver': __chain_version__,
             'branch': V.BRANCH_NAME,
-            'message': __message__,
-            'booting': P.F_NOW_BOOTING,
-            'connections': len(V.P2P_OBJ.core.user),
-            'unconfirmed': [txhash.hex() for txhash in tx_builder.unconfirmed.keys()],
             'directory': V.DB_HOME_DIR,
+            'unconfirmed': [txhash.hex() for txhash in tx_builder.unconfirmed.keys()],
             'generate_threads': [str(s) for s in generating_threads],
-            'access_time': int(time()),
-            'start_time': start_time
+            'prefetch_address': len(user_account.pre_fetch_addr),
+            'extended_key': repr(V.EXTENDED_KEY_OBJ),
         }
         return utils.json_res(data)
     except Exception:

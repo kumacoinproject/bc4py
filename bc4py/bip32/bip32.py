@@ -233,7 +233,7 @@ class Bip32(object):
         else:
             return b'\2' + x
 
-    def get_address(self, hrp, ver):
+    def get_address(self, hrp, ver) -> PyAddress:
         """Return bech32 compressed address"""
         return PyAddress.from_param(hrp, ver, self.identifier())
 

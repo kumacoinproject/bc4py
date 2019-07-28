@@ -9,15 +9,15 @@ get system info (public)
 * Response
 ```json
 {
-    "system_ver": "0.0.11-alpha",
+    "system_ver": "0.0.28-alpha",
     "api_ver": "0.0.2",
-    "chain_ver": 2,
-    "branch": "0.0.23-alpha",
+    "chain_ver": 0,
+    "p2p_ver": "3.0.3",
+    "message": "This is alpha version - use at your own risk, do not use for merchant applications",
     "booting": false,
-    "connections": 3,
-    "unconfirmed": [],
-    "access_time": 1542367031,
-    "start_time": 1542366351
+    "connections": 5,
+    "access_time": 1564322989,
+    "start_time": 1564322062
 }
 ```
 
@@ -28,27 +28,14 @@ get system info (private)
 * Response
 ```json
 {
-    "system_ver": "0.0.11-alpha",
-    "api_ver": "0.0.2",
-    "chain_ver": 2,
     "branch": "develop",
-    "message": "This is alpha version - use at your own risk, do not use for merchant applications",
-    "booting": false,
-    "connections": 3,
+    "directory": "path/to/blockchain-py",
     "unconfirmed": [],
-    "directory": "C:\\Users\\pycoin\\blockchain-py\\2000",
-    "encryption": null,
-    "generate": {
-        "address": null,
-        "message": null,
-        "threads": [
-            "<Generate POW_X11 54.88kh/s limit=0.01>",
-            "<Generate POS 843hash/s limit=0.3>"
-        ]
-    },
-    "locked": false,
-    "access_time": 1542367267,
-    "start_time": 1542366351
+    "generate_threads": [
+        "<Generate POS_COIN 43hash/s limit=0.3>"
+    ],
+    "prefetch_address": 240,
+    "extended_key": "<BIP32-SEC depth=2 path=m/44'/682'>"
 }
 ```
 

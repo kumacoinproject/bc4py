@@ -363,6 +363,7 @@ class ChainBuilder(object):
 
         async with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = await db.cursor()
+            await user_account.init(cur=cur)
             # 0HeightよりBlockを取得して確認
             before_block = genesis_block
             batch_blocks = list()
@@ -427,7 +428,6 @@ class ChainBuilder(object):
             self.best_chain = list(reversed(memorized_blocks))
             # UserAccount update
             await user_account.new_batch_apply(cur=cur, batched_blocks=batch_blocks)
-            await user_account.init(cur=cur)
             await db.commit()
         log.info("Init finished, last block is {} {}Sec".format(before_block, round(time() - t, 3)))
         return False
@@ -801,6 +801,7 @@ class UserAccount(object):
         self.db_balance = Accounting()
         # {txhash: (ntype, movement, ntime),..}
         self.memory_movement = dict()
+        self.pre_fetch_addr = dict()
 
     async def init(self, cur, f_delete=False):
         deleted = 0
@@ -819,6 +820,21 @@ class UserAccount(object):
                 ignored += 1
         log.info(f"move_logs ignored={ignored} deleted={deleted}")
         self.db_balance += memory_sum
+
+        # prefetch addresses for wallet
+        user = 0
+        user_gap = C.GAP_USER_LIMIT
+        while 0 < user_gap:
+            for is_inner in (True, False):
+                last_index = await read_keypair_last_index(user=user, is_inner=is_inner, cur=cur)
+                for index in range(last_index, last_index + C.GAP_ADDR_LIMIT):
+                    bip = await read_bip_from_path(user=user, is_inner=is_inner, index=index, cur=cur)
+                    addr = bip.get_address(hrp=V.BECH32_HRP, ver=0)
+                    self.pre_fetch_addr[addr] = (user, is_inner, index)
+            if last_index == 0:
+                user_gap -= 1
+            user += 1
+        log.info(f"fill address prefetch len={len(self.pre_fetch_addr)}")
 
     async def get_balance(self, cur, confirm=6):
         assert confirm < chain_builder.cashe_limit - chain_builder.batch_size
@@ -942,7 +958,10 @@ class UserAccount(object):
             if input_tx is None:
                 continue  # no relations
             address, coin_id, amount = input_tx.outputs[txindex]
-            user = await read_address2userid(address, cur)
+            if address in self.pre_fetch_addr:
+                user = await self.check_addr_prefetch(address, cur)
+            else:
+                user = await read_address2userid(address, cur)
             if user is not None:
                 if tx.type == C.TX_POS_REWARD:
                     # subtract staking reward from @Staked
@@ -950,7 +969,10 @@ class UserAccount(object):
                 movement[user][coin_id] -= amount
                 # movement[C.ANT_OUTSIDE] += balance
         for address, coin_id, amount in tx.outputs:
-            user = await read_address2userid(address, cur)
+            if address in self.pre_fetch_addr:
+                user = await self.check_addr_prefetch(address, cur)
+            else:
+                user = await read_address2userid(address, cur)
             if user is not None:
                 if tx.type == C.TX_POS_REWARD:
                     # add staking reward to @Staked
@@ -964,6 +986,49 @@ class UserAccount(object):
         move_log = MoveLog(tx.hash, tx.type, movement, tx.time, tx)
         self.memory_movement[tx.hash] = move_log
         log.info("affected account by {}".format(tx))
+
+    async def check_addr_prefetch(self, address: PyAddress, cur) -> int:
+        """check and insert new prefetch address"""
+        assert address in self.pre_fetch_addr
+        user, is_inner, index = self.pre_fetch_addr[address]
+
+        # check already inserted user
+        try:
+            await read_userid2name(user=user, cur=cur)
+        except Exception:
+            insert_index = await insert_new_account(name='unknown{}'.format(user), cur=cur)
+            assert insert_index == user
+
+        # insert keypair to database
+        last_index = 0
+        for addr, value in list(self.pre_fetch_addr.items()):
+            if user != value[0] or is_inner is not value[1]:
+                continue
+            if last_index < value[2]:
+                last_index = value[2]
+            if index < value[2]:
+                continue
+            if addr in self.pre_fetch_addr:
+                del self.pre_fetch_addr[addr]
+            await insert_keypair_from_bip32(ck=addr, user=user, is_inner=is_inner, index=value[2], cur=cur)
+            log.info("generate new address from pre-fetch {}".format(addr))
+
+        # insert new pre-fetched address
+        new_index = last_index + 1
+        new_bip = await read_bip_from_path(user=user, is_inner=is_inner, index=new_index, cur=cur)
+        self.pre_fetch_addr[new_bip.get_address(hrp=V.BECH32_HRP, ver=0)] = (user, is_inner, new_index)
+
+        # add new account if find index=0 addr
+        if index == 0:
+            new_user = max(map(lambda x: x[0], self.pre_fetch_addr.values())) + 1
+            for is_inner in (True, False):
+                    for new_index in range(C.GAP_ADDR_LIMIT):
+                        new_bip = await read_bip_from_path(
+                            user=new_user, is_inner=is_inner, index=new_index, cur=cur)
+                        new_addr = new_bip.get_address(hrp=V.BECH32_HRP, ver=0)
+                        self.pre_fetch_addr[new_addr] = (new_user, is_inner, new_index)
+
+        return user
 
 
 class BlockBuilderError(Exception):
