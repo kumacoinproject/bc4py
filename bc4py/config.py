@@ -1,6 +1,6 @@
 from p2p_python.server import Peer2Peer
 from aiohttp.web import AppRunner
-from rx.subjects import Subject
+from rx.subject import Subject
 from typing import Optional
 
 

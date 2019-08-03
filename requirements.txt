@@ -7,7 +7,7 @@ psutil
 requests
 more_itertools
 expiringdict
-rx>=3.0.0b4  # ReactiveX
+rx>=3.0.0  # ReactiveX
 msgpack>=0.5.6
 setuptools-rust
 mnemonic
