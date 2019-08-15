@@ -22,14 +22,26 @@ NAME2LEVEL = {
 
 
 def set_database_path(sub_dir=None):
-    V.DB_HOME_DIR = os.path.join(os.path.expanduser("~"), 'blockchain-py')
+    """setup database/wallet path"""
+    # DB_HOME_DIR = home/blockchain-py
+    if V.DB_HOME_DIR is None:
+        V.DB_HOME_DIR = os.path.join(os.path.expanduser("~"), 'blockchain-py')
+    assert V.DB_HOME_DIR is not None
+
+    # create DB_HOME_DIR
     if not os.path.exists(V.DB_HOME_DIR):
         os.makedirs(V.DB_HOME_DIR)
+
     if sub_dir:
+        # DB_HOME_DIR = home/blockchain-py/sub_dir
         V.DB_HOME_DIR = os.path.join(V.DB_HOME_DIR, sub_dir)
         if not os.path.exists(V.DB_HOME_DIR):
             os.makedirs(V.DB_HOME_DIR)
-    V.DB_ACCOUNT_PATH = os.path.join(V.DB_HOME_DIR, 'wallet.ver{}.dat'.format(WALLET_VERSION))
+
+    # DB_ACCOUNT_PATH = DB_HOME_DIR/wallet.dat
+    if V.DB_ACCOUNT_PATH is None:
+        V.DB_ACCOUNT_PATH = os.path.join(V.DB_HOME_DIR, 'wallet.ver{}.dat'.format(WALLET_VERSION))
+    assert V.DB_ACCOUNT_PATH is not None
 
 
 def set_blockchain_params(genesis_block, params):
@@ -58,7 +70,7 @@ def check_already_started():
         try:
             if psutil.pid_exists(pid):
                 if 'python' in psutil.Process(pid).exe():
-                    raise RuntimeError('Already running blockchain-py pid={}'.format(pid))
+                    raise RuntimeError('Already running bc4py pid={}'.format(pid))
         except Exception as e:
             log.fatal(f"psutil exception '{e}', check pid and remove pid.lock if you think no problem")
             exit(1)
