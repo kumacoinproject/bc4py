@@ -1,5 +1,5 @@
 from bc4py.config import C, V
-from bc4py.gittool import get_current_branch
+from bc4py.gittool import get_current_branch, calc_python_source_hash
 from bc4py.chain.utils import GompertzCurve
 from Cryptodome.Cipher import AES
 from Cryptodome import Random
@@ -57,6 +57,7 @@ def set_blockchain_params(genesis_block, params):
     V.COIN_MINIMUM_PRICE = params.get('minimum_price')
     V.BLOCK_CONSENSUSES = params.get('consensus')
     GompertzCurve.k = V.BLOCK_MINING_SUPPLY
+    V.SOURCE_HASH = calc_python_source_hash()
     V.BRANCH_NAME = get_current_branch()
 
 

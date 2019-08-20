@@ -86,6 +86,7 @@ async def system_private_info(request):
     try:
         data = {
             'branch': V.BRANCH_NAME,
+            'source_hash': V.SOURCE_HASH,
             'directory': V.DB_HOME_DIR,
             'unconfirmed': [txhash.hex() for txhash in tx_builder.unconfirmed.keys()],
             'generate_threads': [str(s) for s in generating_threads],

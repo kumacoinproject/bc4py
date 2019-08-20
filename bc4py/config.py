@@ -145,7 +145,8 @@ class V:
     API_OBJ: Optional['AppRunner'] = None  # REST API object
 
     # developer
-    BRANCH_NAME = None  # Github branch name
+    BRANCH_NAME: Optional[str] = None  # Github branch name
+    SOURCE_HASH: Optional[str] = None  # bc4py source sha1 hash
 
 
 class P:  # 起動中もダイナミックに変化
