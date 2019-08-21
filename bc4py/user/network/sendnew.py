@@ -6,6 +6,7 @@ from p2p_python.config import PeerToPeerError
 from bc4py.database.create import create_db
 from bc4py.database.builder import tx_builder, chain_builder
 from bc4py.user.network.update import update_info_for_generate
+from aiosqlite import Cursor
 from logging import getLogger
 from time import time
 import asyncio
@@ -66,7 +67,7 @@ async def mined_newblock(que):
             log.error("mined_newblock exception", exc_info=True)
 
 
-async def send_newtx(new_tx, exc_info=True):
+async def send_newtx(new_tx, cur: Cursor, exc_info=True):
     assert V.P2P_OBJ, "PeerClient is None"
     try:
         check_tx_time(new_tx)
@@ -78,16 +79,14 @@ async def send_newtx(new_tx, exc_info=True):
             }
         }
         await V.P2P_OBJ.send_command(cmd=Peer2PeerCmd.BROADCAST, data=data)
-        async with create_db(V.DB_ACCOUNT_PATH) as db:
-            cur = await db.cursor()
-            await tx_builder.put_unconfirmed(cur=cur, tx=new_tx)
+        await tx_builder.put_unconfirmed(cur=cur, tx=new_tx)
         log.info("Success broadcast new tx {}".format(new_tx))
         update_info_for_generate(u_block=False, u_unspent=True, u_unconfirmed=True)
         return True
     except ConnectionError as e:
         log.warning(f"retry send_newtx after 1s '{e}'")
         await asyncio.sleep(1.0)
-        return await send_newtx(new_tx=new_tx, exc_info=exc_info)
+        return await send_newtx(new_tx=new_tx, cur=cur, exc_info=exc_info)
     except Exception as e:
         log.warning("Failed broadcast new tx, other nodes don\'t accept {}".format(new_tx.getinfo()))
         log.warning("Reason is \"{}\"".format(e))

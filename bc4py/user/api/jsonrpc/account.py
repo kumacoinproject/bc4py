@@ -51,7 +51,7 @@ async def sendtoaddress(*args, **kwargs):
         try:
             new_tx = await send_from(from_id, address, coins, cur,
                                      subtract_fee_amount=subtract_fee_amount)
-            if await send_newtx(new_tx=new_tx):
+            if await send_newtx(new_tx=new_tx, cur=cur):
                 await db.commit()
             else:
                 error = 'Failed to send new tx'
@@ -103,7 +103,7 @@ async def sendmany(*args, **kwargs):
             for address, amount in pairs.items():
                 send_pairs.append((PyAddress.from_string(address), 0, int(amount * multiple)))
             new_tx = await send_many(user_id, send_pairs, cur)
-            if await send_newtx(new_tx=new_tx):
+            if await send_newtx(new_tx=new_tx, cur=cur):
                 await db.commit()
             else:
                 error = 'Failed to send new tx'

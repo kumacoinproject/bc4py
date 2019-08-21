@@ -123,8 +123,11 @@ async def broadcast_tx(request):
         new_tx.signature = [(a2b_hex(pk), a2b_hex(sig)) for pk, sig in post['signature']]
         if 'R' in post:
             new_tx.R = a2b_hex(post['R'])
-        if not send_newtx(new_tx=new_tx):
-            raise BlockChainError('Failed to send new tx')
+        with create_db(V.DB_ACCOUNT_PATH, strict=True) as db:
+            cur = await db.cursor()
+            if not await send_newtx(new_tx=new_tx, cur=cur):
+                raise BlockChainError('Failed to send new tx')
+            await db.commit()
         return utils.json_res({
             'hash': new_tx.hash.hex(),
             'gas_amount': new_tx.gas_amount,
@@ -162,7 +165,7 @@ async def send_from_user(request):
             new_tx = await send_from(from_id, to_address, coins, cur, msg_type=msg_type, msg_body=msg_body)
             if 'R' in post:
                 new_tx.R = a2b_hex(post['R'])
-            if not await send_newtx(new_tx=new_tx):
+            if not await send_newtx(new_tx=new_tx, cur=cur):
                 raise BlockChainError('Failed to send new tx')
             await db.commit()
             return utils.json_res({
@@ -200,7 +203,7 @@ async def send_many_user(request):
                 msg_type = C.MSG_NONE
                 msg_body = b''
             new_tx = await send_many(user_id, send_pairs, cur, msg_type=msg_type, msg_body=msg_body)
-            if not await send_newtx(new_tx=new_tx):
+            if not await send_newtx(new_tx=new_tx, cur=cur):
                 raise BlockChainError('Failed to send new tx')
             await db.commit()
             return utils.json_res({
@@ -233,7 +236,7 @@ async def issue_mint_tx(request):
                 image=post.get('image', None),
                 additional_issue=post.get('additional_issue', True),
                 sender=sender)
-            if not await send_newtx(new_tx=tx):
+            if not await send_newtx(new_tx=tx, cur=cur):
                 raise BlockChainError('Failed to send new tx')
             await db.commit()
             return utils.json_res({
@@ -265,7 +268,7 @@ async def change_mint_tx(request):
                 setting=post.get('setting'),
                 new_address=post.get('new_address'),
                 sender=sender)
-            if not await send_newtx(new_tx=tx):
+            if not await send_newtx(new_tx=tx, cur=cur):
                 raise BlockChainError('Failed to send new tx')
             await db.commit()
             return utils.json_res({
