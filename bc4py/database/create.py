@@ -35,14 +35,16 @@ async def create_db(path, strict=False) -> Connection:
     conn = await connect(path, timeout=120.0)
 
     # cashe size, default 2000
-    # conn.execute("PRAGMA cache_size = 4000")
+    await conn.execute("PRAGMA cache_size = %d" % C.SQLITE_CASHE_SIZE)
 
     # journal mode
-    await conn.execute("PRAGMA journal_mode = WAL")
+    await conn.execute("PRAGMA journal_mode = %s" % C.SQLITE_JOURNAL_MODE)
+
+    # isolation level
     conn.isolation_level = 'EXCLUSIVE' if strict else 'IMMEDIATE'
 
     # synchronous mode
-    await conn.execute("PRAGMA synchronous = NORMAL")
+    await conn.execute("PRAGMA synchronous = %s" % C.SQLITE_SYNC_MODE)
 
     # manage close process with contextmanager
     try:

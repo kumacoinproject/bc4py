@@ -111,9 +111,9 @@ class C:  # Constant
     MAX_RECURSIVE_BLOCK_DEPTH = 30  # recursive accept block limit
 
     # sqlite params
-    SQLITE_CASHE_SIZE = None  # if None, size is 2000
-    SQLITE_JOURNAL_MODE = 'WAL'  # if None, mode is DELETE
-    SQLITE_SYNC_MODE = 'NORMAL'  # if None, sync is FULL
+    SQLITE_CASHE_SIZE = 2000  # default size: 2000
+    SQLITE_JOURNAL_MODE = 'MEMORY'  # default journal mode: MEMORY
+    SQLITE_SYNC_MODE = 'NORMAL'  # default sync mode: NORMAL
 
 
 class V:
