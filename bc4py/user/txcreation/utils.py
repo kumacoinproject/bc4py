@@ -85,7 +85,9 @@ async def fill_inputs_outputs(
         elif len(tx.inputs) > 255:
             raise BlockChainError('TX inputs is too many num={}'.format(len(tx.inputs)))
         else:
-            raise BlockChainError('Insufficient balance. inputs={} needs={}'.format(input_coins, need_coins))
+            raise BlockChainError(f"Insufficient balance! "
+                                  f"try to send {input_coins+need_coins}, "
+                                  f"but you only have {input_coins}")
     # redeemを計算
     redeem_coins = input_coins - output_coins - fee_coins
     for coin_id, amount in redeem_coins:
@@ -148,17 +150,15 @@ async def replace_redeem_dummy_address(tx, cur=None, replace_by=None):
     return new_redeem_address
 
 
-async def add_sign_by_address(tx, input_address):
-    # tx.signature.clear()
+async def add_sign_by_address(tx, input_address, cur):
+    """add addr related signatures to TX"""
     count = 0
-    async with create_db(V.DB_ACCOUNT_PATH) as db:
-        cur = await db.cursor()
-        for address in input_address:
-            sign_pairs = await sign_message_by_address(raw=tx.b, address=address, cur=cur)
-            if sign_pairs not in tx.signature:
-                tx.signature.append(sign_pairs)
-                tx.verified_list.append(address)
-                count += 1
+    for address in input_address:
+        sign_pairs = await sign_message_by_address(raw=tx.b, address=address, cur=cur)
+        if sign_pairs not in tx.signature:
+            tx.signature.append(sign_pairs)
+            tx.verified_list.append(address)
+            count += 1
     return count
 
 

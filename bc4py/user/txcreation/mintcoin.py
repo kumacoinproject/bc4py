@@ -68,7 +68,7 @@ async def issue_mint_coin(
     replace_mint_dummy_address(tx=tx, mint_address=mint_address, mint_id=mint_id, f_raise=True)
     # setup signature
     tx.serialize()
-    await add_sign_by_address(tx=tx, input_address=input_address)
+    await add_sign_by_address(tx=tx, input_address=input_address, cur=cur)
     # movement
     movements = Accounting()
     minting_coins = Balance(mint_id, amount)
@@ -144,7 +144,7 @@ async def change_mint_coin(
     replace_mint_dummy_address(tx=tx, mint_address=mint_address, mint_id=mint_id, f_raise=False)
     # setup signature
     tx.serialize()
-    await add_sign_by_address(tx=tx, input_address=input_address)
+    await add_sign_by_address(tx=tx, input_address=input_address, cur=cur)
     # movement
     movements = Accounting()
     movements[sender] += minting_coins

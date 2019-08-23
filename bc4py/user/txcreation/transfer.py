@@ -69,7 +69,7 @@ async def send_many(sender,
     await replace_redeem_dummy_address(tx, cur)
     # setup signature
     tx.serialize()
-    await add_sign_by_address(tx, input_address)
+    await add_sign_by_address(tx, input_address, cur)
     movements[sender] -= fee_coins
     # movements[C.ANT_OUTSIDE] += fee_coins
     await insert_movelog(movements, cur, tx.type, tx.time, tx.hash)
