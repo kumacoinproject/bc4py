@@ -123,14 +123,15 @@ def is_mature_input(base_hash, limit_height) -> bool:
 
     # from database
     height = chain_builder.root_block.height
-    while limit_height < height:
+    while limit_height <= height:
         block = chain_builder.get_block(height=height)
         for tx in block.txs:
             if tx.hash == base_hash:
                 return False
+        height -= 1
 
-    # too big limit
-    return False
+    # check passed
+    return True
 
 
 __all__ = [
