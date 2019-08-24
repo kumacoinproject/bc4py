@@ -51,6 +51,9 @@ class BroadcastCmd:
     async def new_tx(data):
         try:
             new_tx: TX = data['tx']
+            if tx_builder.get_memorized_tx(new_tx.hash) is None:
+                log.debug("bad node, already memorized new tx")
+                return False
             check_tx_time(new_tx)
             await fill_verified_addr_tx(new_tx)
             check_tx(tx=new_tx, include_block=None)
@@ -94,23 +97,25 @@ async def fill_newblock_info(data):
     if not new_block.pow_check():
         raise BlockChainError('Proof of work is not satisfied')
     # Append general txs
-    for txhash in data['txs'][1:]:
-        tx = tx_builder.get_memorized_tx(txhash)
-        if tx is None:
-            new_block.inner_score *= 0.75  # unknown tx, score down
-            log.debug("Unknown tx, try to download")
-            r = await ask_node(cmd=DirectCmd.tx_by_hash, data={'txhash': txhash}, f_continue_asking=True)
-            if isinstance(r, str):
-                raise BlockChainError('Failed unknown tx download "{}"'.format(r))
-            tx: TX = r
-            tx.height = None
-            check_tx(tx, include_block=None)
-            async with create_db(V.DB_ACCOUNT_PATH) as db:
-                cur = await db.cursor()
+    async with create_db(V.DB_ACCOUNT_PATH) as db:
+        cur = await db.cursor()
+        for txhash in data['txs'][1:]:
+            tx = tx_builder.get_memorized_tx(txhash)
+            if tx is None:
+                new_block.inner_score *= 0.75  # unknown tx, score down
+                log.debug("Unknown tx, try to download")
+                r = await ask_node(cmd=DirectCmd.tx_by_hash, data={'txhash': txhash}, f_continue_asking=True)
+                if isinstance(r, str):
+                    raise BlockChainError('Failed unknown tx download "{}"'.format(r))
+                tx: TX = r
+                tx.height = None
+                await fill_verified_addr_tx(tx)
+                check_tx(tx, include_block=None)
                 await tx_builder.put_unconfirmed(cur=cur, tx=tx)
-            log.debug("Success unknown tx download {}".format(tx))
-        tx.height = new_height
-        new_block.txs.append(tx)
+                log.debug("Success unknown tx download {}".format(tx))
+            tx.height = new_height
+            new_block.txs.append(tx)
+        await db.commit()
     return new_block
 
 
@@ -151,3 +156,9 @@ async def make_block_by_node(blockhash, depth):
     if not await new_insert_block(block=block, f_time=False, f_sign=True):
         raise BlockChainError('Failed insert beforeBlock {}'.format(before_block))
     return block
+
+
+__all__ = [
+    "BroadcastCmd",
+    "broadcast_check",
+]
