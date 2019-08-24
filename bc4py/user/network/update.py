@@ -121,8 +121,8 @@ async def update_unconfirmed_info():
         best_block, best_chain = chain_builder.get_best_chain()
         for tx in unconfirmed_txs.copy():
             if tx.height is not None:
-                unconfirmed_txs.remove(tx)  # already confirmed
-                log.debug("remove unconfirmed: already confirmed")
+                unconfirmed_txs.remove(tx)
+                # log.debug("remove unconfirmed: already confirmed")
                 continue
             if 0 < len(unconfirmed_depends_cashe[tx.hash]):
                 skip = False
@@ -131,9 +131,8 @@ async def update_unconfirmed_info():
                         # not found depend in unconfirmed
                         continue
                     if unconfirmed_txs.index(tx) < unconfirmed_txs.index(depend_tx):
-                        # the tx' depends use newer input!
                         unconfirmed_txs.remove(tx)
-                        log.debug("remove unconfirmed: the tx' depends use newer input!")
+                        # log.debug("remove unconfirmed: the tx' depends use newer input!")
                         skip = True
                         break
                 if skip:
@@ -144,15 +143,13 @@ async def update_unconfirmed_info():
                 input_tx = tx_builder.get_memorized_tx(txhash)
                 if input_tx is not None:
                     if input_tx.height is None:
-                        # use unconfirmed tx's outputs
                         unconfirmed_txs.remove(tx)
-                        log.debug("remove unconfirmed: use unconfirmed tx's outputs")
+                        # log.debug("remove unconfirmed: use unconfirmed tx's outputs")
                         break
                     if input_tx.type in (C.TX_POS_REWARD, C.TX_POW_REWARD):
                         if input_tx.height > limit_height:
-                            # too young generated outputs
                             unconfirmed_txs.remove(tx)
-                            log.debug("remove unconfirmed: too young generated outputs")
+                            # log.debug("remove unconfirmed: too young generated outputs")
                             break
 
                 if not is_unused_index_except_me(
@@ -161,9 +158,8 @@ async def update_unconfirmed_info():
                         except_hash=tx.hash,
                         best_block=best_block,
                         best_chain=best_chain):
-                    # ERROR: already used outputs
                     unconfirmed_txs.remove(tx)
-                    log.debug("remove unconfirmed: already used outputs")
+                    # log.debug("remove unconfirmed: already used outputs")
                     break
 
             # switch event loop
