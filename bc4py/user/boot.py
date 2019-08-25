@@ -190,6 +190,22 @@ def import_keystone(passphrase='', auto_create=True):
         raise Exception('Not found keystone file!')
     V.EXTENDED_KEY_OBJ = bip
 
+    # check database meta info
+    from bc4py.database.builder import chain_builder
+    meta_path = os.path.join(chain_builder.db.dirs, 'meta.json')
+    meta = {
+        'txindex': chain_builder.db.db_config['txindex'],
+        'addrindex': chain_builder.db.db_config['addrindex'],
+        'extended_key': V.EXTENDED_KEY_OBJ.extended_key(is_private=False)
+    }
+    if os.path.exists(meta_path):
+        with open(meta_path, mode='r') as fp:
+            if meta != json.load(fp):
+                raise Exception('database meta info don\'t match expected')
+    else:
+        with open(meta_path, mode='w') as fp:
+            json.dump(meta, fp, indent=4)
+
 
 def load_keystone(keystone_path):
     with open(keystone_path, mode='r') as fp:
