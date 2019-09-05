@@ -128,7 +128,7 @@ def console_args_parser():
                    help='solo mining for debug or testnet',
                    action='store_true')
     p.add_argument('--console',
-                   help='console monitor for debug',
+                   help='netcat console monitor',
                    action='store_true')
     p.add_argument('--txindex',
                    help='index tx for `/public/gettxbyhash`',

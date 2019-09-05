@@ -128,7 +128,7 @@ def is_unused_index(input_hash, input_index, best_block=None, best_chain=None) -
 
     # check unconfirmed
     if best_block is None:
-        for tx in list(tx_builder.unconfirmed.values()):
+        for tx in tx_builder.unconfirmed.values():
             if tx.hash == input_hash:
                 if input_index < len(tx.outputs):
                     is_unused = True
