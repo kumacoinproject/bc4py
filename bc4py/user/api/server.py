@@ -23,8 +23,83 @@ from logging import getLogger, INFO
 log = getLogger('bc4py')
 loop = asyncio.get_event_loop()
 base_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
-markdown_template = open(os.path.join(base_path, 'md_renderer.html'), mode='r', encoding='utf8').read()
 getLogger('aiohttp_basicauth_middleware').setLevel(INFO)
+
+markdown_template = """
+<!DOCTYPE html>
+<html lang="ja">
+    <head>
+        <meta charset="utf-8">
+
+        <title>{:title}</title>
+        <meta name="description" content="API document">
+
+        <!-- js libraries -->
+        <script type="text/javascript" src="js/jquery-2.0.3.min.js"></script>
+        <script type="text/javascript" src='js/marked.min.js'></script>
+        <script type="text/javascript" src='js/highlight.min.js'></script>
+        <!-- Note: When setup to local, we find css/js do not work. Why? -->
+        <!-- bootstrap -->
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+        <!-- Optional theme -->
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+        <!-- Latest compiled and minified JavaScript -->
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+        <!-- github css style -->
+        <link rel='stylesheet' href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.0.0/styles/github.min.css" />
+        <script>
+            $(document).ready(function(){
+                var target = $("#markdown_content");
+                try{
+                    var renderer = new marked.Renderer();
+                    renderer.code = function(code, language) {
+                        return '<pre style="max-height: 30em;">' +
+                            '<code class="hljs">' + hljs.highlightAuto(code).value + '</code>' +
+                            '</pre>';
+                    };
+                    renderer.table = function(header, body) {
+                        if (body) body = '<tbody>' + body + '</tbody>';
+                        return '<table class="my-boostrap-table">\n'
+                            + '<thead>\n' + header + '</thead>\n'
+                            + body + '</table>\n';
+                    };
+                    marked.setOptions({
+                        renderer: renderer
+                    });
+                    var markdown_body = "{:body}";
+                    target.append(marked(markdown_body));
+                }catch (e) {
+                    target.append("Error: " + str(e));
+                }
+            });
+        </script>
+    </head>
+    <body>
+        <!-- Content -->
+        <div class="container">
+            <div id="markdown_content"></div>
+        </div>
+    </body>
+    <style>
+        .my-boostrap-table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 10px;
+        }
+        .my-boostrap-table th {
+            border: 2px solid black;
+            font-weight: bold;
+            padding: 6px;
+            margin: 6px;
+        }
+        .my-boostrap-table td {
+            border: 2px solid gray;
+            padding: 4px;
+            margin: 4px;
+        }
+    </style>
+</html>
+"""
 
 localhost_urls = {
     "localhost",

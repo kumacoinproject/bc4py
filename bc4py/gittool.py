@@ -28,7 +28,7 @@ def read(path):
         return fp.read().lstrip().rstrip()
 
 
-def calc_python_source_hash(folder=None) -> str:
+def calc_python_source_hash(folder=None):
     """calculate sha1 of bc4py source"""
     h = hashlib.sha1()
 
@@ -43,10 +43,13 @@ def calc_python_source_hash(folder=None) -> str:
             else:
                 pass
 
-    if folder is None:
-        folder = os.path.split(os.path.abspath(__file__))[0]
-    calc(folder)
-    return h.hexdigest()
+    try:
+        if folder is None:
+            folder = os.path.split(os.path.abspath(__file__))[0]
+        calc(folder)
+        return h.hexdigest()
+    except Exception:
+        return None
 
 
 __all__ = [
