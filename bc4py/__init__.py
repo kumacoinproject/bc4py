@@ -1,4 +1,4 @@
-__version__ = '0.0.28-alpha'
+__version__ = '0.0.28-test'
 __chain_version__ = 0
 __block_version__ = 1
 __message__ = 'This is alpha version - use at your own risk, do not use for merchant applications'
