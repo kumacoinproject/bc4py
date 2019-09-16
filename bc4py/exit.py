@@ -23,8 +23,7 @@ async def system_safe_exit():
         close_generate()
 
         if V.API_OBJ:
-            await V.API_OBJ.shutdown()  # should be called before cleanup()
-            await V.API_OBJ.cleanup()  # should be called after shutdown()
+            await V.API_OBJ.shutdown()
 
         if V.P2P_OBJ:
             V.P2P_OBJ.close()

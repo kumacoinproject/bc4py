@@ -1,5 +1,5 @@
 from p2p_python.server import Peer2Peer
-from aiohttp.web import AppRunner
+from uvicorn import Server
 from rx.subject import Subject
 from typing import Optional
 
@@ -142,7 +142,7 @@ class V:
     # mining
     MINING_ADDRESS = None
     P2P_OBJ: Optional['Peer2Peer'] = None  # P2P peer client object
-    API_OBJ: Optional['AppRunner'] = None  # REST API object
+    API_OBJ: Optional['Server'] = None  # REST API object
 
     # developer
     BRANCH_NAME: Optional[str] = None  # Github branch name

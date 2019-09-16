@@ -2,7 +2,9 @@ from bc4py import __chain_version__
 from bc4py.config import V
 from bc4py.chain import msgpack
 from bc4py.database.builder import chain_builder
-from bc4py.user.api import utils
+from bc4py.user.api.utils import auth, error_response
+from fastapi import Depends
+from fastapi.security import HTTPBasicCredentials
 from logging import getLogger
 from time import time
 import asyncio
@@ -12,7 +14,10 @@ import os
 log = getLogger('bc4py')
 
 
-async def create_bootstrap(request):
+async def create_bootstrap(credentials: HTTPBasicCredentials = Depends(auth)):
+    """
+    This end-point create bootstrap.tar.gz file. It will take many time.
+    """
     try:
         boot_path = os.path.join(V.DB_HOME_DIR, 'bootstrap-ver{}.dat.gz'.format(__chain_version__))
         if os.path.exists(boot_path):
@@ -36,13 +41,13 @@ async def create_bootstrap(request):
                 if block.height % 100 == 0:
                     log.info("create bootstrap.dat.gz height={} {}s passed".format(block.height, round(time() - s)))
         log.info("create new bootstrap.dat.gz finished, last={} {}Minutes".format(block, (time() - s) // 60))
-        return utils.json_res({
+        return {
             "height": stop_height,
             "start_time": int(s),
-            "finish_time": int(time())
-        })
+            "finish_time": int(time()),
+        }
     except Exception:
-        return utils.error_res()
+        return error_response()
 
 
 __all__ = [

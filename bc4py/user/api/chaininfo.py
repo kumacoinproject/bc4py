@@ -1,75 +1,59 @@
-from bc4py.user.api import utils
 from bc4py.database.builder import chain_builder, tx_builder
 from bc4py.database.mintcoin import get_mintcoin_object
-from aiohttp import web
+from bc4py.user.api.utils import error_response
 from binascii import a2b_hex
 
 
-async def get_block_by_height(request):
-    with_tx_info = request.query.get('txinfo', 'false')
-    try:
-        height = int(request.query['height'])
-    except Exception:
-        return web.Response(text="Height is not specified", status=400)
+async def get_block_by_height(height: int, txinfo: bool = False):
     blockhash = chain_builder.get_block_hash(height)
     if blockhash is None:
-        return web.Response(text="Not found height", status=400)
+        return error_response("Not found height")
     block = chain_builder.get_block(blockhash)
-    data = block.getinfo(with_tx_info == 'true')
+    data = block.getinfo(txinfo)
     data['hex'] = block.b.hex()
-    return utils.json_res(data)
+    return data
 
 
-async def get_block_by_hash(request):
+async def get_block_by_hash(hash: str, txinfo: bool = False):
     try:
-        with_tx_info = request.query.get('txinfo', 'false')
-        blockhash = request.query.get('hash')
-        if blockhash is None:
-            return web.Response(text="Not found height", status=400)
-        blockhash = a2b_hex(blockhash)
+        blockhash = a2b_hex(hash)
         block = chain_builder.get_block(blockhash)
         if block is None:
-            return web.Response(text="Not found block", status=400)
-        data = block.getinfo(with_tx_info == 'true')
-        data['size'] = block.size
+            return error_response("Not found block")
+        data = block.getinfo(txinfo)
         data['hex'] = block.b.hex()
-        return utils.json_res(data)
-    except Exception as e:
-        return utils.error_res()
+        return data
+    except Exception:
+        return error_response()
 
 
-async def get_tx_by_hash(request):
+async def get_tx_by_hash(hash: str):
     try:
-        txhash = request.query.get('hash')
-        txhash = a2b_hex(txhash)
+        txhash = a2b_hex(hash)
         # if you cannot get TX, please check DB config `txindex`
         tx = tx_builder.get_tx(txhash)
         if tx is None:
             if chain_builder.db.db_config['txindex']:
-                return web.Response(text="not found tx", status=400)
+                return error_response("not found tx")
             else:
-                return web.Response(
-                    text='not found tx, please set `txindex` true if you want full indexed',
-                    status=400)
+                return error_response('not found tx, please set `txindex` true if you want full indexed')
         data = tx.getinfo()
         data['hex'] = tx.b.hex()
-        return utils.json_res(data)
-    except Exception as e:
-        return utils.error_res()
-
-
-async def get_mintcoin_info(request):
-    try:
-        mint_id = int(request.query.get('mint_id', 0))
-        m = get_mintcoin_object(coin_id=mint_id)
-        return utils.json_res(m.info)
+        return data
     except Exception:
-        return utils.error_res()
+        return error_response()
 
 
-async def get_mintcoin_history(request):
+async def get_mintcoin_info(mint_id: int = 0):
     try:
-        mint_id = int(request.query.get('mint_id', 0))
+        m = get_mintcoin_object(coin_id=mint_id)
+        return m.info
+    except Exception:
+        return error_response()
+
+
+async def get_mintcoin_history(mint_id: int = 0):
+    try:
         data = list()
         # from only database
         for height, index, txhash, params, setting in chain_builder.db.read_coins_iter(coin_id=mint_id):
@@ -80,9 +64,9 @@ async def get_mintcoin_history(request):
                 'params': params,
                 'setting': setting,
             })
-        return utils.json_res(data)
+        return data
     except Exception:
-        return utils.error_res()
+        return error_response()
 
 
 __all__ = [

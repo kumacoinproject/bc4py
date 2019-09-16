@@ -1,8 +1,10 @@
 from bc4py.config import P, stream
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
-from aiohttp.web_ws import WebSocketResponse
-from aiohttp import web
+from fastapi import HTTPException
+from starlette.websockets import WebSocket, WebSocketState
+from starlette.requests import Request
+from starlette.status import HTTP_404_NOT_FOUND
 from logging import getLogger
 from typing import List
 import asyncio
@@ -20,54 +22,59 @@ CMD_NEW_TX = 'TX'
 CMD_ERROR = 'Error'
 
 
-# TODO: fix error: "socket.send() raised exception"
-#  => https://github.com/aio-libs/aiohttp/issues/3448
-async def websocket_route(request):
-    if request.rel_url.path.startswith('/public/'):
+async def websocket_route(request: Request, ws: WebSocket):
+    """
+    websocket stream end-point
+    """
+    if request.client.host.startswith('/public/'):
         is_public = True
-    elif request.rel_url.path.startswith('/private/'):
+    elif request.client.host.startswith('/private/'):
         is_public = False
     else:
-        raise web.HTTPNotFound()
-    client = await websocket_protocol_check(request=request, is_public=is_public)
+        raise HTTPException(
+            status_code=HTTP_404_NOT_FOUND,
+            detail="you should access `/public/ws` or `/private/ws`"
+        )
+    async with client_lock:
+        clients.append(WsClient(ws, request, is_public))
     while not P.F_STOP:
         try:
-            item = await client.ws.receive_json(timeout=1.0)
+            item = await asyncio.wait_for(ws.receive_json(), 0.2)
             # receive command
             # warning: not implemented, no function
             data = {
                 'connect': len(clients),
-                'is_public': client.is_public,
+                'is_public': is_public,
                 'echo': item,
             }
-            await client.send(get_json_format(cmd='debug', data=data))
+            await ws.send_text(get_json_format(cmd='debug', data=data))
         except (asyncio.TimeoutError, TypeError):
-            if client.ws.closed:
+            if ws.client_state == WebSocketState.DISCONNECTED:
                 log.debug("websocket already closed")
-                break
+                return
         except Exception:
             log.error('websocket_route exception', exc_info=True)
             break
-    await client.close()
-    log.debug("close {}".format(client))
+    await ws.close()
+    log.debug("close {}".format(ws))
 
 
 class WsClient(object):
 
-    def __init__(self, ws, request, is_public):
+    def __init__(self, ws: WebSocket, request: Request, is_public: bool):
         global number
         number += 1
         self.number = number
-        self.ws: WebSocketResponse = ws
+        self.ws = ws
         self.request = request
         self.is_public = is_public
 
     def __repr__(self):
         ws_type = 'Pub' if self.is_public else 'Pri'
-        return f"<WsClient {self.number} {ws_type} {self.request.remote}>"
+        return f"<WsClient {self.number} {ws_type} {self.request.client.host}>"
 
     async def close(self):
-        if not self.ws.closed:
+        if self.ws.client_state != WebSocketState.DISCONNECTED:
             await self.ws.close()
         async with client_lock:
             if self in clients:
@@ -75,26 +82,10 @@ class WsClient(object):
 
     async def send(self, data: str):
         assert client_lock.locked()
-        if self.ws.closed:
+        if self.ws.client_state == WebSocketState.DISCONNECTE:
             clients.remove(self)
         else:
-            await self.ws.send_str(data)
-
-
-async def websocket_protocol_check(request, is_public):
-    """upgrade to WebSocket protocol"""
-    ws = web.WebSocketResponse()
-    ws.enable_compression()
-    available = ws.can_prepare(request)
-    if not available:
-        log.debug(f"cannot prepare websocket {request.remote}")
-        raise web.HTTPInternalServerError()
-    await ws.prepare(request)
-    log.debug(f"protocol upgrade to websocket {request.remote}")
-    client = WsClient(ws, request, is_public)
-    async with client_lock:
-        clients.append(client)
-    return client
+            await self.ws.send_text(data)
 
 
 def get_json_format(cmd, data, status=True):
@@ -109,10 +100,9 @@ def get_json_format(cmd, data, status=True):
 async def broadcast_clients(cmd, data, status=True, is_public=False):
     """broadcast to all clients"""
     message = get_json_format(cmd=cmd, data=data, status=status)
-    for client in clients:
+    for client in clients.copy():
         if is_public or not client.is_public:
-            async with client_lock:
-                await client.send(message)
+            await client.send(message)
 
 
 def websocket_reactive_stream(data):

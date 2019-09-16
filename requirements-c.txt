@@ -1,4 +1,3 @@
-http-basic-auth  # need for aiohttp-basicauth-middleware
 bell-yespower==1.0.3
 multi-party-schnorr==0.1.9
 bc4py_extension==0.1.6

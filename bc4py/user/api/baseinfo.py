@@ -3,8 +3,10 @@ from bc4py.config import C, V, P
 from bc4py.chain.utils import GompertzCurve, DEFAULT_TARGET
 from bc4py.chain.difficulty import get_bits_by_hash, get_bias_by_hash
 from bc4py.database.builder import chain_builder, tx_builder, user_account
-from bc4py.user.api import utils
+from bc4py.user.api.utils import auth, error_response
 from bc4py.user.generate import generating_threads
+from fastapi import Depends
+from fastapi.security import HTTPBasicCredentials
 from time import time
 import p2p_python
 
@@ -15,7 +17,10 @@ F_ADD_CASHE_INFO = False  # to adjust cashe size
 __api_version__ = '0.0.2'
 
 
-async def chain_info(request):
+async def chain_info():
+    """
+    This end-point show blockchain status of node.
+    """
     try:
         best_height = chain_builder.best_block.height
         best_block = chain_builder.best_block
@@ -48,27 +53,32 @@ async def chain_info(request):
                 'get_bits_by_hash': str(get_bits_by_hash.cache_info()),
                 'get_bias_by_hash': str(get_bias_by_hash.cache_info())
             }
-        return utils.json_res(data)
+        return data
     except Exception:
-        return utils.error_res()
+        return error_response()
 
 
-async def chain_fork_info(request):
+async def chain_fork_info(credentials: HTTPBasicCredentials = Depends(auth)):
+    """
+    This end-point show blockchain fork info.
+    """
     try:
         main_chain = [block.getinfo() for block in chain_builder.best_chain]
         orphan_chain = [block.getinfo() for block in chain_builder.chain.values() if block not in chain_builder.best_chain]
-        data = {
+        return {
             'main': main_chain,
             'orphan': sorted(orphan_chain, key=lambda x: x['height']),
-            'root': chain_builder.root_block.getinfo()
+            'root': chain_builder.root_block.getinfo(),
         }
-        return utils.json_res(data)
     except Exception:
-        return utils.error_res()
+        return error_response()
 
 
-async def system_info(request):
-    data = {
+async def system_info():
+    """
+    This end-point show public system info.
+    """
+    return {
         'system_ver': __version__,
         'api_ver': __api_version__,
         'chain_ver': __chain_version__,
@@ -77,14 +87,16 @@ async def system_info(request):
         'booting': P.F_NOW_BOOTING,
         'connections': len(V.P2P_OBJ.core.user),
         'access_time': int(time()),
-        'start_time': start_time
+        'start_time': start_time,
     }
-    return utils.json_res(data)
 
 
-async def system_private_info(request):
+async def system_private_info(credentials: HTTPBasicCredentials = Depends(auth)):
+    """
+    This end-point show private system info.
+    """
     try:
-        data = {
+        return {
             'branch': V.BRANCH_NAME,
             'source_hash': V.SOURCE_HASH,
             'directory': V.DB_HOME_DIR,
@@ -93,24 +105,27 @@ async def system_private_info(request):
             'prefetch_address': len(user_account.pre_fetch_addr),
             'extended_key': repr(V.EXTENDED_KEY_OBJ),
         }
-        return utils.json_res(data)
     except Exception:
-        return utils.error_res()
+        return error_response()
 
 
-async def network_info(request):
+async def network_info():
+    """
+    This end-point show network connection info.
+    """
     try:
         peers = list()
         data = V.P2P_OBJ.core.get_my_user_header()
         for user in V.P2P_OBJ.core.user:
             peers.append(user.getinfo())
         data['peers'] = peers
-        return utils.json_res(data)
+        return data
     except Exception:
-        return utils.error_res()
+        return error_response()
 
 
 __all__ = [
+    "__api_version__",
     "chain_info",
     "chain_fork_info",
     "system_info",

@@ -1,7 +1,3 @@
-from aiohttp import web
-from aiohttp_basicauth_middleware import basic_auth_middleware
-from aiohttp_basicauth_middleware.strategy import BaseStrategy
-import aiohttp_cors
 from .baseinfo import *
 from .accountinfo import *
 from .editaccount import *
@@ -11,258 +7,127 @@ from .websocket import *
 from .createtx import *
 from .jsonrpc import json_rpc
 from bc4py.config import V
-from bc4py.user.api import utils
-import os
+from bc4py.user.api.utils import *
+from fastapi import FastAPI, Depends
+from fastapi.security import HTTPBasicCredentials
+from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
+import uvicorn
 import asyncio
-from ssl import SSLContext, PROTOCOL_SSLv23
-from logging import getLogger, INFO
+from logging import getLogger
 
 # insight API-ref
 # https://blockexplorer.com/api-ref
 
 log = getLogger('bc4py')
 loop = asyncio.get_event_loop()
-base_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
-getLogger('aiohttp_basicauth_middleware').setLevel(INFO)
-
-markdown_template = """
-<!DOCTYPE html>
-<html lang="ja">
-    <head>
-        <meta charset="utf-8">
-
-        <title>{:title}</title>
-        <meta name="description" content="API document">
-
-        <!-- js libraries -->
-        <script type="text/javascript" src="js/jquery-2.0.3.min.js"></script>
-        <script type="text/javascript" src='js/marked.min.js'></script>
-        <script type="text/javascript" src='js/highlight.min.js'></script>
-        <!-- Note: When setup to local, we find css/js do not work. Why? -->
-        <!-- bootstrap -->
-        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
-        <!-- Optional theme -->
-        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
-        <!-- Latest compiled and minified JavaScript -->
-        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
-        <!-- github css style -->
-        <link rel='stylesheet' href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.0.0/styles/github.min.css" />
-        <script>
-            $(document).ready(function(){
-                var target = $("#markdown_content");
-                try{
-                    var renderer = new marked.Renderer();
-                    renderer.code = function(code, language) {
-                        return '<pre style="max-height: 30em;">' +
-                            '<code class="hljs">' + hljs.highlightAuto(code).value + '</code>' +
-                            '</pre>';
-                    };
-                    renderer.table = function(header, body) {
-                        if (body) body = '<tbody>' + body + '</tbody>';
-                        return '<table class="my-boostrap-table">\n'
-                            + '<thead>\n' + header + '</thead>\n'
-                            + body + '</table>\n';
-                    };
-                    marked.setOptions({
-                        renderer: renderer
-                    });
-                    var markdown_body = "{:body}";
-                    target.append(marked(markdown_body));
-                }catch (e) {
-                    target.append("Error: " + str(e));
-                }
-            });
-        </script>
-    </head>
-    <body>
-        <!-- Content -->
-        <div class="container">
-            <div id="markdown_content"></div>
-        </div>
-    </body>
-    <style>
-        .my-boostrap-table {
-            border-collapse: collapse;
-            width: 100%;
-            margin: 10px;
-        }
-        .my-boostrap-table th {
-            border: 2px solid black;
-            font-weight: bold;
-            padding: 6px;
-            margin: 6px;
-        }
-        .my-boostrap-table td {
-            border: 2px solid gray;
-            padding: 4px;
-            margin: 4px;
-        }
-    </style>
-</html>
-"""
-
-localhost_urls = {
-    "localhost",
-    "127.0.0.1",
-}
-
-
-def escape_cross_origin_block(app):
-    cors = aiohttp_cors.setup(
-        app,
-        defaults={
-            "*":
-                aiohttp_cors.ResourceOptions(
-                    # Access-Control-Allow-Origin
-                    allow_credentials=True,
-                    expose_headers="*",
-                    allow_headers=("X-Requested-With", "Content-Type", "Authorization", "Content-Length"),
-                    allow_methods=['POST', 'GET'])
-        })
-    for resource in app.router.resources():
-        cors.add(resource)
-
-
-class PrivateAccessStrategy(BaseStrategy):
-    """
-    enable access from browser with OPTIONS method
-    private method access allow only from local
-    proxy is on local and add X-Forwarded-Host header (option)
-    """
-    async def check(self):
-        if self.request.method == 'OPTIONS':
-            return await self.handler(self.request)
-        if self.request.remote in localhost_urls:
-            proxy_host = self.request.headers.get('X-Forwarded-Host')
-            if proxy_host is None or proxy_host in localhost_urls:
-                return await super().check()
-            else:
-                raise web.HTTPForbidden()
-        else:
-            raise web.HTTPForbidden()
-
-
-def setup_ssl_context(cert, private, hostname=False):
-    ssl_context = SSLContext(PROTOCOL_SSLv23)
-    ssl_context.load_cert_chain(cert, private)
-    ssl_context.check_hostname = hostname
-    return ssl_context
 
 
 async def setup_rest_server(
-        user='user', pwd='password', port=3000, host='127.0.0.1', ssl_context=None):
+        user='user', pwd='password', port=3000, host='127.0.0.1', **kwargs):
     """
     create REST server for API
     :param user: BasicAuth username
     :param pwd: BasicAuth password
     :param port: REST bind port
     :param host: REST bind host, "0.0.0.0" is global
-    :param ssl_context: for SSL server
     """
-    app = web.Application()
+    app = FastAPI(
+        version=__api_version__,
+        title="bc4py API documents",
+        description="OpenAPI/Swagger-generated API Reference Documentation, "
+                    "[Swagger-UI](./docs) and [React based](./redoc)",
+    )
 
     # System
-    app.router.add_get('/public/getsysteminfo', system_info)
-    app.router.add_get('/private/getsysteminfo', system_private_info)
-    app.router.add_get('/public/getchaininfo', chain_info)
-    app.router.add_get('/private/chainforkinfo', chain_fork_info)
-    app.router.add_get('/public/getnetworkinfo', network_info)
-    app.router.add_get('/private/createbootstrap', create_bootstrap)
-    app.router.add_get('/private/resync', system_resync)
-    app.router.add_get('/private/stop', system_close)
+    api_kwargs = dict(tags=['System'], response_class=IndentResponse)
+    app.add_api_route('/public/getsysteminfo', system_info, **api_kwargs)
+    app.add_api_route('/private/getsysteminfo', system_private_info, **api_kwargs)
+    app.add_api_route('/public/getchaininfo', chain_info, **api_kwargs)
+    app.add_api_route('/private/chainforkinfo', chain_fork_info, **api_kwargs)
+    app.add_api_route('/public/getnetworkinfo', network_info, **api_kwargs)
+    app.add_api_route('/private/resync', system_resync, **api_kwargs)
+    app.add_api_route('/private/stop', system_close, **api_kwargs)
     # Account
-    app.router.add_get('/private/listbalance', list_balance)
-    app.router.add_get('/private/listtransactions', list_transactions)
-    app.router.add_get('/public/listunspents', list_unspents)
-    app.router.add_get('/private/listunspents', list_private_unspents)
-    app.router.add_get('/private/listaccountaddress', list_account_address)
-    app.router.add_post('/private/createwallet', create_wallet)
-    app.router.add_post('/private/importprivatekey', import_private_key)
-    app.router.add_post('/private/move', move_one)
-    app.router.add_post('/private/movemany', move_many)
-    app.router.add_get('/private/newaddress', new_address)
-    app.router.add_get('/private/getkeypair', get_keypair)
+    api_kwargs = dict(tags=['Account'], response_class=IndentResponse)
+    app.add_api_route('/private/listbalance', list_balance, **api_kwargs)
+    app.add_api_route('/private/listtransactions', list_transactions, **api_kwargs)
+    app.add_api_route('/public/listunspents', list_unspents, **api_kwargs)
+    app.add_api_route('/private/listunspents', list_private_unspents, **api_kwargs)
+    app.add_api_route('/private/listaccountaddress', list_account_address, **api_kwargs)
+    app.add_api_route('/private/createwallet', create_wallet, methods=['POST'], **api_kwargs)
+    app.add_api_route('/private/importprivatekey', import_private_key, methods=['POST'], **api_kwargs)
+    app.add_api_route('/private/move', move_one, methods=['POST'], **api_kwargs)
+    app.add_api_route('/private/movemany', move_many, methods=['POST'], **api_kwargs)
+    app.add_api_route('/private/newaddress', new_address, **api_kwargs)
+    app.add_api_route('/private/getkeypair', get_keypair, **api_kwargs)
     # Sending
-    app.router.add_post('/public/createrawtx', create_raw_tx)
-    app.router.add_post('/private/signrawtx', sign_raw_tx)
-    app.router.add_post('/public/broadcasttx', broadcast_tx)
-    app.router.add_post('/private/sendfrom', send_from_user)
-    app.router.add_post('/private/sendmany', send_many_user)
-    app.router.add_post('/private/issueminttx', issue_mint_tx)
-    app.router.add_post('/private/changeminttx', change_mint_tx)
-    # BlockChain
-    app.router.add_get('/public/getblockbyheight', get_block_by_height)
-    app.router.add_get('/public/getblockbyhash', get_block_by_hash)
-    app.router.add_get('/public/gettxbyhash', get_tx_by_hash)
-    app.router.add_get('/public/getmintinfo', get_mintcoin_info)
-    app.router.add_get('/public/getminthistory', get_mintcoin_history)
+    api_kwargs = dict(tags=['Sending'], response_class=IndentResponse)
+    app.add_api_route('/public/createrawtx', create_raw_tx, methods=['POST'], **api_kwargs)
+    app.add_api_route('/public/broadcasttx', broadcast_tx, methods=['POST'], **api_kwargs)
+    app.add_api_route('/private/sendfrom', send_from_user, methods=['POST'], **api_kwargs)
+    app.add_api_route('/private/sendmany', send_many_user, methods=['POST'], **api_kwargs)
+    app.add_api_route('/private/issueminttx', issue_mint_tx, methods=['POST'], **api_kwargs)
+    app.add_api_route('/private/changeminttx', change_mint_tx, methods=['POST'], **api_kwargs)
+    # Blockchain
+    api_kwargs = dict(tags=['Blockchain'], response_class=IndentResponse)
+    app.add_api_route('/public/getblockbyheight', get_block_by_height, **api_kwargs)
+    app.add_api_route('/public/getblockbyhash', get_block_by_hash, **api_kwargs)
+    app.add_api_route('/public/gettxbyhash', get_tx_by_hash, **api_kwargs)
+    app.add_api_route('/public/getmintinfo', get_mintcoin_info, **api_kwargs)
+    app.add_api_route('/public/getminthistory', get_mintcoin_history, **api_kwargs)
     # Others
-    app.router.add_get('/public/ws', websocket_route)
-    app.router.add_get('/private/ws', websocket_route)
-    # JSON-RPC html/markdown pages
-    app.router.add_get('/', web_page)
-    app.router.add_post('/', json_rpc)
-    app.router.add_get('/{page_path:[^{}]+.}', web_page)
+    api_kwargs = dict(tags=['Others'], response_class=IndentResponse)
+    app.add_api_route('/private/createbootstrap', create_bootstrap, **api_kwargs)
+    app.add_api_websocket_route('/public/ws', websocket_route)
+    app.add_api_route('/public/ws', websocket_route, **api_kwargs)
+    app.add_api_websocket_route('/private/ws', websocket_route)
+    app.add_api_route('/private/ws', websocket_route, **api_kwargs)
+    app.add_api_route('/', json_rpc, methods=['POST'], **api_kwargs)
 
     # Cross-Origin Resource Sharing
-    escape_cross_origin_block(app)
+    app.add_middleware(CORSMiddleware, allow_origins=['*'], allow_methods=['*'])
+
+    # Gzip compression response
+    app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+    # reject when node is booting and redirect /
+    app.add_middleware(ConditionCheckMiddleware)
 
     # setup basic auth
     assert isinstance(user, str) and isinstance(pwd, str)
-    app.middlewares.append(basic_auth_middleware(('/private/',), {user: pwd}, PrivateAccessStrategy))
+    setup_basic_auth_params(user, pwd, **kwargs)
 
     # Working
-    # No blocking run https://docs.aiohttp.org/en/stable/web_advanced.html#application-runners
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, host=host, port=port, ssl_context=ssl_context)
-    await site.start()
+    config = uvicorn.Config(app, host=host, port=port, **kwargs)
+    config.setup_event_loop()
+    server = uvicorn.Server(config)
+    asyncio.run_coroutine_threadsafe(server.serve(), loop)
     log.info(f"API listen on {host}:{port}")
-    V.API_OBJ = runner
+    V.API_OBJ = server
 
 
-async def web_page(request):
-    page_path = request.match_info.get('page_path', "index.md")
-    try:
-        req_path = page_path.split("/")
-        abs_path = os.path.join(base_path, *req_path)
-        if page_path.endswith('.md'):
-            markdown_title = req_path[-1]
-            markdown_body = open(abs_path, mode='r', encoding='utf8').read()
-            markdown_body = markdown_body.replace('\\', '\\\\').replace('\"', '\\\"').replace("\n", "\\n")
-            return web.Response(
-                text=markdown_template.replace('{:title}', markdown_title, 1).replace('{:body}', markdown_body, 1),
-                headers=utils.CONTENT_TYPE_HTML)
-        elif not os.path.exists(abs_path):
-            return web.Response(text="Not found page. {}".format(req_path[-1]), status=404)
-        elif os.path.isfile(abs_path):
-            return web.Response(body=open(abs_path, mode='rb').read(), headers=utils.CONTENT_TYPE_HTML)
-        else:
-            return web.Response(
-                body=open(os.path.join(abs_path, 'index.html'), mode='rb').read(),
-                headers=utils.CONTENT_TYPE_HTML)
-    except Exception:
-        return utils.error_res()
-
-
-async def system_resync(request):
+async def system_resync(credentials: HTTPBasicCredentials = Depends(auth)):
+    """
+    This end-point make system resync. It will take many time.
+    """
     from bc4py.config import P
     log.warning("Manual set booting flag to go into resync mode")
     P.F_NOW_BOOTING = True
-    return web.Response(text='set booting mode now')
+    return 'set booting mode now'
 
 
-async def system_close(request):
+async def system_close(credentials: HTTPBasicCredentials = Depends(auth)):
+    """
+    This end-point make system close.
+    It take a few seconds.
+    """
     log.info("closing now")
     from bc4py.exit import system_safe_exit
     asyncio.run_coroutine_threadsafe(system_safe_exit(), loop)
-    return web.Response(text='closing now')
+    return 'closing now'
 
 
 __all__ = [
-    "localhost_urls",
-    "escape_cross_origin_block",
-    "PrivateAccessStrategy",
-    "setup_ssl_context",
     "setup_rest_server",
 ]
