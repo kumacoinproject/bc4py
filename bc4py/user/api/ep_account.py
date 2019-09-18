@@ -193,46 +193,6 @@ async def move_many(movement: MoveMany, credentials: HTTPBasicCredentials = Depe
         return error_response()
 
 
-async def new_address(account: str = C.account2name[C.ANT_UNKNOWN],
-                      credentials: HTTPBasicCredentials = Depends(auth)):
-    """
-    This end-point create new address.
-    * address of account
-    """
-    async with create_db(V.DB_ACCOUNT_PATH) as db:
-        cur = await db.cursor()
-        user_id = await read_name2userid(account, cur)
-        addr: PyAddress = await generate_new_address_by_userid(user_id, cur)
-        await db.commit()
-    return {
-        'account': account,
-        'user_id': user_id,
-        'address': addr.string,
-        'version': addr.version,
-        'identifier': addr.identifier().hex(),
-    }
-
-
-async def get_keypair(address: str, credentials: HTTPBasicCredentials = Depends(auth)):
-    """
-    This end-point show keypair info of address.
-    * address
-    """
-    try:
-        async with create_db(V.DB_ACCOUNT_PATH) as db:
-            cur = await db.cursor()
-            uuid, keypair, path = await read_address2keypair(PyAddress.from_string(address), cur)
-            return {
-                'uuid': uuid,
-                'address': address,
-                'private_key': keypair.get_secret_key().hex(),
-                'public_key': keypair.get_public_key().hex(),
-                'path': path
-            }
-    except Exception:
-        return error_response()
-
-
 __all__ = [
     "list_balance",
     "list_transactions",
@@ -241,6 +201,4 @@ __all__ = [
     "list_account_address",
     "move_one",
     "move_many",
-    "new_address",
-    "get_keypair",
 ]

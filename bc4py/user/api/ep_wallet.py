@@ -1,8 +1,7 @@
 from bc4py.config import C, V
 from bc4py.bip32 import Bip32, BIP32_HARDEN, get_address
-from bc4py.user.api import utils
 from bc4py.database.create import create_db
-from bc4py.database.account import insert_keypair_from_outside, read_name2userid
+from bc4py.database.account import *
 from bc4py.user.api.utils import auth, error_response
 from fastapi import Depends
 from fastapi.security import HTTPBasicCredentials
@@ -30,6 +29,46 @@ class PrivateKeyFormat(BaseModel):
     private_key: str
     address: str
     account: str = C.account2name[C.ANT_UNKNOWN]
+
+
+async def new_address(account: str = C.account2name[C.ANT_UNKNOWN],
+                      credentials: HTTPBasicCredentials = Depends(auth)):
+    """
+    This end-point create new address.
+    * address of account
+    """
+    async with create_db(V.DB_ACCOUNT_PATH) as db:
+        cur = await db.cursor()
+        user_id = await read_name2userid(account, cur)
+        addr: PyAddress = await generate_new_address_by_userid(user_id, cur)
+        await db.commit()
+    return {
+        'account': account,
+        'user_id': user_id,
+        'address': addr.string,
+        'version': addr.version,
+        'identifier': addr.identifier().hex(),
+    }
+
+
+async def get_keypair(address: str, credentials: HTTPBasicCredentials = Depends(auth)):
+    """
+    This end-point show keypair info of address.
+    * address
+    """
+    try:
+        async with create_db(V.DB_ACCOUNT_PATH) as db:
+            cur = await db.cursor()
+            uuid, keypair, path = await read_address2keypair(PyAddress.from_string(address), cur)
+            return {
+                'uuid': uuid,
+                'address': address,
+                'private_key': keypair.get_secret_key().hex(),
+                'public_key': keypair.get_public_key().hex(),
+                'path': path
+            }
+    except Exception:
+        return error_response()
 
 
 async def create_wallet(wallet: WalletFormat, credentials: HTTPBasicCredentials = Depends(auth)):
@@ -84,6 +123,8 @@ async def import_private_key(key: PrivateKeyFormat, credentials: HTTPBasicCreden
 
 
 __all__ = [
+    "new_address",
+    "get_keypair",
     "create_wallet",
     "import_private_key",
 ]

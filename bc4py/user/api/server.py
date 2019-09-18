@@ -1,11 +1,11 @@
-from .baseinfo import *
-from .accountinfo import *
-from .editaccount import *
-from .usertool import *
-from .chaininfo import *
-from .websocket import *
-from .createtx import *
-from .jsonrpc import json_rpc
+from bc4py.user.api.ep_system import *
+from bc4py.user.api.ep_account import *
+from bc4py.user.api.ep_sending import *
+from bc4py.user.api.ep_blockchain import *
+from bc4py.user.api.ep_wallet import *
+from bc4py.user.api.ep_others import *
+from bc4py.user.api.ep_websocket import *
+from bc4py.user.api.jsonrpc import json_rpc
 from bc4py.config import V
 from bc4py.user.api.utils import *
 from fastapi import FastAPI, Depends
@@ -55,12 +55,14 @@ async def setup_rest_server(
     app.add_api_route('/public/listunspents', list_unspents, **api_kwargs)
     app.add_api_route('/private/listunspents', list_private_unspents, **api_kwargs)
     app.add_api_route('/private/listaccountaddress', list_account_address, **api_kwargs)
-    app.add_api_route('/private/createwallet', create_wallet, methods=['POST'], **api_kwargs)
-    app.add_api_route('/private/importprivatekey', import_private_key, methods=['POST'], **api_kwargs)
     app.add_api_route('/private/move', move_one, methods=['POST'], **api_kwargs)
     app.add_api_route('/private/movemany', move_many, methods=['POST'], **api_kwargs)
+    # Wallet
+    api_kwargs = dict(tags=['Wallet'], response_class=IndentResponse)
     app.add_api_route('/private/newaddress', new_address, **api_kwargs)
     app.add_api_route('/private/getkeypair', get_keypair, **api_kwargs)
+    app.add_api_route('/private/createwallet', create_wallet, methods=['POST'], **api_kwargs)
+    app.add_api_route('/private/importprivatekey', import_private_key, methods=['POST'], **api_kwargs)
     # Sending
     api_kwargs = dict(tags=['Sending'], response_class=IndentResponse)
     app.add_api_route('/public/createrawtx', create_raw_tx, methods=['POST'], **api_kwargs)
