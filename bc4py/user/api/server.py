@@ -83,8 +83,8 @@ async def setup_rest_server(
     app.add_api_route('/private/createbootstrap', create_bootstrap, **api_kwargs)
     app.add_api_websocket_route('/public/ws', websocket_route)
     app.add_api_route('/public/ws', websocket_route, **api_kwargs)
-    app.add_api_websocket_route('/private/ws', websocket_route)
-    app.add_api_route('/private/ws', websocket_route, **api_kwargs)
+    app.add_api_websocket_route('/private/ws', private_websocket_route)
+    app.add_api_route('/private/ws', private_websocket_route, **api_kwargs)
     app.add_api_route('/', json_rpc, methods=['POST'], **api_kwargs)
 
     # Cross-Origin Resource Sharing

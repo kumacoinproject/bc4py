@@ -1,7 +1,9 @@
 from bc4py.config import P, stream
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
-from fastapi import HTTPException
+from bc4py.user.api.utils import auth
+from fastapi import HTTPException, Depends
+from fastapi.security import HTTPBasicCredentials
 from starlette.websockets import WebSocket, WebSocketState
 from starlette.requests import Request
 from starlette.status import HTTP_404_NOT_FOUND
@@ -24,7 +26,7 @@ CMD_ERROR = 'Error'
 
 async def websocket_route(request: Request, ws: WebSocket):
     """
-    websocket stream end-point
+    websocket public stream
     """
     if request.client.host.startswith('/public/'):
         is_public = True
@@ -57,6 +59,14 @@ async def websocket_route(request: Request, ws: WebSocket):
             break
     await ws.close()
     log.debug("close {}".format(ws))
+
+
+async def private_websocket_route(
+        request: Request, ws: WebSocket, credentials: HTTPBasicCredentials = Depends(auth)):
+    """
+    websocket private stream
+    """
+    await websocket_route(request, ws)
 
 
 class WsClient(object):
@@ -128,5 +138,6 @@ __all__ = [
     "CMD_NEW_BLOCK",
     "CMD_NEW_TX",
     "websocket_route",
+    "private_websocket_route",
     "broadcast_clients",
 ]
