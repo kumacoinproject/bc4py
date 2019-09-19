@@ -9,6 +9,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from typing import Any
 from json import dumps
 from logging import getLogger
+from time import time
+import random
 
 log = getLogger('bc4py')
 security = HTTPBasic()
@@ -19,12 +21,20 @@ localhost_urls = {
     "localhost",
     "127.0.0.1",
 }
+fail_counter = 5
 
 
-def setup_basic_auth_params(user: str, pwd: str, extra_locals=None):
+def random_str(n):
+    """select from 62 letters"""
+    return ''.join(random.choices("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ", k=n))
+
+
+def setup_basic_auth_params(user: str = None, pwd: str = None, extra_locals=None):
     global username, password
-    username = user
-    password = pwd
+    username = user or random_str(10)
+    password = pwd or random_str(10)
+    if user is None or pwd is None:
+        log.warning("auto setup basicAuth {}:{}".format(username, password))
     if extra_locals:
         localhost_urls.update(extra_locals)
 
@@ -48,13 +58,27 @@ def auth(request: Request, credentials: HTTPBasicCredentials = Depends(security)
             status_code=HTTP_403_FORBIDDEN,
             detail="2: private method only allow from locals",
         )
-    if credentials.username != username or credentials.password != password:
+
+    global fail_counter
+    if isinstance(fail_counter, float):
+        if fail_counter < time() - 10.0:
+            fail_counter = 5
         raise HTTPException(
             status_code=HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Basic"},
+            detail="Too many authentication failre",
         )
-    return credentials
+    else:
+        if credentials.username == username and credentials.password == password:
+            return credentials
+        else:
+            if 0 < fail_counter:
+                fail_counter -= 1
+            else:
+                fail_counter = time()
+            raise HTTPException(
+                status_code=HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username or password",
+            )
 
 
 class IndentResponse(Response):

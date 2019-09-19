@@ -97,12 +97,12 @@ def console_args_parser():
                    default='127.0.0.1',
                    type=str)
     p.add_argument('--user', '-u',
-                   help='API user name',
-                   default='user',
+                   help='API username, auto generate if null',
+                   default=None,
                    type=str)
     p.add_argument('--password', '-p',
-                   help='API password',
-                   default='password',
+                   help='API password, auto generate if null',
+                   default=None,
                    type=str)
     p.add_argument('--sub-dir',
                    help='setup blockchain folder path',

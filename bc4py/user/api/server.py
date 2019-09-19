@@ -24,13 +24,13 @@ loop = asyncio.get_event_loop()
 
 
 async def setup_rest_server(
-        user='user', pwd='password', port=3000, host='127.0.0.1', **kwargs):
+        user: str = None, pwd: str = None, port=3000, host='127.0.0.1', **kwargs):
     """
     create REST server for API
     :param user: BasicAuth username
     :param pwd: BasicAuth password
     :param port: REST bind port
-    :param host: REST bind host, "0.0.0.0" is global
+    :param host: REST bind host, "0.0.0.0" is not restriction
     """
     app = FastAPI(
         version=__api_version__,
@@ -97,7 +97,6 @@ async def setup_rest_server(
     app.add_middleware(ConditionCheckMiddleware)
 
     # setup basic auth
-    assert isinstance(user, str) and isinstance(pwd, str)
     setup_basic_auth_params(user, pwd, **kwargs)
 
     # Working
