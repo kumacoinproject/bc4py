@@ -16,7 +16,9 @@ log = getLogger('bc4py')
 
 async def create_bootstrap(credentials: HTTPBasicCredentials = Depends(auth)):
     """
-    This end-point create bootstrap.tar.gz file. It will take many time.
+    This end-point create bootstrap.tar.gz file.
+    * About
+        * It will take some minutes.
     """
     try:
         boot_path = os.path.join(V.DB_HOME_DIR, 'bootstrap-ver{}.dat.gz'.format(__chain_version__))

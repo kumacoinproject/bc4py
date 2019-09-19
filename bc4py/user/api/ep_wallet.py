@@ -35,7 +35,8 @@ async def new_address(account: str = C.account2name[C.ANT_UNKNOWN],
                       credentials: HTTPBasicCredentials = Depends(auth)):
     """
     This end-point create new address.
-    * address of account
+    * Arguments
+        1. **account** : account name default="@Unknown"
     """
     async with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = await db.cursor()
@@ -54,7 +55,8 @@ async def new_address(account: str = C.account2name[C.ANT_UNKNOWN],
 async def get_keypair(address: str, credentials: HTTPBasicCredentials = Depends(auth)):
     """
     This end-point show keypair info of address.
-    * address
+    * Arguments
+        1. **address** : (string, required)
     """
     try:
         async with create_db(V.DB_ACCOUNT_PATH) as db:
@@ -74,8 +76,9 @@ async def get_keypair(address: str, credentials: HTTPBasicCredentials = Depends(
 async def create_wallet(wallet: WalletFormat, credentials: HTTPBasicCredentials = Depends(auth)):
     """
     This end-point generate new keystone.json data.
-    * encrypt passphrase
-    * entropy bit length
+    * Arguments
+        1. **passphrase** :  (string, optional, default="")  encrypt passphrase
+        2. **strength** :    (numeric, optional, default=256) entropy bit length (12, 15, 18, 21, 24)
     """
     try:
         if wallet.length not in length_list:
@@ -101,9 +104,10 @@ async def create_wallet(wallet: WalletFormat, credentials: HTTPBasicCredentials 
 async def import_private_key(key: PrivateKeyFormat, credentials: HTTPBasicCredentials = Depends(auth)):
     """
     This end-point import privateKey by manual.
-    * private key hex-string
-    * address of private key
-    * account, default @Unknown
+    * Arguments
+        1. **private_key** : (hex string, required)
+        2. **address** :     (string, required) check by this
+        3. **account** :     (string, optional, default="@Unknown") insert to account
     """
     try:
         sk = a2b_hex(key.private_key)

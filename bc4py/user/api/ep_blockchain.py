@@ -5,6 +5,12 @@ from binascii import a2b_hex
 
 
 async def get_block_by_height(height: int, txinfo: bool = False):
+    """
+    show block info from height
+    * Arguments
+        1. **height** :  block height
+        2. **txinfo** :  show tx info if true, only txhash if false
+    """
     blockhash = chain_builder.get_block_hash(height)
     if blockhash is None:
         return error_response("Not found height")
@@ -15,6 +21,12 @@ async def get_block_by_height(height: int, txinfo: bool = False):
 
 
 async def get_block_by_hash(hash: str, txinfo: bool = False):
+    """
+    show block info by hash
+    * Arguments
+        1. **hash** :  block hash
+        2. **txinfo** :  show tx info if true, only txhash if false
+    """
     try:
         blockhash = a2b_hex(hash)
         block = chain_builder.get_block(blockhash)
@@ -28,6 +40,11 @@ async def get_block_by_hash(hash: str, txinfo: bool = False):
 
 
 async def get_tx_by_hash(hash: str):
+    """
+    show tx info by hash
+    * Arguments
+        1. **hash** : txhash
+    """
     try:
         txhash = a2b_hex(hash)
         # if you cannot get TX, please check DB config `txindex`
@@ -45,6 +62,13 @@ async def get_tx_by_hash(hash: str):
 
 
 async def get_mintcoin_info(mint_id: int = 0):
+    """
+    show mint coin info by coinId
+    * Arguments
+        1. **mint_id** : mint coin id
+    * About
+        * id 0 is base currency
+    """
     try:
         m = get_mintcoin_object(coin_id=mint_id)
         return m.info
@@ -53,6 +77,13 @@ async def get_mintcoin_info(mint_id: int = 0):
 
 
 async def get_mintcoin_history(mint_id: int = 0):
+    """
+    show mint coin history by coinId
+    * Arguments
+        1. **mint_id** : mint coin id
+    * About
+        * caution! this show only database stored data, not memory not unconfirmed status.
+    """
     try:
         data = list()
         # from only database

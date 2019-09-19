@@ -21,7 +21,6 @@ class MoveOne(BaseModel):
 
 
 class MoveMany(BaseModel):
-    amount: int
     sender: str
     recipient: str = C.account2name[C.ANT_UNKNOWN]
     coins: Dict[int, int]
@@ -31,6 +30,11 @@ async def list_balance(confirm: int = 6, credentials: HTTPBasicCredentials = Dep
     """
     This end-point show all user's account balances.
     * minimum confirmation height, default 6
+    * Arguments
+        1. **confirm** : confirmation height
+    * About
+        * Get all account balance.
+        * Coin_id `0` is base currency.
     """
     data = dict()
     async with create_db(V.DB_ACCOUNT_PATH) as db:
@@ -45,8 +49,14 @@ async def list_balance(confirm: int = 6, credentials: HTTPBasicCredentials = Dep
 async def list_transactions(page: int = 0, limit: int = 25, credentials: HTTPBasicCredentials = Depends(auth)):
     """
     This end-point show all account's recent transactions.
-    * page number, default 0
-    * page size limit, default 25
+    * Arguments
+        1. **page** : page number.
+        2. **limit** : Number of TX included in Page.
+    * About
+        * `movement` inner account balance movement.
+        * `next` next page exists.
+        * If `height` is null, TX is on memory.
+        * null height TX is older than recode limit or unconfirmed.
     """
     data = list()
     f_next_page = False
@@ -68,9 +78,12 @@ async def list_transactions(page: int = 0, limit: int = 25, credentials: HTTPBas
 async def list_unspents(address: str, page: int = 0, limit: int = 25):
     """
     This end-point show address related unspents.
-    * some addresses joined with comma
-    * page number, default 0
-    * page size limit, default 25
+    * Arguments
+        1. **address** : some addresses joined with comma
+        2. **page** : page number.
+        3. **limit** : Number of TX included in Page.
+    * About
+        * display from Database -> Memory -> Unconfirmed
     """
     if not chain_builder.db.db_config['addrindex']:
         return error_response('address isn\'t full indexed')
@@ -108,6 +121,8 @@ async def list_unspents(address: str, page: int = 0, limit: int = 25):
 async def list_private_unspents(credentials: HTTPBasicCredentials = Depends(auth)):
     """
     This end-point show all unspents of account have.
+    * About
+        * just looks same with /public/listunspents
     """
     data = list()
     best_height = chain_builder.best_block.height
@@ -131,7 +146,8 @@ async def list_account_address(account: str = C.account2name[C.ANT_UNKNOWN],
                                credentials: HTTPBasicCredentials = Depends(auth)):
     """
     This end-point show account all related addresses.
-    * user name
+    * Arguments
+        1. **account** : default="@Unknown" Account name
     """
     async with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = await db.cursor()
@@ -147,10 +163,14 @@ async def list_account_address(account: str = C.account2name[C.ANT_UNKNOWN],
 async def move_one(movement: MoveOne, credentials: HTTPBasicCredentials = Depends(auth)):
     """
     This end-point create inner transaction.
-    * amount
-    * recipient account name
-    * sending account name
-    * coinId
+    * Arguments
+        1. **sender** :    (string, optional, default="@Unknown")  Account name
+        2. **recipient** : (string, required)  Account name
+        3. **coin_id** :   (numeric, optional, default=0)
+        4. **amount** :    (numeric, required)
+    * About
+        * txhash = (zerofill 24bytes) + (time big endian 4bytes) + (random 4bytes)
+        * caution! minus amount is allowed.
     """
     try:
         coins = Balance(movement.coin_id, movement.amount)
@@ -172,6 +192,13 @@ async def move_one(movement: MoveOne, credentials: HTTPBasicCredentials = Depend
 async def move_many(movement: MoveMany, credentials: HTTPBasicCredentials = Depends(auth)):
     """
     This end-point create inner transaction.
+    * Arguments
+        1. **sender** :    (string, optional, default="@Unknown")  Account name.
+        2. **recipient** : (string, required)  Account name.
+        3. **coins** :     (object, required) {coinId: amount, ..}
+    * About
+        * coins is dictionary, key=coin_id, value=amount.
+        * caution! minus amount is allowed, zero is not allowed.
     """
     try:
         coins = Balance()

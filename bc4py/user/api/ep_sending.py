@@ -96,11 +96,20 @@ class ChangeMintFormat(BaseModel):
 
 async def create_raw_tx(raw: RawTransaction):
     """
-    create raw transaction with parameters.
-    # [version=1] [type=TRANSFER] [ntime=now] [deadline=now+10800]
-    # [inputs:list()] [outputs:list()]
-    # [gas_price=MINIMUM_PRICE] [gas_amount=MINIMUM_AMOUNT]
-    # [message_type=None] [message=None]
+    create raw transaction
+    * Arguments
+        1. **version** :  (numeric, optional, default=__chain_version__)
+        2. **type** :     (numeric, optional, default=TRANSFER)
+        3. **ntime** :    (numeric, optional, default=NOW)
+        4. **deadline** : (numeric, optional, default=NOW+10800)
+        5. **inputs** :         (list, optional, default=[])
+        6. **outputs** :        (list, optional, default=[])
+        7. **gas_price** :      (numeric, optional, default=MINIMUM_PRICE)
+        8. **gas_amount** :     (numeric, optional, default=tx_size())
+        9. **message_type** :   (numeric, optional, default=MSG_NONE)
+        10. **message** :       (numeric, optional, default=None)
+    * About
+        * time is `unixtime - BLOCK_GENESIS_TIME`
     """
     try:
         if raw.ntime is None:
@@ -150,20 +159,10 @@ async def create_raw_tx(raw: RawTransaction):
 async def broadcast_tx(data: BroadcastFormat):
     """
     broadcast raw transaction
-    * hex
-        * type: string hex
-        * required: true
-        * example: "020000000300000022fd0300522704006400000000000000270000000000000000000000000000"
-        * description: "raw transaction hex string"
-    * signature
-        * type: array
-        * required: true
-        * example: [["0361720a316acb547a3da8c1de0b307dc2e6e977ac04fd4cea31054d8571bfc06d", "9abac1bdc65b87502ee58d71885be9aa3ef2c2ea0162f86f9572e5410c8a8c21", "e8159d3b4c77878bd9f9b3efac0fb9a8cc9457fd4a40499f9200c94253a4061d"]]
-        * description: "[[PK, R, S], ..]"
-    * R
-        * type: string hex
-        * required: true
-        * description: hash lock transaction
+    * Arguments
+        1. **hex** :        (hex string, required) transaction binary
+        2. **signature** :  (list, required) `[(PK, R, S), ..]`
+        3. **R** :          (hex string, optional) hash lock transaction
     """
     start = time()
     try:
@@ -193,38 +192,16 @@ async def broadcast_tx(data: BroadcastFormat):
 
 async def send_from_user(send: SendOne, credentials: HTTPBasicCredentials = Depends(auth)):
     """
-    send with single output
-    * from
-        * type: string,
-        * required: false
-        * example: "@Unknown"
-        * description: "sending account name"
-    * address:
-        * type: string
-        * required: true
-        * example: ""
-    * coin_id:
-        * type: integer
-        * required: false
-        * example: 0
-    * amount:
-        * type: integer
-        * required: true
-        * example: 1000
-    * message:
-        * type: string
-        * required: false
-        * example: ""
-        * message_type:
-        * type: integer
-        * required: false
-        * example: 0
-        * description: "MSG_PLAIN"
-    * hex:
-        * type: string
-        * required: false
-        * example: "null"
-        * description: "this param disables message and message_type params"
+    send tx with single output
+    * Arguments
+        1. **sender** :       (string, optional, default="@Unknown")  Account name.
+        2. **address** :      (string, required)
+        3. **coin_id** :      (numeric, optional, default=0)
+        4. **amount** :       (numeric, required)
+        5. **message_type** : (numeric, optional, default=MSG_NONE)
+        6. **message_hex** :  (hex string, optional, default=None) this param disables message and message_type params
+        7. **message** :      (string, optional, default=None)
+        8. **R** :            (hex string, optional) hash lock transaction
     """
     start = time()
     async with create_db(V.DB_ACCOUNT_PATH, strict=True) as db:
@@ -265,6 +242,13 @@ async def send_from_user(send: SendOne, credentials: HTTPBasicCredentials = Depe
 async def send_many_user(send: SendMany, credentials: HTTPBasicCredentials = Depends(auth)):
     """
     send with many outputs
+    * Arguments
+        1. **sender** :     (string, optional, default="@Unknown")  Account name.
+        2. **pairs** :    (list, required) `[(address, coin_id, amount), ..]`
+        3. **message_type** : (numeric, optional, default=MSG_NONE)
+        4. **message_hex** :  (hex string, optional, default=None) this param disables message and message_type params
+        5. **message** :      (string, optional, default=None)
+        6. **R** :            (hex string, optional) hash lock transaction
     """
     start = time()
     async with create_db(V.DB_ACCOUNT_PATH, strict=True) as db:
@@ -303,7 +287,16 @@ async def send_many_user(send: SendMany, credentials: HTTPBasicCredentials = Dep
 
 async def issue_mint_tx(mint: IssueMintFormat, credentials: HTTPBasicCredentials = Depends(auth)):
     """
-    issue minting new coin
+    issue new mint coin
+    * Arguments
+        1. **sender** :     (string, optional, default="@Unknown")  Account name.
+        2. **name** :       (string, required)   Ex, PyCoin
+        3. **unit** :       (string, required)   Ex, PC
+        5. **digit** :      (numeric, optional, default=8)
+        4. **amount** :     (numeric, required)  minting amount
+        6. **description** :      (string, optional, default=None)
+        7. **image** :            (string, optional, default=None)  URL of image
+        8. **additional_issue** : (string, optional, default=true)
     """
     start = time()
     async with create_db(V.DB_ACCOUNT_PATH, strict=True) as db:
@@ -338,6 +331,14 @@ async def issue_mint_tx(mint: IssueMintFormat, credentials: HTTPBasicCredentials
 async def change_mint_tx(mint: ChangeMintFormat, credentials: HTTPBasicCredentials = Depends(auth)):
     """
     change mint coin settings
+    * Arguments
+        1. **sender** :       (string, optional, default="@Unknown")  Account name.
+        2. **mint_id** :      (numeric, required)  mintcoin's coin_id
+        3. **amount** :       (numeric, optional, default=0)  additional mint amount
+        4. **description** :  (string, optional, default=None)
+        5. **image** :        (string, optional, default=None)  URL of image
+        6. **setting** :      (string, optional, default=None)
+        7. **new_address** :  (string, optional, default=None)  New owner address
     """
     start = time()
     async with create_db(V.DB_ACCOUNT_PATH, strict=True) as db:
