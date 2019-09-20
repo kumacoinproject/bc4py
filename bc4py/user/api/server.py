@@ -99,11 +99,18 @@ async def setup_rest_server(
     # setup basic auth
     setup_basic_auth_params(user, pwd, **kwargs)
 
-    # Working
+    # setup config
     config = uvicorn.Config(app, host=host, port=port, **kwargs)
     config.setup_event_loop()
+    config.load()
+
+    # setup server
     server = uvicorn.Server(config)
-    asyncio.run_coroutine_threadsafe(server.serve(), loop)
+    server.logger = config.logger_instance
+    server.lifespan = config.lifespan_class(config)
+    # server.install_signal_handlers()  # ignore Ctrl+C
+    await server.startup()
+    asyncio.run_coroutine_threadsafe(server.main_loop(), loop)
     log.info(f"API listen on {host}:{port}")
     V.API_OBJ = server
 

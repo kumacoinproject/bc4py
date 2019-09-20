@@ -23,6 +23,7 @@ async def system_safe_exit():
         close_generate()
 
         if V.API_OBJ:
+            V.API_OBJ.handle_exit(None, None)
             await V.API_OBJ.shutdown()
 
         if V.P2P_OBJ:
