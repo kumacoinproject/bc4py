@@ -2,11 +2,9 @@ from bc4py.config import P, stream
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.user.api.utils import auth
-from fastapi import HTTPException, Depends
+from fastapi import Depends
 from fastapi.security import HTTPBasicCredentials
 from starlette.websockets import WebSocket, WebSocketState
-from starlette.requests import Request
-from starlette.status import HTTP_404_NOT_FOUND
 from logging import getLogger
 from typing import List
 import asyncio
@@ -24,21 +22,13 @@ CMD_NEW_TX = 'TX'
 CMD_ERROR = 'Error'
 
 
-async def websocket_route(request: Request, ws: WebSocket):
+async def websocket_route(ws: WebSocket, is_public=True):
     """
     websocket public stream
     """
-    if request.client.host.startswith('/public/'):
-        is_public = True
-    elif request.client.host.startswith('/private/'):
-        is_public = False
-    else:
-        raise HTTPException(
-            status_code=HTTP_404_NOT_FOUND,
-            detail="you should access `/public/ws` or `/private/ws`"
-        )
+    await ws.accept()
     async with client_lock:
-        clients.append(WsClient(ws, request, is_public))
+        clients.append(WsClient(ws, is_public))
     while not P.F_STOP:
         try:
             item = await asyncio.wait_for(ws.receive_json(), 0.2)
@@ -61,27 +51,25 @@ async def websocket_route(request: Request, ws: WebSocket):
     log.debug("close {}".format(ws))
 
 
-async def private_websocket_route(
-        request: Request, ws: WebSocket, credentials: HTTPBasicCredentials = Depends(auth)):
+async def private_websocket_route(ws: WebSocket, credentials: HTTPBasicCredentials = Depends(auth)):
     """
     websocket private stream
     """
-    await websocket_route(request, ws)
+    await websocket_route(ws, False)
 
 
 class WsClient(object):
 
-    def __init__(self, ws: WebSocket, request: Request, is_public: bool):
+    def __init__(self, ws: WebSocket, is_public: bool):
         global number
         number += 1
         self.number = number
         self.ws = ws
-        self.request = request
         self.is_public = is_public
 
     def __repr__(self):
         ws_type = 'Pub' if self.is_public else 'Pri'
-        return f"<WsClient {self.number} {ws_type} {self.request.client.host}>"
+        return f"<WsClient {self.number} {ws_type} {self.ws.client.host}>"
 
     async def close(self):
         if self.ws.client_state != WebSocketState.DISCONNECTED:
@@ -92,7 +80,7 @@ class WsClient(object):
 
     async def send(self, data: str):
         assert client_lock.locked()
-        if self.ws.client_state == WebSocketState.DISCONNECTE:
+        if self.ws.client_state == WebSocketState.DISCONNECTED:
             clients.remove(self)
         else:
             await self.ws.send_text(data)
@@ -110,9 +98,10 @@ def get_json_format(cmd, data, status=True):
 async def broadcast_clients(cmd, data, status=True, is_public=False):
     """broadcast to all clients"""
     message = get_json_format(cmd=cmd, data=data, status=status)
-    for client in clients.copy():
-        if is_public or not client.is_public:
-            await client.send(message)
+    async with client_lock:
+        for client in clients:
+            if is_public or not client.is_public:
+                await client.send(message)
 
 
 def websocket_reactive_stream(data):
