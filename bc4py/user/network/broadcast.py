@@ -51,8 +51,8 @@ class BroadcastCmd:
     async def new_tx(data):
         try:
             new_tx: TX = data['tx']
-            if tx_builder.get_memorized_tx(new_tx.hash) is None:
-                log.debug("bad node, already memorized new tx")
+            if tx_builder.get_memorized_tx(new_tx.hash) is not None:
+                log.debug("high latency node? already memorized new tx")
                 return False
             check_tx_time(new_tx)
             await fill_verified_addr_tx(new_tx)
