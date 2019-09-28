@@ -29,10 +29,10 @@ async def system_safe_exit():
         if V.P2P_OBJ:
             V.P2P_OBJ.close()
 
-        log.info("wait all tasks for max 15s..")
+        log.info("wait all tasks for max 60s..")
         all_task = asyncio.Task.all_tasks()
         all_task.remove(asyncio.Task.current_task())
-        await asyncio.wait(all_task, timeout=15.0)
+        await asyncio.wait(all_task, timeout=60.0)
         log.info("stop waiting tasks and close after 1s")
         loop.call_later(1.0, loop.stop)
     except Exception:

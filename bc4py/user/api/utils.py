@@ -77,7 +77,9 @@ def auth(request: Request, credentials: HTTPBasicCredentials = Depends(security)
                 fail_counter = time()
             raise HTTPException(
                 status_code=HTTP_401_UNAUTHORIZED,
-                detail="Incorrect username or password",
+                detail="Incorrect username or password. "
+                       "basicAuth parameters are automatically set to random string if users do not set manually."
+                       "Please check help message by `python publicnode.py -h`.",
             )
 
 

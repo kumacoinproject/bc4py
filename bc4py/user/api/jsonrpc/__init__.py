@@ -39,7 +39,7 @@ async def json_rpc(request: Request, data: JsonRpcFormat):
 
     # user     => no meaning
     # password => mining consensus number by confing.py
-    user, password = b64decode(auth_data.encode()).decode().split(':')
+    user, password = b64decode(auth_data.encode()).decode().split(':', maxsplit=1)
 
     try:
         # post format => {"id": id, "method": method, "params": [params]}

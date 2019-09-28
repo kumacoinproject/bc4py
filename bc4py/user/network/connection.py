@@ -82,7 +82,7 @@ async def ask_node(cmd, data=None, f_continue_asking=False):
                 if isinstance(r, str):
                     failed += 1
                     if f_continue_asking:
-                        log.warning("Failed cmd={} to {} by \"{}\"".format(cmd, user.name, r))
+                        log.warning("Failed cmd={} to {} by \"{}\"".format(cmd, user.header.name, r))
                         continue
                 return r
             elif user in bad_node:
