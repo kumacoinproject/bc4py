@@ -176,8 +176,15 @@ class Block(object):
 
     @property
     def size(self):
-        # Do not include signature size
+        """size on chain (Do not include signature)"""
         tx_sizes = sum(tx.size for tx in self.txs)
+        header_size = len(self.b)
+        return tx_sizes + header_size
+
+    @property
+    def total_size(self):
+        """size on database (Include signature)"""
+        tx_sizes = sum(tx.total_size for tx in self.txs)
         header_size = len(self.b)
         return tx_sizes + header_size
 

@@ -11,6 +11,7 @@ import asyncio
 import gzip
 import os
 
+loop = asyncio.get_event_loop()
 log = getLogger('bc4py')
 
 
@@ -27,24 +28,31 @@ async def create_bootstrap(credentials: HTTPBasicCredentials = Depends(auth)):
             os.remove(boot_path)
         if chain_builder.root_block is None:
             Exception('root block is None?')
+
         s = time()
         block = None
+        size = 0.0  # MB
         stop_height = chain_builder.root_block.height
         log.info("start create bootstrap.dat.gz data to {}".format(stop_height))
-        with gzip.open(boot_path, mode='ab') as fp:
+        with gzip.open(boot_path, mode='wb') as fp:
             for height, blockhash in chain_builder.db.read_block_hash_iter(start_height=1):
                 if stop_height <= height:
                     break
                 block = chain_builder.get_block(blockhash=blockhash)
                 if block is None:
                     break
-                fp.write(msgpack.dumps((block, block.work_hash, block.bias)))
-                await asyncio.sleep(0.0)
-                if block.height % 100 == 0:
-                    log.info("create bootstrap.dat.gz height={} {}s passed".format(block.height, round(time() - s)))
-        log.info("create new bootstrap.dat.gz finished, last={} {}Minutes".format(block, (time() - s) // 60))
+                await loop.run_in_executor(
+                    None, fp.write, msgpack.dumps((block, block.work_hash, block.bias)))
+                size += block.total_size / 1000000
+                if block.height % 300 == 0:
+                    log.info("create bootstrap.dat.gz height={} size={}mb {}s passed"
+                             .format(block.height, round(size, 2), round(time() - s)))
+
+        log.info("create new bootstrap.dat.gz finished, last={} size={}gb time={}m"
+                 .format(block, round(size/1000, 3), (time() - s) // 60))
         return {
             "height": stop_height,
+            "total_size": size,
             "start_time": int(s),
             "finish_time": int(time()),
         }
