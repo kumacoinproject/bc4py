@@ -2,7 +2,7 @@ aiohttp>=3.0.0 # ver3 required
 fastapi>=0.38.0
 uvicorn  # dependency of fastapi
 pycryptodomex>=3.9.0
-p2p_python==3.0.3
+p2p_python==3.0.4
 psutil
 requests
 more_itertools
