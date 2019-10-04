@@ -96,6 +96,13 @@ def console_args_parser():
                    help='REST API bind host',
                    default='127.0.0.1',
                    type=str)
+    p.add_argument('--server',
+                   help='enable TCP/UDP server for P2P',
+                   action='store_true')
+    p.add_argument('--hostname',
+                   help='server\'s hostname displayed for others',
+                   default=None,
+                   type=str)
     p.add_argument('--user', '-u',
                    help='API username, auto generate if null',
                    default=None,

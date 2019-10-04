@@ -12,7 +12,7 @@ from bc4py.user.api import setup_rest_server
 from bc4py.database.create import check_account_db
 from bc4py.database.builder import chain_builder
 from bc4py.chain.msgpack import default_hook, object_hook
-from p2p_python.utils import setup_p2p_params
+from p2p_python.utils import setup_p2p_params, setup_server_hostname
 from p2p_python.server import Peer2Peer
 from bc4py.for_debug import set_logger
 import asyncio
@@ -68,7 +68,9 @@ def main():
     logging.info("Start p2p network-ver{} .".format(network_ver))
 
     # P2P network setup
-    setup_p2p_params(network_ver=network_ver, p2p_port=p.p2p, sub_dir=p.sub_dir)
+    setup_p2p_params(network_ver=network_ver, p2p_port=p.p2p,
+                     p2p_accept=p.server, p2p_udp_accept=p.server, sub_dir=p.sub_dir)
+    setup_server_hostname(hostname=p.hostname)
     p2p = Peer2Peer(default_hook=default_hook, object_hook=object_hook)
     p2p.event.setup_events_from_class(DirectCmd)
     p2p.setup()
