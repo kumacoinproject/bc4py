@@ -124,6 +124,10 @@ def console_args_parser():
     p.add_argument('--staking',
                    help='enable coin base staking',
                    action='store_true')
+    p.add_argument('--capping',
+                   help="enable cap base staking (path of folder)",
+                   default=None,
+                   type=str)
     p.add_argument('--solo-mining',
                    help='solo mining for debug or testnet',
                    action='store_true')

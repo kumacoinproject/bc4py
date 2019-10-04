@@ -17,6 +17,7 @@ from p2p_python.server import Peer2Peer
 from bc4py.for_debug import set_logger
 import asyncio
 import logging
+import os
 
 
 loop = asyncio.get_event_loop()
@@ -82,11 +83,15 @@ def main():
     # generate (option)
     if p.staking:
         Generate(consensus=C.BLOCK_COIN_POS, power_limit=0.3)
+    if p.capping:
+        if os.path.isdir(p.capping):
+            Generate(consensus=C.BLOCK_CAP_POS, power_limit=0.6, path=p.capping)
+        else:
+            logging.error("setting of PoC mining is wrong! capping=`{}`".format(p.capping))
     if p.solo_mining:
         Generate(consensus=C.BLOCK_YES_POW, power_limit=0.05)
         Generate(consensus=C.BLOCK_X16S_POW, power_limit=0.05)
         Generate(consensus=C.BLOCK_X11_POW, power_limit=0.05)
-        Generate(consensus=C.BLOCK_CAP_POS, power_limit=0.3, path="E:\\plots")
 
     # setup monitor (option)
     if p.console:
