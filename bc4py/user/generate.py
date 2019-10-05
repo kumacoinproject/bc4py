@@ -51,7 +51,8 @@ class Generate(object):
         if executor is None:
             executor = get_executor_object()
         generating_threads.append(self)
-        self.task = asyncio.ensure_future(self.start_loop())
+        # self.task = asyncio.ensure_future(self.start_loop())
+        self.task = asyncio.run_coroutine_threadsafe(self.start_loop(), loop)
         log.info(f"setup generating {C.consensus2name[consensus]}")
 
     def __repr__(self):
