@@ -49,7 +49,8 @@ def setup_client(port, sub_dir):
     logging.info("Start p2p network-ver{} .".format(network_ver))
 
     # P2P network setup
-    setup_p2p_params(network_ver=network_ver, p2p_port=port, sub_dir=sub_dir)
+    setup_p2p_params(network_ver=network_ver, p2p_port=port,
+                     p2p_accept=True, p2p_udp_accept=True, sub_dir=sub_dir)
     p2p = Peer2Peer(f_local=True, default_hook=default_hook, object_hook=object_hook)
     p2p.event.setup_events_from_class(DirectCmd)
     p2p.setup()
@@ -82,7 +83,7 @@ async def setup_chain(port, connections):
     # Debug.F_SHOW_DIFFICULTY = True
     # Debug.F_STICKY_TX_REJECTION = False  # for debug
     if port == 2000:
-        Generate(consensus=C.BLOCK_CAP_POS, power_limit=0.6, path='E:\\plots')
+        Generate(consensus=C.BLOCK_CAP_POS, power_limit=0.6)
     elif port % 3 == 0:
         Generate(consensus=C.BLOCK_YES_POW, power_limit=0.03)
     elif port % 3 == 1:
