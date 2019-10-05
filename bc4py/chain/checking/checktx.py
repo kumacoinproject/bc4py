@@ -6,7 +6,8 @@ from bc4py.chain.checking.tx_mintcoin import *
 from bc4py.chain.checking.utils import *
 from logging import getLogger
 from time import time
-from Cryptodome.Hash import RIPEMD160, SHA256
+import hashlib
+
 
 log = getLogger('bc4py')
 
@@ -136,10 +137,10 @@ def check_hash_locked(tx):
         raise BlockChainError('R is too large {}bytes'.format(len(tx.R)))
     size = len(tx.message)
     if size == 20:
-        if RIPEMD160.new(tx.R).digest() != tx.message:
+        if hashlib.new('ripemd160', tx.R).digest() != tx.message:
             raise BlockChainError('Hash-locked check RIPEMD160 failed')
     elif size == 32:
-        if SHA256.new(tx.R).digest() != tx.message:
+        if hashlib.new('sha256', tx.R).digest() != tx.message:
             raise BlockChainError('Hash-locked check SHA256 failed')
     else:
         raise BlockChainError('H of Hash-locked is not correct size {}'.format(size))
