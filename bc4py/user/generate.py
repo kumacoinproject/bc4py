@@ -9,7 +9,7 @@ from bc4py.chain.checking.utils import stake_coin_check
 from bc4py.database.create import create_db
 from bc4py.database.account import sign_message_by_address, generate_new_address_by_userid
 from bc4py.database.tools import get_my_unspents_iter
-from bc4py_extension import multi_seek
+from bc4py_extension import multi_seek, PyAddress
 from concurrent.futures import ProcessPoolExecutor
 from time import time
 from collections import deque
@@ -264,7 +264,7 @@ class Generate(object):
             # let's seek files
             future: asyncio.Future = loop.run_in_executor(
                 None, multi_seek,
-                dir_path, previous_hash, target.to_bytes(32, 'big'), block_time, os.cpu_count())
+                dir_path, previous_hash, target.to_bytes(32, 'little'), block_time, os.cpu_count())
             await asyncio.wait_for(future, 60.0)
             nonce, work_hash, address = future.result()
             if work_hash is None:
@@ -273,6 +273,7 @@ class Generate(object):
                     log.debug("PoC mining info by \"{}\"".format(address))
             else:
                 # return success => (nonce, workhash, address)
+                address: PyAddress = PyAddress.from_string(address)
                 if previous_block is None or unconfirmed_txs is None:
                     continue
                 if previous_block.hash != previous_hash:

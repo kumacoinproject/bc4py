@@ -106,7 +106,7 @@ def check_tx_poc_reward(tx, include_block):
                                                                             tx.deadline))
 
     # work check
-    scope_hash = poc_hash(address=o_address, nonce=include_block.nonce)
+    scope_hash = poc_hash(address=o_address.string, nonce=include_block.nonce)
     index = scope_index(include_block.previous_hash)
     work_hash = poc_work(
         time=include_block.time,

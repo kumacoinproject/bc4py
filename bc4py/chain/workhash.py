@@ -60,7 +60,7 @@ def update_work_hash(block):
     elif block.flag == C.BLOCK_CAP_POS:
         proof_tx = block.txs[0]
         address, coin_id, amount = proof_tx.outputs[0]
-        scope_hash = poc_hash(address=address, nonce=block.nonce)
+        scope_hash = poc_hash(address=address.string, nonce=block.nonce)
         index = scope_index(block.previous_hash)
         block.work_hash = poc_work(
             time=block.time, scope_hash=scope_hash[index * 32:index*32 + 32], previous_hash=block.previous_hash)
