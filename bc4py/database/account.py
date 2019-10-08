@@ -84,7 +84,7 @@ async def read_address2keypair(address: PyAddress, cur: Cursor):
         sk = bip.get_private_key()
         path = bip.path
     else:
-        sk = AESCipher.decrypt(key=V.EXTENDED_KEY_OBJ.get_secret_key(), enc=sk)
+        sk = AESCipher.decrypt(key=V.EXTENDED_KEY_OBJ.get_private_key(), enc=sk)
         path = None
     keypair: PyKeyPair = PyKeyPair.from_secret_key(sk)
     return uuid, keypair, path
@@ -119,7 +119,7 @@ async def insert_keypair_from_outside(sk, ck, user, cur: Cursor):
     assert isinstance(user, int)
     if V.EXTENDED_KEY_OBJ is None or V.EXTENDED_KEY_OBJ.secret is None:
         raise BlockChainError('You try to insert keypair but secret extended key not found')
-    sk = AESCipher.encrypt(key=V.EXTENDED_KEY_OBJ.get_secret_key(), raw=sk)
+    sk = AESCipher.encrypt(key=V.EXTENDED_KEY_OBJ.get_private_key(), raw=sk)
     await cur.execute("""
     INSERT OR IGNORE INTO `pool`
     (`sk`,`ck`,`user`,`time`) VALUES (?,?,?,?)
