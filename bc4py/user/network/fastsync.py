@@ -57,7 +57,7 @@ async def back_sync_loop():
             request_height = await asyncio.wait_for(back_que.get(), 10.0)
             if request_height in stack_dict:
                 continue
-            block_list = await seek_nodes(cmd=DirectCmd.big_blocks, data={'height': request_height})
+            block_list = await ask_random_node(cmd=DirectCmd.big_blocks, data={'height': request_height})
             block_tmp = dict()
             task_list = list()
             for block in block_list:
@@ -163,7 +163,7 @@ async def main_sync_loop():
             if txhash in tx_builder.unconfirmed:
                 continue
             try:
-                tx: TX = await seek_nodes(cmd=DirectCmd.tx_by_hash, data={'txhash': txhash})
+                tx: TX = await ask_random_node(cmd=DirectCmd.tx_by_hash, data={'txhash': txhash})
                 tx.height = None
                 await fill_verified_addr_tx(tx)
                 unconfirmed_txs.append(tx)

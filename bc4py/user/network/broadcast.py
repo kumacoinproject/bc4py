@@ -8,7 +8,7 @@ from bc4py.database.create import create_db
 from bc4py.database.builder import chain_builder, tx_builder
 from bc4py.user.network.update import update_info_for_generate
 from bc4py.user.network.directcmd import DirectCmd
-from bc4py.user.network.connection import ask_node, seek_nodes
+from bc4py.user.network.connection import ask_node, ask_random_node
 from logging import getLogger
 
 log = getLogger('bc4py')
@@ -139,7 +139,7 @@ async def broadcast_check(user, data):
 async def make_block_by_node(blockhash, depth):
     """ create Block by outside node """
     log.debug("make block by node depth={} hash={}".format(depth, blockhash.hex()))
-    block: Block = await seek_nodes(cmd=DirectCmd.block_by_hash, data={'blockhash': blockhash})
+    block: Block = await ask_random_node(cmd=DirectCmd.block_by_hash, data={'blockhash': blockhash})
     before_block = chain_builder.get_block(blockhash=block.previous_hash)
     if before_block is None:
         if depth < C.MAX_RECURSIVE_BLOCK_DEPTH:

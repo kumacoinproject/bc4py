@@ -126,12 +126,12 @@ async def ask_all_nodes(cmd, data=None):
                           .format(len(good_node), len(bad_node), cmd.__name__))
 
 
-async def seek_nodes(cmd, data=None):
+async def ask_random_node(cmd, data=None):
     await check_network_connection()
     pc = V.P2P_OBJ
     user_list = pc.core.user.copy()
     random.shuffle(user_list)
-    for user in pc.core.user.copy():
+    for user in user_list:
         try:
             if len(good_node) == 0:
                 await set_good_node()
@@ -177,7 +177,7 @@ __all__ = [
     "reset_good_node",
     "ask_node",
     "ask_all_nodes",
-    "seek_nodes",
+    "ask_random_node",
     "get_best_conn_info",
     "check_network_connection",
 ]
