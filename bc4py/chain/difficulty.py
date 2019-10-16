@@ -2,6 +2,8 @@ from bc4py.config import C, V, Debug
 from bc4py.database.builder import chain_builder
 from bc4py.chain.utils import bits2target, target2bits
 from functools import lru_cache
+from collections import namedtuple
+
 
 # https://github.com/zawy12/difficulty-algorithms/issues/3
 
@@ -27,40 +29,40 @@ MAX_BITS = 0x1f0fffff
 MAX_TARGET = bits2target(MAX_BITS)
 GENESIS_PREVIOUS_HASH = b'\xff' * 32
 MAX_SEARCH_BLOCKS = 1000
+BlockHeader = namedtuple('BlockHeader', ["flag", "previous_hash", "time", "bits"])
+
+
+@lru_cache(maxsize=1024)
+def get_block_params(blockhash):
+    """return namedTuple block header with lru_cache"""
+    block = chain_builder.get_block(blockhash)
+    if block is None:
+        return None
+    return BlockHeader(block.flag, block.previous_hash, block.time, block.bits)
 
 
 @lru_cache(maxsize=256)
-def params(block_span=600):
-    # T=<target solvetime(s)>
-    T = block_span
-
-    # height -1 = most recently solved block number
-    # target  = 1/difficulty/2^x where x is leading zeros in coin's max_target, I believe
-    # Recommended N:
-    N = int(45 * (600 / T)**0.3)
-
-    # To get a more accurate solvetime to within +/- ~0.2%, use an adjustment factor.
-    # This technique has been shown to be accurate in 4 coins.
-    # In a formula:
-    # [edit by zawy: since he's using target method, adjust should be 0.998. This was my mistake. ]
-    adjust = 0.9989**(500 / N)
-    K = int((N+1) / 2 * adjust * T)
-
-    # Bitcoin_gold T=600, N=45, K=13632
-    return N, K
-
-
-@lru_cache(maxsize=512)
 def get_bits_by_hash(previous_hash, consensus):
     if Debug.F_CONSTANT_DIFF:
         return MAX_BITS, MAX_TARGET
     elif previous_hash == GENESIS_PREVIOUS_HASH:
         return MAX_BITS, MAX_TARGET
 
-    # Get best block time
-    block_time = round(V.BLOCK_TIME_SPAN / V.BLOCK_CONSENSUSES[consensus] * 100)
-    # Get N, K params
-    N, K = params(block_time)
+    # T=<target solvetime(s)>
+    T = round(V.BLOCK_TIME_SPAN / V.BLOCK_CONSENSUSES[consensus] * 100)
+
+    # height -1 = most recently solved block number
+    # target  = 1/difficulty/2^x where x is leading zeros in coin's max_target, I believe
+    # Recommended N:
+    N = int(45 * (600 / T) ** 0.3)
+
+    # To get a more accurate solvetime to within +/- ~0.2%, use an adjustment factor.
+    # This technique has been shown to be accurate in 4 coins.
+    # In a formula:
+    # [edit by zawy: since he's using target method, adjust should be 0.998. This was my mistake. ]
+    adjust = 0.9989 ** (500 / N)
+    K = int((N + 1) / 2 * adjust * T)
+    # Bitcoin_gold T=600, N=45, K=13632
 
     # Loop through N most recent blocks.  "< height", not "<=".
     # height-1 = most recently solved rblock
@@ -69,7 +71,7 @@ def get_bits_by_hash(previous_hash, consensus):
     target = list()
     j = 0
     for _ in range(MAX_SEARCH_BLOCKS):
-        target_block = chain_builder.get_block(target_hash)
+        target_block = get_block_params(target_hash)
         if target_block is None:
             return MAX_BITS, MAX_TARGET
         if target_block.flag != consensus:
@@ -128,7 +130,7 @@ def get_bias_by_hash(previous_hash, consensus):
     target_diffs = list()
     target_hash = previous_hash
     for _ in range(MAX_SEARCH_BLOCKS):
-        target_block = chain_builder.get_block(target_hash)
+        target_block = get_block_params(target_hash)
         if target_block is None:
             return 1.0
         target_hash = target_block.previous_hash
