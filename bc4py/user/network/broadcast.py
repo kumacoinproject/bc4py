@@ -8,7 +8,8 @@ from bc4py.database.create import create_db
 from bc4py.database.builder import chain_builder, tx_builder
 from bc4py.user.network.update import update_info_for_generate
 from bc4py.user.network.directcmd import DirectCmd
-from bc4py.user.network.connection import ask_node, ask_random_node
+from bc4py.user.network.connection import ask_node
+from p2p_python.user import User
 from logging import getLogger
 
 log = getLogger('bc4py')
@@ -20,9 +21,9 @@ class BroadcastCmd:
     fail = 0
 
     @staticmethod
-    async def new_block(data):
+    async def new_block(user, data):
         try:
-            new_block = await fill_newblock_info(data)
+            new_block = await fill_newblock_info(user, data)
         except BlockChainError as e:
             warning = 'Do not accept block "{}"'.format(e)
             log.warning(warning)
@@ -48,7 +49,7 @@ class BroadcastCmd:
             return False
 
     @staticmethod
-    async def new_tx(data):
+    async def new_tx(user, data):
         try:
             new_tx: TX = data['tx']
             if tx_builder.get_memorized_tx(new_tx.hash) is not None:
@@ -73,7 +74,7 @@ class BroadcastCmd:
             return False
 
 
-async def fill_newblock_info(data):
+async def fill_newblock_info(user, data):
     new_block: Block = Block.from_binary(binary=data['binary'])
     log.debug("fill newblock height={} newblock={}".format(data.get('height'), new_block.hash.hex()))
     proof: TX = data['proof']
@@ -87,7 +88,7 @@ async def fill_newblock_info(data):
         log.debug("Cannot find beforeBlock, try to ask outside node")
         # not found beforeBlock, need to check other node have the the block
         new_block.inner_score *= 0.70  # unknown previousBlock, score down
-        before_block = await make_block_by_node(blockhash=new_block.previous_hash, depth=0)
+        before_block = await make_block_by_node(user, new_block.previous_hash, 0)
     new_height = before_block.height + 1
     proof.height = new_height
     new_block.height = new_height
@@ -119,13 +120,13 @@ async def fill_newblock_info(data):
     return new_block
 
 
-async def broadcast_check(user, data):
+async def broadcast_check(user: User, data: dict):
     if P.F_NOW_BOOTING:
         return False
     elif BroadcastCmd.NEW_BLOCK == data['cmd']:
-        result = await BroadcastCmd.new_block(data=data['data'])
+        result = await BroadcastCmd.new_block(user, data['data'])
     elif BroadcastCmd.NEW_TX == data['cmd']:
-        result = await BroadcastCmd.new_tx(data=data['data'])
+        result = await BroadcastCmd.new_tx(user, data['data'])
     else:
         return False
     # check failed count over
@@ -136,14 +137,20 @@ async def broadcast_check(user, data):
     return result
 
 
-async def make_block_by_node(blockhash, depth):
-    """ create Block by outside node """
+async def make_block_by_node(user, blockhash, depth):
+    """create parent block from broadcast node"""
     log.debug("make block by node depth={} hash={}".format(depth, blockhash.hex()))
-    block: Block = await ask_random_node(cmd=DirectCmd.block_by_hash, data={'blockhash': blockhash})
+    _, r = await V.P2P_OBJ.send_direct_cmd(
+        cmd=DirectCmd.block_by_hash, data={'blockhash': blockhash}, user=user)
+    if isinstance(r, str) or not isinstance(r, Block):
+        raise BlockChainError(
+            "failed get parent block '{}' hash={}".format(r, blockhash.hex()))
+    # success
+    block: Block = r
     before_block = chain_builder.get_block(blockhash=block.previous_hash)
     if before_block is None:
         if depth < C.MAX_RECURSIVE_BLOCK_DEPTH:
-            before_block = await make_block_by_node(blockhash=block.previous_hash, depth=depth+1)
+            before_block = await make_block_by_node(user, block.previous_hash, depth+1)
         else:
             raise BlockChainError('Cannot recursive get block depth={} hash={}'
                                   .format(depth, block.previous_hash.hex()))
