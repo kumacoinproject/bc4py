@@ -6,10 +6,9 @@ from bc4py.user.api.ep_wallet import *
 from bc4py.user.api.ep_others import *
 from bc4py.user.api.ep_websocket import *
 from bc4py.user.api.jsonrpc import json_rpc
-from bc4py.config import V
 from bc4py.user.api.utils import *
-from fastapi import FastAPI, Depends
-from fastapi.security import HTTPBasicCredentials
+from bc4py.config import V
+from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
 import uvicorn
@@ -23,12 +22,10 @@ log = getLogger('bc4py')
 loop = asyncio.get_event_loop()
 
 
-async def setup_rest_server(
-        user: str = None, pwd: str = None, port=3000, host='127.0.0.1', **kwargs):
+async def setup_rest_server(port=3000, host='127.0.0.1', extra_locals=None, **kwargs):
     """
     create REST server for API
-    :param user: BasicAuth username
-    :param pwd: BasicAuth password
+    :param extra_locals: add local address ex."1.2.3.4+5.6.7.8+4.5.6.7"
     :param port: REST bind port
     :param host: REST bind host, "0.0.0.0" is not restriction
     """
@@ -96,8 +93,9 @@ async def setup_rest_server(
     # reject when node is booting and redirect /
     app.add_middleware(ConditionCheckMiddleware)
 
-    # setup basic auth
-    setup_basic_auth_params(user, pwd, **kwargs)
+    # add extra local address
+    if extra_locals:
+        local_address.update(extra_locals.split('+'))
 
     # setup config
     config = uvicorn.Config(app, host=host, port=port, **kwargs)
@@ -115,7 +113,7 @@ async def setup_rest_server(
     V.API_OBJ = server
 
 
-async def system_resync(credentials: HTTPBasicCredentials = Depends(auth)):
+async def system_resync():
     """
     This end-point make system resync. It will take many time.
     """
@@ -125,7 +123,7 @@ async def system_resync(credentials: HTTPBasicCredentials = Depends(auth)):
     return 'set booting mode now'
 
 
-async def system_close(credentials: HTTPBasicCredentials = Depends(auth)):
+async def system_close():
     """
     This end-point make system close.
     It take a few seconds.

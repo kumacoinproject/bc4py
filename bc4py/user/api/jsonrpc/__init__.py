@@ -1,13 +1,14 @@
-from starlette.requests import Request
 from pydantic import BaseModel
+from fastapi import Depends
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from .account import *
 from .mining import *
 from .others import *
-from base64 import b64decode
 from logging import getLogger
 import traceback
 
 log = getLogger('bc4py')
+security = HTTPBasic()
 
 # about "coinbasetxn"
 # https://bitcoin.stackexchange.com/questions/13438/difference-between-coinbaseaux-flags-vs-coinbasetxn-data
@@ -25,21 +26,15 @@ class JsonRpcFormat(BaseModel):
     id: str = None
 
 
-async def json_rpc(request: Request, data: JsonRpcFormat):
+async def json_rpc(data: JsonRpcFormat, credentials: HTTPBasicCredentials = Depends(security)):
     """
-    json-rpc for Stratum pool mining
-    """
-    # JSON-RPC require BasicAuth
-    if 'Authorization' not in request.headers:
-        return res_failed("Not found Authorization", None)
-    authorization = request.headers['Authorization']
-    auth_type, auth_data = authorization.split()
-    if auth_type != 'Basic':
-        return res_failed("Not Basic Authorization", None)
+    JSON-RPC for Stratum-pool-mining
 
-    # user     => no meaning
-    # password => mining consensus number by confing.py
-    user, password = b64decode(auth_data.encode()).decode().split(':', maxsplit=1)
+    BasicAuth params
+    * **user**: no meaning
+    * **password**: mining consensus number from config.py
+    """
+    user, password = credentials.username, credentials.password
 
     try:
         # post format => {"id": id, "method": method, "params": [params]}

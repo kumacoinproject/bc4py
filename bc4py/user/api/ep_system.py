@@ -3,10 +3,8 @@ from bc4py.config import C, V, P
 from bc4py.chain.utils import GompertzCurve, DEFAULT_TARGET
 from bc4py.chain.difficulty import get_bits_by_hash, get_bias_by_hash
 from bc4py.database.builder import chain_builder, tx_builder, user_account
-from bc4py.user.api.utils import auth, error_response
+from bc4py.user.api.utils import error_response, local_address
 from bc4py.user.generate import generating_threads
-from fastapi import Depends
-from fastapi.security import HTTPBasicCredentials
 from time import time
 import p2p_python
 
@@ -58,7 +56,7 @@ async def chain_info():
         return error_response()
 
 
-async def chain_fork_info(credentials: HTTPBasicCredentials = Depends(auth)):
+async def chain_fork_info():
     """
     This end-point show blockchain fork info.
     """
@@ -91,7 +89,7 @@ async def system_info():
     }
 
 
-async def system_private_info(credentials: HTTPBasicCredentials = Depends(auth)):
+async def system_private_info():
     """
     This end-point show private system info.
     """
@@ -102,6 +100,7 @@ async def system_private_info(credentials: HTTPBasicCredentials = Depends(auth))
             'directory': V.DB_HOME_DIR,
             'unconfirmed': [txhash.hex() for txhash in tx_builder.unconfirmed.keys()],
             'generate_threads': [str(s) for s in generating_threads],
+            'local_address': list(local_address),
             'prefetch_address': len(user_account.pre_fetch_addr),
             'extended_key': repr(V.EXTENDED_KEY_OBJ),
         }

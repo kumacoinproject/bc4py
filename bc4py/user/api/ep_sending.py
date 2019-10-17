@@ -7,9 +7,7 @@ from bc4py.database.create import create_db
 from bc4py.database.tools import get_output_from_input
 from bc4py.user.network.sendnew import send_newtx
 from bc4py.chain.tx import TX
-from bc4py.user.api.utils import auth, error_response
-from fastapi import Depends
-from fastapi.security import HTTPBasicCredentials
+from bc4py.user.api.utils import error_response
 from pydantic import BaseModel
 from typing import List, Dict, Tuple
 from bc4py_extension import PyAddress
@@ -190,7 +188,7 @@ async def broadcast_tx(data: BroadcastFormat):
         return error_response()
 
 
-async def send_from_user(send: SendOne, credentials: HTTPBasicCredentials = Depends(auth)):
+async def send_from_user(send: SendOne):
     """
     send tx with single output
     * Arguments
@@ -239,7 +237,7 @@ async def send_from_user(send: SendOne, credentials: HTTPBasicCredentials = Depe
             return error_response()
 
 
-async def send_many_user(send: SendMany, credentials: HTTPBasicCredentials = Depends(auth)):
+async def send_many_user(send: SendMany):
     """
     send with many outputs
     * Arguments
@@ -285,7 +283,7 @@ async def send_many_user(send: SendMany, credentials: HTTPBasicCredentials = Dep
             return error_response()
 
 
-async def issue_mint_tx(mint: IssueMintFormat, credentials: HTTPBasicCredentials = Depends(auth)):
+async def issue_mint_tx(mint: IssueMintFormat):
     """
     issue new mint coin
     * Arguments
@@ -328,7 +326,7 @@ async def issue_mint_tx(mint: IssueMintFormat, credentials: HTTPBasicCredentials
             return error_response()
 
 
-async def change_mint_tx(mint: ChangeMintFormat, credentials: HTTPBasicCredentials = Depends(auth)):
+async def change_mint_tx(mint: ChangeMintFormat):
     """
     change mint coin settings
     * Arguments

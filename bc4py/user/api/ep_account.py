@@ -4,9 +4,7 @@ from bc4py.database.builder import chain_builder, user_account
 from bc4py.database.create import create_db
 from bc4py.database.account import *
 from bc4py.database.tools import get_unspents_iter, get_my_unspents_iter
-from bc4py.user.api.utils import auth, error_response
-from fastapi import Depends
-from fastapi.security import HTTPBasicCredentials
+from bc4py.user.api.utils import error_response
 from pydantic import BaseModel
 from bc4py_extension import PyAddress
 from aioitertools import enumerate as aioenumerate
@@ -26,7 +24,7 @@ class MoveMany(BaseModel):
     coins: Dict[int, int]
 
 
-async def list_balance(confirm: int = 6, credentials: HTTPBasicCredentials = Depends(auth)):
+async def list_balance(confirm: int = 6):
     """
     This end-point show all user's account balances.
     * minimum confirmation height, default 6
@@ -46,7 +44,7 @@ async def list_balance(confirm: int = 6, credentials: HTTPBasicCredentials = Dep
     return data
 
 
-async def list_transactions(page: int = 0, limit: int = 25, credentials: HTTPBasicCredentials = Depends(auth)):
+async def list_transactions(page: int = 0, limit: int = 25):
     """
     This end-point show all account's recent transactions.
     * Arguments
@@ -118,7 +116,7 @@ async def list_unspents(address: str, page: int = 0, limit: int = 25):
         return error_response()
 
 
-async def list_private_unspents(credentials: HTTPBasicCredentials = Depends(auth)):
+async def list_private_unspents():
     """
     This end-point show all unspents of account have.
     * About
@@ -142,8 +140,7 @@ async def list_private_unspents(credentials: HTTPBasicCredentials = Depends(auth
     return data
 
 
-async def list_account_address(account: str = C.account2name[C.ANT_UNKNOWN],
-                               credentials: HTTPBasicCredentials = Depends(auth)):
+async def list_account_address(account: str = C.account2name[C.ANT_UNKNOWN]):
     """
     This end-point show account all related addresses.
     * Arguments
@@ -160,7 +157,7 @@ async def list_account_address(account: str = C.account2name[C.ANT_UNKNOWN],
     }
 
 
-async def move_one(movement: MoveOne, credentials: HTTPBasicCredentials = Depends(auth)):
+async def move_one(movement: MoveOne):
     """
     This end-point create inner transaction.
     * Arguments
@@ -189,7 +186,7 @@ async def move_one(movement: MoveOne, credentials: HTTPBasicCredentials = Depend
         return error_response()
 
 
-async def move_many(movement: MoveMany, credentials: HTTPBasicCredentials = Depends(auth)):
+async def move_many(movement: MoveMany):
     """
     This end-point create inner transaction.
     * Arguments

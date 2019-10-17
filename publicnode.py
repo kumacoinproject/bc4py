@@ -80,7 +80,8 @@ def main():
     loop.run_until_complete(setup_chain(connections))
 
     # setup rest server
-    loop.run_until_complete(setup_rest_server(user=p.user, pwd=p.password, port=p.rest, host=p.host))
+    loop.run_until_complete(setup_rest_server(
+        port=p.rest, host=p.host, extra_locals=p.extra_locals))
 
     # generate (option)
     if p.staking:

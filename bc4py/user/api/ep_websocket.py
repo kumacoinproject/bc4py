@@ -1,9 +1,6 @@
 from bc4py.config import P, stream
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
-from bc4py.user.api.utils import auth
-from fastapi import Depends
-from fastapi.security import HTTPBasicCredentials
 from starlette.websockets import WebSocket, WebSocketState
 from logging import getLogger
 from typing import List
@@ -51,7 +48,7 @@ async def websocket_route(ws: WebSocket, is_public=True):
     log.debug("close {}".format(ws))
 
 
-async def private_websocket_route(ws: WebSocket, credentials: HTTPBasicCredentials = Depends(auth)):
+async def private_websocket_route(ws: WebSocket):
     """
     websocket private stream
     """

@@ -2,9 +2,7 @@ from bc4py.config import C, V
 from bc4py.bip32 import Bip32, BIP32_HARDEN, get_address
 from bc4py.database.create import create_db
 from bc4py.database.account import *
-from bc4py.user.api.utils import auth, error_response
-from fastapi import Depends
-from fastapi.security import HTTPBasicCredentials
+from bc4py.user.api.utils import error_response
 from fastapi.utils import BaseModel
 from bc4py_extension import PyAddress
 from multi_party_schnorr import PyKeyPair
@@ -31,8 +29,7 @@ class PrivateKeyFormat(BaseModel):
     account: str = C.account2name[C.ANT_UNKNOWN]
 
 
-async def new_address(account: str = C.account2name[C.ANT_UNKNOWN],
-                      credentials: HTTPBasicCredentials = Depends(auth)):
+async def new_address(account: str = C.account2name[C.ANT_UNKNOWN]):
     """
     This end-point create new address.
     * Arguments
@@ -52,7 +49,7 @@ async def new_address(account: str = C.account2name[C.ANT_UNKNOWN],
     }
 
 
-async def get_keypair(address: str, credentials: HTTPBasicCredentials = Depends(auth)):
+async def get_keypair(address: str):
     """
     This end-point show keypair info of address.
     * Arguments
@@ -73,7 +70,7 @@ async def get_keypair(address: str, credentials: HTTPBasicCredentials = Depends(
         return error_response()
 
 
-async def create_wallet(wallet: WalletFormat, credentials: HTTPBasicCredentials = Depends(auth)):
+async def create_wallet(wallet: WalletFormat):
     """
     This end-point generate new keystone.json data.
     * Arguments
@@ -101,7 +98,7 @@ async def create_wallet(wallet: WalletFormat, credentials: HTTPBasicCredentials 
         return error_response()
 
 
-async def import_private_key(key: PrivateKeyFormat, credentials: HTTPBasicCredentials = Depends(auth)):
+async def import_private_key(key: PrivateKeyFormat):
     """
     This end-point import privateKey by manual.
     * Arguments

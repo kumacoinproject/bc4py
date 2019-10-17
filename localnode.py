@@ -108,7 +108,7 @@ def main():
         break
     connections = setup_client(port=port, sub_dir=str(port))
     loop.run_until_complete(setup_chain(port, connections))
-    loop.run_until_complete(setup_rest_server(user='user', pwd='password', port=port + 1000))
+    loop.run_until_complete(setup_rest_server(port=port + 1000))
     import aiomonitor
     aiomonitor.start_monitor(loop, port=port+2000, console_port=port+3000)
     logging.warning(f"aiomonitor working! use by console `nc 127.0.0.1 {port+2000}`")

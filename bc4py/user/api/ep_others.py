@@ -2,9 +2,7 @@ from bc4py import __chain_version__
 from bc4py.config import V
 from bc4py.chain import msgpack
 from bc4py.database.builder import chain_builder
-from bc4py.user.api.utils import auth, error_response
-from fastapi import Depends
-from fastapi.security import HTTPBasicCredentials
+from bc4py.user.api.utils import error_response
 from logging import getLogger
 from time import time
 import asyncio
@@ -15,7 +13,7 @@ loop = asyncio.get_event_loop()
 log = getLogger('bc4py')
 
 
-async def create_bootstrap(credentials: HTTPBasicCredentials = Depends(auth)):
+async def create_bootstrap():
     """
     This end-point create bootstrap.tar.gz file.
     * About

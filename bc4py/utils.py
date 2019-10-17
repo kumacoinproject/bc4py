@@ -103,12 +103,8 @@ def console_args_parser():
                    help='server\'s hostname displayed for others',
                    default=None,
                    type=str)
-    p.add_argument('--user', '-u',
-                   help='API username, auto generate if null',
-                   default=None,
-                   type=str)
-    p.add_argument('--password', '-p',
-                   help='API password, auto generate if null',
+    p.add_argument('--extra-locals',
+                   help='add API local address ex"1.2.3.4+5.6.7.8"',
                    default=None,
                    type=str)
     p.add_argument('--sub-dir',
