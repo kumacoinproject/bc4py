@@ -40,14 +40,14 @@ class ConditionCheckMiddleware(BaseHTTPMiddleware):
                 if proxy_host is None or proxy_host in local_address:
                     pass  # success
                 else:
-                    raise HTTPException(
+                    return PlainTextResponse(
+                        "private method only allow from locals",
                         status_code=HTTP_403_FORBIDDEN,
-                        detail="1: private method only allow from locals",
                     )
             else:
-                raise HTTPException(
+                return PlainTextResponse(
+                    "private method only allow from locals",
                     status_code=HTTP_403_FORBIDDEN,
-                    detail="2: private method only allow from locals",
                 )
 
         # redirect to doc page
