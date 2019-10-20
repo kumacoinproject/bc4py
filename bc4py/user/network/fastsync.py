@@ -22,8 +22,9 @@ stack_lock = asyncio.Lock()
 stack_dict = dict()
 stack_event = asyncio.Event()
 STACK_CHUNK_SIZE = 100
-PROOF_OF_WORK_FLAGS = (
-    C.BLOCK_YES_POW, C.BLOCK_X11_POW, C.BLOCK_HMQ_POW, C.BLOCK_LTC_POW, C.BLOCK_X16S_POW)
+PROOF_OF_WORK_FLAGS = {
+    C.BLOCK_YES_POW, C.BLOCK_X11_POW, C.BLOCK_X16S_POW
+}
 
 
 def work_generate_future(blocks: List[Block]):

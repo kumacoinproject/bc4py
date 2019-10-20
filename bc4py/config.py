@@ -26,11 +26,8 @@ class C:  # Constant
     BLOCK_COIN_POS = 1
     BLOCK_CAP_POS = 2  # proof of capacity
     BLOCK_FLK_POS = 3  # proof of fund-lock
-
     BLOCK_YES_POW = 5
     BLOCK_X11_POW = 6
-    BLOCK_HMQ_POW = 7
-    BLOCK_LTC_POW = 8
     BLOCK_X16S_POW = 9
     consensus2name = {
         BLOCK_GENESIS: 'GENESIS',
@@ -39,8 +36,6 @@ class C:  # Constant
         BLOCK_FLK_POS: 'POS_FLK',
         BLOCK_YES_POW: 'POW_YES',
         BLOCK_X11_POW: 'POW_X11',
-        BLOCK_HMQ_POW: 'POW_HMQ',
-        BLOCK_LTC_POW: 'POW_LTC',
         BLOCK_X16S_POW: 'POW_X16S',
     }
 

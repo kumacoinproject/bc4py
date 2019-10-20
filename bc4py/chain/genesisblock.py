@@ -37,8 +37,7 @@ def create_genesis_block(mining_supply,
     elif not (0 < max(consensus.values()) <= 100):
         raise BlockChainError('out of range {}'.format(min(consensus.values())))
     all_consensus = {
-        C.BLOCK_COIN_POS, C.BLOCK_CAP_POS, C.BLOCK_FLK_POS, C.BLOCK_YES_POW, C.BLOCK_X11_POW, C.BLOCK_HMQ_POW,
-        C.BLOCK_LTC_POW, C.BLOCK_X16S_POW
+        C.BLOCK_COIN_POS, C.BLOCK_CAP_POS, C.BLOCK_FLK_POS, C.BLOCK_YES_POW, C.BLOCK_X11_POW, C.BLOCK_X16S_POW
     }
     if len(set(consensus.keys()) - all_consensus) > 0:
         raise BlockChainError('Not found all_consensus number {}'.format(set(consensus.keys()) - all_consensus))

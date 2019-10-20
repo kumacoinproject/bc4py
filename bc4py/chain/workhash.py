@@ -23,10 +23,6 @@ def get_workhash_fnc(flag):
         return yespower_hash
     elif flag == C.BLOCK_X11_POW:
         return x11_hash
-    elif flag == C.BLOCK_HMQ_POW:
-        raise NotImplementedError
-    elif flag == C.BLOCK_LTC_POW:
-        raise NotImplementedError
     elif flag == C.BLOCK_X16S_POW:
         return x16s_hash
     elif flag in C.consensus2name:
