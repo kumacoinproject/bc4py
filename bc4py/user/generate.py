@@ -26,7 +26,7 @@ log = getLogger('bc4py')
 generating_threads: List['Generate'] = list()
 output_que = asyncio.Queue(maxsize=1)
 # mining share info
-mining_address: Optional[AnyStr] = None
+mining_address: Optional[PyAddress] = None
 mining_address_lock = asyncio.Lock()
 previous_block: Optional[Block] = None
 unconfirmed_txs: Optional[List] = None

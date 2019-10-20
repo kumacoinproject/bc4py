@@ -74,7 +74,7 @@ def check_already_started():
                     raise RuntimeError('Already running bc4py pid={}'.format(pid))
         except Exception as e:
             log.fatal(f"psutil exception '{e}', check pid and remove pid.lock if you think no problem")
-            exit(1)
+            sys.exit()
     new_pid = os.getpid()
     with open(pid_path, mode='w') as fp:
         fp.write(str(new_pid))

@@ -1,4 +1,5 @@
 from p2p_python.server import Peer2Peer
+from bc4py_extension import PyAddress
 from uvicorn import Server
 from rx.subject import Subject
 from typing import Optional
@@ -135,7 +136,7 @@ class V:
     EXTENDED_KEY_OBJ = None  # <Bip32 m/44'/coinType'> object
 
     # mining
-    MINING_ADDRESS = None
+    MINING_ADDRESS: Optional['PyAddress'] = None
     P2P_OBJ: Optional['Peer2Peer'] = None  # P2P peer client object
     API_OBJ: Optional['Server'] = None  # REST API object
 
