@@ -36,12 +36,14 @@ class ConditionCheckMiddleware(BaseHTTPMiddleware):
         # check private method
         if request.url.path.startswith('/private'):
             if request.client.host in local_address:
-                proxy_host = request.headers.get('X-Forwarded-Host')
+                proxy_host = request.headers.get('X-Forwarded-For')
                 if proxy_host is None or proxy_host in local_address:
                     pass  # success
+                elif proxy_host.startswith('::ffff:') and proxy_host[7:] in local_address:
+                    pass  # success (ipv6)
                 else:
                     return PlainTextResponse(
-                        "private method only allow from locals",
+                        "private method only allow from locals ({})".format(proxy_host),
                         status_code=HTTP_403_FORBIDDEN,
                     )
             else:
