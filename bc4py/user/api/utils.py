@@ -1,5 +1,4 @@
 from bc4py.config import P
-from fastapi import HTTPException
 from starlette.status import (
     HTTP_403_FORBIDDEN, HTTP_503_SERVICE_UNAVAILABLE, HTTP_301_MOVED_PERMANENTLY)
 from starlette.requests import Request
@@ -15,6 +14,9 @@ log = getLogger('bc4py')
 local_address = {
     "localhost",
     "127.0.0.1",
+}
+ALLOW_CROSS_ORIGIN_ACCESS = {
+    'Access-Control-Allow-Origin': '*'
 }
 
 
@@ -45,11 +47,13 @@ class ConditionCheckMiddleware(BaseHTTPMiddleware):
                     return PlainTextResponse(
                         "private method only allow from locals ({})".format(proxy_host),
                         status_code=HTTP_403_FORBIDDEN,
+                        headers=ALLOW_CROSS_ORIGIN_ACCESS,
                     )
             else:
                 return PlainTextResponse(
                     "private method only allow from locals",
                     status_code=HTTP_403_FORBIDDEN,
+                    headers=ALLOW_CROSS_ORIGIN_ACCESS,
                 )
 
         # redirect to doc page
@@ -60,10 +64,11 @@ class ConditionCheckMiddleware(BaseHTTPMiddleware):
             )
 
         # avoid API access until booting
-        if P.F_NOW_BOOTING:
+        if P.F_NOW_BOOTING and request.url.path != '/public/getsysteminfo':
             return PlainTextResponse(
                 "server is now on booting mode..",
                 status_code=HTTP_503_SERVICE_UNAVAILABLE,
+                headers=ALLOW_CROSS_ORIGIN_ACCESS,
             )
 
         # success
@@ -75,12 +80,16 @@ def error_response(errors=None):
     if errors is None:
         import traceback
         errors = str(traceback.format_exc())
-    log.info(f"API error:\n{errors}")
+    log.debug(f"API error:\n{errors}")
     s = errors.split("\n")
     simple_msg = None
     while not simple_msg:
         simple_msg = s.pop(-1)
-    return PlainTextResponse(simple_msg + '\n', 400)
+    return PlainTextResponse(
+        simple_msg + '\n',
+        status_code=400,
+        headers=ALLOW_CROSS_ORIGIN_ACCESS,
+    )
 
 
 __all__ = [
