@@ -1,14 +1,16 @@
 from bc4py.config import P, stream
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
-from starlette.websockets import WebSocket, WebSocketState
-from logging import getLogger
+from starlette.websockets import WebSocket, WebSocketState, WebSocketDisconnect
+from logging import getLogger, INFO
 from typing import List
 import asyncio
 import json
 
 loop = asyncio.get_event_loop()
 log = getLogger('bc4py')
+getLogger('websockets').setLevel(INFO)
+
 number = 0
 clients: List['WsClient'] = list()
 client_lock = asyncio.Lock()
@@ -38,9 +40,12 @@ async def websocket_route(ws: WebSocket, is_public=True):
             }
             await ws.send_text(get_json_format(cmd='debug', data=data))
         except (asyncio.TimeoutError, TypeError):
-            if ws.client_state == WebSocketState.DISCONNECTED:
+            if ws.application_state == WebSocketState.DISCONNECTED:
                 log.debug("websocket already closed")
-                return
+                break
+        except WebSocketDisconnect:
+            log.debug("websocket disconnected")
+            break
         except Exception:
             log.error('websocket_route exception', exc_info=True)
             break
@@ -69,7 +74,7 @@ class WsClient(object):
         return f"<WsClient {self.number} {ws_type} {self.ws.client.host}>"
 
     async def close(self):
-        if self.ws.client_state != WebSocketState.DISCONNECTED:
+        if self.ws.application_state != WebSocketState.DISCONNECTED:
             await self.ws.close()
         async with client_lock:
             if self in clients:
@@ -77,7 +82,7 @@ class WsClient(object):
 
     async def send(self, data: str):
         assert client_lock.locked()
-        if self.ws.client_state == WebSocketState.DISCONNECTED:
+        if self.ws.application_state == WebSocketState.DISCONNECTED:
             clients.remove(self)
         else:
             await self.ws.send_text(data)
@@ -98,7 +103,10 @@ async def broadcast_clients(cmd, data, status=True, is_public=False):
     async with client_lock:
         for client in clients:
             if is_public or not client.is_public:
-                await client.send(message)
+                try:
+                    await client.send(message)
+                except Exception:
+                    log.error("broadcast_clients exception", exc_info=True)
 
 
 def websocket_reactive_stream(data):
