@@ -290,7 +290,7 @@ class MoveLog(object):
     def __hash__(self):
         return hash(self.txhash)
 
-    async def get_dict_data(self, recode_flag, cur: Cursor):
+    async def get_dict_data(self, cur: Cursor, recode_flag=None):
         movement = {
             await read_userid2name(user, cur): dict(balance)
             for user, balance in self.movement.items()

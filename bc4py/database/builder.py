@@ -897,7 +897,7 @@ class UserAccount(object):
                 if move_log:
                     if count >= start:
                         if f_dict:
-                            yield await move_log.get_dict_data(recode_flag='unconfirmed', cur=cur)
+                            yield await move_log.get_dict_data(cur=cur, recode_flag='unconfirmed')
                         else:
                             yield move_log.get_tuple_data()
                     count += 1
@@ -914,7 +914,7 @@ class UserAccount(object):
                     if move_log:
                         if count >= start:
                             if f_dict:
-                                yield await move_log.get_dict_data(recode_flag='memory', cur=cur)
+                                yield await move_log.get_dict_data(cur=cur, recode_flag='memory')
                             else:
                                 yield move_log.get_tuple_data()
                         count += 1
@@ -924,7 +924,7 @@ class UserAccount(object):
                 if move_log.txhash in self.memory_movement:
                     continue
                 elif f_dict:
-                    yield await move_log.get_dict_data(recode_flag='database', cur=cur)
+                    yield await move_log.get_dict_data(cur=cur, recode_flag='database')
                 else:
                     yield move_log.get_tuple_data()
 
