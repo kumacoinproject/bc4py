@@ -707,9 +707,11 @@ class TransactionBuilder(object):
         if tx.hash in self.chained_tx:
             log.debug('Already chained tx. {}'.format(tx))
             return
-        await user_account.affect_new_tx(cur=cur, tx=tx)
+        movement = await user_account.affect_new_tx(cur=cur, tx=tx)
         if not stream.is_disposed:
             stream.on_next(tx)
+            if movement is not None:
+                stream.on_next(movement)
 
     def get_tx(self, txhash, default=None):
         """get memory or unconfirmed or accounted txs"""
@@ -947,11 +949,11 @@ class UserAccount(object):
                     # insert_log
                     await insert_movelog(movement, cur, ntype, ntime, tx.hash)
 
-    async def affect_new_tx(self, cur, tx):
-        movement = Accounting()
+    async def affect_new_tx(self, cur, tx) -> Optional[Accounting]:
+        movement = Accounting(txhash=tx.hash)
         # already registered by send_from_apply method
         if tx.hash in self.memory_movement:
-            return
+            return None
         # add to memory_movement dict
         for txhash, txindex in tx.inputs:
             input_tx = tx_builder.get_account_tx(txhash)
@@ -982,10 +984,15 @@ class UserAccount(object):
         # check
         movement.cleanup()
         if len(movement) == 0:
-            return  # cannot find no movement to recode, skip
+            return None  # cannot find no movement to recode, skip
         move_log = MoveLog(tx.hash, tx.type, movement, tx.time, tx)
         self.memory_movement[tx.hash] = move_log
+
+        # find account related tx
         log.info("affected account by {}".format(tx))
+
+        named_movement = await convert_balance_userid2name(cur, movement)
+        return Accounting(users=named_movement, txhash=tx.hash)
 
     async def check_addr_prefetch(self, address: PyAddress, cur) -> int:
         """check and insert new prefetch address"""

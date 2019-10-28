@@ -274,6 +274,14 @@ async def read_bip_from_path(user, is_inner, index, cur: Cursor):
     return bip.child_key(int(is_inner)).child_key(index)
 
 
+async def convert_balance_userid2name(cur, movement):
+    """convert movement's all userId to userName"""
+    return {
+        await read_userid2name(user_id, cur): balance
+        for user_id, balance in movement.items()
+    }
+
+
 class MoveLog(object):
     __slots__ = ("txhash", "type", "movement", "time", "tx_ref")
 
@@ -291,16 +299,12 @@ class MoveLog(object):
         return hash(self.txhash)
 
     async def get_dict_data(self, cur: Cursor, recode_flag=None):
-        movement = {
-            await read_userid2name(user, cur): dict(balance)
-            for user, balance in self.movement.items()
-        }
         return {
             'txhash': self.txhash.hex(),
             'height': self.height,
             'recode_flag': recode_flag,
             'type': C.txtype2name.get(self.type, None),
-            'movement': movement,
+            'movement': await convert_balance_userid2name(cur, self.movement),
             'time': self.time + V.BLOCK_GENESIS_TIME
         }
 
@@ -338,5 +342,6 @@ __all__ = [
     "read_account_address",
     "sign_message_by_address",
     "read_bip_from_path",
+    "convert_balance_userid2name",
     "MoveLog",
 ]

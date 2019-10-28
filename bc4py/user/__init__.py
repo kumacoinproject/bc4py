@@ -64,13 +64,14 @@ class Balance(defaultdict):
 
 
 class Accounting(defaultdict):
-    __slots__ = tuple()
+    __slots__ = ('txhash',)
 
-    def __init__(self, users=None):
+    def __init__(self, users=None, txhash=None):
         super().__init__(Balance)
         if users and isinstance(users, dict):
             for k, v in users.items():
                 self[k] = v.copy()
+        self.txhash = txhash
 
     def __repr__(self):
         return "<Accounting {}>".format(dict(self))

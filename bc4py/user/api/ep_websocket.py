@@ -1,6 +1,7 @@
 from bc4py.config import P, stream
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
+from bc4py.user import Accounting
 from starlette.websockets import WebSocket, WebSocketState, WebSocketDisconnect
 from logging import getLogger, INFO
 from typing import List
@@ -18,6 +19,7 @@ client_lock = asyncio.Lock()
 
 CMD_NEW_BLOCK = 'Block'
 CMD_NEW_TX = 'TX'
+CMD_NEW_ACCOUNTING = 'Accounting'
 CMD_ERROR = 'Error'
 
 
@@ -119,6 +121,12 @@ def websocket_reactive_stream(data):
         asyncio.ensure_future(broadcast_clients(CMD_NEW_BLOCK, data.getinfo(), is_public=True))
     elif isinstance(data, TX):
         asyncio.ensure_future(broadcast_clients(CMD_NEW_TX, data.getinfo(), is_public=True))
+    elif isinstance(data, Accounting):
+        data = {
+            'txhash': None if getattr(data, 'txhash', None) is None else data.txhash.hex(),
+            'balance': dict(data),
+        }
+        asyncio.ensure_future(broadcast_clients(CMD_NEW_ACCOUNTING, data, is_public=False))
     else:
         pass
 
@@ -131,6 +139,7 @@ __all__ = [
     "CMD_ERROR",
     "CMD_NEW_BLOCK",
     "CMD_NEW_TX",
+    "CMD_NEW_ACCOUNTING",
     "websocket_route",
     "private_websocket_route",
     "broadcast_clients",
