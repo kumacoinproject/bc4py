@@ -69,7 +69,7 @@ broadcast tx
     1. hex        (hex string, required)  Raw transaction binary.
     2. signature  (list, required)  `[(ck, signature), ..]`
 * Request example
-    * `curl --basic -u user:password -H "accept: application/json"  -H "Content-Type: application/json" "127.0.0.1:3000/private/signrawtx" -d "{\"hex\": \"020000000300000022fd0300522704006400000000000000270000000000000000000000000000\", \"signature\": [[\"eeadb99dfe647348818951c012c81f31f5337e07e8a9d398888a7239223237d7\", \"00ea86e44703d954d295cb706b481d5261e6df561e0a279acf94c35a956a66f92be38a4e34e6caffbdae367582f0aa916970387d7dacd28005021c0bb6c7e2c6\"]]}"`
+    * `curl --basic -u user:password -H "accept: application/json"  -H "Content-Type: application/json" "127.0.0.1:3000/public/broadcasttx" -d "{\"hex\": \"020000000300000022fd0300522704006400000000000000270000000000000000000000000000\", \"signature\": [[\"eeadb99dfe647348818951c012c81f31f5337e07e8a9d398888a7239223237d7\", \"00ea86e44703d954d295cb706b481d5261e6df561e0a279acf94c35a956a66f92be38a4e34e6caffbdae367582f0aa916970387d7dacd28005021c0bb6c7e2c6\"]]}"`
 * Response
 ```json
 {
