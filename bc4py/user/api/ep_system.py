@@ -22,9 +22,11 @@ async def chain_info():
     try:
         best_height = chain_builder.best_block.height
         best_block = chain_builder.best_block
+        best_block_info = best_block.getinfo()
+        best_block_info['hex'] = best_block.b.hex()
         old_block_height = chain_builder.best_chain[0].height - 1
         old_block_hash = chain_builder.get_block_hash(old_block_height).hex()
-        data = {'best': best_block.getinfo()}
+        data = {'best': best_block_info}
         difficulty = dict()
         for consensus, ratio in V.BLOCK_CONSENSUSES.items():
             name = C.consensus2name[consensus]
