@@ -2,7 +2,7 @@ from bc4py.config import C, V, P, stream
 from bc4py.bip32 import ADDR_SIZE
 from bc4py.chain.utils import signature2bin, bin2signature
 from bc4py.chain.tx import TX
-from bc4py.chain.block import Block
+from bc4py.chain.block import Block, get_block_header_from_bin
 import bc4py.chain.msgpack as bc4py_msgpack
 from bc4py.user import Balance, Accounting
 from bc4py.database.account import *
@@ -140,6 +140,14 @@ class DataBase(object):
             block.txs.append(tx)
         assert offset == len(b), "Block size on database is not match {}={}".format(offset, len(b))
         return block
+
+    def read_block_header(self, blockhash):
+        b = self._block.get(blockhash, default=None)
+        if b is None:
+            return None
+        b = bytes(b)
+        height, work, b_block, flag, tx_len = struct_block.unpack_from(b)
+        return get_block_header_from_bin(height, work, b_block, flag)
 
     def read_block_hash(self, height):
         b_height = height.to_bytes(4, ITER_ORDER)
@@ -670,6 +678,22 @@ class ChainBuilder(object):
             else:
                 return None
         return block
+
+    def get_block_header(self, blockhash=None, height=None):
+        if height is not None:
+            blockhash = self.get_block_hash(height=height)
+            if blockhash is None:
+                return None
+        # Get by blockhash
+        if blockhash in self.chain:
+            # Memory
+            block = self.chain[blockhash]
+            block_header = get_block_header_from_bin(
+                block.height, block.work_hash, block.b, block.flag)
+        else:
+            # DataBase
+            block_header = self.db.read_block_header(blockhash)
+        return block_header
 
     def get_block_hash(self, height):
         if height > self.best_block.height:

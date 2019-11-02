@@ -2,7 +2,6 @@ from bc4py.config import C, V, Debug
 from bc4py.database.builder import chain_builder
 from bc4py.chain.utils import bits2target, target2bits
 from functools import lru_cache
-from collections import namedtuple
 
 
 # https://github.com/zawy12/difficulty-algorithms/issues/3
@@ -29,16 +28,12 @@ MAX_BITS = 0x1f0fffff
 MAX_TARGET = bits2target(MAX_BITS)
 GENESIS_PREVIOUS_HASH = b'\xff' * 32
 MAX_SEARCH_BLOCKS = 1000
-BlockHeader = namedtuple('BlockHeader', ["flag", "previous_hash", "time", "bits"])
 
 
 @lru_cache(maxsize=1024)
-def get_block_params(blockhash):
+def get_block_from_cashe(blockhash):
     """return namedTuple block header with lru_cache"""
-    block = chain_builder.get_block(blockhash)
-    if block is None:
-        return None
-    return BlockHeader(block.flag, block.previous_hash, block.time, block.bits)
+    return chain_builder.get_block_header(blockhash)
 
 
 @lru_cache(maxsize=256)
@@ -71,7 +66,7 @@ def get_bits_by_hash(previous_hash, consensus):
     target = list()
     j = 0
     for _ in range(MAX_SEARCH_BLOCKS):
-        target_block = get_block_params(target_hash)
+        target_block = get_block_from_cashe(target_hash)
         if target_block is None:
             return MAX_BITS, MAX_TARGET
         if target_block.flag != consensus:
@@ -130,7 +125,7 @@ def get_bias_by_hash(previous_hash, consensus):
     target_diffs = list()
     target_hash = previous_hash
     for _ in range(MAX_SEARCH_BLOCKS):
-        target_block = get_block_params(target_hash)
+        target_block = get_block_from_cashe(target_hash)
         if target_block is None:
             return 1.0
         target_hash = target_block.previous_hash

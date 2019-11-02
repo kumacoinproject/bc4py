@@ -3,14 +3,33 @@ from bc4py.config import C, V
 from bc4py.chain.utils import DEFAULT_TARGET, bits2target
 from bc4py_extension import sha256d_hash, merkleroot_hash
 from logging import getLogger
-from typing import Optional
+from typing import NamedTuple, Optional
 from struct import Struct
 from time import time
 from math import log2
-import traceback
 
 log = getLogger('bc4py')
 struct_block = Struct('<I32s32sII4s')
+
+
+# low memory consumption object
+class BlockHeader(NamedTuple):
+    # meta
+    height: int
+    flag: int
+    work: bytes
+    # body
+    version: int  # 4bytes int
+    previous_hash: bytes  # 32bytes bin
+    merkleroot: bytes  # 32bytes bin
+    time: int  # 4bytes int
+    bits: int  # 4bytes int
+    nonce: bytes  # 4bytes bin
+
+
+def get_block_header_from_bin(height, work, b_block, flag):
+    """get block header from 80bytes binary"""
+    return BlockHeader(height, flag, work, *struct_block.unpack(b_block))
 
 
 class Block(object):
@@ -226,5 +245,7 @@ class Block(object):
 
 
 __all__ = [
+    "BlockHeader",
+    "get_block_header_from_bin",
     "Block",
 ]
