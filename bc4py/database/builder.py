@@ -1027,8 +1027,11 @@ class UserAccount(object):
         try:
             await read_userid2name(user=user, cur=cur)
         except Exception:
-            insert_index = await insert_new_account(name='unknown{}'.format(user), cur=cur)
-            assert insert_index == user
+            while True:
+                name = "no" + "".join(random.choices(list(range(10)), k=6))
+                insert_index = await insert_new_account(name=name, cur=cur)
+                if insert_index == user:
+                    break
 
         # insert keypair to database
         last_index = 0
