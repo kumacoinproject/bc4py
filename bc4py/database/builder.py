@@ -13,6 +13,7 @@ from typing import Optional, Dict, List, Tuple, MutableMapping
 from weakref import WeakValueDictionary
 from logging import getLogger, INFO
 from time import time
+import random
 import struct
 import os
 import plyvel
@@ -978,6 +979,7 @@ class UserAccount(object):
         # already registered by send_from_apply method
         if tx.hash in self.memory_movement:
             return None
+
         # add to memory_movement dict
         for txhash, txindex in tx.inputs:
             input_tx = tx_builder.get_account_tx(txhash)
@@ -985,7 +987,7 @@ class UserAccount(object):
                 continue  # no relations
             address, coin_id, amount = input_tx.outputs[txindex]
             if address in self.pre_fetch_addr:
-                user = await self.check_addr_prefetch(address, cur)
+                user = await self.get_userid_from_prefetch(address, cur)
             else:
                 user = await read_address2userid(address, cur)
             if user is not None:
@@ -993,10 +995,10 @@ class UserAccount(object):
                     # subtract staking reward from @Staked
                     user = C.ANT_STAKED
                 movement[user][coin_id] -= amount
-                # movement[C.ANT_OUTSIDE] += balance
+
         for address, coin_id, amount in tx.outputs:
             if address in self.pre_fetch_addr:
-                user = await self.check_addr_prefetch(address, cur)
+                user = await self.get_userid_from_prefetch(address, cur)
             else:
                 user = await read_address2userid(address, cur)
             if user is not None:
@@ -1004,7 +1006,9 @@ class UserAccount(object):
                     # add staking reward to @Staked
                     user = C.ANT_STAKED
                 movement[user][coin_id] += amount
-                # movement[C.ANT_OUTSIDE] -= balance
+                # add used flag
+                await update_used_flag_to_address(tx.hash, address, cur)
+
         # check
         movement.cleanup()
         if len(movement) == 0:
@@ -1018,7 +1022,7 @@ class UserAccount(object):
         named_movement = await convert_balance_userid2name(cur, movement)
         return Accounting(users=named_movement, txhash=tx.hash)
 
-    async def check_addr_prefetch(self, address: PyAddress, cur) -> int:
+    async def get_userid_from_prefetch(self, address: PyAddress, cur) -> int:
         """check and insert new prefetch address"""
         assert address in self.pre_fetch_addr
         user, is_inner, index = self.pre_fetch_addr[address]

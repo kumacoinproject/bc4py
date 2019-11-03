@@ -29,16 +29,25 @@ class PrivateKeyFormat(BaseModel):
     account: str = C.account2name[C.ANT_UNKNOWN]
 
 
-async def new_address(account: str = C.account2name[C.ANT_UNKNOWN]):
+async def new_address(account: str = C.account2name[C.ANT_UNKNOWN], newly: bool = False):
     """
     This end-point create new address.
     * Arguments
         1. **account** : account name default="@Unknown"
+        2. **newly** : create a new address that is not generated yet
     """
     async with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = await db.cursor()
         user_id = await read_name2userid(account, cur)
-        addr: PyAddress = await generate_new_address_by_userid(user_id, cur)
+        addr = None
+
+        if not newly:
+            addr = await read_unused_address(user_id, False, cur)
+
+        if addr is None:
+            newly = True
+            addr = await generate_new_address_by_userid(user_id, cur)
+
         await db.commit()
     return {
         'account': account,
@@ -46,6 +55,7 @@ async def new_address(account: str = C.account2name[C.ANT_UNKNOWN]):
         'address': addr.string,
         'version': addr.version,
         'identifier': addr.identifier().hex(),
+        'newly': newly
     }
 
 

@@ -114,6 +114,7 @@ async def generate_wallet_db(cur: Cursor):
     `user` INTEGER NOT NULL,
     `is_inner` INTEGER,
     `index` INTEGER,
+    `is_used` BINARY,
     `time` INTEGER NOT NULL
     )""")
     # index
@@ -166,6 +167,24 @@ async def affect_new_change():
                                   data[:2] + (addr.binary(),) + data[3:])
             await db.commit()
             log.info("change address format TEXT to BLOB")
+
+        # add is_used column
+        need_fix = True
+        await cur.execute("PRAGMA table_info(`pool`)")
+        for data_list in await cur.fetchall():
+            if 'is_used' in data_list[1]:
+                need_fix = False
+        if need_fix:
+            await cur.execute("ALTER TABLE `pool` RENAME TO `pool_old`")
+            await generate_wallet_db(cur)  # generate `pool`
+            await cur.execute("SELECT * FROM `pool_old`")
+            for data_list in await cur.fetchall():
+                assert len(data_list) == 7
+                await cur.execute("INSERT INTO `pool` VALUES (?,?,?,?,?,?,?,?)",
+                                  (*data_list[:6], None, *data_list[6:]))
+            await cur.execute("DROP TABLE `pool_old`")
+            await db.commit()
+            log.info("add `is_used` column to `pool` table")
 
 
 async def recreate_wallet_db(db):

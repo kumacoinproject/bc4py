@@ -4,7 +4,7 @@ from bc4py.user import Accounting
 from bc4py.utils import AESCipher
 from bc4py_extension import PyAddress
 from multi_party_schnorr import PyKeyPair
-from typing import List, Set
+from typing import List, Set, Optional
 from weakref import ref
 from logging import getLogger
 from aiosqlite import Cursor
@@ -217,6 +217,26 @@ async def insert_new_account(name, cur: Cursor, description="", ntime=None):
     return insert_id
 
 
+async def read_unused_address(user, is_inner, cur: Cursor) -> Optional[PyAddress]:
+    """get address not received yet"""
+    assert isinstance(user, int) and isinstance(is_inner, bool)
+    await cur.execute("""
+    SELECT MAX(`index`),`ck`,`is_used` FROM `pool` WHERE `user`=? AND `is_inner`=?
+    """, (user, int(is_inner)))
+    index, ck, is_used = await cur.fetchone()
+    if index is None:
+        return None
+    if is_used is None:
+        return PyAddress.from_binary(V.BECH32_HRP, ck)
+    return None
+
+
+async def update_used_flag_to_address(txhash, address: PyAddress, cur: Cursor):
+    """set used flag of address"""
+    await cur.execute("UPDATE `pool` SET `is_used` = ? WHERE `ck`=? AND `is_used` IS NULL",
+                      (txhash, address.binary(),))
+
+
 async def generate_new_address_by_userid(user, cur: Cursor, is_inner=False) -> PyAddress:
     """insert new address by userid"""
     assert isinstance(user, int)
@@ -338,6 +358,8 @@ __all__ = [
     "read_name2userid",
     "read_userid2name",
     "insert_new_account",
+    "read_unused_address",
+    "update_used_flag_to_address",
     "generate_new_address_by_userid",
     "read_account_address",
     "sign_message_by_address",
