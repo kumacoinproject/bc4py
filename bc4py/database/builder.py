@@ -1032,7 +1032,7 @@ class UserAccount(object):
             await read_userid2name(user=user, cur=cur)
         except Exception:
             while True:
-                name = "no" + "".join(random.choices(list(range(10)), k=6))
+                name = "no" + "".join(map(str, random.choices(list(range(10)), k=6)))
                 insert_index = await insert_new_account(name=name, cur=cur)
                 if insert_index == user:
                     break
