@@ -45,7 +45,7 @@ Documents
 ----
 * [Create genesis block](doc/GenesisBlock.md)
 * [How to mining](doc/Mining.md)
-* [API document](bc4py/user/api/static/index.md)
+* [testnet API document](https://testnet.pycontract.tk/docs)
 * [About development](doc/Development.md)
 * [About new offer about program](doc/AboutPullrequest.md)
 * [HTTPS proxy introduction](doc/Proxy.md)
