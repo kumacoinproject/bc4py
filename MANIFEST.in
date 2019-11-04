@@ -1,4 +1,3 @@
-recursive-include bc4py/user/api/static *
 include README.md
 include LICENCE
 include requirements.txt
