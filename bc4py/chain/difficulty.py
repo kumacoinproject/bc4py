@@ -113,7 +113,7 @@ def get_bits_by_hash(previous_hash, consensus):
 
 
 @lru_cache(maxsize=256)
-def get_bias_by_hash(previous_hash, consensus):
+def get_bias_by_hash(previous_hash, consensus) -> float:
     N = 30  # target blocks
 
     if consensus == C.BLOCK_GENESIS:
@@ -121,30 +121,32 @@ def get_bias_by_hash(previous_hash, consensus):
     elif previous_hash == GENESIS_PREVIOUS_HASH:
         return 1.0
 
-    target_diffs = list()
+    target_sum = 0
+    target_cnt = 0
+    others_best = dict()
     target_hash = previous_hash
     for _ in range(MAX_SEARCH_BLOCKS):
         target_block = get_block_from_cashe(target_hash)
         if target_block is None:
             return 1.0
+        if target_block.flag not in others_best:
+            others_best[target_block.flag] = bits2target(target_block.bits)
         target_hash = target_block.previous_hash
         if target_hash == GENESIS_PREVIOUS_HASH:
             return 1.0
-        elif target_block.flag == consensus and N > len(target_diffs):
-            target_diffs.append(bits2target(target_block.bits) * (N - len(target_diffs)))
-        elif len(target_diffs) >= N:
+        elif target_block.flag == consensus and N > target_cnt:
+            target_sum += bits2target(target_block.bits) * (N - target_cnt)
+            target_cnt += 1
+        elif len(V.BLOCK_CONSENSUSES) <= len(others_best) + 1:
             break
-    else:
-        # search too many block
-        if len(target_diffs) == 0:
-            return 1.0
-        else:
-            return BASE_TARGET * len(target_diffs) / sum(target_diffs)
 
-    bias = BASE_TARGET * N / sum(target_diffs)
-    if Debug.F_SHOW_DIFFICULTY:
-        print("bias", bias, previous_hash.hex())
-    return bias
+    if target_cnt == 0:
+        return 1.0
+    elif len(others_best) == 0:
+        return BASE_TARGET * target_cnt / target_sum
+    else:
+        average_target = sum(others_best.values()) // len(others_best)
+        return average_target * target_cnt / target_sum
 
 
 __all__ = [
