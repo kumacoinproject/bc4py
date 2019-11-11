@@ -1,6 +1,7 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.chain.difficulty import get_bits_by_hash
+from bc4py.database.builder import chain_builder
 from logging import getLogger
 from time import time
 
@@ -28,4 +29,11 @@ def check_block_time(block: Block, fix_delay):
             C.ACCEPT_MARGIN_TIME, block.time, create_time, block.time - create_time, delay))
     if C.ACCEPT_MARGIN_TIME < delay:
         log.warning("Long delay, for check new block. [{}<{}]".format(C.ACCEPT_MARGIN_TIME, delay))
+    if block.flag != C.BLOCK_GENESIS:
+        previous_block = chain_builder.get_block(blockhash=block.previous_hash)
+        if previous_block is None:
+            raise BlockChainError('cannot find previous block height={}'.format(block.height))
+        if previous_block.time >= block.time:
+            raise BlockChainError('block time warp not allowed previous={} new={}'
+                                  .format(previous_block.time, block.time))
     log.debug("check block time success {}".format(block))
