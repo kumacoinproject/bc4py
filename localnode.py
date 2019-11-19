@@ -91,7 +91,7 @@ async def setup_chain(port, connections):
     elif port % 3 == 2:
         Generate(consensus=C.BLOCK_X11_POW, power_limit=0.03)
     Generate(consensus=C.BLOCK_COIN_POS, power_limit=0.3)
-    asyncio.ensure_future(mined_newblock(output_que))
+    asyncio.ensure_future(mined_newblock(mined_block_que))
     logging.info("finished all initialization")
 
 

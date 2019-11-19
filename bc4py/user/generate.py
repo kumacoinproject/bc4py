@@ -24,7 +24,7 @@ import re
 loop = asyncio.get_event_loop()
 log = getLogger('bc4py')
 generating_threads: List['Generate'] = list()
-output_que = asyncio.Queue(maxsize=1)
+mined_block_que = asyncio.Queue(maxsize=1)
 # mining share info
 mining_address: Optional[PyAddress] = None
 mining_address_lock = asyncio.Lock()
@@ -382,7 +382,7 @@ async def confirmed_generating_block(new_block):
     unconfirmed_txs = None
     unspents_txs = None
     # timeout: GeneBlock thread do not start?
-    await asyncio.wait_for(output_que.put(new_block), 30.0)
+    await asyncio.wait_for(mined_block_que.put(new_block), 30.0)
 
 
 def update_previous_block(new_previous_block):
@@ -456,7 +456,7 @@ def close_generate():
 
 __all__ = [
     "generating_threads",
-    "output_que",
+    "mined_block_que",
     "Generate",
     "create_mining_block",
     "confirmed_generating_block",

@@ -3,7 +3,6 @@ from bc4py.chain.checking import new_insert_block, check_tx, check_tx_time
 from bc4py.user.network import BroadcastCmd
 from p2p_python.server import Peer2PeerCmd
 from p2p_python.config import PeerToPeerError
-from bc4py.database.create import create_db
 from bc4py.database.builder import tx_builder, chain_builder
 from bc4py.user.network.update import update_info_for_generate
 from aiosqlite import Cursor
@@ -15,13 +14,13 @@ loop = asyncio.get_event_loop()
 log = getLogger('bc4py')
 
 
-async def mined_newblock(que):
+async def mined_newblock(mined_block_que):
     """new thread, broadcast mined block to network"""
     assert V.P2P_OBJ, "PeerClient is None"
-    assert isinstance(que, asyncio.Queue)
+    assert isinstance(mined_block_que, asyncio.Queue)
     while not P.F_STOP:
         try:
-            new_block = await asyncio.wait_for(que.get(), 1.0)
+            new_block = await asyncio.wait_for(mined_block_que.get(), 1.0)
             new_block.create_time = int(time())
             if P.F_NOW_BOOTING:
                 log.debug("self reject, mined but now booting")

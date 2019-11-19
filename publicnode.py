@@ -46,7 +46,7 @@ async def setup_chain(connections):
     # Debug.F_CONSTANT_DIFF = True
     # Debug.F_SHOW_DIFFICULTY = True
     # Debug.F_STICKY_TX_REJECTION = False  # for debug
-    asyncio.ensure_future(mined_newblock(output_que))
+    asyncio.ensure_future(mined_newblock(mined_block_que))
     logging.info("finished all initialization")
 
 
