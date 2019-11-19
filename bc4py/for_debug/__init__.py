@@ -34,7 +34,7 @@ def set_logger(level=INFO, path=None, f_remove=False):
         logger.removeHandler(sh)
     logger.propagate = False
     logger.setLevel(DEBUG)
-    formatter = Formatter('[%(levelname)-6s] [%(threadName)-10s] [%(asctime)-24s] %(message)s')
+    formatter = Formatter('[%(asctime)-23s %(levelname)-4s] %(filename) %(message)s')
     if path:
         # recode if user sets path
         if f_remove and os.path.exists(path):

@@ -105,7 +105,7 @@ async def setup_rest_server(port=3000, host='127.0.0.1', extra_locals=None, **kw
 
     # setup server
     server = uvicorn.Server(config)
-    server.logger = config.logger_instance
+    server.logger = log
     server.lifespan = config.lifespan_class(config)
     # server.install_signal_handlers()  # ignore Ctrl+C
     await server.startup()
