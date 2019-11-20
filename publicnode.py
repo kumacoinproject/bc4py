@@ -53,9 +53,6 @@ async def setup_chain(connections):
 def main():
     p = console_args_parser()
     check_process_status(f_daemon=p.daemon)
-    set_logger(level=logging.getLevelName(p.log_level), path=p.log_path, f_remove=p.remove_log)
-    logging.info(f"\n{__logo__}\n====\nsystem (str) = {__version__}\nchain (int) = {__chain_version__}\n"
-                 f"block (int) = {__block_version__}\nmessage = {__message__}")
 
     # environment
     set_database_path(sub_dir=p.sub_dir)
@@ -76,12 +73,17 @@ def main():
     p2p.setup()
     V.P2P_OBJ = p2p
 
-    # setup blockchain
-    loop.run_until_complete(setup_chain(connections))
-
     # setup rest server
     loop.run_until_complete(setup_rest_server(
         port=p.rest, host=p.host, extra_locals=p.extra_locals))
+
+    # setup blockchain
+    loop.run_until_complete(setup_chain(connections))
+
+    # original logger
+    set_logger(level=logging.getLevelName(p.log_level), path=p.log_path, f_remove=p.remove_log)
+    logging.info(f"\n{__logo__}\n====\nsystem (str) = {__version__}\nchain (int) = {__chain_version__}\n"
+                 f"block (int) = {__block_version__}\nmessage = {__message__}")
 
     # generate (option)
     if p.staking:

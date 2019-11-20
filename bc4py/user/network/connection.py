@@ -161,11 +161,16 @@ async def get_best_conn_info():
 async def check_network_connection(minimum=None):
     count = 0
     need = minimum or 2
-    while not P.F_STOP and len(V.P2P_OBJ.core.user) <= need:
+    while len(V.P2P_OBJ.core.user) <= need:
         count += 1
-        if count % 30 == 0:
+        if P.F_STOP:
+            return  # skip
+        elif count % 30 == 0:
             log.debug("{} connections, waiting for new.. {}Sec".format(len(V.P2P_OBJ.core.user), count))
-        await asyncio.sleep(1)
+        elif count % 123 == 1:
+            log.info("connect {} nodes but unsatisfied required number {}".format(len(V.P2P_OBJ.core.user), need))
+        else:
+            await asyncio.sleep(1)
 
 
 class UnstableNetworkError(Exception):

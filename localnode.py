@@ -101,14 +101,17 @@ def main():
         if f_already_bind(port):
             port += 1
             continue
-        path = 'debug.2000.log' if port == 2000 else None
-        set_logger(level=logging.DEBUG, path=path, f_remove=True)
-        logging.info("\n{}\n=====\n{}, chain-ver={}\n{}\n"
-                     .format(__logo__, __version__, __chain_version__, __message__))
-        break
+        else:
+            break
     connections = setup_client(port=port, sub_dir=str(port))
-    loop.run_until_complete(setup_chain(port, connections))
     loop.run_until_complete(setup_rest_server(port=port + 1000))
+    loop.run_until_complete(setup_chain(port, connections))
+
+    path = 'debug.2000.log' if port == 2000 else None
+    set_logger(level=logging.DEBUG, path=path, f_remove=True)
+    logging.info("\n{}\n=====\n{}, chain-ver={}\n{}\n"
+                 .format(__logo__, __version__, __chain_version__, __message__))
+
     import aiomonitor
     aiomonitor.start_monitor(loop, port=port+2000, console_port=port+3000)
     logging.warning(f"aiomonitor working! use by console `nc 127.0.0.1 {port+2000}`")
