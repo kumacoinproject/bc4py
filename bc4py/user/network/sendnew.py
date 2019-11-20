@@ -19,14 +19,17 @@ async def mined_newblock(mined_block_que):
     assert V.P2P_OBJ, "PeerClient is None"
     assert isinstance(mined_block_que, asyncio.Queue)
     while not P.F_STOP:
+        result = None
         try:
-            new_block = await asyncio.wait_for(mined_block_que.get(), 1.0)
+            new_block, result = await asyncio.wait_for(mined_block_que.get(), 1.0)
             new_block.create_time = int(time())
             if P.F_NOW_BOOTING:
                 log.debug("self reject, mined but now booting")
+                result.set_result(False)
                 continue
             elif new_block.height != chain_builder.best_block.height + 1:
                 log.debug("self reject, mined but its old block")
+                result.set_result(False)
                 continue
             else:
                 log.debug("Mined block check success")
@@ -35,6 +38,7 @@ async def mined_newblock(mined_block_que):
                 else:
                     log.debug("self reject, cannot new insert")
                     update_info_for_generate()
+                    result.set_result(False)
                     continue
             proof_tx = new_block.txs[0]
             txs_hash_list = [tx.hash for tx in new_block.txs]
@@ -52,6 +56,7 @@ async def mined_newblock(mined_block_que):
                 await V.P2P_OBJ.send_command(cmd=Peer2PeerCmd.BROADCAST, data=data)
                 log.info("Success broadcast new block {}".format(new_block))
                 update_info_for_generate()
+                result.set_result(True)
             except PeerToPeerError as e:
                 log.debug(f"unstable network '{e}'")
             except asyncio.TimeoutError:
@@ -64,6 +69,10 @@ async def mined_newblock(mined_block_que):
             log.error('Failed mined new block "{}"'.format(e))
         except Exception:
             log.error("mined_newblock exception", exc_info=True)
+
+        # set failed signal
+        if  asyncio.isfuture(result) and not result.done():
+            result.set_result(False)
 
 
 async def send_newtx(new_tx, cur: Cursor, exc_info=True):

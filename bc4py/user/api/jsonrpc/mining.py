@@ -253,8 +253,11 @@ async def submitblock(*args, **kwargs):
         return 'Unknown input? -> {}'.format(block_hex_or_obj)
     update_work_hash(mined_block)
     if mined_block.pow_check():
-        await confirmed_generating_block(mined_block)
-        return None  # accepted
+        result = await confirmed_generating_block(mined_block)
+        if result:
+            return None  # accepted
+        else:
+            return 'block check failed'
     else:
         return 'not satisfied work'
 

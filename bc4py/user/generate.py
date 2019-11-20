@@ -374,7 +374,7 @@ async def create_mining_block(consensus):
     return mining_block
 
 
-async def confirmed_generating_block(new_block):
+async def confirmed_generating_block(new_block) -> bool:
     assert new_block.work_hash is not None, new_block
     log.info("Generate block yey!! {}".format(new_block))
     global previous_block, unconfirmed_txs, unspents_txs
@@ -382,7 +382,10 @@ async def confirmed_generating_block(new_block):
     unconfirmed_txs = None
     unspents_txs = None
     # timeout: GeneBlock thread do not start?
-    await asyncio.wait_for(mined_block_que.put(new_block), 30.0)
+    future = asyncio.Future()
+    await mined_block_que.put((new_block, future))
+    await asyncio.wait_for(future, 30.0)
+    return future.result()
 
 
 def update_previous_block(new_previous_block):
