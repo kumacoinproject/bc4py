@@ -25,9 +25,9 @@ loop = asyncio.get_event_loop()
 
 async def setup_chain(connections):
     p2p = V.P2P_OBJ
-    if await p2p.core.create_connection('tipnem.tk', 2000):
+    if await p2p.core.create_connection('153.122.86.46', 2000):
         logging.info("1Connect!")
-    elif await p2p.core.create_connection('nekopeg.tk', 2000):
+    elif await p2p.core.create_connection('pycontract.tk', 2000):
         logging.info("2Connect!")
 
     for host, port in connections:
