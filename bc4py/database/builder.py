@@ -521,7 +521,7 @@ class ChainBuilder(object):
         for block in best_sets:
             for tx in block.txs:
                 tx.height = block.height
-        assert best_block, 'Cannot find best_block on get_best_chain? chain={}'.format(list(self.chain))
+        assert best_block, 'Cannot find best_block on get_best_chain? chain={}'.format(list(self.chain.values()))
         # best_chain = [<height=n>, <height=n-1>, ...]
         best_chain = sorted(best_sets, key=lambda x: x.height, reverse=True)
         return best_block, best_chain

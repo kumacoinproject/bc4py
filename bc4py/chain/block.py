@@ -6,7 +6,6 @@ from logging import getLogger
 from typing import NamedTuple, Optional
 from struct import Struct
 from time import time
-from math import log2
 
 log = getLogger('bc4py')
 struct_block = Struct('<I32s32sII4s')
@@ -178,7 +177,7 @@ class Block(object):
     @property
     def score(self):
         # fixed_diff = difficulty / bias
-        return log2(max(1.0, self.inner_score * self.difficulty / self.bias))
+        return self.inner_score * self.difficulty / self.bias
 
     @property
     def difficulty(self):
