@@ -5,8 +5,7 @@ You can use [plyvel](https://github.com/wbolster/plyvel for Linux, Winodws and a
 For windows
 ----
 * Do yourself (recommend) [How to install plyvel on wondows](https://gist.github.com/namuyan/1a8aef3482fa17c6b206ff028efc9807)
-* Use binary [plyvel-1.0.5-cp36-cp36m-win_amd64.whl](https://mega.nz/#!q1tziQoK!ehA-iCtkQukh1-AEgk0yLb4CJAfqRYr8VeE0UtdOFus)
-* Use binary [plyvel-1.0.5-cp37-cp37m-win_amd64.whl](https://mega.nz/#!uldTCCYK!ctwUgfggBVskKvm5ePS_Q6lFK9RyGiqLKA473dQo2vY)
+* Use binary at your own risk [1.1.0.build v0-win](https://github.com/ppolxda/plyvel/releases/tag/1.1.0.build-v0-win)
 
 For linux
 ----
