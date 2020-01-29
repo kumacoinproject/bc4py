@@ -46,7 +46,7 @@ def create_boot_file(genesis_block, params, network_ver=None, connections=()):
 
 
 def load_boot_file(url=None):
-    normal_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'boot.json')
+    normal_path = os.path.join(os.path.abspath('.'), 'boot.json')
     extra_path = os.path.join(V.DB_HOME_DIR, 'boot.json')
     if url:
         data = requests.get(url=url).json()
