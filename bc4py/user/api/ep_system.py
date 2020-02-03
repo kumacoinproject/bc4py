@@ -6,6 +6,7 @@ from bc4py.database.builder import chain_builder, tx_builder, user_account
 from bc4py.user.api.utils import error_response, local_address
 from bc4py.user.generate import generating_threads
 from time import time
+import p2p_python.config
 import p2p_python
 
 MAX_256_FLOAT = float(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
@@ -79,6 +80,7 @@ async def system_info():
     This end-point show public system info.
     """
     return {
+        'network_ver': p2p_python.config.V.NETWORK_VER,
         'system_ver': __version__,
         'api_ver': __api_version__,
         'chain_ver': __chain_version__,
