@@ -98,6 +98,10 @@ def main():
         Generate(consensus=C.BLOCK_X16S_POW, power_limit=0.05)
         Generate(consensus=C.BLOCK_X11_POW, power_limit=0.05)
 
+    # block notify (option)
+    if p.block_notify:
+        notify_when_new_block(p.block_notify)
+
     # setup monitor (option)
     if p.console:
         try:

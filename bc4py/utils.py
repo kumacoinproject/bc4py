@@ -1,4 +1,4 @@
-from bc4py.config import C, V
+from bc4py.config import C, V, stream
 from bc4py.gittool import get_current_branch, calc_python_source_hash
 from bc4py.chain.utils import GompertzCurve
 from Cryptodome.Cipher import AES
@@ -7,6 +7,8 @@ from Cryptodome.Hash import SHA256
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from logging import getLogger, DEBUG, INFO, WARNING, ERROR
 import multiprocessing
+import subprocess
+import threading
 import os
 import psutil
 import sys
@@ -134,6 +136,10 @@ def console_args_parser():
     p.add_argument('--solo-mining',
                    help='solo mining for debug or testnet',
                    action='store_true')
+    p.add_argument('--block-notify',
+                   help="execute the command when new block accepted",
+                   default=None,
+                   type=str)
     p.add_argument('--console',
                    help='netcat console monitor',
                    action='store_true')
@@ -179,6 +185,28 @@ def check_process_status(f_daemon):
         else:
             # stdin close to prevent lock on console
             sys.stdin.close()
+
+
+def notify_when_new_block(cmd: str):
+    """
+    register command execution on new block
+    note: replaced `%s` by blockhash hex
+    note: https://qiita.com/coffee_and_code/items/a6aefc23773266b92ccb
+    """
+    assert isinstance(cmd, str)
+    from bc4py.chain.block import Block
+
+    def _notify(data):
+        # do not check status code
+        if isinstance(data, Block):
+            threading.Thread(
+                target=subprocess.run,
+                args=(cmd.replace("%s", data.hash.hex()),),
+                kwargs={'shell': True}
+            ).run()
+
+    stream.subscribe(on_next=_notify, on_error=log.error)
+    log.warning("execute `{}` when new block accepted".format(cmd.replace("%s", "HASH")))
 
 
 class AESCipher:
@@ -268,6 +296,7 @@ __all__ = [
     "check_already_started",
     "console_args_parser",
     "check_process_status",
+    "notify_when_new_block",
     "AESCipher",
     "ProgressBar",
 ]
