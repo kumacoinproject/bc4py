@@ -11,7 +11,7 @@ import p2p_python
 
 MAX_256_FLOAT = float(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
 start_time = int(time())
-F_ADD_CASHE_INFO = False  # to adjust cashe size
+F_ADD_CACHE_INFO = False  # to adjust cache size
 
 __api_version__ = '0.0.2'
 
@@ -49,8 +49,8 @@ async def chain_info():
         data['checkpoint'] = {'height': old_block_height, 'blockhash': old_block_hash}
         data['money_supply'] = GompertzCurve.calc_total_supply(best_height)
         data['total_supply'] = GompertzCurve.k
-        if F_ADD_CASHE_INFO:
-            data['cashe'] = {
+        if F_ADD_CACHE_INFO:
+            data['cache'] = {
                 'get_bits_by_hash': str(get_bits_by_hash.cache_info()),
                 'get_bias_by_hash': str(get_bias_by_hash.cache_info())
             }

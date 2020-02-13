@@ -96,7 +96,7 @@ class C:  # Constant
     SIZE_BLOCK_LIMIT = 300 * 1000  # 300kb block
     SIZE_TX_LIMIT = 100 * 1000  # 100kb tx
     MEMORY_FILE_REFRESH_SPAN = 101  # memory_file refresh span
-    MEMORY_CASHE_LIMIT = 250  # max memorized block size, means re-org limit
+    MEMORY_CACHE_LIMIT = 250  # max memorized block size, means re-org limit
     MEMORY_BATCH_SIZE = 30
     MINTCOIN_GAS = int(10 * pow(10, 6))  # 新規Mintcoin発行GasFee
     SIGNATURE_GAS = int(0.01 * pow(10, 6))  # gas per one signature
@@ -107,7 +107,7 @@ class C:  # Constant
     MAX_RECURSIVE_BLOCK_DEPTH = 30  # recursive accept block limit
 
     # sqlite params
-    SQLITE_CASHE_SIZE = 2000  # default size: 2000
+    SQLITE_CACHE_SIZE = 2000  # default size: 2000
     SQLITE_JOURNAL_MODE = 'MEMORY'  # default journal mode: MEMORY
     SQLITE_SYNC_MODE = 'NORMAL'  # default sync mode: NORMAL
 

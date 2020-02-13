@@ -23,7 +23,7 @@ async def fill_inputs_outputs(
         fee_coin_id=0,
         additional_gas=0,
         dust_percent=0.8,
-        utxo_cashe=None,
+        utxo_cache=None,
         depth=0):
     if MAX_RECURSIVE_DEPTH < depth:
         raise BlockChainError('over max recursive depth on filling inputs_outputs!')
@@ -43,20 +43,20 @@ async def fill_inputs_outputs(
     input_coins = Balance()
     input_address = set()
     f_dust_skipped = False
-    if utxo_cashe is None:
+    if utxo_cache is None:
         if target_address:
             utxo_iter = get_unspents_iter(target_address=target_address)
         elif cur:
             utxo_iter = await get_my_unspents_iter(cur=cur)
         else:
             raise Exception('target_address and cur is None?')
-        cashe = list()
-        utxo_cashe = [cashe, utxo_iter]
+        cache = list()
+        utxo_cache = [cache, utxo_iter]
     else:
-        cashe, utxo_iter = utxo_cashe
-    async for is_cashe, (address, height, txhash, txindex, coin_id, amount) in sum_utxo_iter(cashe, utxo_iter):
-        if not is_cashe:
-            cashe.append((address, height, txhash, txindex, coin_id, amount))
+        cache, utxo_iter = utxo_cache
+    async for is_cache, (address, height, txhash, txindex, coin_id, amount) in sum_utxo_iter(cache, utxo_iter):
+        if not is_cache:
+            cache.append((address, height, txhash, txindex, coin_id, amount))
         if coin_id not in need_coins:
             continue
         if need_coins[coin_id] * dust_percent > amount:
@@ -80,7 +80,7 @@ async def fill_inputs_outputs(
                 fee_coin_id=fee_coin_id,
                 additional_gas=additional_gas,
                 dust_percent=new_dust_percent,
-                utxo_cashe=utxo_cashe,
+                utxo_cache=utxo_cache,
                 depth=depth+1)
         elif len(tx.inputs) > 255:
             raise BlockChainError('TX inputs is too many num={}'.format(len(tx.inputs)))
@@ -127,7 +127,7 @@ async def fill_inputs_outputs(
             fee_coin_id=fee_coin_id,
             additional_gas=additional_gas,
             dust_percent=dust_percent,
-            utxo_cashe=utxo_cashe,
+            utxo_cache=utxo_cache,
             depth=depth+1)
     else:
         # tx.gas_amount == need_gas_amount
@@ -171,9 +171,9 @@ async def check_enough_amount(sender, send_coins, fee_coins, cur):
             .format(sender, from_coins, remain_coins))
 
 
-async def sum_utxo_iter(cashe: list, utxo_iter):
-    """return with flag is_cashe"""
-    for args in cashe:
+async def sum_utxo_iter(cache: list, utxo_iter):
+    """return with flag is_cache"""
+    for args in cache:
         yield True, args
     async for args in utxo_iter:
         yield False, args

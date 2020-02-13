@@ -3,26 +3,26 @@ from bc4py.database.builder import chain_builder, tx_builder
 from bc4py.database.account import read_all_pooled_address_set
 from typing import AsyncGenerator
 
-best_block_cashe = None
-best_chain_cashe = None
-target_address_cashe = set()
+best_block_cache = None
+best_chain_cache = None
+target_address_cache = set()
 
 
 def _get_best_chain_all(best_block):
-    global best_block_cashe, best_chain_cashe
+    global best_block_cache, best_chain_cache
     # MemoryにおけるBestBlockまでのChainを返す
     if best_block is None:
-        best_block_cashe = best_chain_cashe = None
+        best_block_cache = best_chain_cache = None
         return chain_builder.best_chain
-    elif best_block_cashe and best_block == best_block_cashe:
-        return best_chain_cashe
+    elif best_block_cache and best_block == best_block_cache:
+        return best_chain_cache
     else:
         dummy, best_chain = chain_builder.get_best_chain(best_block)
         # best_chain = [<height=n>, <height=n-1>,.. <height=n-m>]
         if len(best_chain) == 0:
             raise BlockChainError('Ignore, New block inserted on "_get_best_chain_all"')
-        best_block_cashe = best_block
-        best_chain_cashe = best_chain
+        best_block_cache = best_block
+        best_chain_cache = best_chain
         return best_chain
 
 
@@ -69,9 +69,9 @@ async def get_unspents_iter(target_address, best_block=None, best_chain=None) ->
 
 
 async def get_my_unspents_iter(cur, best_chain=None) -> AsyncGenerator:
-    last_uuid = len(target_address_cashe)
-    target_address_cashe.update(await read_all_pooled_address_set(cur=cur, last_uuid=last_uuid))
-    return get_unspents_iter(target_address=target_address_cashe, best_block=None, best_chain=best_chain)
+    last_uuid = len(target_address_cache)
+    target_address_cache.update(await read_all_pooled_address_set(cur=cur, last_uuid=last_uuid))
+    return get_unspents_iter(target_address=target_address_cache, best_block=None, best_chain=best_chain)
 
 
 def get_output_from_input(input_hash, input_index, best_block=None, best_chain=None):

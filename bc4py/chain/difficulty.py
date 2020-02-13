@@ -31,7 +31,7 @@ MAX_SEARCH_BLOCKS = 1000
 
 
 @lru_cache(maxsize=1024)
-def get_block_from_cashe(blockhash):
+def get_block_from_cache(blockhash):
     """return namedTuple block header with lru_cache"""
     return chain_builder.get_block_header(blockhash)
 
@@ -66,7 +66,7 @@ def get_bits_by_hash(previous_hash, consensus):
     target = list()
     j = 0
     for _ in range(MAX_SEARCH_BLOCKS):
-        target_block = get_block_from_cashe(target_hash)
+        target_block = get_block_from_cache(target_hash)
         if target_block is None:
             return MAX_BITS, MAX_TARGET
         if target_block.flag != consensus:
@@ -126,7 +126,7 @@ def get_bias_by_hash(previous_hash, consensus) -> float:
     others_best = dict()
     target_hash = previous_hash
     for _ in range(MAX_SEARCH_BLOCKS):
-        target_block = get_block_from_cashe(target_hash)
+        target_block = get_block_from_cache(target_hash)
         if target_block is None:
             return 1.0
         if target_block.flag not in others_best:

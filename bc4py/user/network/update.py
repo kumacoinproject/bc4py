@@ -17,7 +17,7 @@ block_lock = asyncio.Lock()
 unspent_lock = asyncio.Lock()
 unconfirmed_lock = asyncio.Lock()
 unconfirmed_depends_hash: bytes = b''
-unconfirmed_depends_cashe: Dict[bytes, tuple] = dict()
+unconfirmed_depends_cache: Dict[bytes, tuple] = dict()
 
 
 def update_info_for_generate(u_block=True, u_unspent=True, u_unconfirmed=True):
@@ -62,26 +62,26 @@ async def update_unconfirmed_info():
     async with unconfirmed_lock:
         s = time()
 
-        # 1: update dependency cashe
+        # 1: update dependency cache
         if chain_builder.best_block.hash != unconfirmed_depends_hash:
             # require reset when best_block changed
             unconfirmed_depends_hash = chain_builder.best_block.hash
-            unconfirmed_depends_cashe.clear()
+            unconfirmed_depends_cache.clear()
         for tx in tx_builder.unconfirmed.values():
-            if tx.hash in unconfirmed_depends_cashe:
+            if tx.hash in unconfirmed_depends_cache:
                 continue
             depends = list()
             for txhash, txindex in tx.inputs:
                 if txhash in tx_builder.unconfirmed:
                     depends.append(tx_builder.unconfirmed[txhash])
-            unconfirmed_depends_cashe[tx.hash] = tuple(depends)
+            unconfirmed_depends_cache[tx.hash] = tuple(depends)
 
         # 2: sort and get txs to include in block
         base_list = sorted(
-            filter(lambda x: 0 == len(unconfirmed_depends_cashe[x.hash]), tx_builder.unconfirmed.values()),
+            filter(lambda x: 0 == len(unconfirmed_depends_cache[x.hash]), tx_builder.unconfirmed.values()),
             key=lambda x: x.gas_price, reverse=True)
         optionals = sorted(
-            filter(lambda x: 0 < len(unconfirmed_depends_cashe[x.hash]), tx_builder.unconfirmed.values()),
+            filter(lambda x: 0 < len(unconfirmed_depends_cache[x.hash]), tx_builder.unconfirmed.values()),
             key=lambda x: x.gas_price, reverse=True)
         # add optionals if block space is enough
         base_list_size = sum(tx.size for tx in base_list)
@@ -124,9 +124,9 @@ async def update_unconfirmed_info():
                 unconfirmed_txs.remove(tx)
                 # log.debug("remove unconfirmed: already confirmed")
                 continue
-            if 0 < len(unconfirmed_depends_cashe[tx.hash]):
+            if 0 < len(unconfirmed_depends_cache[tx.hash]):
                 skip = False
-                for depend_tx in unconfirmed_depends_cashe[tx.hash]:
+                for depend_tx in unconfirmed_depends_cache[tx.hash]:
                     if depend_tx not in unconfirmed_txs:
                         # not found depend in unconfirmed
                         continue

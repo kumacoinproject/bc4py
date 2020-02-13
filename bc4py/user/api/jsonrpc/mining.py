@@ -14,7 +14,7 @@ from logging import getLogger
 
 log = getLogger('bc4py')
 
-getwork_cashe = ExpiringDict(max_len=100, max_age_seconds=300)
+getwork_cache = ExpiringDict(max_len=100, max_age_seconds=300)
 extra_target = None  # 0x00000000ffff0000000000000000000000000000000000000000000000000000
 
 
@@ -41,7 +41,7 @@ async def getwork(*args, **kwargs):
     """
     if len(args) == 0:
         now = int(time() - V.BLOCK_GENESIS_TIME)
-        for block in getwork_cashe.values():
+        for block in getwork_cache.values():
             if block.previous_hash != chain_builder.best_block.hash:
                 continue
             if now - block.time < 10:
@@ -49,7 +49,7 @@ async def getwork(*args, **kwargs):
                 break
         else:
             mining_block = await get_mining_block(int(kwargs['password']))
-            getwork_cashe[mining_block.merkleroot] = mining_block
+            getwork_cache[mining_block.merkleroot] = mining_block
             mining_block.bits2target()
         # Pre-processed SHA-2 input chunks
         data = mining_block.b  # 80 bytes
@@ -70,8 +70,8 @@ async def getwork(*args, **kwargs):
         block = Block.from_binary(binary=new_data[:80])
         if block.previous_hash != chain_builder.best_block.hash:
             return 'PreviousHash don\'t match'
-        if block.merkleroot in getwork_cashe:
-            block.txs.extend(getwork_cashe[block.merkleroot].txs)
+        if block.merkleroot in getwork_cache:
+            block.txs.extend(getwork_cache[block.merkleroot].txs)
             result = await submitblock(block, **kwargs)
             if result is None:
                 return True

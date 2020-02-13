@@ -34,8 +34,8 @@ async def create_db(path, strict=False) -> Connection:
     """
     conn = await connect(path, timeout=120.0)
 
-    # cashe size, default 2000
-    await conn.execute("PRAGMA cache_size = %d" % C.SQLITE_CASHE_SIZE)
+    # cache size, default 2000
+    await conn.execute("PRAGMA cache_size = %d" % C.SQLITE_CACHE_SIZE)
 
     # journal mode
     await conn.execute("PRAGMA journal_mode = %s" % C.SQLITE_JOURNAL_MODE)

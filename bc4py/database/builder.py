@@ -301,7 +301,7 @@ class DataBase(object):
 
 class ChainBuilder(object):
 
-    def __init__(self, cashe_limit=C.MEMORY_CASHE_LIMIT, batch_size=C.MEMORY_BATCH_SIZE):
+    def __init__(self, cache_limit=C.MEMORY_CACHE_LIMIT, batch_size=C.MEMORY_BATCH_SIZE):
         """
         chain builder class
 
@@ -314,8 +314,8 @@ class ChainBuilder(object):
         "root_block" is block(n-1), best block on database
         "best_block" is block(n+m), best block on memory
         """
-        assert cashe_limit > batch_size, 'cashe_limit > batch_size'
-        self.cashe_limit = cashe_limit
+        assert cache_limit > batch_size, 'cache_limit > batch_size'
+        self.cache_limit = cache_limit
         self.batch_size = batch_size
         self.chain: Dict[bytes, Block] = dict()
         self.best_chain: Optional[List[Block]] = None
@@ -344,7 +344,7 @@ class ChainBuilder(object):
         # True  = Only genesisBlock, recommend to import bootstrap.dat.gz first
         # False = Many blocks in LevelDB, sync by network
         if batch_size is None:
-            batch_size = self.cashe_limit
+            batch_size = self.cache_limit
         # GenesisBlockか確認
         t = time()
         try:
@@ -528,15 +528,15 @@ class ChainBuilder(object):
 
     async def batch_apply(self):
         # 無チェックで挿入するから要注意
-        if self.cashe_limit > len(self.chain):
+        if self.cache_limit > len(self.chain):
             return list()
-        # cashe許容量を上回っているので記録
+        # cache許容量を上回っているので記録
         await self.db.batch_create()
         log.debug("Start batch apply chain={}".format(len(self.chain)))
         best_chain = self.best_chain.copy()
         batch_count = self.batch_size
         batched_blocks = list()
-        unused_index_cashe = dict()
+        unused_index_cache = dict()
         async with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = await db.cursor()
             try:
@@ -559,8 +559,8 @@ class ChainBuilder(object):
                         # inputs
                         for index, pair in enumerate(tx.inputs):
                             txhash, txindex = pair
-                            if pair in unused_index_cashe:
-                                address, coin_id, amount = unused_index_cashe.pop(pair)
+                            if pair in unused_index_cache:
+                                address, coin_id, amount = unused_index_cache.pop(pair)
                             else:
                                 address, coin_id, amount = self.db.read_unused_index(txhash, txindex)
                             # add address index only you need or add all index
@@ -584,7 +584,7 @@ class ChainBuilder(object):
                                 self.db.write_address_idx(address, tx.hash, index, coin_id, amount, False)
                             # add unused output index
                             self.db.write_unused_index(tx.hash, index, address, coin_id, amount)
-                            unused_index_cashe[(tx.hash, index)] = (address, coin_id, amount)
+                            unused_index_cache[(tx.hash, index)] = (address, coin_id, amount)
 
                         # TXの種類による追加操作
                         if tx.type == C.TX_GENESIS:
@@ -717,7 +717,7 @@ class TransactionBuilder(object):
         # TXs that MAIN chain contains
         self.chained_tx: MutableMapping[bytes, TX] = WeakValueDictionary()
         # DataBase contains TXs
-        self.cashe: MutableMapping[bytes, TX] = WeakValueDictionary()
+        self.cache: MutableMapping[bytes, TX] = WeakValueDictionary()
 
     async def put_unconfirmed(self, cur, tx):
         assert tx.height is None, 'Not unconfirmed tx {}'.format(tx)
@@ -742,11 +742,11 @@ class TransactionBuilder(object):
         """get memory or unconfirmed or accounted txs"""
 
         # warning: WeakValueDictionary delete when out of reference
-        cashed_tx = self.cashe.get(txhash)
+        cached_tx = self.cache.get(txhash)
         chain_tx = self.chained_tx.get(txhash)
 
-        if cashed_tx is not None:
-            tx = cashed_tx
+        if cached_tx is not None:
+            tx = cached_tx
         elif txhash in self.unconfirmed:
             # unconfirmedより
             tx = self.unconfirmed[txhash]
@@ -762,7 +762,7 @@ class TransactionBuilder(object):
             tx = chain_builder.db.read_tx(txhash)
             if tx:
                 tx.recode_flag = 'database'
-                self.cashe[txhash] = tx
+                self.cache[txhash] = tx
             else:
                 return default
         return tx
@@ -864,7 +864,7 @@ class UserAccount(object):
         log.info(f"fill address prefetch len={len(self.pre_fetch_addr)}")
 
     async def get_balance(self, cur, confirm=6):
-        assert confirm < chain_builder.cashe_limit - chain_builder.batch_size
+        assert confirm < chain_builder.cache_limit - chain_builder.batch_size
         assert chain_builder.best_block, 'Not DataBase init'
         # database
         account = self.db_balance.copy()
