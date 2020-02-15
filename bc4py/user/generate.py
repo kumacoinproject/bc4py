@@ -9,13 +9,14 @@ from bc4py.chain.checking.utils import stake_coin_check
 from bc4py.database.create import create_db
 from bc4py.database.account import sign_message_by_address, generate_new_address_by_userid
 from bc4py.database.tools import get_my_unspents_iter
+from bc4py.user.unconfirmed import optimized_unconfirmed_list
 from bc4py_extension import multi_seek, PyAddress
 from concurrent.futures import ProcessPoolExecutor
 from time import time
 from collections import deque
 from random import random
 from logging import getLogger
-from typing import Optional, List, AnyStr
+from typing import Optional, List
 import traceback
 import asyncio
 import os
@@ -29,7 +30,6 @@ mined_block_que = asyncio.Queue(maxsize=1)
 mining_address: Optional[PyAddress] = None
 mining_address_lock = asyncio.Lock()
 previous_block: Optional[Block] = None
-unconfirmed_txs: Optional[List] = None
 unspents_txs: Optional[List] = None
 staking_limit = 500
 optimize_file_name_re = re.compile("^optimized\\.([a-z0-9]+)\\-([0-9]+)\\-([0-9]+)\\.dat$")
@@ -117,7 +117,7 @@ class Generate(object):
         sleep_span = base_span * (1.0 - self.power_limit)
         while self.f_enable:
             # check start mining
-            if previous_block is None or unconfirmed_txs is None:
+            if previous_block is None:
                 await asyncio.sleep(0.1)
                 continue
             mining_block = await create_mining_block(self.consensus)
@@ -126,7 +126,7 @@ class Generate(object):
             spans_deque.append(new_span)
             # check block
             update_work_hash(mining_block)
-            if previous_block is None or unconfirmed_txs is None:
+            if previous_block is None:
                 log.debug("Not confirmed new block by \"nothing params\"")
             elif previous_block.hash != mining_block.previous_hash:
                 log.debug("Not confirmed new block by \"Don't match previous_hash\"")
@@ -157,7 +157,7 @@ class Generate(object):
         limit_deque = deque(maxlen=10)
         while self.f_enable:
             # check start mining
-            if previous_block is None or unconfirmed_txs is None or unspents_txs is None:
+            if previous_block is None or unspents_txs is None:
                 await asyncio.sleep(0.1)
                 continue
             if len(unspents_txs) == 0:
@@ -181,9 +181,7 @@ class Generate(object):
             staking_block.flag = C.BLOCK_COIN_POS
             staking_block.bits2target()
             staking_block.txs.append(None)  # Dummy proof tx
-            if unconfirmed_txs is None:
-                raise FailedGenerateWarning('unconfirmed_txs is None')
-            staking_block.txs.extend(unconfirmed_txs)
+            staking_block.txs.extend(optimized_unconfirmed_list)
             calculate_nam = 0
             for proof_tx in unspents_txs.copy():
                 address = proof_tx.outputs[0][0]
@@ -191,7 +189,7 @@ class Generate(object):
                 proof_tx.update_time()
                 calculate_nam += 1
                 # next check block
-                if previous_block is None or unconfirmed_txs is None or unspents_txs is None:
+                if previous_block is None or unspents_txs is None:
                     log.debug("Reset by \"nothing params found\"")
                     await asyncio.sleep(1)
                     break
@@ -236,7 +234,7 @@ class Generate(object):
         dir_path: str = self.config.get('path', os.path.join(V.DB_HOME_DIR, 'plots'))
         while self.f_enable:
             # check start mining
-            if previous_block is None or unconfirmed_txs is None:
+            if previous_block is None:
                 await asyncio.sleep(0.1)
                 continue
             if not os.path.exists(dir_path):
@@ -274,12 +272,12 @@ class Generate(object):
             else:
                 # return success => (nonce, workhash, address)
                 address: PyAddress = PyAddress.from_string(address)
-                if previous_block is None or unconfirmed_txs is None:
+                if previous_block is None:
                     continue
                 if previous_block.hash != previous_hash:
                     continue
                 # Staked by capacity yay!!
-                total_fee = sum(tx.gas_price * tx.gas_amount for tx in unconfirmed_txs)
+                total_fee = sum(tx.gas_price * tx.gas_amount for tx in optimized_unconfirmed_list)
                 staked_block = Block.from_dict(
                     block={
                         'version': 0,  # always 0
@@ -301,7 +299,7 @@ class Generate(object):
                         'outputs': [(address, 0, reward + total_fee)]
                     })
                 staked_block.txs.append(staked_proof_tx)
-                staked_block.txs.extend(unconfirmed_txs)
+                staked_block.txs.extend(optimized_unconfirmed_list)
                 while staked_block.size > C.SIZE_BLOCK_LIMIT:
                     staked_block.txs.pop()
                 staked_block.update_time(staked_proof_tx.time)
@@ -333,13 +331,11 @@ async def create_mining_block(consensus):
                     await db.commit()
             else:
                 mining_address = V.MINING_ADDRESS
-    if unconfirmed_txs is None:
-        raise FailedGenerateWarning('unconfirmed_txs is None')
     if previous_block is None:
         raise FailedGenerateWarning('previous_block is None')
     # create proof_tx
     reward = GompertzCurve.calc_block_reward(previous_block.height + 1)
-    fees = sum(tx.gas_amount * tx.gas_price for tx in unconfirmed_txs)
+    fees = sum(tx.gas_amount * tx.gas_price for tx in optimized_unconfirmed_list)
     proof_tx = TX.from_dict(
         tx={
             'type': C.TX_POW_REWARD,
@@ -366,9 +362,7 @@ async def create_mining_block(consensus):
     mining_block.flag = consensus
     mining_block.bits2target()
     mining_block.txs.append(proof_tx)
-    if unconfirmed_txs is None:
-        raise FailedGenerateWarning('unconfirmed_txs is None')
-    mining_block.txs.extend(unconfirmed_txs)
+    mining_block.txs.extend(optimized_unconfirmed_list)
     mining_block.update_merkleroot()
     mining_block.update_time(proof_tx.time)
     return mining_block
@@ -377,9 +371,8 @@ async def create_mining_block(consensus):
 async def confirmed_generating_block(new_block) -> bool:
     assert new_block.work_hash is not None, new_block
     log.info("Generate block yey!! {}".format(new_block))
-    global previous_block, unconfirmed_txs, unspents_txs
+    global previous_block, unspents_txs
     previous_block = None
-    unconfirmed_txs = None
     unspents_txs = None
     # timeout: GeneBlock thread do not start?
     future = asyncio.Future()
@@ -391,11 +384,6 @@ async def confirmed_generating_block(new_block) -> bool:
 def update_previous_block(new_previous_block):
     global previous_block
     previous_block = new_previous_block
-
-
-def update_unconfirmed_txs(new_unconfirmed_txs):
-    global unconfirmed_txs
-    unconfirmed_txs = new_unconfirmed_txs
 
 
 async def update_unspents_txs():
@@ -464,7 +452,6 @@ __all__ = [
     "create_mining_block",
     "confirmed_generating_block",
     "update_previous_block",
-    "update_unconfirmed_txs",
     "update_unspents_txs",
     "FailedGenerateWarning",
     "close_generate",
