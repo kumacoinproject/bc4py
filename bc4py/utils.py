@@ -6,7 +6,6 @@ from Cryptodome import Random
 from Cryptodome.Hash import SHA256
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from logging import getLogger, DEBUG, INFO, WARNING, ERROR
-import multiprocessing
 import subprocess
 import threading
 import os
@@ -47,7 +46,6 @@ def set_database_path(sub_dir=None):
 
 
 def set_blockchain_params(genesis_block, params):
-    assert 'spawn' in multiprocessing.get_all_start_methods(), 'Not found spawn method'
     V.GENESIS_BLOCK = genesis_block
     V.GENESIS_PARAMS = params
     V.BECH32_HRP = params.get('hrp')
