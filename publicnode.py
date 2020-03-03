@@ -25,13 +25,13 @@ loop = asyncio.get_event_loop()
 
 async def setup_chain(connections):
     p2p = V.P2P_OBJ
-    if await p2p.core.create_connection('153.122.86.46', 2000):
-        logging.info("1Connect!")
-    elif await p2p.core.create_connection('pycontract.tk', 2000):
-        logging.info("2Connect!")
 
     for host, port in connections:
-        await p2p.core.create_connection(host, port)
+        try:
+            if await p2p.core.create_connection(host, port):
+                logging.info("Connect to {}:{}".format(host, port))
+        except Exception:
+            logging.error("first connection", exc_info=True)
 
     # BroadcastProcess setup
     p2p.broadcast_check = broadcast_check

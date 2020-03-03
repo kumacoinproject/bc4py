@@ -66,9 +66,6 @@ async def setup_chain(port, connections):
     else:
         await p2p.core.create_connection('127.0.0.1', 2001)
 
-    for host, port in connections:
-        await p2p.core.create_connection(host, port)
-
     # BroadcastProcess setup
     p2p.broadcast_check = broadcast_check
 
