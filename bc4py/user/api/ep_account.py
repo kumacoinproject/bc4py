@@ -84,7 +84,7 @@ async def list_unspents(address: str, page: int = 0, limit: int = 25):
         * display from Database -> Memory -> Unconfirmed
     """
     if not chain_builder.db.db_config['addrindex']:
-        return error_response('address isn\'t full indexed')
+        return error_response('Cannot use this API, please set `addrindex` true if you want full indexed')
     try:
         best_height = chain_builder.best_block.height
         start = page * limit

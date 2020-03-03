@@ -51,9 +51,9 @@ async def get_tx_by_hash(hash: str):
         tx = tx_builder.get_tx(txhash)
         if tx is None:
             if chain_builder.db.db_config['txindex']:
-                return error_response("not found tx")
+                return error_response("not found the tx in this chain")
             else:
-                return error_response('not found tx, please set `txindex` true if you want full indexed')
+                return error_response('not found the tx, please set `txindex` true if you want full indexed')
         data = tx.getinfo()
         data['hex'] = tx.b.hex()
         return data
