@@ -12,8 +12,8 @@ from logging import getLogger
 log = getLogger('bc4py')
 
 local_address = {
-    "localhost",
     "127.0.0.1",
+    "::1",
 }
 ALLOW_CROSS_ORIGIN_ACCESS = {
     'Access-Control-Allow-Origin': '*'
@@ -42,16 +42,16 @@ class ConditionCheckMiddleware(BaseHTTPMiddleware):
                 if proxy_host is None or proxy_host in local_address:
                     pass  # success
                 elif proxy_host.startswith('::ffff:') and proxy_host[7:] in local_address:
-                    pass  # success (ipv6)
+                    pass  # success (IPv6 address including IPv4 address)
                 else:
                     return PlainTextResponse(
-                        "private method only allow from locals ({})".format(proxy_host),
+                        "1 private method only allow from locals ({})".format(proxy_host),
                         status_code=HTTP_403_FORBIDDEN,
                         headers=ALLOW_CROSS_ORIGIN_ACCESS,
                     )
             else:
                 return PlainTextResponse(
-                    "private method only allow from locals",
+                    "2 private method only allow from locals ({})".format(request.client.host),
                     status_code=HTTP_403_FORBIDDEN,
                     headers=ALLOW_CROSS_ORIGIN_ACCESS,
                 )
