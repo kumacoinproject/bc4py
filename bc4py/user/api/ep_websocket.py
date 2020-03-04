@@ -2,6 +2,7 @@ from bc4py.config import P, stream
 from bc4py.chain.block import Block
 from bc4py.chain.tx import TX
 from bc4py.user import Accounting
+from bc4py.user.api.utils import error_response
 from starlette.websockets import WebSocket, WebSocketState, WebSocketDisconnect
 from logging import getLogger, INFO
 from typing import List
@@ -23,10 +24,13 @@ CMD_NEW_ACCOUNTING = 'Accounting'
 CMD_ERROR = 'Error'
 
 
-async def websocket_route(ws: WebSocket, is_public=True):
+async def websocket_route(ws: WebSocket = None, is_public=True):
     """
     websocket public stream
     """
+    if ws is None:
+        return error_response('This endpoint is for websocket. You do not send with upgrade header.')
+
     await ws.accept()
     async with client_lock:
         clients.append(WsClient(ws, is_public))
@@ -55,10 +59,13 @@ async def websocket_route(ws: WebSocket, is_public=True):
     log.debug("close {}".format(ws))
 
 
-async def private_websocket_route(ws: WebSocket):
+async def private_websocket_route(ws: WebSocket = None):
     """
     websocket private stream
     """
+    if ws is None:
+        return error_response('This endpoint is for websocket. You do not send with upgrade header.')
+
     await websocket_route(ws, False)
 
 
