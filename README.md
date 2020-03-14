@@ -51,7 +51,7 @@ Documents
 * [HTTPS proxy introduction](doc/Proxy.md)
 * [Proof of capacity](doc/AboutPoC.md)
 * [Install LevelDB](doc/InstallLevedb.md)
-* [how to build windows binary](doc/WindowsBinary.md)
+* [how to setup windows package](doc/WindowsPackage.md)
 
 Licence
 ----

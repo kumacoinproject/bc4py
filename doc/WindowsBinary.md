@@ -1,5 +1,6 @@
 how to build windows binary
 ====
+**this is old, use []() instead!**  
 use [Nuitka](https://nuitka.net/) and [MSYS2 x86_64](https://www.msys2.org/)
 
 build by
