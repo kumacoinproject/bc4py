@@ -28,7 +28,7 @@ with open(os.path.join(here, 'requirements-c.txt')) as fp:
 setup(
     name="bc4py",
     version=version.replace('-', '').replace('alpha', 'a').replace('beta', 'b'),
-    url='https://github.com/namuyan/bc4py',
+    url='https://github.com/kumacoinproject/bc4py',
     author='namuyan',
     description='Simple blockchain library for python3.',
     long_description=readme,

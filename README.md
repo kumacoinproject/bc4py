@@ -1,6 +1,6 @@
 bc4py
 =============================
-[bc4py](https://github.com/namuyan/bc4py)\(blockchain-for-python) enables you to
+[bc4py](https://github.com/kumacoinproject/bc4py)\(blockchain-for-python) enables you to
 create blockchain application by Python3.
 
 Function
@@ -27,7 +27,7 @@ Install
 ----
 ```commandline
 cd ~
-git clone https://github.com/namuyan/bc4py
+git clone https://github.com/kumacoinproject/bc4py
 rm -r doc tests
 mv bc4py blockchain-py
 cd blockchain-py
@@ -45,7 +45,7 @@ Documents
 ----
 * [Create genesis block](doc/GenesisBlock.md)
 * [How to mining](doc/Mining.md)
-* [testnet API document](https://testnet.pycontract.tk/docs)
+* [testnet API document](https://testnet.kumacoin.dev/docs)
 * [About development](doc/Development.md)
 * [About new offer about program](doc/AboutPullrequest.md)
 * [HTTPS proxy introduction](doc/Proxy.md)
