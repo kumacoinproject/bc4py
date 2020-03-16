@@ -36,14 +36,14 @@ ITER_ORDER = 'big'
 DB_VERSION = 0  # increase if you change database structure
 
 
-class DataBase(object):
-    db_config = {
+class Tables(object):
+    table_config = {
         'txindex': True,
         'addrindex': True,
         'timeout': None,
         'sync': False,
     }
-    database_list = [
+    table_list = [
         "_block",  # [blockhash] -> [height, time, work, b_block, flag, tx_len][txhash0]..[txhashN]
         "_tx_index",  # [txhash] -> [height][offset]
         "_unused_index",  # [txhash][txindex] -> [address][coin_id][amount]
@@ -53,8 +53,8 @@ class DataBase(object):
     ]
 
     def __init__(self, **kwargs):
-        self.db_config.update(kwargs)  # extra settings
-        dir_name = f"db-tx{int(self.db_config['txindex'])}-addr{int(self.db_config['addrindex'])}-ver{DB_VERSION}"
+        self.table_config.update(kwargs)  # extra settings
+        dir_name = f"db-tx{int(self.table_config['txindex'])}-addr{int(self.table_config['addrindex'])}-ver{DB_VERSION}"
         dirs = os.path.join(V.DB_HOME_DIR, dir_name)
         self.dirs = dirs
         # already used => LevelDBError
@@ -79,17 +79,17 @@ class DataBase(object):
         log.debug(':create database connect path={}'.format(dirs.replace("\\", "/")))
 
     def close(self):
-        for name in self.database_list:
+        for name in self.table_list:
             getattr(self, name).close()
         log.info("close database connection")
 
     async def batch_create(self):
         assert len(self.batch) == 0, 'batch is already start'
-        await asyncio.wait_for(self.event.wait(), self.db_config['timeout'])
+        await asyncio.wait_for(self.event.wait(), self.table_config['timeout'])
         self.event.clear()
         self.batch_time = time()
-        for name in self.database_list:
-            self.batch[name] = getattr(self, name).write_batch(sync=self.db_config['sync'])
+        for name in self.table_list:
+            self.batch[name] = getattr(self, name).write_batch(sync=self.table_config['sync'])
         self.batch_task = asyncio.Task.current_task()
         log.debug(":Create database batch")
 
@@ -321,17 +321,17 @@ class ChainBuilder(object):
         self.best_chain: Optional[List[Block]] = None
         self.root_block: Optional[Block] = None
         self.best_block: Optional[Block] = None
-        self.db: Optional[DataBase] = None
+        self.tables: Optional[Tables] = None
 
     async def close(self):
         # require manual close
-        if self.db.batch_task:
-            await self.db.batch_task
-        self.db.close()
+        if self.tables.batch_task:
+            await self.tables.batch_task
+        self.tables.close()
 
     def set_database_object(self, **kwargs):
         try:
-            self.db = DataBase(**kwargs)
+            self.tables = Tables(**kwargs)
             log.info("Connect database")
         except plyvel.Error as e:
             log.warning("database connect error, {}".format(e))
@@ -339,7 +339,7 @@ class ChainBuilder(object):
             log.fatal("Failed connect database", exc_info=True)
 
     async def init(self, genesis_block: Block, batch_size=None):
-        assert self.db, 'Why database connection failed?'
+        assert self.tables, 'Why database connection failed?'
         # return status
         # True  = Only genesisBlock, recommend to import bootstrap.dat.gz first
         # False = Many blocks in LevelDB, sync by network
@@ -348,14 +348,14 @@ class ChainBuilder(object):
         # GenesisBlockか確認
         t = time()
         try:
-            if genesis_block.hash != self.db.read_block_hash(0):
+            if genesis_block.hash != self.tables.read_block_hash(0):
                 raise BlockBuilderError("Don't match genesis hash [{}!={}]".format(
                     genesis_block.hash.hex(),
-                    self.db.read_block_hash(0).hex()))
-            elif genesis_block != self.db.read_block(genesis_block.hash):
+                    self.tables.read_block_hash(0).hex()))
+            elif genesis_block != self.tables.read_block(genesis_block.hash):
                 raise BlockBuilderError("Don't match genesis binary [{}!={}]".format(
                     genesis_block.b.hex(),
-                    self.db.read_block(genesis_block.hash).b.hex()))
+                    self.tables.read_block(genesis_block.hash).b.hex()))
         except Exception:
             # GenesisBlockしか無いのでDummyBlockを入れる処理
             self.root_block = Block()
@@ -376,8 +376,8 @@ class ChainBuilder(object):
             # 0HeightよりBlockを取得して確認
             before_block = genesis_block
             batch_blocks = list()
-            for height, blockhash in self.db.read_block_hash_iter(start_height=1):
-                block = self.db.read_block(blockhash)
+            for height, blockhash in self.tables.read_block_hash_iter(start_height=1):
+                block = self.tables.read_block(blockhash)
                 if block.previous_hash != before_block.hash:
                     raise BlockBuilderError("PreviousHash != BlockHash [{}!={}]".format(block, before_block))
                 elif block.height != height:
@@ -443,7 +443,7 @@ class ChainBuilder(object):
 
     def write_to_memory_file(self, new_block: Block):
         """add new block to memory_file"""
-        path = os.path.join(self.db.dirs, 'memory.mpac')
+        path = os.path.join(self.tables.dirs, 'memory.mpac')
         try:
             if new_block.height % C.MEMORY_FILE_REFRESH_SPAN == 0:
                 # clear
@@ -460,7 +460,7 @@ class ChainBuilder(object):
 
     def recover_from_memory_file(self, root_block: Block) -> (List[Block], Block):
         """recover memory from memory_file"""
-        path = os.path.join(self.db.dirs, 'memory.mpac')
+        path = os.path.join(self.tables.dirs, 'memory.mpac')
         memorized_blocks = list()
         if not os.path.exists(path):
             log.debug("no memory file found")
@@ -531,7 +531,7 @@ class ChainBuilder(object):
         if self.cache_limit > len(self.chain):
             return list()
         # cache許容量を上回っているので記録
-        await self.db.batch_create()
+        await self.tables.batch_create()
         log.debug("Start batch apply chain={}".format(len(self.chain)))
         best_chain = self.best_chain.copy()
         batch_count = self.batch_size
@@ -553,7 +553,7 @@ class ChainBuilder(object):
                         is_account_tx = tx.hash in account_builder.memory_movement
 
                         # add txindex
-                        if is_account_tx or chain_builder.db.db_config['txindex']:
+                        if is_account_tx or chain_builder.tables.table_config['txindex']:
                             account_tx.add(tx)
 
                         # inputs
@@ -562,16 +562,16 @@ class ChainBuilder(object):
                             if pair in unused_index_cache:
                                 address, coin_id, amount = unused_index_cache.pop(pair)
                             else:
-                                address, coin_id, amount = self.db.read_unused_index(txhash, txindex)
+                                address, coin_id, amount = self.tables.read_unused_index(txhash, txindex)
                             # add address index only you need or add all index
                             if is_account_tx:
                                 is_account_input = (await read_address2userid(address=address, cur=cur)) is not None
                             else:
                                 is_account_input = False
-                            if is_account_input or chain_builder.db.db_config['addrindex']:
-                                self.db.write_address_idx(address, txhash, txindex, coin_id, amount, True)
+                            if is_account_input or chain_builder.tables.table_config['addrindex']:
+                                self.tables.write_address_idx(address, txhash, txindex, coin_id, amount, True)
                             # remove unused output index
-                            self.db.remove_unused_index(txhash, txindex)
+                            self.tables.remove_unused_index(txhash, txindex)
 
                         # outputs
                         for index, (address, coin_id, amount) in enumerate(tx.outputs):
@@ -580,10 +580,10 @@ class ChainBuilder(object):
                                 is_account_output = (await read_address2userid(address=address, cur=cur)) is not None
                             else:
                                 is_account_output = False
-                            if is_account_output or chain_builder.db.db_config['addrindex']:
-                                self.db.write_address_idx(address, tx.hash, index, coin_id, amount, False)
+                            if is_account_output or chain_builder.tables.table_config['addrindex']:
+                                self.tables.write_address_idx(address, tx.hash, index, coin_id, amount, False)
                             # add unused output index
-                            self.db.write_unused_index(tx.hash, index, address, coin_id, amount)
+                            self.tables.write_unused_index(tx.hash, index, address, coin_id, amount)
                             unused_index_cache[(tx.hash, index)] = (address, coin_id, amount)
 
                         # TXの種類による追加操作
@@ -597,18 +597,18 @@ class ChainBuilder(object):
                             pass
                         elif tx.type == C.TX_MINT_COIN:
                             mint_id, params, setting = tx.encoded_message()
-                            self.db.write_coins(
+                            self.tables.write_coins(
                                 coin_id=mint_id, height=block.height,
                                 index=block.txs.index(tx), txhash=tx.hash,
                                 params=params, setting=setting)
 
                     # write block with txindex
-                    self.db.write_block(block, account_tx)
+                    self.tables.write_block(block, account_tx)
 
                 # block挿入終了
                 self.best_chain = best_chain
                 self.root_block = block
-                await self.db.batch_commit()
+                await self.tables.batch_commit()
                 # root_blockよりHeightの小さいBlockを消す
                 for blockhash, block in self.chain.copy().items():
                     if self.root_block.height >= block.height:
@@ -619,7 +619,7 @@ class ChainBuilder(object):
                 await db.commit()
                 return batched_blocks  # [<height=n>, <height=n+1>, .., <height=n+m>]
             except Exception as e:
-                self.db.batch_rollback()
+                self.tables.batch_rollback()
                 log.warning("Failed batch block builder. '{}'".format(e), exc_info=True)
                 return list()
 
@@ -671,8 +671,8 @@ class ChainBuilder(object):
             block.recode_flag = 'memory'
             block.f_orphan = bool(block not in self.best_chain)
         else:
-            # DataBase
-            block = self.db.read_block(blockhash)
+            # Tables
+            block = self.tables.read_block(blockhash)
             if block:
                 block.recode_flag = 'database'
                 block.f_orphan = False
@@ -692,8 +692,8 @@ class ChainBuilder(object):
             block_header = get_block_header_from_bin(
                 block.height, block.work_hash, block.b, block.flag)
         else:
-            # DataBase
-            block_header = self.db.read_block_header(blockhash)
+            # Tables
+            block_header = self.tables.read_block_header(blockhash)
         return block_header
 
     def get_block_hash(self, height):
@@ -705,8 +705,8 @@ class ChainBuilder(object):
         for block in self.best_chain:
             if height == block.height:
                 return block.hash
-        # DataBase
-        return self.db.read_block_hash(height)
+        # Tables
+        return self.tables.read_block_hash(height)
 
 
 class TransactionBuilder(object):
@@ -716,7 +716,7 @@ class TransactionBuilder(object):
         self.unconfirmed: Dict[bytes, TX] = dict()
         # TXs that MAIN chain contains
         self.chained_tx: MutableMapping[bytes, TX] = WeakValueDictionary()
-        # DataBase contains TXs
+        # Tables contains TXs
         self.cache: MutableMapping[bytes, TX] = WeakValueDictionary()
 
     async def put_unconfirmed(self, cur, tx):
@@ -759,7 +759,7 @@ class TransactionBuilder(object):
             if tx.height is None: log.warning("Is unconfirmed. {}".format(tx))
         else:
             # Databaseより
-            tx = chain_builder.db.read_tx(txhash)
+            tx = chain_builder.tables.read_tx(txhash)
             if tx:
                 tx.recode_flag = 'database'
                 self.cache[txhash] = tx
@@ -776,7 +776,7 @@ class TransactionBuilder(object):
 
     def get_account_tx(self, txhash):
         """get account tx"""
-        if txhash in account_builder.memory_movement or chain_builder.db.have_tx(txhash):
+        if txhash in account_builder.memory_movement or chain_builder.tables.have_tx(txhash):
             return self.get_tx(txhash)
         else:
             return None
@@ -838,7 +838,7 @@ class AccountBuilder(object):
             # logに記録されてもBlockに取り込まれていないならTXは存在せず
             if move_log.type == C.TX_INNER:
                 memory_sum += move_log.movement
-            elif chain_builder.db.have_tx(move_log.txhash):
+            elif chain_builder.tables.have_tx(move_log.txhash):
                 memory_sum += move_log.movement
             elif f_delete:
                 deleted += 1
@@ -865,7 +865,7 @@ class AccountBuilder(object):
 
     async def get_balance(self, cur, confirm=6):
         assert confirm < chain_builder.cache_limit - chain_builder.batch_size
-        assert chain_builder.best_block, 'Not DataBase init'
+        assert chain_builder.best_block, 'Not Tables init'
         # database
         account = self.db_balance.copy()
         # memory
@@ -945,7 +945,7 @@ class AccountBuilder(object):
                             else:
                                 yield move_log.get_tuple_data()
                         count += 1
-            # DataBase
+            # Tables
             async for move_log in read_movelog_iter(cur, start - count):
                 # TRANSFERなど はDBとMemoryの両方に存在する
                 if move_log.txhash in self.memory_movement:

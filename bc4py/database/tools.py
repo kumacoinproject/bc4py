@@ -76,7 +76,7 @@ async def get_my_unspents_iter(cur, best_chain=None) -> AsyncGenerator:
 
 def get_output_from_input(input_hash, input_index, best_block=None, best_chain=None):
     """get OutputType from InputType"""
-    assert chain_builder.best_block, 'Not DataBase init'
+    assert chain_builder.best_block, 'Not Tables init'
     if best_chain is None:
         best_chain = _get_best_chain_all(best_block)
 
@@ -105,7 +105,7 @@ def get_output_from_input(input_hash, input_index, best_block=None, best_chain=N
 
 def is_unused_index(input_hash, input_index, best_block=None, best_chain=None) -> bool:
     """check inputs is unused(True) or not(False)"""
-    assert chain_builder.best_block, 'Not DataBase init'
+    assert chain_builder.best_block, 'Not Tables init'
     if best_chain is None:
         best_chain = _get_best_chain_all(best_block)
     is_unused = False
@@ -144,7 +144,7 @@ def is_unused_index_except_me(input_hash, input_index, except_hash, best_block, 
     """check inputs is unused(True) or not(False)
     WARNING: except hash work on memory or unconfirmed status
     """
-    assert chain_builder.best_block, 'Not DataBase init'
+    assert chain_builder.best_block, 'Not Tables init'
     is_unused = False
 
     # check database
