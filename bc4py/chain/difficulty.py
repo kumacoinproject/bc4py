@@ -1,5 +1,5 @@
 from bc4py.config import C, V, Debug
-from bc4py.database.builder import chain_builder
+from bc4py.database import obj
 from bc4py.chain.utils import bits2target, target2bits
 from functools import lru_cache
 
@@ -33,7 +33,7 @@ MAX_SEARCH_BLOCKS = 1000
 @lru_cache(maxsize=1024)
 def get_block_from_cache(blockhash):
     """return namedTuple block header with lru_cache"""
-    return chain_builder.get_block_header(blockhash)
+    return obj.chain_builder.get_block_header(blockhash)
 
 
 @lru_cache(maxsize=256)

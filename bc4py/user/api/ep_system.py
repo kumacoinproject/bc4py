@@ -2,7 +2,7 @@ from bc4py import __version__, __chain_version__, __message__
 from bc4py.config import C, V, P
 from bc4py.chain.utils import GompertzCurve, DEFAULT_TARGET
 from bc4py.chain.difficulty import get_bits_by_hash, get_bias_by_hash
-from bc4py.database.builder import chain_builder, tx_builder, account_builder
+from bc4py.database import obj
 from bc4py.user.api.utils import error_response, local_address
 from bc4py.user.generate import generating_threads
 from time import time
@@ -21,12 +21,12 @@ async def chain_info():
     This end-point show blockchain status of node.
     """
     try:
-        best_height = chain_builder.best_block.height
-        best_block = chain_builder.best_block
+        best_height = obj.chain_builder.best_block.height
+        best_block = obj.chain_builder.best_block
         best_block_info = best_block.getinfo()
         best_block_info['hex'] = best_block.b.hex()
-        old_block_height = chain_builder.best_chain[0].height - 1
-        old_block_hash = chain_builder.get_block_hash(old_block_height).hex()
+        old_block_height = obj.chain_builder.best_chain[0].height - 1
+        old_block_hash = obj.chain_builder.get_block_hash(old_block_height).hex()
         data = {'best': best_block_info}
         difficulty = dict()
         for consensus, ratio in V.BLOCK_CONSENSUSES.items():
@@ -64,12 +64,13 @@ async def chain_fork_info():
     This end-point show blockchain fork info.
     """
     try:
-        main_chain = [block.getinfo() for block in chain_builder.best_chain]
-        orphan_chain = [block.getinfo() for block in chain_builder.chain.values() if block not in chain_builder.best_chain]
+        best_chain = obj.chain_builder.best_chain
+        main_chain = [block.getinfo() for block in best_chain]
+        orphan_chain = [block.getinfo() for block in obj.chain_builder.chain.values() if block not in best_chain]
         return {
             'main': main_chain,
             'orphan': sorted(orphan_chain, key=lambda x: x['height']),
-            'root': chain_builder.root_block.getinfo(),
+            'root': obj.chain_builder.root_block.getinfo(),
         }
     except Exception:
         return error_response()
@@ -103,10 +104,10 @@ async def system_private_info():
             'branch': V.BRANCH_NAME,
             'source_hash': V.SOURCE_HASH,
             'directory': V.DB_HOME_DIR,
-            'unconfirmed': [txhash.hex() for txhash in tx_builder.unconfirmed.keys()],
+            'unconfirmed': [txhash.hex() for txhash in obj.tx_builder.unconfirmed.keys()],
             'generate_threads': [str(s) for s in generating_threads],
             'local_address': list(local_address),
-            'prefetch_address': len(account_builder.pre_fetch_addr),
+            'prefetch_address': len(obj.account_builder.pre_fetch_addr),
             'extended_key': repr(V.EXTENDED_KEY_OBJ),
         }
     except Exception:

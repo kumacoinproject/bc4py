@@ -5,6 +5,7 @@ from bc4py.chain.tx import TX
 from bc4py.chain.block import Block, get_block_header_from_bin
 import bc4py.chain.msgpack as bc4py_msgpack
 from bc4py.user import Balance, Accounting
+from bc4py.database import obj
 from bc4py.database.account import *
 from bc4py.database.create import create_db
 from bc4py_extension import sha256d_hash, PyAddress
@@ -321,25 +322,15 @@ class ChainBuilder(object):
         self.best_chain: Optional[List[Block]] = None
         self.root_block: Optional[Block] = None
         self.best_block: Optional[Block] = None
-        self.tables: Optional[Tables] = None
 
     async def close(self):
         # require manual close
-        if self.tables.batch_task:
-            await self.tables.batch_task
-        self.tables.close()
-
-    def set_database_object(self, **kwargs):
-        try:
-            self.tables = Tables(**kwargs)
-            log.info("Connect database")
-        except plyvel.Error as e:
-            log.warning("database connect error, {}".format(e))
-        except Exception:
-            log.fatal("Failed connect database", exc_info=True)
+        if obj.tables.batch_task:
+            await obj.tables.batch_task
+        obj.tables.close()
 
     async def init(self, genesis_block: Block, batch_size=None):
-        assert self.tables, 'Why database connection failed?'
+        assert obj.tables, 'Why database connection failed?'
         # return status
         # True  = Only genesisBlock, recommend to import bootstrap.dat.gz first
         # False = Many blocks in LevelDB, sync by network
@@ -348,14 +339,14 @@ class ChainBuilder(object):
         # GenesisBlockか確認
         t = time()
         try:
-            if genesis_block.hash != self.tables.read_block_hash(0):
+            if genesis_block.hash != obj.tables.read_block_hash(0):
                 raise BlockBuilderError("Don't match genesis hash [{}!={}]".format(
                     genesis_block.hash.hex(),
-                    self.tables.read_block_hash(0).hex()))
-            elif genesis_block != self.tables.read_block(genesis_block.hash):
+                    obj.tables.read_block_hash(0).hex()))
+            elif genesis_block != obj.tables.read_block(genesis_block.hash):
                 raise BlockBuilderError("Don't match genesis binary [{}!={}]".format(
                     genesis_block.b.hex(),
-                    self.tables.read_block(genesis_block.hash).b.hex()))
+                    obj.tables.read_block(genesis_block.hash).b.hex()))
         except Exception:
             # GenesisBlockしか無いのでDummyBlockを入れる処理
             self.root_block = Block()
@@ -366,18 +357,18 @@ class ChainBuilder(object):
             log.info("Set dummy block, genesisBlock={}".format(genesis_block))
             async with create_db(V.DB_ACCOUNT_PATH) as db:
                 cur = await db.cursor()
-                await account_builder.init(cur=cur)
+                await obj.account_builder.init(cur=cur)
                 await db.commit()
             return True
 
         async with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = await db.cursor()
-            await account_builder.init(cur=cur)
+            await obj.account_builder.init(cur=cur)
             # 0HeightよりBlockを取得して確認
             before_block = genesis_block
             batch_blocks = list()
-            for height, blockhash in self.tables.read_block_hash_iter(start_height=1):
-                block = self.tables.read_block(blockhash)
+            for height, blockhash in obj.tables.read_block_hash_iter(start_height=1):
+                block = obj.tables.read_block(blockhash)
                 if block.previous_hash != before_block.hash:
                     raise BlockBuilderError("PreviousHash != BlockHash [{}!={}]".format(block, before_block))
                 elif block.height != height:
@@ -418,7 +409,7 @@ class ChainBuilder(object):
                 before_block = block
                 batch_blocks.append(block)
                 if len(batch_blocks) >= batch_size:
-                    await account_builder.new_batch_apply(cur=cur, batched_blocks=batch_blocks)
+                    await obj.account_builder.new_batch_apply(cur=cur, batched_blocks=batch_blocks)
                     batch_blocks.clear()
                     log.debug("AccountBuilder batched at {} height".format(block.height))
             # load and rebuild memory section
@@ -429,21 +420,21 @@ class ChainBuilder(object):
                 batch_blocks.append(block)
                 self.chain[block.hash] = block
                 for tx in block.txs:
-                    await account_builder.affect_new_tx(cur=cur, tx=tx)
-                    if tx.hash not in tx_builder.chained_tx:
-                        tx_builder.chained_tx[tx.hash] = tx
-                    if tx.hash in tx_builder.unconfirmed:
-                        del tx_builder.unconfirmed[tx.hash]
+                    await obj.account_builder.affect_new_tx(cur=cur, tx=tx)
+                    if tx.hash not in obj.tx_builder.chained_tx:
+                        obj.tx_builder.chained_tx[tx.hash] = tx
+                    if tx.hash in obj.tx_builder.unconfirmed:
+                        del obj.tx_builder.unconfirmed[tx.hash]
             self.best_chain = list(reversed(memorized_blocks))
             # AccountBuilder update
-            await account_builder.new_batch_apply(cur=cur, batched_blocks=batch_blocks)
+            await obj.account_builder.new_batch_apply(cur=cur, batched_blocks=batch_blocks)
             await db.commit()
         log.info("Init finished, last block is {} {}Sec".format(before_block, round(time() - t, 3)))
         return False
 
     def write_to_memory_file(self, new_block: Block):
         """add new block to memory_file"""
-        path = os.path.join(self.tables.dirs, 'memory.mpac')
+        path = os.path.join(obj.tables.dirs, 'memory.mpac')
         try:
             if new_block.height % C.MEMORY_FILE_REFRESH_SPAN == 0:
                 # clear
@@ -460,7 +451,7 @@ class ChainBuilder(object):
 
     def recover_from_memory_file(self, root_block: Block) -> (List[Block], Block):
         """recover memory from memory_file"""
-        path = os.path.join(self.tables.dirs, 'memory.mpac')
+        path = os.path.join(obj.tables.dirs, 'memory.mpac')
         memorized_blocks = list()
         if not os.path.exists(path):
             log.debug("no memory file found")
@@ -531,7 +522,7 @@ class ChainBuilder(object):
         if self.cache_limit > len(self.chain):
             return list()
         # cache許容量を上回っているので記録
-        await self.tables.batch_create()
+        await obj.tables.batch_create()
         log.debug("Start batch apply chain={}".format(len(self.chain)))
         best_chain = self.best_chain.copy()
         batch_count = self.batch_size
@@ -550,10 +541,10 @@ class ChainBuilder(object):
                     account_tx = set()
                     for tx in block.txs:
                         # if false, the tx is not account_tx
-                        is_account_tx = tx.hash in account_builder.memory_movement
+                        is_account_tx = tx.hash in obj.account_builder.memory_movement
 
                         # add txindex
-                        if is_account_tx or chain_builder.tables.table_config['txindex']:
+                        if is_account_tx or obj.tables.table_config['txindex']:
                             account_tx.add(tx)
 
                         # inputs
@@ -562,16 +553,16 @@ class ChainBuilder(object):
                             if pair in unused_index_cache:
                                 address, coin_id, amount = unused_index_cache.pop(pair)
                             else:
-                                address, coin_id, amount = self.tables.read_unused_index(txhash, txindex)
+                                address, coin_id, amount = obj.tables.read_unused_index(txhash, txindex)
                             # add address index only you need or add all index
                             if is_account_tx:
                                 is_account_input = (await read_address2userid(address=address, cur=cur)) is not None
                             else:
                                 is_account_input = False
-                            if is_account_input or chain_builder.tables.table_config['addrindex']:
-                                self.tables.write_address_idx(address, txhash, txindex, coin_id, amount, True)
+                            if is_account_input or obj.tables.table_config['addrindex']:
+                                obj.tables.write_address_idx(address, txhash, txindex, coin_id, amount, True)
                             # remove unused output index
-                            self.tables.remove_unused_index(txhash, txindex)
+                            obj.tables.remove_unused_index(txhash, txindex)
 
                         # outputs
                         for index, (address, coin_id, amount) in enumerate(tx.outputs):
@@ -580,10 +571,10 @@ class ChainBuilder(object):
                                 is_account_output = (await read_address2userid(address=address, cur=cur)) is not None
                             else:
                                 is_account_output = False
-                            if is_account_output or chain_builder.tables.table_config['addrindex']:
-                                self.tables.write_address_idx(address, tx.hash, index, coin_id, amount, False)
+                            if is_account_output or obj.tables.table_config['addrindex']:
+                                obj.tables.write_address_idx(address, tx.hash, index, coin_id, amount, False)
                             # add unused output index
-                            self.tables.write_unused_index(tx.hash, index, address, coin_id, amount)
+                            obj.tables.write_unused_index(tx.hash, index, address, coin_id, amount)
                             unused_index_cache[(tx.hash, index)] = (address, coin_id, amount)
 
                         # TXの種類による追加操作
@@ -597,29 +588,29 @@ class ChainBuilder(object):
                             pass
                         elif tx.type == C.TX_MINT_COIN:
                             mint_id, params, setting = tx.encoded_message()
-                            self.tables.write_coins(
+                            obj.tables.write_coins(
                                 coin_id=mint_id, height=block.height,
                                 index=block.txs.index(tx), txhash=tx.hash,
                                 params=params, setting=setting)
 
                     # write block with txindex
-                    self.tables.write_block(block, account_tx)
+                    obj.tables.write_block(block, account_tx)
 
                 # block挿入終了
                 self.best_chain = best_chain
                 self.root_block = block
-                await self.tables.batch_commit()
+                await obj.tables.batch_commit()
                 # root_blockよりHeightの小さいBlockを消す
                 for blockhash, block in self.chain.copy().items():
                     if self.root_block.height >= block.height:
                         del self.chain[blockhash]
                 log.debug("Success batch {} blocks, root={}".format(len(batched_blocks), self.root_block))
                 # アカウントへ反映↓
-                await account_builder.new_batch_apply(cur=cur, batched_blocks=batched_blocks)
+                await obj.account_builder.new_batch_apply(cur=cur, batched_blocks=batched_blocks)
                 await db.commit()
                 return batched_blocks  # [<height=n>, <height=n+1>, .., <height=n+m>]
             except Exception as e:
-                self.tables.batch_rollback()
+                obj.tables.batch_rollback()
                 log.warning("Failed batch block builder. '{}'".format(e), exc_info=True)
                 return list()
 
@@ -656,7 +647,7 @@ class ChainBuilder(object):
             block.f_orphan = False
         # 変化しているので反映する
         self.best_block, self.best_chain = new_best_block, new_best_chain
-        tx_builder.affect_new_chain(new_best_sets=new_best_sets, old_best_sets=old_best_sets)
+        obj.tx_builder.affect_new_chain(new_best_sets=new_best_sets, old_best_sets=old_best_sets)
         self.write_to_memory_file(new_block)
 
     def get_block(self, blockhash=None, height=None):
@@ -672,7 +663,7 @@ class ChainBuilder(object):
             block.f_orphan = bool(block not in self.best_chain)
         else:
             # Tables
-            block = self.tables.read_block(blockhash)
+            block = obj.tables.read_block(blockhash)
             if block:
                 block.recode_flag = 'database'
                 block.f_orphan = False
@@ -693,7 +684,7 @@ class ChainBuilder(object):
                 block.height, block.work_hash, block.b, block.flag)
         else:
             # Tables
-            block_header = self.tables.read_block_header(blockhash)
+            block_header = obj.tables.read_block_header(blockhash)
         return block_header
 
     def get_block_hash(self, height):
@@ -706,7 +697,7 @@ class ChainBuilder(object):
             if height == block.height:
                 return block.hash
         # Tables
-        return self.tables.read_block_hash(height)
+        return obj.tables.read_block_hash(height)
 
 
 class TransactionBuilder(object):
@@ -732,7 +723,7 @@ class TransactionBuilder(object):
         if tx.hash in self.chained_tx:
             log.debug('Already chained tx. {}'.format(tx))
             return
-        movement = await account_builder.affect_new_tx(cur=cur, tx=tx)
+        movement = await obj.account_builder.affect_new_tx(cur=cur, tx=tx)
         if not stream.is_disposed:
             stream.on_next(tx)
             if movement is not None:
@@ -759,7 +750,7 @@ class TransactionBuilder(object):
             if tx.height is None: log.warning("Is unconfirmed. {}".format(tx))
         else:
             # Databaseより
-            tx = chain_builder.tables.read_tx(txhash)
+            tx = obj.tables.read_tx(txhash)
             if tx:
                 tx.recode_flag = 'database'
                 self.cache[txhash] = tx
@@ -776,7 +767,7 @@ class TransactionBuilder(object):
 
     def get_account_tx(self, txhash):
         """get account tx"""
-        if txhash in account_builder.memory_movement or chain_builder.tables.have_tx(txhash):
+        if txhash in obj.account_builder.memory_movement or obj.tables.have_tx(txhash):
             return self.get_tx(txhash)
         else:
             return None
@@ -838,7 +829,7 @@ class AccountBuilder(object):
             # logに記録されてもBlockに取り込まれていないならTXは存在せず
             if move_log.type == C.TX_INNER:
                 memory_sum += move_log.movement
-            elif chain_builder.tables.have_tx(move_log.txhash):
+            elif obj.tables.have_tx(move_log.txhash):
                 memory_sum += move_log.movement
             elif f_delete:
                 deleted += 1
@@ -864,13 +855,13 @@ class AccountBuilder(object):
         log.info(f"fill address prefetch len={len(self.pre_fetch_addr)}")
 
     async def get_balance(self, cur, confirm=6):
-        assert confirm < chain_builder.cache_limit - chain_builder.batch_size
-        assert chain_builder.best_block, 'Not Tables init'
+        assert confirm < obj.chain_builder.cache_limit - obj.chain_builder.batch_size
+        assert obj.chain_builder.best_block, 'Not Tables init'
         # database
         account = self.db_balance.copy()
         # memory
-        limit_height = chain_builder.best_block.height - confirm
-        for block in chain_builder.best_chain:
+        limit_height = obj.chain_builder.best_block.height - confirm
+        for block in obj.chain_builder.best_chain:
             for tx in block.txs:
                 move_log = await read_txhash2movelog(tx.hash, cur)
                 if move_log is None:
@@ -886,7 +877,7 @@ class AccountBuilder(object):
                                 # allow incoming balance
                                 account[user][coin_id] += amount
         # unconfirmed
-        for tx in list(tx_builder.unconfirmed.values()):
+        for tx in list(obj.tx_builder.unconfirmed.values()):
             move_log = await read_txhash2movelog(tx.hash, cur)
             if move_log is None:
                 if tx.hash in self.memory_movement:
@@ -913,7 +904,7 @@ class AccountBuilder(object):
             cur = await db.cursor()
             count = 0
             # Unconfirmed
-            for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time, reverse=True):
+            for tx in sorted(obj.tx_builder.unconfirmed.values(), key=lambda x: x.create_time, reverse=True):
                 move_log = await read_txhash2movelog(tx.hash, cur)
                 if move_log is None:
                     if tx.hash in self.memory_movement:
@@ -929,7 +920,7 @@ class AccountBuilder(object):
                             yield move_log.get_tuple_data()
                     count += 1
             # Memory
-            for block in reversed(chain_builder.best_chain):
+            for block in reversed(obj.chain_builder.best_chain):
                 for tx in block.txs:
                     move_log = await read_txhash2movelog(tx.hash, cur)
                     if move_log is None:
@@ -982,7 +973,7 @@ class AccountBuilder(object):
 
         # add to memory_movement dict
         for txhash, txindex in tx.inputs:
-            input_tx = tx_builder.get_account_tx(txhash)
+            input_tx = obj.tx_builder.get_account_tx(txhash)
             if input_tx is None:
                 continue  # no relations
             address, coin_id, amount = input_tx.outputs[txindex]
@@ -1069,17 +1060,27 @@ class AccountBuilder(object):
         return user
 
 
+def setup_database_obj(**kwargs):
+    try:
+        obj.tables = Tables(**kwargs)
+        obj.chain_builder = ChainBuilder()
+        obj.tx_builder = TransactionBuilder()
+        obj.account_builder = AccountBuilder()
+        log.info("setup database success")
+    except plyvel.Error as e:
+        log.warning("database connect error, {}".format(e))
+    except Exception:
+        log.fatal("Failed connect database", exc_info=True)
+
+
 class BlockBuilderError(Exception):
     pass
 
 
-# global object
-chain_builder = ChainBuilder()
-tx_builder = TransactionBuilder()
-account_builder = AccountBuilder()
-
 __all__ = [
-    "chain_builder",
-    "tx_builder",
-    "account_builder",
+    "Tables",
+    "ChainBuilder",
+    "TransactionBuilder",
+    "AccountBuilder",
+    "setup_database_obj",
 ]

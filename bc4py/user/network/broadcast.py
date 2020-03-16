@@ -4,8 +4,8 @@ from bc4py.chain.tx import TX
 from bc4py.chain.checking import new_insert_block, check_tx, check_tx_time
 from bc4py.chain.signature import fill_verified_addr_tx
 from bc4py.chain.workhash import update_work_hash
+from bc4py.database import obj
 from bc4py.database.create import create_db
-from bc4py.database.builder import chain_builder, tx_builder
 from bc4py.user.network.update import update_info_for_generate
 from bc4py.user.network.directcmd import DirectCmd
 from bc4py.user.network.connection import ask_node
@@ -52,7 +52,7 @@ class BroadcastCmd:
     async def new_tx(user, data):
         try:
             new_tx: TX = data['tx']
-            if tx_builder.get_memorized_tx(new_tx.hash) is not None:
+            if obj.tx_builder.get_memorized_tx(new_tx.hash) is not None:
                 log.debug("high latency node? already memorized new tx")
                 return False
             check_tx_time(new_tx)
@@ -60,7 +60,7 @@ class BroadcastCmd:
             check_tx(tx=new_tx, include_block=None)
             async with create_db(V.DB_ACCOUNT_PATH) as db:
                 cur = await db.cursor()
-                await tx_builder.put_unconfirmed(cur=cur, tx=new_tx)
+                await obj.tx_builder.put_unconfirmed(cur=cur, tx=new_tx)
             log.info("Accept new tx {}".format(new_tx))
             update_info_for_generate(u_block=False, u_unspent=False, u_unconfirmed=True)
             return True
@@ -80,10 +80,10 @@ async def fill_newblock_info(user, data):
     proof: TX = data['proof']
     new_block.txs.append(proof)
     new_block.flag = data['block_flag']
-    my_block = chain_builder.get_block(new_block.hash)
+    my_block = obj.chain_builder.get_block(new_block.hash)
     if my_block:
         raise BlockChainError('Already inserted block {}'.format(my_block))
-    before_block = chain_builder.get_block(new_block.previous_hash)
+    before_block = obj.chain_builder.get_block(new_block.previous_hash)
     if before_block is None:
         log.debug("Cannot find beforeBlock, try to ask outside node")
         # not found beforeBlock, need to check other node have the the block
@@ -101,7 +101,7 @@ async def fill_newblock_info(user, data):
     async with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = await db.cursor()
         for txhash in data['txs'][1:]:
-            tx = tx_builder.get_memorized_tx(txhash)
+            tx = obj.tx_builder.get_memorized_tx(txhash)
             if tx is None:
                 new_block.inner_score *= 0.75  # unknown tx, score down
                 log.debug("Unknown tx, try to download")
@@ -112,7 +112,7 @@ async def fill_newblock_info(user, data):
                 tx.height = None
                 await fill_verified_addr_tx(tx)
                 check_tx(tx, include_block=None)
-                await tx_builder.put_unconfirmed(cur=cur, tx=tx)
+                await obj.tx_builder.put_unconfirmed(cur=cur, tx=tx)
                 log.debug("Success unknown tx download {}".format(tx))
             tx.height = new_height
             new_block.txs.append(tx)
@@ -147,7 +147,7 @@ async def make_block_by_node(user, blockhash, depth):
             "failed get parent block '{}' hash={}".format(r, blockhash.hex()))
     # success
     block: Block = r
-    before_block = chain_builder.get_block(blockhash=block.previous_hash)
+    before_block = obj.chain_builder.get_block(blockhash=block.previous_hash)
     if before_block is None:
         if depth < C.MAX_RECURSIVE_BLOCK_DEPTH:
             before_block = await make_block_by_node(user, block.previous_hash, depth+1)

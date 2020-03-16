@@ -1,5 +1,5 @@
 from bc4py.config import C
-from bc4py.database.builder import chain_builder
+from bc4py.database import obj
 from bc4py.user.unconfirmed import unconfirmed_lock, update_unconfirmed_info
 from bc4py.user.generate import *
 from logging import getLogger
@@ -39,10 +39,10 @@ def update_info_for_generate(u_block=True, u_unspent=True, u_unconfirmed=True):
 
 async def update_block_info():
     async with block_lock:
-        while chain_builder.best_block is None:
+        while obj.chain_builder.best_block is None:
             await asyncio.sleep(0.2)
-        update_previous_block(chain_builder.best_block)
-        return ',  height={}'.format(chain_builder.best_block.height + 1)
+        update_previous_block(obj.chain_builder.best_block)
+        return ',  height={}'.format(obj.chain_builder.best_block.height + 1)
 
 
 async def update_unspent_info():

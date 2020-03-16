@@ -6,6 +6,7 @@ from bc4py.chain.tx import TX
 from bc4py.chain.workhash import update_work_hash
 from bc4py.bip32 import Bip32, BIP32_HARDEN
 from bc4py.chain.checking import new_insert_block
+from bc4py.database import obj
 from random import randint
 from binascii import a2b_hex
 from mnemonic import Mnemonic
@@ -191,11 +192,10 @@ def import_keystone(passphrase='', auto_create=True):
     V.EXTENDED_KEY_OBJ = bip
 
     # check database meta info
-    from bc4py.database.builder import chain_builder
-    meta_path = os.path.join(chain_builder.db.dirs, 'meta.json')
+    meta_path = os.path.join(obj.tables.dirs, 'meta.json')
     meta = {
-        'txindex': chain_builder.db.db_config['txindex'],
-        'addrindex': chain_builder.db.db_config['addrindex'],
+        'txindex': obj.tables.table_config['txindex'],
+        'addrindex': obj.tables.table_config['addrindex'],
         'extended_key': V.EXTENDED_KEY_OBJ.extended_key(is_private=False)
     }
     if os.path.exists(meta_path):

@@ -1,4 +1,5 @@
 from bc4py.config import V, P, stream
+from bc4py.database import obj
 from logging import getLogger
 import asyncio
 
@@ -16,8 +17,7 @@ async def system_safe_exit():
         # reactive stream close
         stream.dispose()
 
-        from bc4py.database.builder import chain_builder
-        await chain_builder.close()
+        await obj.chain_builder.close()
 
         from bc4py.user.generate import close_generate
         close_generate()

@@ -1,5 +1,5 @@
 from bc4py.config import V, P, BlockChainError
-from bc4py.database.builder import chain_builder, tx_builder
+from bc4py.database import obj
 
 
 """
@@ -15,10 +15,10 @@ class DirectCmd(object):
     def best_info(user, data):
         """return best info of chain"""
         try:
-            if chain_builder.best_block:
+            if obj.chain_builder.best_block:
                 return {
-                    'hash': chain_builder.best_block.hash,
-                    'height': chain_builder.best_block.height,
+                    'hash': obj.chain_builder.best_block.hash,
+                    'height': obj.chain_builder.best_block.height,
                     'booting': P.F_NOW_BOOTING,
                 }
             else:
@@ -38,7 +38,7 @@ class DirectCmd(object):
         if not isinstance(height, int):
             return f"height is not int! {height}"
         try:
-            block = chain_builder.get_block(height=height)
+            block = obj.chain_builder.get_block(height=height)
             if block:
                 return block
             else:
@@ -54,7 +54,7 @@ class DirectCmd(object):
         if not isinstance(blockhash, bytes):
             return f"blockhash is not bytes! {blockhash}"
         try:
-            block = chain_builder.get_block(blockhash=blockhash)
+            block = obj.chain_builder.get_block(blockhash=blockhash)
             if block is None:
                 return f"Not found blockhash {blockhash.hex()}"
             return block
@@ -69,7 +69,7 @@ class DirectCmd(object):
         elif not isinstance(txhash, bytes):
             return f"txhash is not bytes! {txhash}"
         try:
-            tx = tx_builder.get_memorized_tx(txhash)
+            tx = obj.tx_builder.get_memorized_tx(txhash)
             if tx is None:
                 return f"Not found tx {txhash.hex()}"
             return tx
@@ -80,7 +80,7 @@ class DirectCmd(object):
     def unconfirmed_tx(user, data):
         try:
             return {
-                'txs': list(tx_builder.unconfirmed.keys()),
+                'txs': list(obj.tx_builder.unconfirmed.keys()),
             }
         except BlockChainError as e:
             print("exception! unconfirmed", user, e)
@@ -98,7 +98,7 @@ class DirectCmd(object):
                 return f"request_len is int! {request_len}"
             data = list()
             for height in range(index_height, index_height + max(0, request_len)):
-                block = chain_builder.get_block(height=height)
+                block = obj.chain_builder.get_block(height=height)
                 if block is None:
                     break
                 data.append(block)

@@ -3,7 +3,7 @@ from bc4py.chain.checking import new_insert_block, check_tx, check_tx_time
 from bc4py.user.network import BroadcastCmd
 from p2p_python.server import Peer2PeerCmd
 from p2p_python.config import PeerToPeerError
-from bc4py.database.builder import tx_builder, chain_builder
+from bc4py.database import obj
 from bc4py.user.network.update import update_info_for_generate
 from aiosqlite import Cursor
 from logging import getLogger
@@ -27,7 +27,7 @@ async def mined_newblock(mined_block_que):
                 log.debug("self reject, mined but now booting")
                 result.set_result(False)
                 continue
-            elif new_block.height != chain_builder.best_block.height + 1:
+            elif new_block.height != obj.chain_builder.best_block.height + 1:
                 log.debug("self reject, mined but its old block")
                 result.set_result(False)
                 continue
@@ -87,7 +87,7 @@ async def send_newtx(new_tx, cur: Cursor, exc_info=True):
             }
         }
         await V.P2P_OBJ.send_command(cmd=Peer2PeerCmd.BROADCAST, data=data)
-        await tx_builder.put_unconfirmed(cur=cur, tx=new_tx)
+        await obj.tx_builder.put_unconfirmed(cur=cur, tx=new_tx)
         log.info("Success broadcast new tx {}".format(new_tx))
         update_info_for_generate(u_block=False, u_unspent=True, u_unconfirmed=True)
         return True

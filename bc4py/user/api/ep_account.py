@@ -1,6 +1,6 @@
 from bc4py.config import C, V
 from bc4py.user import Balance
-from bc4py.database.builder import chain_builder, account_builder
+from bc4py.database import obj
 from bc4py.database.create import create_db
 from bc4py.database.account import *
 from bc4py.database.tools import get_unspents_iter, get_my_unspents_iter
@@ -37,7 +37,7 @@ async def list_balance(confirm: int = 6):
     data = dict()
     async with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = await db.cursor()
-        users = await account_builder.get_balance(cur=cur, confirm=confirm)
+        users = await obj.account_builder.get_balance(cur=cur, confirm=confirm)
         for user, balance in users.items():
             name = await read_userid2name(user, cur)
             data[name] = dict(balance)
@@ -59,7 +59,7 @@ async def list_transactions(page: int = 0, limit: int = 25):
     data = list()
     f_next_page = False
     start = page * limit
-    async for tx_dict in account_builder.get_movement_iter(start=page, f_dict=True):
+    async for tx_dict in obj.account_builder.get_movement_iter(start=page, f_dict=True):
         if limit == 0:
             f_next_page = True
             break
@@ -83,10 +83,10 @@ async def list_unspents(address: str, page: int = 0, limit: int = 25):
     * About
         * display from Database -> Memory -> Unconfirmed
     """
-    if not chain_builder.db.db_config['addrindex']:
+    if not obj.tables.table_config['addrindex']:
         return error_response('Cannot use this API, please set `addrindex` true if you want full indexed')
     try:
-        best_height = chain_builder.best_block.height
+        best_height = obj.chain_builder.best_block.height
         start = page * limit
         finish = (page+1) * limit - 1
         f_next_page = False
@@ -123,7 +123,7 @@ async def list_private_unspents():
         * just looks same with /public/listunspents
     """
     data = list()
-    best_height = chain_builder.best_block.height
+    best_height = obj.chain_builder.best_block.height
     async with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = await db.cursor()
         unspent_iter = await get_my_unspents_iter(cur)
@@ -175,7 +175,7 @@ async def move_one(movement: MoveOne):
             cur = await db.cursor()
             from_user = await read_name2userid(movement.sender, cur)
             to_user = await read_name2userid(movement.recipient, cur)
-            txhash = await account_builder.move_balance(cur, from_user, to_user, coins)
+            txhash = await obj.account_builder.move_balance(cur, from_user, to_user, coins)
             await db.commit()
         return {
             'txhash': txhash.hex(),
@@ -206,7 +206,7 @@ async def move_many(movement: MoveMany):
             cur = await db.cursor()
             from_user = await read_name2userid(movement.sender, cur)
             to_user = await read_name2userid(movement.recipient, cur)
-            txhash = await account_builder.move_balance(cur, from_user, to_user, coins)
+            txhash = await obj.account_builder.move_balance(cur, from_user, to_user, coins)
             await db.commit()
         return {
             'txhash': txhash.hex(),

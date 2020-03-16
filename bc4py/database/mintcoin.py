@@ -1,5 +1,5 @@
 from bc4py.config import C, BlockChainError
-from bc4py.database.builder import chain_builder, tx_builder
+from bc4py.database import obj
 from expiringdict import ExpiringDict
 import msgpack
 
@@ -96,17 +96,17 @@ def decode(b):
 def fill_mintcoin_status(m, best_block=None, best_chain=None, stop_txhash=None):
     assert m.version == 0, 'Already updated'
     # database
-    for _, _, txhash, params, setting in chain_builder.db.read_coins_iter(coin_id=m.coin_id):
+    for _, _, txhash, params, setting in obj.tables.read_coins_iter(coin_id=m.coin_id):
         if txhash == stop_txhash:
             return
         m.update(params=params, setting=setting, txhash=txhash)
     # memory
     if best_chain:
         _best_chain = None
-    elif best_block and best_block == chain_builder.best_block:
-        _best_chain = chain_builder.best_chain
+    elif best_block and best_block == obj.chain_builder.best_block:
+        _best_chain = obj.chain_builder.best_chain
     else:
-        dummy, _best_chain = chain_builder.get_best_chain(best_block=best_block)
+        dummy, _best_chain = obj.chain_builder.get_best_chain(best_block=best_block)
     for block in reversed(best_chain or _best_chain):
         for tx in block.txs:
             if tx.hash == stop_txhash:
@@ -119,7 +119,7 @@ def fill_mintcoin_status(m, best_block=None, best_chain=None, stop_txhash=None):
             m.update(params=params, setting=setting, txhash=tx.hash)
     # unconfirmed
     if best_block is None:
-        for tx in sorted(tx_builder.unconfirmed.values(), key=lambda x: x.create_time):
+        for tx in sorted(obj.tx_builder.unconfirmed.values(), key=lambda x: x.create_time):
             if tx.hash == stop_txhash:
                 return
             if tx.type != C.TX_MINT_COIN:

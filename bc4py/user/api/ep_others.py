@@ -1,7 +1,7 @@
 from bc4py import __chain_version__
 from bc4py.config import V
 from bc4py.chain import msgpack
-from bc4py.database.builder import chain_builder
+from bc4py.database import obj
 from bc4py.user.api.utils import error_response
 from logging import getLogger
 from time import time
@@ -24,19 +24,19 @@ async def create_bootstrap():
         if os.path.exists(boot_path):
             log.warning("remove old bootstrap.dat.gz file")
             os.remove(boot_path)
-        if chain_builder.root_block is None:
+        if obj.chain_builder.root_block is None:
             Exception('root block is None?')
 
         s = time()
         block = None
         size = 0.0  # MB
-        stop_height = chain_builder.root_block.height
+        stop_height = obj.chain_builder.root_block.height
         log.info("start create bootstrap.dat.gz data to {}".format(stop_height))
         with gzip.open(boot_path, mode='wb') as fp:
-            for height, blockhash in chain_builder.db.read_block_hash_iter(start_height=1):
+            for height, blockhash in obj.tables.read_block_hash_iter(start_height=1):
                 if stop_height <= height:
                     break
-                block = chain_builder.get_block(blockhash=blockhash)
+                block = obj.chain_builder.get_block(blockhash=blockhash)
                 if block is None:
                     break
                 await loop.run_in_executor(

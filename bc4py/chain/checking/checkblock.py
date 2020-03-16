@@ -1,7 +1,6 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.chain.block import Block
 from bc4py.chain.difficulty import get_bits_by_hash
-from bc4py.database.builder import chain_builder
 from logging import getLogger
 from time import time
 

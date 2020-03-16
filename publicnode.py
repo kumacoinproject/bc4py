@@ -9,8 +9,9 @@ from bc4py.user.generate import *
 from bc4py.user.boot import *
 from bc4py.user.network import *
 from bc4py.user.api import setup_rest_server
+from bc4py.database import obj
 from bc4py.database.create import check_account_db
-from bc4py.database.builder import chain_builder
+from bc4py.database.builder import setup_database_obj
 from bc4py.chain.msgpack import default_hook, object_hook
 from p2p_python.utils import setup_p2p_params, setup_server_hostname
 from p2p_python.server import Peer2Peer
@@ -37,7 +38,7 @@ async def setup_chain(connections):
     p2p.broadcast_check = broadcast_check
 
     # Update to newest blockchain
-    if await chain_builder.init(V.GENESIS_BLOCK, batch_size=500):
+    if await obj.chain_builder.init(V.GENESIS_BLOCK, batch_size=500):
         # only genesisBlock yoy have, try to import bootstrap.dat.gz
         await load_bootstrap_file()
     await sync_chain_loop()
@@ -57,7 +58,7 @@ def main():
     # environment
     set_database_path(sub_dir=p.sub_dir)
     check_already_started()
-    chain_builder.set_database_object(txindex=p.txindex, addrindex=p.addrindex)
+    setup_database_obj(txindex=p.txindex, addrindex=p.addrindex)
     import_keystone(passphrase='hello python')
     loop.run_until_complete(check_account_db())
     genesis_block, genesis_params, network_ver, connections = load_boot_file()

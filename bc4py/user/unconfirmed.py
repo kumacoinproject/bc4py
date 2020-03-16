@@ -1,5 +1,5 @@
 from bc4py.config import C
-from bc4py.database.builder import chain_builder, tx_builder
+from bc4py.database import obj
 from bc4py.database.tools import is_unused_index_except_me
 from typing import Dict
 from time import time
@@ -18,25 +18,25 @@ async def update_unconfirmed_info():
         s = time()
 
         # 1: update dependency cache
-        if chain_builder.best_block.hash != unconfirmed_depends_hash:
+        if obj.chain_builder.best_block.hash != unconfirmed_depends_hash:
             # require reset when best_block changed
-            unconfirmed_depends_hash = chain_builder.best_block.hash
+            unconfirmed_depends_hash = obj.chain_builder.best_block.hash
             unconfirmed_depends_cache.clear()
-        for tx in tx_builder.unconfirmed.values():
+        for tx in obj.tx_builder.unconfirmed.values():
             if tx.hash in unconfirmed_depends_cache:
                 continue
             depends = list()
             for txhash, txindex in tx.inputs:
-                if txhash in tx_builder.unconfirmed:
-                    depends.append(tx_builder.unconfirmed[txhash])
+                if txhash in obj.tx_builder.unconfirmed:
+                    depends.append(obj.tx_builder.unconfirmed[txhash])
             unconfirmed_depends_cache[tx.hash] = tuple(depends)
 
         # 2: sort and get txs to include in block
         base_list = sorted(
-            filter(lambda x: 0 == len(unconfirmed_depends_cache[x.hash]), tx_builder.unconfirmed.values()),
+            filter(lambda x: 0 == len(unconfirmed_depends_cache[x.hash]), obj.tx_builder.unconfirmed.values()),
             key=lambda x: x.gas_price, reverse=True)
         optionals = sorted(
-            filter(lambda x: 0 < len(unconfirmed_depends_cache[x.hash]), tx_builder.unconfirmed.values()),
+            filter(lambda x: 0 < len(unconfirmed_depends_cache[x.hash]), obj.tx_builder.unconfirmed.values()),
             key=lambda x: x.gas_price, reverse=True)
         # add optionals if block space is enough
         base_list_size = sum(tx.size for tx in base_list)
@@ -72,8 +72,8 @@ async def update_unconfirmed_info():
             raise Exception('both over_size_list and unconfirmed_txs is not None')
 
         # 3: remove unconfirmed outputs using txs
-        limit_height = chain_builder.best_block.height - C.MATURE_HEIGHT
-        best_block, best_chain = chain_builder.get_best_chain()
+        limit_height = obj.chain_builder.best_block.height - C.MATURE_HEIGHT
+        best_block, best_chain = obj.chain_builder.get_best_chain()
         for tx in unconfirmed_txs.copy():
             if tx.height is not None:
                 unconfirmed_txs.remove(tx)
@@ -95,7 +95,7 @@ async def update_unconfirmed_info():
 
             # tx's inputs check
             for txhash, txindex in tx.inputs:
-                input_tx = tx_builder.get_memorized_tx(txhash)
+                input_tx = obj.tx_builder.get_memorized_tx(txhash)
                 if input_tx is not None:
                     if input_tx.height is None:
                         unconfirmed_txs.remove(tx)
@@ -125,7 +125,7 @@ async def update_unconfirmed_info():
         optimized_unconfirmed_list.extend(unconfirmed_txs)
 
     return ',  unconfirmed={}/{} {}mS'.format(
-        len(unconfirmed_txs), len(tx_builder.unconfirmed), int((time() - s) * 1000))
+        len(unconfirmed_txs), len(obj.tx_builder.unconfirmed), int((time() - s) * 1000))
 
 
 __all__ = [

@@ -1,6 +1,6 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.bip32 import is_address
-from bc4py.database.builder import chain_builder, tx_builder
+from bc4py.database import obj
 from bc4py.database.tools import is_unused_index, get_output_from_input
 from bc4py.user import Balance
 from hashlib import sha256
@@ -12,20 +12,20 @@ def inputs_origin_check(tx, include_block):
     if len(tx.inputs) != len(set(tx.inputs)):
         raise BlockChainError(f"input has same origin {len(tx.inputs)}!={len(set(tx.inputs))}")
 
-    limit_height = chain_builder.best_block.height - C.MATURE_HEIGHT
+    limit_height = obj.chain_builder.best_block.height - C.MATURE_HEIGHT
     for txhash, txindex in tx.inputs:
         pair = get_output_from_input(input_hash=txhash, input_index=txindex, best_block=include_block)
         if pair is None:
             raise BlockChainError('Not found input tx. {}:{}'.format(txhash.hex(), txindex))
 
-        if txhash in tx_builder.unconfirmed:
+        if txhash in obj.tx_builder.unconfirmed:
             # input of tx is not unconfirmed because the tx is already included in Block
             if include_block is not None:
                 raise BlockChainError('TX is include but input is unconfirmed {} {}'.format(tx, txhash.hex()))
 
         # mined output is must mature the height
         if not is_mature_input(base_hash=txhash, limit_height=limit_height):
-            check_tx = tx_builder.get_memorized_tx(txhash)
+            check_tx = obj.tx_builder.get_memorized_tx(txhash)
             if check_tx is None:
                 raise Exception('cannot get tx, memory block number is too few')
             if check_tx.type in (C.TX_POS_REWARD, C.TX_POW_REWARD):
@@ -109,12 +109,12 @@ def stake_coin_check(tx, previous_hash, target_hash):
 def is_mature_input(base_hash, limit_height) -> bool:
     """proof of stake input must mature same height"""
     # from unconfirmed
-    for tx in tx_builder.unconfirmed.values():
+    for tx in obj.tx_builder.unconfirmed.values():
         if tx.hash == base_hash:
             return False
 
     # from memory
-    for block in chain_builder.best_chain:
+    for block in obj.chain_builder.best_chain:
         if block.height < limit_height:
             return True
         for tx in block.txs:
@@ -122,9 +122,9 @@ def is_mature_input(base_hash, limit_height) -> bool:
                 return False
 
     # from database
-    height = chain_builder.root_block.height
+    height = obj.chain_builder.root_block.height
     while limit_height <= height:
-        block = chain_builder.get_block(height=height)
+        block = obj.chain_builder.get_block(height=height)
         for tx in block.txs:
             if tx.hash == base_hash:
                 return False

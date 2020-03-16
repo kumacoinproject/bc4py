@@ -1,7 +1,6 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.bip32 import dummy_address
-from bc4py.database.create import create_db
-from bc4py.database.builder import account_builder
+from bc4py.database import obj
 from bc4py.database.account import sign_message_by_address, generate_new_address_by_userid
 from bc4py.database.tools import get_my_unspents_iter, get_unspents_iter
 from bc4py.user import Balance
@@ -164,7 +163,7 @@ async def add_sign_by_address(tx, input_address, cur):
 
 async def check_enough_amount(sender, send_coins, fee_coins, cur):
     assert isinstance(sender, int)
-    from_coins = (await account_builder.get_balance(cur=cur, confirm=6))[sender]
+    from_coins = (await obj.account_builder.get_balance(cur=cur, confirm=6))[sender]
     remain_coins = from_coins - send_coins - fee_coins
     if not remain_coins.is_all_plus_amount():
         raise BlockChainError('Not enough balance in id={} balance={} remains={}request_num'
