@@ -2,7 +2,7 @@ from bc4py import __version__, __chain_version__, __message__
 from bc4py.config import C, V, P
 from bc4py.chain.utils import GompertzCurve, DEFAULT_TARGET
 from bc4py.chain.difficulty import get_bits_by_hash, get_bias_by_hash
-from bc4py.database.builder import chain_builder, tx_builder, user_account
+from bc4py.database.builder import chain_builder, tx_builder, account_builder
 from bc4py.user.api.utils import error_response, local_address
 from bc4py.user.generate import generating_threads
 from time import time
@@ -106,7 +106,7 @@ async def system_private_info():
             'unconfirmed': [txhash.hex() for txhash in tx_builder.unconfirmed.keys()],
             'generate_threads': [str(s) for s in generating_threads],
             'local_address': list(local_address),
-            'prefetch_address': len(user_account.pre_fetch_addr),
+            'prefetch_address': len(account_builder.pre_fetch_addr),
             'extended_key': repr(V.EXTENDED_KEY_OBJ),
         }
     except Exception:

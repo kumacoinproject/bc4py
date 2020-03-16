@@ -4,7 +4,7 @@ from bc4py.utils import GompertzCurve
 from bc4py.bip32 import is_address
 from bc4py.database.create import create_db
 from bc4py.database.account import read_address2userid, read_userid2name, read_address2keypair
-from bc4py.database.builder import chain_builder, user_account
+from bc4py.database.builder import chain_builder, account_builder
 from bc4py.chain.difficulty import get_bits_by_hash
 from bc4py_extension import PyAddress
 from logging import getLogger
@@ -25,7 +25,7 @@ async def getinfo(*args, **kwargs):
     # balance
     async with create_db(V.DB_ACCOUNT_PATH) as db:
         cur = await db.cursor()
-        users = await user_account.get_balance(cur=cur, confirm=6)
+        users = await account_builder.get_balance(cur=cur, confirm=6)
     return {
         "version": __version__,
         "protocolversion": __chain_version__,

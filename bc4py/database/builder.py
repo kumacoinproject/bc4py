@@ -366,13 +366,13 @@ class ChainBuilder(object):
             log.info("Set dummy block, genesisBlock={}".format(genesis_block))
             async with create_db(V.DB_ACCOUNT_PATH) as db:
                 cur = await db.cursor()
-                await user_account.init(cur=cur)
+                await account_builder.init(cur=cur)
                 await db.commit()
             return True
 
         async with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = await db.cursor()
-            await user_account.init(cur=cur)
+            await account_builder.init(cur=cur)
             # 0HeightよりBlockを取得して確認
             before_block = genesis_block
             batch_blocks = list()
@@ -418,9 +418,9 @@ class ChainBuilder(object):
                 before_block = block
                 batch_blocks.append(block)
                 if len(batch_blocks) >= batch_size:
-                    await user_account.new_batch_apply(cur=cur, batched_blocks=batch_blocks)
+                    await account_builder.new_batch_apply(cur=cur, batched_blocks=batch_blocks)
                     batch_blocks.clear()
-                    log.debug("UserAccount batched at {} height".format(block.height))
+                    log.debug("AccountBuilder batched at {} height".format(block.height))
             # load and rebuild memory section
             self.root_block = before_block
             memorized_blocks, self.best_block = self.recover_from_memory_file(before_block)
@@ -429,14 +429,14 @@ class ChainBuilder(object):
                 batch_blocks.append(block)
                 self.chain[block.hash] = block
                 for tx in block.txs:
-                    await user_account.affect_new_tx(cur=cur, tx=tx)
+                    await account_builder.affect_new_tx(cur=cur, tx=tx)
                     if tx.hash not in tx_builder.chained_tx:
                         tx_builder.chained_tx[tx.hash] = tx
                     if tx.hash in tx_builder.unconfirmed:
                         del tx_builder.unconfirmed[tx.hash]
             self.best_chain = list(reversed(memorized_blocks))
-            # UserAccount update
-            await user_account.new_batch_apply(cur=cur, batched_blocks=batch_blocks)
+            # AccountBuilder update
+            await account_builder.new_batch_apply(cur=cur, batched_blocks=batch_blocks)
             await db.commit()
         log.info("Init finished, last block is {} {}Sec".format(before_block, round(time() - t, 3)))
         return False
@@ -550,7 +550,7 @@ class ChainBuilder(object):
                     account_tx = set()
                     for tx in block.txs:
                         # if false, the tx is not account_tx
-                        is_account_tx = tx.hash in user_account.memory_movement
+                        is_account_tx = tx.hash in account_builder.memory_movement
 
                         # add txindex
                         if is_account_tx or chain_builder.db.db_config['txindex']:
@@ -615,7 +615,7 @@ class ChainBuilder(object):
                         del self.chain[blockhash]
                 log.debug("Success batch {} blocks, root={}".format(len(batched_blocks), self.root_block))
                 # アカウントへ反映↓
-                await user_account.new_batch_apply(cur=cur, batched_blocks=batched_blocks)
+                await account_builder.new_batch_apply(cur=cur, batched_blocks=batched_blocks)
                 await db.commit()
                 return batched_blocks  # [<height=n>, <height=n+1>, .., <height=n+m>]
             except Exception as e:
@@ -732,7 +732,7 @@ class TransactionBuilder(object):
         if tx.hash in self.chained_tx:
             log.debug('Already chained tx. {}'.format(tx))
             return
-        movement = await user_account.affect_new_tx(cur=cur, tx=tx)
+        movement = await account_builder.affect_new_tx(cur=cur, tx=tx)
         if not stream.is_disposed:
             stream.on_next(tx)
             if movement is not None:
@@ -776,7 +776,7 @@ class TransactionBuilder(object):
 
     def get_account_tx(self, txhash):
         """get account tx"""
-        if txhash in user_account.memory_movement or chain_builder.db.have_tx(txhash):
+        if txhash in account_builder.memory_movement or chain_builder.db.have_tx(txhash):
             return self.get_tx(txhash)
         else:
             return None
@@ -822,7 +822,7 @@ class TransactionBuilder(object):
             log.warning("Removed {} unconfirmed txs".format(before_num - len(self.unconfirmed)))
 
 
-class UserAccount(object):
+class AccountBuilder(object):
 
     def __init__(self):
         self.db_balance = Accounting()
@@ -1076,10 +1076,10 @@ class BlockBuilderError(Exception):
 # global object
 chain_builder = ChainBuilder()
 tx_builder = TransactionBuilder()
-user_account = UserAccount()
+account_builder = AccountBuilder()
 
 __all__ = [
     "chain_builder",
     "tx_builder",
-    "user_account",
+    "account_builder",
 ]
