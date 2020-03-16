@@ -90,6 +90,7 @@ async def system_info():
         'connections': len(V.P2P_OBJ.core.user),
         'access_time': int(time()),
         'start_time': start_time,
+        'genesis_time': V.BLOCK_GENESIS_TIME,
     }
 
 
