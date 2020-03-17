@@ -32,7 +32,7 @@ mining_address_lock = asyncio.Lock()
 previous_block: Optional[Block] = None
 unspents_txs: Optional[List] = None
 staking_limit = 500
-optimize_file_name_re = re.compile("^optimized\\.([a-z0-9]+)\\-([0-9]+)\\-([0-9]+)\\.dat$")
+optimize_file_name_re = re.compile("^optimized\\.([a-z0-9]+)-([0-9]+)-([0-9]+)\\.dat$")
 executor: Optional['ProcessPoolExecutor'] = None
 
 

@@ -19,7 +19,7 @@ import struct
 CURVE_GEN = secp256k1.G  # Point class
 CURVE_ORDER = secp256k1.q  # int
 FIELD_ORDER = secp256k1.p  # int
-INFINITY = Point.IDENTITY_ELEMENT  # Point
+INFINITY = getattr(Point, 'IDENTITY_ELEMENT')  # Point
 
 MIN_ENTROPY_LEN = 128  # bits
 BIP32_HARDEN = 0x80000000  # choose from hardened set of child keys

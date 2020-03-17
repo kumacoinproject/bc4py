@@ -1,5 +1,3 @@
-from bc4py.config import V, BlockChainError
-from bc4py.bip32 import Bip32, BIP32_HARDEN
 from collections import defaultdict
 
 

@@ -1,4 +1,4 @@
-from bc4py.config import V, P, BlockChainError
+from bc4py.config import P, BlockChainError
 from bc4py.database import obj
 
 

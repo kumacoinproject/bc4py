@@ -1,4 +1,4 @@
-from bc4py.config import C, V, stream
+from bc4py.config import V, stream
 from bc4py.gittool import get_current_branch, calc_python_source_hash
 from bc4py.chain.utils import GompertzCurve
 from Cryptodome.Cipher import AES
