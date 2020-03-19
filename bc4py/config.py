@@ -75,7 +75,7 @@ class C:  # Constant
 
     # address params
     ADDR_NORMAL_VER = 0
-    BIP44_COIN_TYPE = 0x800002aa
+    BIP44_COIN_TYPE = 0x800001f8  # 504
 
     # block params
     MATURE_HEIGHT = 20  # 採掘されたBlockのOutputsが成熟する期間
