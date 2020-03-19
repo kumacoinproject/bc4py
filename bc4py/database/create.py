@@ -3,12 +3,14 @@ from bc4py.bip32 import BIP32_HARDEN
 from aiocontext import async_contextmanager
 from aiosqlite import connect, Connection, Cursor
 from logging import getLogger, INFO
-from time import time
-import re
 import os
 
 log = getLogger('bc4py')
 getLogger('aiosqlite').setLevel(INFO)
+
+# sqlite3 version
+SQLITE_REQUIRED_VER = '3.17.0'
+SQLITE_RECOMMENDED_VER = '3.22.0'
 
 
 @async_contextmanager
@@ -53,12 +55,24 @@ async def create_db(path, strict=False) -> Connection:
         await conn.close()
 
 
-def sql_info(data):
-    # db.set_trace_callback()に最適
-    log.debug("SQL: {} {}".format(round(time() - V.BLOCK_GENESIS_TIME, 4), re.sub(r"\s+", " ", data)))
+def check_sqlite3_version() -> str:
+    """check sqlite3's version is enough new"""
+    import sqlite3
+    con = sqlite3.connect(':memory:')
+    (ver,) = con.execute('SELECT sqlite_version()').fetchone()
+    con.close()
+    if ver < SQLITE_REQUIRED_VER:
+        log.warning(f"too old sqlite({ver})! please update to {SQLITE_RECOMMENDED_VER}")
+    elif ver < SQLITE_RECOMMENDED_VER:
+        log.debug(f"sqlite is something old. please update to {SQLITE_RECOMMENDED_VER}")
+    else:
+        pass  # sqlite is enough new
+    return ver
 
 
 async def check_account_db():
+    """init account database"""
+    check_sqlite3_version()
     if os.path.exists(V.DB_ACCOUNT_PATH):
         if V.EXTENDED_KEY_OBJ is None or V.EXTENDED_KEY_OBJ.secret is None:
             log.debug("already exist wallet without check")
@@ -193,7 +207,7 @@ async def recreate_wallet_db(db):
 
 __all__ = [
     "create_db",
-    "sql_info",
+    "check_sqlite3_version",
     "check_account_db",
     "recreate_wallet_db",
 ]
