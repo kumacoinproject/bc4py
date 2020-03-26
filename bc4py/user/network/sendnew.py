@@ -89,7 +89,7 @@ async def send_newtx(new_tx, cur: Cursor, exc_info=True):
         await V.P2P_OBJ.send_command(cmd=Peer2PeerCmd.BROADCAST, data=data)
         await obj.tx_builder.put_unconfirmed(cur=cur, tx=new_tx)
         log.info("Success broadcast new tx {}".format(new_tx))
-        update_info_for_generate(u_block=False, u_unspent=True, u_unconfirmed=True)
+        update_info_for_generate(u_block=False, u_unspent=True)
         return True
     except ConnectionError as e:
         log.warning(f"retry send_newtx after 1s '{e}'")

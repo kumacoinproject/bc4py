@@ -62,7 +62,7 @@ class BroadcastCmd:
                 cur = await db.cursor()
                 await obj.tx_builder.put_unconfirmed(cur=cur, tx=new_tx)
             log.info("Accept new tx {}".format(new_tx))
-            update_info_for_generate(u_block=False, u_unspent=False, u_unconfirmed=True)
+            update_info_for_generate(u_block=False, u_unspent=False)
             return True
         except BlockChainError as e:
             error = 'Failed accept new tx "{}"'.format(e)

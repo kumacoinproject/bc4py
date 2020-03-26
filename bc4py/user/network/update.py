@@ -1,6 +1,5 @@
 from bc4py.config import C
 from bc4py.database import obj
-from bc4py.user.unconfirmed import unconfirmed_lock, update_unconfirmed_info
 from bc4py.user.generate import *
 from logging import getLogger
 from time import time
@@ -14,7 +13,7 @@ block_lock = asyncio.Lock()
 unspent_lock = asyncio.Lock()
 
 
-def update_info_for_generate(u_block=True, u_unspent=True, u_unconfirmed=True):
+def update_info_for_generate(u_block=True, u_unspent=True):
     """update generating status, used only on network fnc"""
 
     async def updates(num):
@@ -25,8 +24,6 @@ def update_info_for_generate(u_block=True, u_unspent=True, u_unconfirmed=True):
                 info += await update_block_info()
             if u_unspent and (C.BLOCK_COIN_POS in consensus) and not unspent_lock.locked():
                 info += await update_unspent_info()
-            if u_unconfirmed and not unconfirmed_lock.locked():
-                info += await update_unconfirmed_info()
             if info:
                 log.debug("{} update finish{}".format(num, info))
         except Exception:

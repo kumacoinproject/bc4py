@@ -58,7 +58,7 @@ async def get_unspents_iter(target_address, best_block=None, best_chain=None) ->
                         yield address, tx.height, tx.hash, index, coin_id, amount
     # Unconfirmedより
     if best_block is None:
-        for tx in sorted(obj.tx_builder.unconfirmed.values(), key=lambda x: x.create_time):
+        for tx in obj.tx_builder.memory_pool.list_all_obj(False):
             for index, (address, coin_id, amount) in enumerate(tx.outputs):
                 if not is_unused_index(input_hash=tx.hash, input_index=index, best_block=best_block, best_chain=best_chain):
                     continue  # used
@@ -94,8 +94,9 @@ def get_output_from_input(input_hash, input_index, best_block=None, best_chain=N
 
     # check unconfirmed
     if best_block is None:
-        for tx in list(obj.tx_builder.unconfirmed.values()):
-            if tx.hash == input_hash:
+        for txhash in obj.tx_builder.memory_pool.list_all_hash():
+            if txhash == input_hash:
+                tx = obj.tx_builder.memory_pool.get_obj(txhash)
                 if input_index < len(tx.outputs):
                     return tx.outputs[input_index]
 
@@ -128,7 +129,7 @@ def is_unused_index(input_hash, input_index, best_block=None, best_chain=None) -
 
     # check unconfirmed
     if best_block is None:
-        for tx in obj.tx_builder.unconfirmed.values():
+        for tx in obj.tx_builder.memory_pool.list_all_obj(False):
             if tx.hash == input_hash:
                 if input_index < len(tx.outputs):
                     is_unused = True
@@ -165,7 +166,7 @@ def is_unused_index_except_me(input_hash, input_index, except_hash, best_block, 
                     return False
 
     # check unconfirmed
-    for tx in list(obj.tx_builder.unconfirmed.values()):
+    for tx in obj.tx_builder.memory_pool.list_all_obj(False):
         if tx.hash == except_hash:
             continue
         if input_index < len(tx.outputs):

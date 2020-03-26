@@ -6,10 +6,10 @@ from bc4py.chain.workhash import generate_many_hash, get_executor_object, update
 from bc4py.chain.difficulty import get_bits_by_hash
 from bc4py.chain.utils import GompertzCurve
 from bc4py.chain.checking.utils import stake_coin_check
+from bc4py.database import obj
 from bc4py.database.create import create_db
 from bc4py.database.account import sign_message_by_address, generate_new_address_by_userid
 from bc4py.database.tools import get_my_unspents_iter
-from bc4py.user.unconfirmed import optimized_unconfirmed_list
 from bc4py_extension import multi_seek, PyAddress
 from concurrent.futures import ProcessPoolExecutor
 from time import time
@@ -181,7 +181,11 @@ class Generate(object):
             staking_block.flag = C.BLOCK_COIN_POS
             staking_block.bits2target()
             staking_block.txs.append(None)  # Dummy proof tx
-            staking_block.txs.extend(optimized_unconfirmed_list)
+
+            deadline = int(time() - V.BLOCK_GENESIS_TIME - C.ACCEPT_MARGIN_TIME)
+            obj.tx_builder.memory_pool.clear_by_deadline(deadline)
+            staking_block.txs.extend(obj.tx_builder.memory_pool.list_size_limit(C.SIZE_BLOCK_LIMIT - 80))
+
             calculate_nam = 0
             for proof_tx in unspents_txs.copy():
                 address = proof_tx.outputs[0][0]
@@ -276,8 +280,13 @@ class Generate(object):
                     continue
                 if previous_block.hash != previous_hash:
                     continue
+
                 # Staked by capacity yay!!
-                total_fee = sum(tx.gas_price * tx.gas_amount for tx in optimized_unconfirmed_list)
+                deadline = int(time() - V.BLOCK_GENESIS_TIME - C.ACCEPT_MARGIN_TIME)
+                obj.tx_builder.memory_pool.clear_by_deadline(deadline)
+                unconfirmed: List[TX] = obj.tx_builder.memory_pool.list_size_limit(C.SIZE_BLOCK_LIMIT - 80)
+
+                total_fee = sum(tx.gas_price * tx.gas_amount for tx in unconfirmed)
                 staked_block = Block.from_dict(
                     block={
                         'version': 0,  # always 0
@@ -299,7 +308,7 @@ class Generate(object):
                         'outputs': [(address, 0, reward + total_fee)]
                     })
                 staked_block.txs.append(staked_proof_tx)
-                staked_block.txs.extend(optimized_unconfirmed_list)
+                staked_block.txs.extend(unconfirmed)
                 while staked_block.size > C.SIZE_BLOCK_LIMIT:
                     staked_block.txs.pop()
                 staked_block.update_time(staked_proof_tx.time)
@@ -335,7 +344,10 @@ async def create_mining_block(consensus):
         raise FailedGenerateWarning('previous_block is None')
     # create proof_tx
     reward = GompertzCurve.calc_block_reward(previous_block.height + 1)
-    fees = sum(tx.gas_amount * tx.gas_price for tx in optimized_unconfirmed_list)
+    deadline = int(time() - V.BLOCK_GENESIS_TIME - C.ACCEPT_MARGIN_TIME)
+    obj.tx_builder.memory_pool.clear_by_deadline(deadline)
+    unconfirmed: List[TX] = obj.tx_builder.memory_pool.list_size_limit(C.SIZE_BLOCK_LIMIT - 80)
+    fees = sum(tx.gas_amount * tx.gas_price for tx in unconfirmed)
     proof_tx = TX.from_dict(
         tx={
             'type': C.TX_POW_REWARD,
@@ -362,7 +374,7 @@ async def create_mining_block(consensus):
     mining_block.flag = consensus
     mining_block.bits2target()
     mining_block.txs.append(proof_tx)
-    mining_block.txs.extend(optimized_unconfirmed_list)
+    mining_block.txs.extend(unconfirmed)
     mining_block.update_merkleroot()
     mining_block.update_time(proof_tx.time)
     return mining_block

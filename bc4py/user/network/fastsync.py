@@ -161,7 +161,7 @@ async def main_sync_loop():
             unconfirmed_txhash_set.update(data['txs'])
         unconfirmed_txs = list()
         for txhash in unconfirmed_txhash_set:
-            if txhash in obj.tx_builder.unconfirmed:
+            if obj.tx_builder.memory_pool.exist(txhash):
                 continue
             try:
                 tx: TX = await ask_random_node(cmd=DirectCmd.tx_by_hash, data={'txhash': txhash})

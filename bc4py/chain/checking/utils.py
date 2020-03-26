@@ -18,7 +18,8 @@ def inputs_origin_check(tx, include_block):
         if pair is None:
             raise BlockChainError('Not found input tx. {}:{}'.format(txhash.hex(), txindex))
 
-        if txhash in obj.tx_builder.unconfirmed:
+        if obj.tx_builder.memory_pool.exist(txhash):
+            # TODO: Priority check by position
             # input of tx is not unconfirmed because the tx is already included in Block
             if include_block is not None:
                 raise BlockChainError('TX is include but input is unconfirmed {} {}'.format(tx, txhash.hex()))
@@ -109,9 +110,8 @@ def stake_coin_check(tx, previous_hash, target_hash):
 def is_mature_input(base_hash, limit_height) -> bool:
     """proof of stake input must mature same height"""
     # from unconfirmed
-    for tx in obj.tx_builder.unconfirmed.values():
-        if tx.hash == base_hash:
-            return False
+    if obj.tx_builder.memory_pool.exist(base_hash):
+        return False
 
     # from memory
     for block in obj.chain_builder.best_chain:

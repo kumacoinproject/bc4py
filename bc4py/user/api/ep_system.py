@@ -104,7 +104,7 @@ async def system_private_info():
             'branch': V.BRANCH_NAME,
             'source_hash': V.SOURCE_HASH,
             'directory': V.DB_HOME_DIR,
-            'unconfirmed': [txhash.hex() for txhash in obj.tx_builder.unconfirmed.keys()],
+            'unconfirmed': [txhash.hex() for txhash in obj.tx_builder.memory_pool.list_all_hash()],
             'generate_threads': [str(s) for s in generating_threads],
             'local_address': list(local_address),
             'prefetch_address': len(obj.account_builder.pre_fetch_addr),

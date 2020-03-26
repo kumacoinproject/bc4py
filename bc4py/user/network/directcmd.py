@@ -80,7 +80,7 @@ class DirectCmd(object):
     def unconfirmed_tx(user, data):
         try:
             return {
-                'txs': list(obj.tx_builder.unconfirmed.keys()),
+                'txs': obj.tx_builder.memory_pool.list_all_hash(),
             }
         except BlockChainError as e:
             print("exception! unconfirmed", user, e)

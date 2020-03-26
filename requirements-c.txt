@@ -1,6 +1,6 @@
 bell-yespower==1.0.3
 multi-party-schnorr==0.1.9
-bc4py_extension==0.1.6
+bc4py_extension==0.1.7
 x11_hash==1.4
 shield-x16s-hash==1.0.1
 plyvel  # leveldb wrapper

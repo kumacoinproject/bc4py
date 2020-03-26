@@ -119,7 +119,7 @@ def fill_mintcoin_status(m, best_block=None, best_chain=None, stop_txhash=None):
             m.update(params=params, setting=setting, txhash=tx.hash)
     # unconfirmed
     if best_block is None:
-        for tx in sorted(obj.tx_builder.unconfirmed.values(), key=lambda x: x.create_time):
+        for tx in obj.tx_builder.memory_pool.list_all_obj(False):
             if tx.hash == stop_txhash:
                 return
             if tx.type != C.TX_MINT_COIN:

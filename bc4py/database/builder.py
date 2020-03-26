@@ -1,4 +1,4 @@
-from bc4py.config import C, V, P, stream
+from bc4py.config import C, V, stream
 from bc4py.bip32 import ADDR_SIZE
 from bc4py.chain.utils import signature2bin, bin2signature
 from bc4py.chain.tx import TX
@@ -8,7 +8,7 @@ from bc4py.user import Balance, Accounting
 from bc4py.database import obj
 from bc4py.database.account import *
 from bc4py.database.create import create_db
-from bc4py_extension import sha256d_hash, PyAddress
+from bc4py_extension import sha256d_hash, PyAddress, MemoryPool
 from msgpack import unpackb, packb
 from typing import Optional, Dict, List, Tuple, MutableMapping
 from weakref import WeakValueDictionary
@@ -423,8 +423,8 @@ class ChainBuilder(object):
                     await obj.account_builder.affect_new_tx(cur=cur, tx=tx)
                     if tx.hash not in obj.tx_builder.chained_tx:
                         obj.tx_builder.chained_tx[tx.hash] = tx
-                    if tx.hash in obj.tx_builder.unconfirmed:
-                        del obj.tx_builder.unconfirmed[tx.hash]
+                    if obj.tx_builder.memory_pool.exist(tx.hash):
+                        obj.tx_builder.memory_pool.remove(tx.hash)
             self.best_chain = list(reversed(memorized_blocks))
             # AccountBuilder update
             await obj.account_builder.new_batch_apply(cur=cur, batched_blocks=batch_blocks)
@@ -704,7 +704,7 @@ class TransactionBuilder(object):
 
     def __init__(self):
         # TXs that Blocks don't contain
-        self.unconfirmed: Dict[bytes, TX] = dict()
+        self.memory_pool = MemoryPool()
         # TXs that MAIN chain contains
         self.chained_tx: MutableMapping[bytes, TX] = WeakValueDictionary()
         # Tables contains TXs
@@ -714,12 +714,13 @@ class TransactionBuilder(object):
         assert tx.height is None, 'Not unconfirmed tx {}'.format(tx)
         if tx.type in (C.TX_POW_REWARD, C.TX_POS_REWARD):
             return  # It is Reword tx
-        elif tx.hash in self.unconfirmed:
+        elif self.memory_pool.exist(tx.hash):
             log.debug('Already unconfirmed tx. {}'.format(tx))
             return
         tx.create_time = time()
         tx.recode_flag = 'unconfirmed'
-        self.unconfirmed[tx.hash] = tx
+        depends = tuple(txhash for txhash, _txindex in tx.inputs)
+        self.memory_pool.push(tx, tx.hash, depends, tx.gas_price, tx.time, tx.deadline, tx.size)
         if tx.hash in self.chained_tx:
             log.debug('Already chained tx. {}'.format(tx))
             return
@@ -738,9 +739,9 @@ class TransactionBuilder(object):
 
         if cached_tx is not None:
             tx = cached_tx
-        elif txhash in self.unconfirmed:
+        elif self.memory_pool.exist(txhash):
             # unconfirmedより
-            tx = self.unconfirmed[txhash]
+            tx: TX = self.memory_pool.get_obj(txhash)
             tx.recode_flag = 'unconfirmed'
             if tx.height is not None: log.warning("Not unconfirmed. {}".format(tx))
         elif chain_tx is not None:
@@ -760,7 +761,7 @@ class TransactionBuilder(object):
 
     def get_memorized_tx(self, txhash, default=None):
         """get memorized tx (memory or unconfirmed)"""
-        if txhash in self.chained_tx or txhash in self.unconfirmed:
+        if txhash in self.chained_tx or self.memory_pool.exist(txhash):
             return self.get_tx(txhash, default)
         else:
             return default
@@ -776,8 +777,9 @@ class TransactionBuilder(object):
         # 状態を戻す
         for block in old_best_sets:
             for tx in block.txs:
-                if tx.hash not in self.unconfirmed and tx.type not in (C.TX_POW_REWARD, C.TX_POS_REWARD):
-                    self.unconfirmed[tx.hash] = tx
+                if not self.memory_pool.exist(tx.hash) and tx.type not in (C.TX_POW_REWARD, C.TX_POS_REWARD):
+                    depends = tuple(txhash for txhash, _txindex in tx.inputs)
+                    self.memory_pool.push(tx, tx.hash, depends, tx.gas_price, tx.time, tx.deadline, tx.size)
                 if tx.hash in self.chained_tx:
                     del self.chained_tx[tx.hash]
         # 新規に反映する
@@ -785,12 +787,15 @@ class TransactionBuilder(object):
             for tx in block.txs:
                 if tx.hash not in self.chained_tx:
                     self.chained_tx[tx.hash] = tx
-                if tx.hash in self.unconfirmed:
-                    del self.unconfirmed[tx.hash]
+                if self.memory_pool.exist(tx.hash):
+                    self.memory_pool.remove(tx.hash)
 
         # delete expired unconfirmed txs
-        limit = int(time() - V.BLOCK_GENESIS_TIME - C.ACCEPT_MARGIN_TIME)
-        before_num = len(self.unconfirmed)
+        deadline = int(time() - V.BLOCK_GENESIS_TIME - C.ACCEPT_MARGIN_TIME)
+        removed_num = self.memory_pool.clear_by_deadline(deadline)
+
+        """
+        before_num = self.memory_pool.length()
         for txhash, tx in self.unconfirmed.copy().items():
             if P.F_NOW_BOOTING:
                 break  # not delete on booting..
@@ -811,6 +816,10 @@ class TransactionBuilder(object):
             #    continue
         if before_num != len(self.unconfirmed):
             log.warning("Removed {} unconfirmed txs".format(before_num - len(self.unconfirmed)))
+        """
+
+        if 0 < removed_num:
+            log.debug("removed expired unconfirmed txs {}".format(removed_num))
 
 
 class AccountBuilder(object):
@@ -877,11 +886,11 @@ class AccountBuilder(object):
                                 # allow incoming balance
                                 account[user][coin_id] += amount
         # unconfirmed
-        for tx in list(obj.tx_builder.unconfirmed.values()):
-            move_log = await read_txhash2movelog(tx.hash, cur)
+        for txhash in obj.tx_builder.memory_pool.list_all_hash():
+            move_log = await read_txhash2movelog(txhash, cur)
             if move_log is None:
-                if tx.hash in self.memory_movement:
-                    move_log = self.memory_movement[tx.hash]
+                if txhash in self.memory_movement:
+                    move_log = self.memory_movement[txhash]
             if move_log:
                 for user, coins in move_log.movement.items():
                     for coin_id, amount in coins:
@@ -904,14 +913,14 @@ class AccountBuilder(object):
             cur = await db.cursor()
             count = 0
             # Unconfirmed
-            for tx in sorted(obj.tx_builder.unconfirmed.values(), key=lambda x: x.create_time, reverse=True):
-                move_log = await read_txhash2movelog(tx.hash, cur)
+            for txhash in reversed(obj.tx_builder.memory_pool.list_all_hash()):
+                move_log = await read_txhash2movelog(txhash, cur)
                 if move_log is None:
-                    if tx.hash in self.memory_movement:
-                        move_log = self.memory_movement[tx.hash]
+                    if txhash in self.memory_movement:
+                        move_log = self.memory_movement[txhash]
                 else:
-                    if tx.hash in self.memory_movement:
-                        move_log.tx_ref = self.memory_movement[tx.hash].tx_ref
+                    if txhash in self.memory_movement:
+                        move_log.tx_ref = self.memory_movement[txhash].tx_ref
                 if move_log:
                     if count >= start:
                         if f_dict:
