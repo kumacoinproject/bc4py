@@ -157,7 +157,7 @@ def is_unused_index_except_me(input_hash, input_index, except_hash, best_block=N
 
     # check memory
     for block in best_chain:
-        if block == best_block:
+        if best_block and block == best_block:
             continue
         for tx in block.txs:
             if tx.hash == except_hash:
