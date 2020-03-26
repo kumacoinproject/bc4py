@@ -141,11 +141,14 @@ def is_unused_index(input_hash, input_index, best_block=None, best_chain=None) -
     return is_unused
 
 
-def is_unused_index_except_me(input_hash, input_index, except_hash, best_block, best_chain) -> bool:
+def is_unused_index_except_me(input_hash, input_index, except_hash, best_block=None, best_chain=None) -> bool:
     """check inputs is unused(True) or not(False)
     WARNING: except hash work on memory or unconfirmed status
     """
     assert obj.chain_builder.best_block, 'Not Tables init'
+    if best_chain is None:
+        best_chain = _get_best_chain_all(best_block)
+
     is_unused = False
 
     # check database

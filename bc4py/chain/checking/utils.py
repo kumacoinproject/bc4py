@@ -1,12 +1,19 @@
 from bc4py.config import C, V, BlockChainError
 from bc4py.bip32 import is_address
 from bc4py.database import obj
-from bc4py.database.tools import is_unused_index, get_output_from_input
+from bc4py.database.tools import is_unused_index_except_me, get_output_from_input
 from bc4py.user import Balance
 from hashlib import sha256
+from typing import TYPE_CHECKING, Optional
 
 
-def inputs_origin_check(tx, include_block):
+# typing
+if TYPE_CHECKING:
+    from bc4py.chain.tx import TX
+    from bc4py.chain.block import Block
+
+
+def inputs_origin_check(tx: 'TX', include_block: Optional['Block']):
     """check the TX inputs for inconsistencies"""
     # check if the same input is used in same tx
     if len(tx.inputs) != len(set(tx.inputs)):
@@ -19,10 +26,15 @@ def inputs_origin_check(tx, include_block):
             raise BlockChainError('Not found input tx. {}:{}'.format(txhash.hex(), txindex))
 
         if obj.tx_builder.memory_pool.exist(txhash):
-            # TODO: Priority check by position
-            # input of tx is not unconfirmed because the tx is already included in Block
+            # input of tx is not unconfirmed or include at former index
             if include_block is not None:
-                raise BlockChainError('TX is include but input is unconfirmed {} {}'.format(tx, txhash.hex()))
+                for dep_index, dep_tx in enumerate(include_block.txs):
+                    if dep_tx.hash == txhash:
+                        break
+                else:
+                    raise Exception('cannot find dep tx? {}'.format(txhash.hex()))
+                if include_block.txs.index(tx) <= dep_index:
+                    raise BlockChainError('inputs depends later TX on block. {} {}'.format(tx, txhash.hex()))
 
         # mined output is must mature the height
         if not is_mature_input(base_hash=txhash, limit_height=limit_height):
@@ -33,7 +45,11 @@ def inputs_origin_check(tx, include_block):
                 raise BlockChainError('input origin is proof tx, {}>{}'.format(check_tx.height, limit_height))
 
         # check unused input
-        if not is_unused_index(input_hash=txhash, input_index=txindex, best_block=include_block):
+        if not is_unused_index_except_me(
+                input_hash=txhash,
+                except_hash=tx.hash,
+                input_index=txindex,
+                best_block=include_block):
             raise BlockChainError('1 Input of {} is already used! {}:{}'.format(tx, txhash.hex(), txindex))
 
         # check if the same input is used by another tx in block
