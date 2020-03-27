@@ -182,10 +182,14 @@ async def main_sync_loop():
                 try:
                     check_tx_time(tx)
                     check_tx(tx, include_block=None)
-                    await obj.tx_builder.put_unconfirmed(cur=cur, tx=tx)
-                    success += 1
+                    if await obj.tx_builder.put_unconfirmed(cur=cur, tx=tx):
+                        success += 1
+                    else:
+                        log.debug("3: Failed push unconfirmed because `put_unconfirmed()` reject")
                 except BlockChainError as e:
                     log.debug("2: Failed get unconfirmed '{}'".format(e))
+            # success
+            await db.commit()
         log.info("unconfirmed: finish to push {} txs".format(success))
 
         # fast sync finish

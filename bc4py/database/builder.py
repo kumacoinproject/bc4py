@@ -710,25 +710,28 @@ class TransactionBuilder(object):
         # Tables contains TXs
         self.cache: MutableMapping[bytes, TX] = WeakValueDictionary()
 
-    async def put_unconfirmed(self, cur, tx):
+    async def put_unconfirmed(self, cur, tx) -> bool:
         assert tx.height is None, 'Not unconfirmed tx {}'.format(tx)
         if tx.type in (C.TX_POW_REWARD, C.TX_POS_REWARD):
-            return  # It is Reword tx
+            return False  # It is Reword tx
         elif self.memory_pool.exist(tx.hash):
             log.debug('Already unconfirmed tx. {}'.format(tx))
-            return
+            return False
+        if tx.hash in self.chained_tx:
+            log.debug('Already chained tx. {}'.format(tx))
+            return False
+        # push unconfirmed
         tx.create_time = time()
         tx.recode_flag = 'unconfirmed'
         depends = tuple(txhash for txhash, _txindex in tx.inputs)
         self.memory_pool.push(tx, tx.hash, depends, tx.gas_price, tx.time, tx.deadline, tx.size)
-        if tx.hash in self.chained_tx:
-            log.debug('Already chained tx. {}'.format(tx))
-            return
+        # notify account movement
         movement = await obj.account_builder.affect_new_tx(cur=cur, tx=tx)
         if not stream.is_disposed:
             stream.on_next(tx)
             if movement is not None:
                 stream.on_next(movement)
+        return True
 
     def get_tx(self, txhash, default=None):
         """get memory or unconfirmed or accounted txs"""
