@@ -42,7 +42,7 @@ async def create_bootstrap():
                 await loop.run_in_executor(
                     None, fp.write, msgpack.dumps((block, block.work_hash, block.bias)))
                 size += block.total_size / 1000000
-                if block.height % 300 == 0:
+                if block.height % 1000 == 0:
                     log.info("create bootstrap.dat.gz height={} size={}mb {}s passed"
                              .format(block.height, round(size, 2), round(time() - s)))
 

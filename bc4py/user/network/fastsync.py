@@ -154,11 +154,13 @@ async def main_sync_loop():
                 log.info("reached max height of network height={}".format(best_height_on_network))
                 stack_dict.clear()
                 break
+
         # get unconfirmed txs
-        log.info("next get unconfirmed txs")
+        log.info("unconfirmed: get hash list from nodes")
         unconfirmed_txhash_set = set()
         for data in await ask_all_nodes(cmd=DirectCmd.unconfirmed_tx):
             unconfirmed_txhash_set.update(data['txs'])
+        log.info("unconfirmed: get {} object from nodes".format(len(unconfirmed_txhash_set)))
         unconfirmed_txs = list()
         for txhash in unconfirmed_txhash_set:
             if obj.tx_builder.memory_pool.exist(txhash):
@@ -170,6 +172,10 @@ async def main_sync_loop():
                 unconfirmed_txs.append(tx)
             except BlockChainError as e:
                 log.debug("1: Failed get unconfirmed {} '{}'".format(txhash.hex(), e))
+
+        # check unconfirmed and push to memory-pool
+        log.info("unconfirmed: check and push {} txs".format(len(unconfirmed_txs)))
+        success = 0
         async with create_db(V.DB_ACCOUNT_PATH) as db:
             cur = await db.cursor()
             for tx in sorted(unconfirmed_txs, key=lambda x: x.time):
@@ -177,8 +183,11 @@ async def main_sync_loop():
                     check_tx_time(tx)
                     check_tx(tx, include_block=None)
                     await obj.tx_builder.put_unconfirmed(cur=cur, tx=tx)
+                    success += 1
                 except BlockChainError as e:
                     log.debug("2: Failed get unconfirmed '{}'".format(e))
+        log.info("unconfirmed: finish to push {} txs".format(success))
+
         # fast sync finish
         log.info("fast sync finished start={} finish={} {}m".format(
             start_height, obj.chain_builder.best_block.height, int((time() - start_time) / 60)))

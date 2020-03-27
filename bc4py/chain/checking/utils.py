@@ -47,8 +47,8 @@ def inputs_origin_check(tx: 'TX', include_block: Optional['Block']):
         # check unused input
         if not is_unused_index_except_me(
                 input_hash=txhash,
-                except_hash=tx.hash,
                 input_index=txindex,
+                except_hash=tx.hash,
                 best_block=include_block):
             raise BlockChainError('1 Input of {} is already used! {}:{}'.format(tx, txhash.hex(), txindex))
 
