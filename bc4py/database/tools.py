@@ -1,11 +1,14 @@
 from bc4py.config import C, BlockChainError
 from bc4py.database import obj
 from bc4py.database.account import read_all_pooled_address_set
-from typing import AsyncGenerator
+from typing import TYPE_CHECKING, List, AsyncGenerator
 
 best_block_cache = None
 best_chain_cache = None
 target_address_cache = set()
+
+if TYPE_CHECKING:
+    from bc4py.chain.block import Block
 
 
 def _get_best_chain_all(best_block):
@@ -27,12 +30,13 @@ def _get_best_chain_all(best_block):
 
 
 async def get_unspents_iter(target_address, best_block=None, best_chain=None) -> AsyncGenerator:
+    """get unspents related by `target_address`"""
     if best_chain is None:
         best_chain = _get_best_chain_all(best_block)
-    if best_chain is None:
-        raise BlockChainError('Cannot get best_chain by {}'.format(best_block))
+    assert best_chain is not None, 'Cannot get best_chain by {}'.format(best_block)
     allow_mined_height = best_chain[0].height - C.MATURE_HEIGHT
-    # DataBaseより
+
+    # database
     for address in target_address:
         for dummy, txhash, txindex, coin_id, amount, f_used in obj.tables.read_address_idx_iter(address):
             if f_used is False:
@@ -44,7 +48,8 @@ async def get_unspents_iter(target_address, best_block=None, best_chain=None) ->
                         yield address, tx.height, txhash, txindex, coin_id, amount
                 else:
                     yield address, tx.height, txhash, txindex, coin_id, amount
-    # Memoryより
+
+    # memory
     for block in reversed(best_chain):
         for tx in block.txs:
             for index, (address, coin_id, amount) in enumerate(tx.outputs):
@@ -56,7 +61,8 @@ async def get_unspents_iter(target_address, best_block=None, best_chain=None) ->
                             yield address, tx.height, tx.hash, index, coin_id, amount
                     else:
                         yield address, tx.height, tx.hash, index, coin_id, amount
-    # Unconfirmedより
+
+    # unconfirmed
     if best_block is None:
         for tx in obj.tx_builder.memory_pool.list_all_obj(False):
             for index, (address, coin_id, amount) in enumerate(tx.outputs):
@@ -69,6 +75,7 @@ async def get_unspents_iter(target_address, best_block=None, best_chain=None) ->
 
 
 async def get_my_unspents_iter(cur, best_chain=None) -> AsyncGenerator:
+    """get unspents of account control (for private)"""
     last_uuid = len(target_address_cache)
     target_address_cache.update(await read_all_pooled_address_set(cur=cur, last_uuid=last_uuid))
     return get_unspents_iter(target_address=target_address_cache, best_block=None, best_chain=best_chain)
@@ -104,11 +111,20 @@ def get_output_from_input(input_hash, input_index, best_block=None, best_chain=N
     return None
 
 
-def is_unused_index(input_hash, input_index, best_block=None, best_chain=None) -> bool:
-    """check inputs is unused(True) or not(False)"""
+def is_unused_index(
+        input_hash: bytes,
+        input_index: int,
+        best_block: 'Block' = None,
+        best_chain: List['Block'] = None
+) -> bool:
+    """check inputs is unused(True) or not(False)
+    note: designed for first check on `get_unspents_iter()`
+    """
     assert obj.chain_builder.best_block, 'Not Tables init'
     if best_chain is None:
         best_chain = _get_best_chain_all(best_block)
+    input_pair_tuple = (input_hash, input_index)
+
     is_unused = False
 
     # check database
@@ -117,37 +133,40 @@ def is_unused_index(input_hash, input_index, best_block=None, best_chain=None) -
 
     # check memory
     for block in best_chain:
-        if best_block and block == best_block:
-            continue  # do not check best_block when specified
         for tx in block.txs:
             if tx.hash == input_hash:
-                if input_index < len(tx.outputs):
-                    is_unused = True
-            for txhash, txindex in tx.inputs:
-                if txhash == input_hash and txindex == input_index:
-                    return False
+                assert input_index < len(tx.outputs)
+                is_unused = True
+            if input_pair_tuple in tx.inputs:
+                return False
 
     # check unconfirmed
     if best_block is None:
         for tx in obj.tx_builder.memory_pool.list_all_obj(False):
             if tx.hash == input_hash:
-                if input_index < len(tx.outputs):
-                    is_unused = True
-            for txhash, txindex in tx.inputs:
-                if txhash == input_hash and txindex == input_index:
-                    return False
+                assert input_index < len(tx.outputs)
+                is_unused = True
+            if input_pair_tuple in tx.inputs:
+                return False
 
     # all check passed
     return is_unused
 
 
-def is_unused_index_except_me(input_hash, input_index, except_hash, best_block=None, best_chain=None) -> bool:
+def is_unused_index_except_me(
+        input_hash: bytes,
+        input_index: int,
+        except_hash: bytes,
+        best_block: 'Block' = None,
+        best_chain: List['Block'] = None,
+) -> bool:
     """check inputs is unused(True) or not(False)
-    WARNING: except hash work on memory or unconfirmed status
+    note: designed for duplication check on `check_tx()`
     """
     assert obj.chain_builder.best_block, 'Not Tables init'
     if best_chain is None:
         best_chain = _get_best_chain_all(best_block)
+    input_pair_tuple = (input_hash, input_index)
 
     is_unused = False
 
@@ -157,25 +176,24 @@ def is_unused_index_except_me(input_hash, input_index, except_hash, best_block=N
 
     # check memory
     for block in best_chain:
-        if best_block and block == best_block:
-            continue
         for tx in block.txs:
             if tx.hash == except_hash:
                 continue
-            if input_index < len(tx.outputs):
+            if tx.hash == input_hash:
+                assert input_index < len(tx.outputs)
                 is_unused = True
-            for txhash, txindex in tx.inputs:
-                if txhash == input_hash and txindex == input_index:
-                    return False
+            if input_pair_tuple in tx.inputs:
+                return False
 
     # check unconfirmed
-    for tx in obj.tx_builder.memory_pool.list_all_obj(False):
-        if tx.hash == except_hash:
-            continue
-        if input_index < len(tx.outputs):
-            is_unused = True
-        for txhash, txindex in tx.inputs:
-            if txhash == input_hash and txindex == input_index:
+    if best_block is None:
+        for tx in obj.tx_builder.memory_pool.list_all_obj(False):
+            if tx.hash == except_hash:
+                continue
+            if tx.hash == input_hash:
+                assert input_index < len(tx.outputs)
+                is_unused = True
+            if input_pair_tuple in tx.inputs:
                 return False
 
     # all check passed
