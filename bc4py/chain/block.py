@@ -1,6 +1,7 @@
 from bc4py import __block_version__
 from bc4py.config import C, V
 from bc4py.chain.utils import DEFAULT_TARGET, bits2target
+from bc4py.database import obj
 from bc4py_extension import sha256d_hash, merkleroot_hash
 from logging import getLogger
 from typing import NamedTuple, Optional
@@ -45,8 +46,6 @@ class Block(object):
         "_work_difficulty",
         "create_time",
         "flag",
-        "f_orphan",
-        "recode_flag",
         "_bias",
         "inner_score",
         # block header
@@ -73,7 +72,7 @@ class Block(object):
     def __repr__(self):
         return "<Block {} {} {} {} score={} txs={}>".format(
             self.height, C.consensus2name.get(self.flag, 'UNKNOWN'),
-            "ORPHAN" if self.f_orphan else "",
+            "ORPHAN" if self.is_orphan else "",
             self.hash.hex(), round(self.score, 4), len(self.txs))
 
     def __init__(self):
@@ -89,8 +88,6 @@ class Block(object):
         self._work_difficulty = None
         self.create_time = time()  # Objectの生成日時
         self.flag = None  # mined consensus number
-        self.f_orphan = None
-        self.recode_flag = None
         self._bias = None  # bias 4bytes float
         self.inner_score = 1.0
         # block header
@@ -147,7 +144,7 @@ class Block(object):
             r['work_hash'] = self.work_hash.hex()
         r['previous_hash'] = self.previous_hash.hex() if self.previous_hash else None
         r['next_hash'] = self.next_hash.hex() if self.next_hash else None
-        r['f_orphan'] = self.f_orphan
+        r['is_orphan'] = self.is_orphan
         r['recode_flag'] = self.recode_flag
         r['height'] = self.height
         r['difficulty'] = round(self.difficulty, 8)
@@ -205,6 +202,24 @@ class Block(object):
         tx_sizes = sum(tx.total_size for tx in self.txs)
         header_size = len(self.b)
         return tx_sizes + header_size
+
+    @property
+    def recode_flag(self) -> str:
+        if self in obj.chain_builder.best_chain:
+            return "memory"
+        elif self.hash in obj.chain_builder.chain:
+            return "orphan"
+        else:
+            return "database"
+
+    @property
+    def is_orphan(self) -> bool:
+        if self in obj.chain_builder.best_chain:
+            return False
+        elif self.hash in obj.chain_builder.chain:
+            return True
+        else:
+            return False
 
     def update_time(self, blocktime):
         self.time = blocktime

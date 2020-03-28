@@ -636,7 +636,6 @@ class ChainBuilder(object):
                 pass
             for tx in block.txs:
                 tx.height = None
-            block.f_orphan = True
         for index, block in enumerate(new_best_sets):
             try:
                 new_best_chain[index + 1].next_hash = block.hash
@@ -644,7 +643,6 @@ class ChainBuilder(object):
                 pass
             for tx in block.txs:
                 tx.height = block.height
-            block.f_orphan = False
         # 変化しているので反映する
         self.best_block, self.best_chain = new_best_block, new_best_chain
         obj.tx_builder.affect_new_chain(new_best_sets=new_best_sets, old_best_sets=old_best_sets)
@@ -659,16 +657,9 @@ class ChainBuilder(object):
         if blockhash in self.chain:
             # Memory
             block = self.chain[blockhash]
-            block.recode_flag = 'memory'
-            block.f_orphan = bool(block not in self.best_chain)
         else:
             # Tables
             block = obj.tables.read_block(blockhash)
-            if block:
-                block.recode_flag = 'database'
-                block.f_orphan = False
-            else:
-                return None
         return block
 
     def get_block_header(self, blockhash=None, height=None):
@@ -722,7 +713,6 @@ class TransactionBuilder(object):
             return False
         # push unconfirmed
         tx.create_time = time()
-        tx.recode_flag = 'unconfirmed'
         depends = tuple(txhash for txhash, _txindex in tx.inputs)
         self.memory_pool.push(tx, tx.hash, depends, tx.gas_price, tx.time, tx.deadline, tx.size)
         # notify account movement
@@ -744,19 +734,18 @@ class TransactionBuilder(object):
             tx = cached_tx
         elif self.memory_pool.exist(txhash):
             # unconfirmedより
-            tx: TX = self.memory_pool.get_obj(txhash)
-            tx.recode_flag = 'unconfirmed'
-            if tx.height is not None: log.warning("Not unconfirmed. {}".format(tx))
+            tx = self.memory_pool.get_obj(txhash)
+            if tx.height is not None:
+                log.warning("Not unconfirmed. {}".format(tx))
         elif chain_tx is not None:
             # Memoryより
             tx = chain_tx
-            tx.recode_flag = 'memory'
-            if tx.height is None: log.warning("Is unconfirmed. {}".format(tx))
+            if tx.height is None:
+                log.warning("Is unconfirmed. {}".format(tx))
         else:
             # Databaseより
             tx = obj.tables.read_tx(txhash)
             if tx:
-                tx.recode_flag = 'database'
                 self.cache[txhash] = tx
             else:
                 return default
@@ -795,7 +784,7 @@ class TransactionBuilder(object):
 
         # delete expired unconfirmed txs
         deadline = int(time() - V.BLOCK_GENESIS_TIME - C.ACCEPT_MARGIN_TIME)
-        removed_num = self.memory_pool.clear_by_deadline(deadline)
+        removed = self.memory_pool.clear_by_deadline(deadline)
 
         """
         before_num = self.memory_pool.length()
@@ -821,8 +810,8 @@ class TransactionBuilder(object):
             log.warning("Removed {} unconfirmed txs".format(before_num - len(self.unconfirmed)))
         """
 
-        if 0 < removed_num:
-            log.debug("removed expired unconfirmed txs {}".format(removed_num))
+        if removed:
+            log.debug("removed expired unconfirmed txs {}".format(removed))
 
 
 class AccountBuilder(object):

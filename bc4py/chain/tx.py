@@ -1,6 +1,7 @@
 from bc4py import __chain_version__
 from bc4py.config import C, V, BlockChainError
 from bc4py.bip32 import ADDR_SIZE
+from bc4py.database import obj
 from bc4py_extension import sha256d_hash, PyAddress
 from typing import Optional, List
 from time import time
@@ -37,7 +38,6 @@ class TX(object):
         # meta info
         "height",
         "pos_amount",
-        "recode_flag",
         "create_time",
         "__weakref__",
     )
@@ -77,7 +77,6 @@ class TX(object):
         self.hash = None
         self.height = None
         self.pos_amount = None
-        self.recode_flag = None
         self.create_time = time()
 
     @classmethod
@@ -197,6 +196,16 @@ class TX(object):
         for s in self.signature:
             signature_size = sum(len(x) for x in s)
         return self.size + len(self.R) + signature_size
+
+    @property
+    def recode_flag(self) -> str:
+        """show which storage contained"""
+        if obj.tx_builder.memory_pool.exist(self.hash):
+            return "unconfirmed"
+        elif self.hash in obj.tx_builder.chained_tx:
+            return "memory"
+        else:
+            return "database"
 
     def update_time(self, retention=10800):
         if retention < 10800:
