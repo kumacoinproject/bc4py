@@ -377,35 +377,7 @@ class ChainBuilder(object):
                     raise BlockBuilderError("DBHeight != BeforeHeight+1 [{}!={}+1]".format(
                         height, before_block.height))
 
-                # check tx include by block (will be removed)
-                # for tx in block.txs:
-                #    if tx.height != height:
-                #        raise BlockBuilderError("TXHeight != BlockHeight [{}!{}]".format(tx.height, height))
-                #    # inputs
-                #    for txhash, txindex in tx.inputs:
-                #        input_tx = self.db.read_tx(txhash)
-                #        address, coin_id, amount = input_tx.outputs[txindex]
-                #        _coin_id, _amount, f_used = self.db.read_address_idx(address, txhash, txindex)
-                #        usedindex = self.db.read_usedindex(txhash)
-                #        if coin_id != _coin_id or amount != _amount:
-                #            raise BlockBuilderError(
-                #                "Inputs, coin_id != _coin_id or amount != _amount [{}!{}] [{}!={}]".format(
-                #                    coin_id, _coin_id, amount, _amount))
-                #        elif txindex not in usedindex:
-                #            raise BlockBuilderError("Already used but unused. [{} not in {}]".format(
-                #                txindex, usedindex))
-                #        elif not f_used:
-                #            raise BlockBuilderError("Already used but unused flag. [{}:{}]".format(
-                #                input_tx, txindex))
-                #    # outputs
-                #    for index, (address, coin_id, amount) in enumerate(tx.outputs):
-                #        _coin_id, _amount, f_used = self.db.read_address_idx(address, tx.hash, index)
-                #        if coin_id != _coin_id or amount != _amount:
-                #            raise BlockBuilderError(
-                #                "Outputs, coin_id != _coin_id or amount != _amount [{}!{}] [{}!={}]".format(
-                #                    coin_id, _coin_id, amount, _amount))
-
-                # Block確認終了
+                # confirm the block
                 before_block = block
                 batch_blocks.append(block)
                 if len(batch_blocks) >= batch_size:
@@ -785,30 +757,6 @@ class TransactionBuilder(object):
         # delete expired unconfirmed txs
         deadline = int(time() - V.BLOCK_GENESIS_TIME - C.ACCEPT_MARGIN_TIME)
         removed = self.memory_pool.clear_by_deadline(deadline)
-
-        """
-        before_num = self.memory_pool.length()
-        for txhash, tx in self.unconfirmed.copy().items():
-            if P.F_NOW_BOOTING:
-                break  # not delete on booting..
-            # Remove expired unconfirmed tx
-            if limit > tx.deadline:
-                log.debug("Remove unconfirmed 'expired' {}".format(tx))
-                del self.unconfirmed[txhash]
-                continue
-            # Remove tx include by both best_chain & unconfirmed
-            if txhash in self.chained_tx:
-                log.debug("Remove unconfirmed 'include on chain' {}".format(tx))
-                del self.unconfirmed[txhash]
-                continue
-            # note: It is better to wait for expire the TX
-            # if is_used_inputs(tx):
-            #    log.debug("Remove unconfirmed 'use used inputs' {}".format(tx))
-            #    del self.unconfirmed[txhash]
-            #    continue
-        if before_num != len(self.unconfirmed):
-            log.warning("Removed {} unconfirmed txs".format(before_num - len(self.unconfirmed)))
-        """
 
         if removed:
             log.debug("removed expired unconfirmed txs {}".format(removed))
