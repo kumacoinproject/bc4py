@@ -6,20 +6,19 @@
 
 from bc4py.bip32.base58 import check_decode, check_encode
 from bc4py_extension import PyAddress
-from fastecdsa.curve import secp256k1
-from fastecdsa.util import mod_sqrt
-from fastecdsa.point import Point
-from fastecdsa.keys import get_public_key
+from ecdsa.curves import SECP256k1
+from ecdsa.keys import SigningKey, VerifyingKey, square_root_mod_prime as mod_sqrt
+from ecdsa.ecdsa import generator_secp256k1, int_to_string
+from ecdsa.ellipticcurve import Point, INFINITY
 from os import urandom
 import hmac
 import hashlib
 import codecs
 import struct
 
-CURVE_GEN = secp256k1.G  # Point class
-CURVE_ORDER = secp256k1.q  # int
-FIELD_ORDER = secp256k1.p  # int
-INFINITY = getattr(Point, 'IDENTITY_ELEMENT')  # Point
+CURVE_GEN = generator_secp256k1  # Point class
+CURVE_ORDER = CURVE_GEN.order()  # int
+FIELD_ORDER = SECP256k1.curve.p()  # int
 
 MIN_ENTROPY_LEN = 128  # bits
 BIP32_HARDEN = 0x80000000  # choose from hardened set of child keys
@@ -35,8 +34,8 @@ class Bip32(object):
     __slots__ = ("secret", "public", "chain", "depth", "index", "parent_fpr", "path")
 
     def __init__(self, secret, public, chain, depth, index, fpr, path):
-        self.secret: int = secret
-        self.public: Point = public
+        self.secret: SigningKey = secret
+        self.public: VerifyingKey = public
         self.chain: bytes = chain
         self.depth: int = depth
         self.index: int = index
@@ -57,8 +56,8 @@ class Bip32(object):
         i64 = hmac.new(b"Bitcoin seed", entropy, hashlib.sha512).digest()
         il, ir = i64[:32], i64[32:]
         # FIXME test Il for 0 or less than SECP256k1 prime field order
-        secret = int.from_bytes(il, 'big')
-        public = get_public_key(secret, secp256k1)
+        secret = SigningKey.from_string(il, SECP256k1)
+        public = secret.verifying_key
         if is_public:
             return cls(secret=None, public=public, chain=ir, depth=0, index=0, fpr=b'\0\0\0\0', path='m')
         else:
@@ -110,19 +109,20 @@ class Bip32(object):
 
         # Extract private key or public key point
         if not is_pubkey:
-            secret = int.from_bytes(data[1:], 'big')
-            public = get_public_key(secret, secp256k1)
+            secret = SigningKey.from_string(data[1:], SECP256k1)
+            public = secret.verifying_key
         else:
             # Recover public curve point from compressed key
             # Python3 FIX
             lsb = data[0] & 1 if type(data[0]) == int else ord(data[0]) & 1
             x = int.from_bytes(data[1:], 'big')
             ys = (x**3 + 7) % FIELD_ORDER  # y^2 = x^3 + 7 mod p
-            y, _ = mod_sqrt(ys, FIELD_ORDER)
+            y = mod_sqrt(ys, FIELD_ORDER)
             if y & 1 != lsb:
                 y = FIELD_ORDER - y
             secret = None
-            public = Point(x, y, secp256k1)
+            point = Point(SECP256k1.curve, x, y)
+            public = VerifyingKey.from_public_point(point, SECP256k1)
 
         if not is_pubkey and is_public:
             return cls(secret=None, public=public, chain=chain, depth=depth, index=child, fpr=fpr, path='m')
@@ -166,14 +166,15 @@ class Bip32(object):
         Il_int = int.from_bytes(Il, 'big')
         if Il_int > CURVE_ORDER:
             return None
-        k_int = (Il_int + self.secret) % CURVE_ORDER
+        sec_int = int.from_bytes(self.secret.to_string(), 'big')
+        k_int = (Il_int + sec_int) % CURVE_ORDER
         if k_int == 0:
             return None
 
         # Construct and return a new BIP32Key
-        public = get_public_key(k_int, secp256k1)
-        return Bip32(
-            secret=k_int, public=public, chain=Ir, depth=self.depth + 1, index=i, fpr=self.fingerprint(), path=path)
+        secret = SigningKey.from_string(int_to_string(k_int), SECP256k1)
+        public = secret.verifying_key
+        return Bip32(secret=secret, public=public, chain=Ir, depth=self.depth + 1, index=i, fpr=self.fingerprint(), path=path)
 
     def CKDpub(self, i):
         """
@@ -199,14 +200,15 @@ class Bip32(object):
         Il_int = int.from_bytes(Il, 'big')
         if Il_int >= CURVE_ORDER:
             return None
-        point = Il_int*CURVE_GEN + self.public
+        point = Il_int*CURVE_GEN + self.public.pubkey.point
         if point == INFINITY:
             return None
+        public = VerifyingKey.from_public_point(point, SECP256k1)
 
         # Construct and return a new BIP32Key
         path = self.path + '/' + str(i)
         return Bip32(
-            secret=None, public=point, chain=Ir, depth=self.depth + 1, index=i, fpr=self.fingerprint(), path=path)
+            secret=None, public=public, chain=Ir, depth=self.depth + 1, index=i, fpr=self.fingerprint(), path=path)
 
     def child_key(self, i):
         """
@@ -220,18 +222,18 @@ class Bip32(object):
         else:
             return self.CKDpriv(i)
 
-    def get_private_key(self):
+    def get_private_key(self) -> bytes:
         if self.secret is None:
             raise Exception("Publicly derived deterministic keys have no private half")
         else:
-            return self.secret.to_bytes(32, 'big')
+            return self.secret.to_string()
 
     def get_public_key(self):
-        x = self.public.x.to_bytes(32, 'big')
-        if self.public.y & 1:
-            return b'\3' + x
+        point: Point = self.public.pubkey.point
+        if point.y() & 1:
+            return b'\3' + int_to_string(point.x())
         else:
-            return b'\2' + x
+            return b'\2' + int_to_string(point.x())
 
     def get_address(self, hrp, ver) -> PyAddress:
         """Return bech32 compressed address"""

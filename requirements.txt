@@ -14,3 +14,4 @@ mnemonic
 aiosqlite
 asyncio-contextmanager
 aioitertools
+ecdsa>=0.14
